@@ -1,0 +1,25 @@
+﻿<Window x:Class="ExportFTPDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Export FTP" Icon="ftp16.ico" Height="200" Width="340" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Background="#7BFFFFFF">
+        <Button Height="23" HorizontalAlignment="Left" Margin="247,137,0,0" Name="CancelButton" VerticalAlignment="Top" Width="75" IsCancel="True">
+            <StackPanel Orientation="Horizontal">
+                <Image Height="16" Width="16" Source="../../../Images/Common/cancel16.png" />
+                <TextBlock Text="Cancel" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button Height="23" HorizontalAlignment="Left" Margin="166,137,0,0" Name="OKButton" VerticalAlignment="Top" Width="75" IsDefault="True" IsEnabled="False">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../../Images/Common/ok16.png" />
+                <TextBlock Text="OK" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <TextBlock Height="23" HorizontalAlignment="Left" Margin="12,12,0,0" Name="TextBlock1" Text="Host:" VerticalAlignment="Top" />
+        <TextBox Height="23" Margin="73,9,12,0" Name="HostTextBox" VerticalAlignment="Top" />
+        <TextBlock Height="23" HorizontalAlignment="Left" Margin="12,49,0,0" Name="TextBlock2" Text="Username:" VerticalAlignment="Top" />
+        <TextBox Height="23" Margin="73,46,12,0" Name="UsernameTextBox" VerticalAlignment="Top" />
+        <TextBlock Height="23" HorizontalAlignment="Left" Margin="12,86,0,0" Name="TextBlock3" Text="Password:" VerticalAlignment="Top" />
+        <PasswordBox Height="23" Margin="73,86,12,0" Name="FTPPasswordBox" VerticalAlignment="Top" />
+        <TextBlock Name="UploadingText" Visibility="Collapsed" HorizontalAlignment="Left" Margin="33,141,0,0" TextWrapping="Wrap" Text="Uploading, please wait..." Height="16" VerticalAlignment="Top"/>
+        <ProgressBar Name="Loadingbar" Visibility="Collapsed" HorizontalAlignment="Left" Height="16" Margin="12,141,0,0" VerticalAlignment="Top" Width="16" IsIndeterminate="True"/>
+    </Grid>
+</Window>

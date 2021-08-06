@@ -1,0 +1,33 @@
+﻿<Window x:Class="ExternalToolsDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="External Tools" Icon="extools.ico" Height="300" Width="480" MinHeight="300" MinWidth="480" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Background="#7BFFFFFF">
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,12,12" Name="Button1" VerticalAlignment="Bottom" Width="75" IsCancel="True">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/cancel16.png" />
+                <TextBlock Text="Cancel" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,93,12" Name="OKButton" VerticalAlignment="Bottom" Width="75" IsDefault="True">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/ok16.png" />
+                <TextBlock Text="OK" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,12,12,0" Name="AddButton" VerticalAlignment="Top" Width="75">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/add16.png" />
+                <TextBlock Text="Add" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,41,12,0" Name="RemoveButton" VerticalAlignment="Top" Width="75" IsEnabled="False">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant"  Height="16" Width="16" Source="../../Images/Common/remove16.png" />
+                <TextBlock Text="Remove" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <ListBox Margin="12,12,93,41" Name="ListBox1" Background="#7BFFFFFF" />
+        <Button Visibility="Collapsed" Content="_Edit" Height="23" HorizontalAlignment="Right" Margin="0,70,12,0" Name="Editbutton" VerticalAlignment="Top" Width="75" IsEnabled="False" />
+        <Button Content="Move Down" Height="23" HorizontalAlignment="Right" Margin="0,0,12,41" Name="MoveDownButton" VerticalAlignment="Bottom" Width="75" IsEnabled="False" Visibility="Collapsed" />
+        <Button Content="Move Up" Height="23" HorizontalAlignment="Right" Margin="0,0,12,70" Name="MoveUpButton" VerticalAlignment="Bottom" Width="75" IsEnabled="False" Visibility="Collapsed" />
+    </Grid>
+</Window>

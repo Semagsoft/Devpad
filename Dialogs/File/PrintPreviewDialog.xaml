@@ -1,0 +1,12 @@
+﻿<Window x:Class="PrintPreviewDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Print Preview" Icon="printpreview16.ico" Height="480" Width="640" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+    <Grid>
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,12,12" Name="OKButton" VerticalAlignment="Bottom" Width="75" IsCancel="True" IsDefault="True">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/ok16.png" />
+                <TextBlock Text="OK" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <DocumentViewer Name="DocumentViewer1" Margin="0,0,0,41" />
+    </Grid>
+</Window>

@@ -1,0 +1,612 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProjectGuid>{2F9B0269-1E5E-48BB-9144-537F62B20E56}</ProjectGuid>
+    <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{F184B08F-C81C-45F6-A57F-5ABD9991F28F}</ProjectTypeGuids>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>Devpad</RootNamespace>
+    <AssemblyName>Devpad</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+    <MyType>Custom</MyType>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>true</UpdateEnabled>
+    <UpdateMode>Background</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>true</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>false</MapFileExtensions>
+    <UpdateUrl>http://devpad.codeplex.com/releases/clickonce/</UpdateUrl>
+    <SupportUrl>http://devpad.codeplex.com</SupportUrl>
+    <ErrorReportUrl>http://devpad.codeplex.com</ErrorReportUrl>
+    <ProductName>Devpad</ProductName>
+    <PublisherName>Semagsoft</PublisherName>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>4.39.0.0</ApplicationVersion>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <CreateDesktopShortcut>true</CreateDesktopShortcut>
+    <PublishWizardCompleted>true</PublishWizardCompleted>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <IncrementalBuild>true</IncrementalBuild>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DocumentationFile>Devpad.xml</DocumentationFile>
+    <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036,42314</NoWarn>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <IncrementalBuild>false</IncrementalBuild>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DocumentationFile>Devpad.xml</DocumentationFile>
+    <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036,42314</NoWarn>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionExplicit>On</OptionExplicit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionCompare>Binary</OptionCompare>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionStrict>Off</OptionStrict>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionInfer>On</OptionInfer>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>devpad.ico</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestCertificateThumbprint>CF258C189430E25F86CC9CAFFF656328EA274B4D</ManifestCertificateThumbprint>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestKeyFile>Devpad_TemporaryKey.pfx</ManifestKeyFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <GenerateManifests>true</GenerateManifests>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SignManifests>false</SignManifests>
+  </PropertyGroup>
+  <PropertyGroup>
+    <TargetZone>LocalIntranet</TargetZone>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="AdsJumboWinForm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=d4c9423ef164f081, processorArchitecture=MSIL">
+      <HintPath>packages\AdsJumbo.WinForm.WPF.1.5.0\lib\net462\AdsJumboWinForm.dll</HintPath>
+    </Reference>
+    <Reference Include="CookComputing.XmlRpcV2">
+      <HintPath>..\..\..\Toolkits\xml-rpc.net.2.4.0\bin\CookComputing.XmlRpcV2.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.AvalonEdit">
+      <HintPath>..\..\..\Toolkits\WPF\ICSharpCode.AvalonEdit.dll</HintPath>
+    </Reference>
+    <Reference Include="Ionic.Zip.Reduced">
+      <HintPath>..\..\..\Toolkits\Ionic.Zip.Reduced.dll</HintPath>
+    </Reference>
+    <Reference Include="ReachFramework" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Printing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xaml">
+      <RequiredTargetFramework>4.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="UIAutomationProvider" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsFormsIntegration" />
+    <Reference Include="Xceed.Wpf.AvalonDock">
+      <HintPath>..\..\..\Toolkits\WPF\Xceed.Wpf.AvalonDock.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.Aero">
+      <HintPath>..\..\..\Toolkits\WPF\Xceed.Wpf.AvalonDock.Themes.Aero.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.Expression">
+      <HintPath>..\..\..\Toolkits\WPF\Xceed.Wpf.AvalonDock.Themes.Expression.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="Application.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Compile Include="Dialogs\AdWindow.xaml.vb">
+      <DependentUpon>AdWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\Edit\FindDialog.xaml.vb">
+      <DependentUpon>FindDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\Edit\GoToDialog.xaml.vb">
+      <DependentUpon>GoToDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\Edit\ReplaceDialog.xaml.vb">
+      <DependentUpon>ReplaceDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\File\Export\EmailDialog.xaml.vb">
+      <DependentUpon>EmailDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\File\Export\ExportFTPDialog.xaml.vb">
+      <DependentUpon>ExportFTPDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\File\Export\FtpClient.vb" />
+    <Compile Include="Dialogs\File\Export\WordpressDialog.xaml.vb">
+      <DependentUpon>WordpressDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\File\Import\ImportFTPDialog.xaml.vb">
+      <DependentUpon>ImportFTPDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\File\PrintPreviewDialog.xaml.vb">
+      <DependentUpon>PrintPreviewDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\Help\UpdateDialog.xaml.vb">
+      <DependentUpon>UpdateDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\MessageBoxDialog.xaml.vb">
+      <DependentUpon>MessageBoxDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\Tools\EditExToolDialog.xaml.vb">
+      <DependentUpon>EditExToolDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\Tools\ExternalToolsDialog.xaml.vb">
+      <DependentUpon>ExternalToolsDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="TabHeader.xaml.vb">
+      <DependentUpon>TabHeader.xaml</DependentUpon>
+    </Compile>
+    <Resource Include="VisualStudioToolsManifest.xml" />
+    <Resource Include="Images\Navigation\end16.png" />
+    <Resource Include="Images\Navigation\scrolltocaret16.png" />
+    <Resource Include="Images\Navigation\start16.png" />
+    <Resource Include="Images\File\rename16.png" />
+    <Resource Include="Images\Edit\deleteline16.png" />
+    <Resource Include="Images\File\deletefile16.png" />
+    <Resource Include="Dialogs\File\Export\wordpress16.ico" />
+    <Resource Include="Dialogs\File\Export\ftp16.ico" />
+    <Resource Include="Images\Run\chrome16.png" />
+    <Resource Include="Images\Run\firefox16.png" />
+    <Resource Include="Images\Run\ie16.png" />
+    <Resource Include="Images\Run\opera16.png" />
+    <Resource Include="Images\Run\safari16.png" />
+    <Resource Include="Images\Help\checkforupdates16.png" />
+    <Resource Include="devpad.ico" />
+    <Resource Include="Images\devpad256.png" />
+    <Resource Include="Images\File\close16.png" />
+    <Resource Include="Images\File\closeall16.png" />
+    <Resource Include="Images\File\closeallbutthis16.png" />
+    <Resource Include="Images\File\save16.png" />
+    <Resource Include="Images\File\saveall16.png" />
+    <Resource Include="Images\File\saveas16.png" />
+    <Resource Include="Images\File\savecopy16.png" />
+    <Resource Include="Images\File\new16.png" />
+    <Resource Include="Images\File\open16.png" />
+    <Resource Include="Images\File\recentfiles16.png" />
+    <Resource Include="Images\File\revert16.png" />
+    <Resource Include="Images\File\import16.png" />
+    <Resource Include="Images\File\export16.png" />
+    <Resource Include="Images\File\archive16.png" />
+    <Resource Include="Images\File\flowdocument16.png" />
+    <Resource Include="Images\File\rtf16.png" />
+    <Resource Include="Images\File\ftp16.png" />
+    <Resource Include="Images\File\image16.png" />
+    <Resource Include="Images\File\webpage16.png" />
+    <Resource Include="Images\File\wordpress16.png" />
+    <Resource Include="Images\File\pagesetup16.png" />
+    <Resource Include="Images\File\print16.png" />
+    <Resource Include="Images\File\printpreview16.png" />
+    <Resource Include="Images\File\exit16.png" />
+    <Resource Include="Images\File\readonly16.png" />
+    <Resource Include="Images\File\properties16.png" />
+    <Resource Include="Images\Common\ok16.png" />
+    <Resource Include="Images\Common\cancel16.png" />
+    <Resource Include="Images\Common\add16.png" />
+    <Resource Include="Images\Common\remove16.png" />
+    <Resource Include="Images\Edit\replace16.png" />
+    <Resource Include="Images\View\zoomin16.png" />
+    <Resource Include="Images\View\zoomreset16.png" />
+    <Resource Include="Images\View\zoomout16.png" />
+    <Resource Include="Images\Insert\textfile16.png" />
+    <Resource Include="Images\Encoding\default16.png" />
+    <Resource Include="Images\Syntax\disable16.png" />
+    <Resource Include="Images\Tools\clear16.png" />
+    <Resource Include="Images\Tools\startup16.png" />
+    <Resource Include="Images\Tools\theme16.png" />
+    <Resource Include="Images\Tools\defaultformat16.png" />
+    <Resource Include="Images\Tools\tabs16.png" />
+    <Resource Include="Images\Tools\tabs32.png" />
+    <Resource Include="Images\Tools\externaltools16.png" />
+    <Resource Include="Images\Tools\options16.png" />
+    <Resource Include="Images\Navigation\linedown16.png" />
+    <Resource Include="Images\Navigation\lineleft16.png" />
+    <Resource Include="Images\Navigation\lineright16.png" />
+    <Resource Include="Images\Navigation\lineup16.png" />
+    <Resource Include="Images\Help\license16.png" />
+    <Resource Include="Images\Navigation\pagedown16.png" />
+    <Resource Include="Images\Navigation\pageleft16.png" />
+    <Resource Include="Images\Navigation\pageright16.png" />
+    <Resource Include="Images\Navigation\pageup16.png" />
+    <Resource Include="Images\Tools\font16.png" />
+    <Resource Include="Images\Run\runfile16.png" />
+    <Resource Include="Images\View\alwaysontop16.png" />
+    <Resource Include="Images\Insert\comment16.png" />
+    <Resource Include="Images\Edit\invertcase16.png" />
+    <Resource Include="Images\Edit\lowercase16.png" />
+    <Resource Include="Images\Edit\setcase16.png" />
+    <Resource Include="Images\Edit\titlecase16.png" />
+    <Resource Include="Images\Edit\uppercase16.png" />
+    <Resource Include="Images\Encoding\ansi16.png" />
+    <Resource Include="Images\Encoding\utf1616.png" />
+    <Resource Include="Images\Encoding\utf3216.png" />
+    <Resource Include="Images\Encoding\utf716.png" />
+    <Resource Include="Images\Encoding\utf816.png" />
+    <Resource Include="Images\Tools\opennewfile16.png" />
+    <Resource Include="Images\Tools\alltabs16.png" />
+    <Resource Include="Images\Tools\selectedtab16.png" />
+    <Resource Include="Images\Tools\themeblack16.png" />
+    <Resource Include="Images\Tools\themegray16.png" />
+    <Resource Include="Images\Tools\themewhite16.png" />
+    <Resource Include="Images\Edit\indentmore16.png" />
+    <Resource Include="Images\Edit\indentless16.png" />
+    <Resource Include="Images\Common\error32.png" />
+    <Resource Include="Images\Common\info32.png" />
+    <Resource Include="Images\Common\question32.png" />
+    <Resource Include="CloseButton.png" />
+    <Content Include="Templates\Misc\misc.gml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Misc\misc.ini">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Include="packages.config" />
+    <None Include="Syntax\asm.xshd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Syntax\css.xshd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Syntax\gml.xshd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Syntax\ini.xshd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Syntax\lua.xshd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Content Include="Syntax\perl.xshd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Include="Syntax\sql.xshd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Templates\Misc\misc.bat">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Resource Include="Images\View\fullscreen16.png" />
+    <Resource Include="Images\Run\webbrowser16.png" />
+    <Resource Include="Images\File\email16.png" />
+    <Resource Include="Dialogs\File\Export\email16.ico" />
+    <Resource Include="Images\Insert\date16.png" />
+    <Resource Include="Images\Insert\time16.png" />
+    <Resource Include="Dialogs\File\printpreview16.ico" />
+    <Content Include="Templates\ASP.Net\asp.net.aspx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Boo\boo.boo">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Page Include="Dialogs\AdWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\Edit\FindDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\Edit\GoToDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\Edit\ReplaceDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\File\Export\EmailDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\File\Export\ExportFTPDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\File\Export\WordpressDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\File\Import\ImportFTPDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\File\PrintPreviewDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\Help\UpdateDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\MessageBoxDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\Tools\EditExToolDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\Tools\ExternalToolsDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="TabHeader.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Resource Include="Images\Help\onlinehelp16.png" />
+    <None Include="Resources\License_en.txt" />
+    <Resource Include="Dialogs\Edit\find16.ico" />
+    <Resource Include="Dialogs\Edit\replace16.ico" />
+    <Resource Include="Images\Edit\delete16.png" />
+    <Resource Include="Images\Edit\find16.png" />
+    <Resource Include="Images\Help\donate16.png" />
+    <Resource Include="Images\Edit\goto16.png" />
+    <Resource Include="Dialogs\Edit\goto16.ico" />
+    <Resource Include="Dialogs\Tools\extools.ico" />
+    <Content Include="Templates\CSharp\cs.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Java\java.java">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Misc\misc.asm">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Misc\misc.css">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Misc\misc.py">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Misc\misc.sql">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Include="Templates\Misc\misc.lua">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Content Include="Templates\Misc\misc.pl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Misc\misc.rb">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\VB.Net\vb.net.vb">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Page Include="Dialogs\File\NewFileDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\Help\AboutDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\Tools\OptionsDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="MainWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="AppHelper.vb" />
+    <Compile Include="Application.xaml.vb">
+      <DependentUpon>Application.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CodeEditor.vb" />
+    <Compile Include="Dialogs\File\NewFileDialog.xaml.vb">
+      <DependentUpon>NewFileDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\Help\AboutDialog.xaml.vb">
+      <DependentUpon>AboutDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\Tools\OptionsDialog.xaml.vb">
+      <DependentUpon>OptionsDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="FileTab.vb" />
+    <Compile Include="MainWindow.xaml.vb">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Import Include="System.Linq" />
+    <Import Include="System.Xml.Linq" />
+    <Import Include="Microsoft.VisualBasic" />
+    <Import Include="System" />
+    <Import Include="System.Collections" />
+    <Import Include="System.Collections.Generic" />
+    <Import Include="System.Diagnostics" />
+    <Import Include="System.Windows" />
+    <Import Include="System.Windows.Controls" />
+    <Import Include="System.Windows.Data" />
+    <Import Include="System.Windows.Documents" />
+    <Import Include="System.Windows.Input" />
+    <Import Include="System.Windows.Shapes" />
+    <Import Include="System.Windows.Media" />
+    <Import Include="System.Windows.Media.Imaging" />
+    <Import Include="System.Windows.Navigation" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="My Project\AssemblyInfo.vb">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="My Project\MyExtensions\MyWpfExtension.vb">
+      <VBMyExtensionTemplateID>Microsoft.VisualBasic.WPF.MyExtension</VBMyExtensionTemplateID>
+      <VBMyExtensionTemplateVersion>1.0.0.0</VBMyExtensionTemplateVersion>
+    </Compile>
+    <Compile Include="My Project\Resources.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="My Project\Settings.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <EmbeddedResource Include="My Project\Resources.resx">
+      <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.vb</LastGenOutput>
+      <CustomToolNamespace>My.Resources</CustomToolNamespace>
+    </EmbeddedResource>
+    <None Include="app.config" />
+    <None Include="My Project\app.manifest" />
+    <None Include="My Project\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.vb</LastGenOutput>
+    </None>
+    <AppDesigner Include="My Project\" />
+    <Content Include="Templates\Php\php.php">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <Resource Include="Images\Edit\copy16.png" />
+    <Resource Include="Images\Edit\cut16.png" />
+    <Resource Include="Images\Edit\paste16.png" />
+    <Resource Include="Images\Edit\redo16.png" />
+    <Resource Include="Images\Edit\selectall16.png" />
+    <Resource Include="Images\Edit\undo16.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Templates\JavaScript\js.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Xml\xml.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Resource Include="Images\Help\about16.png" />
+    <Resource Include="Dialogs\Help\about16.ico" />
+    <Resource Include="Dialogs\File\newfile16.ico" />
+    <Resource Include="Images\Help\website16.png" />
+    <Resource Include="Dialogs\Tools\options.ico" />
+    <Content Include="Templates\CPlusPlus\cpp.cpp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\CPlusPlus\cpp.h">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Html\html.htm">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Html\html.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\Misc\misc.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.0">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4 %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
+      <Visible>False</Visible>
+      <ProductName>Windows Installer 3.1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <PublishFile Include="Templates\CPlusPlus\cpp.cpp">
+      <Visible>False</Visible>
+      <PublishState>Auto</PublishState>
+      <IncludeHash>False</IncludeHash>
+      <Group>
+      </Group>
+      <TargetPath>
+      </TargetPath>
+      <FileType>File</FileType>
+    </PublishFile>
+    <PublishFile Include="Templates\CPlusPlus\cpp.h">
+      <Visible>False</Visible>
+      <PublishState>Auto</PublishState>
+      <IncludeHash>False</IncludeHash>
+      <Group>
+      </Group>
+      <TargetPath>
+      </TargetPath>
+      <FileType>File</FileType>
+    </PublishFile>
+    <PublishFile Include="Templates\Xml\xml.xml">
+      <Visible>False</Visible>
+      <PublishState>Include</PublishState>
+      <IncludeHash>True</IncludeHash>
+      <Group>
+      </Group>
+      <TargetPath>
+      </TargetPath>
+      <FileType>File</FileType>
+    </PublishFile>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
+</Project>

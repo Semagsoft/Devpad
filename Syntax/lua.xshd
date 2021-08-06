@@ -1,0 +1,102 @@
+﻿<SyntaxDefinition name="INI" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+	  <Color name="Comment" foreground="Green" />
+    <Color name="String" foreground="DarkRed" />
+      <RuleSet>
+        <Span color="Comment" multiline="true" begin="--\[\[" end="\]\]" />
+        <Span color="Comment" begin="--" />
+        <Span color="String">
+            <Begin>'</Begin>
+            <End>'</End>
+        </Span>
+        <Span color="String">
+          <Begin>"</Begin>
+          <End>"</End>
+        </Span>
+        <Keywords fontWeight="bold" foreground="Blue">
+          <Word>and</Word>
+          <Word>break</Word>
+          <Word>do</Word>
+          <Word>else</Word>
+          <Word>elseif</Word>
+          <Word>end</Word>
+          <Word>false</Word>
+          <Word>for</Word>
+          <Word>function</Word>
+          <Word>if</Word>
+          <Word>in</Word>
+          <Word>local</Word>
+          <Word>nil</Word>
+          <Word>not</Word>
+          <Word>or</Word>
+          <Word>repeat</Word>
+          <Word>return</Word>
+          <Word>then</Word>
+          <Word>true</Word>
+          <Word>until</Word>
+          <Word>while</Word>
+        </Keywords>
+        <Keywords foreground="Blue">
+          <Word>_ALERT</Word>
+          <Word>_ERRORMESSAGE</Word>
+          <Word>_G</Word>
+          <Word>_INPUT</Word>
+          <Word>_PROMPT</Word>
+          <Word>_OUTPUT</Word>
+          <Word>_STDERR</Word>
+          <Word>_STDIN</Word>
+          <Word>_STDOUT</Word>
+          <Word>_VERSION</Word>
+          <Word>assert</Word>
+          <Word>call</Word>
+          <Word>collectgarbage</Word>
+          <Word>coroutine</Word>
+          <Word>debug</Word>
+          <Word>dofile</Word>
+          <Word>dostring</Word>
+          <Word>error</Word>
+          <Word>foreach</Word>
+          <Word>foreachi</Word>
+          <Word>gcinfo</Word>
+          <Word>getfenv</Word>
+          <Word>getmetatable</Word>
+          <Word>getn</Word>
+          <Word>globals</Word>
+          <Word>io</Word>
+          <Word>ipairs</Word>
+          <Word>loadfile</Word>
+          <Word>loadlib</Word>
+          <Word>loadstring</Word>
+          <Word>math</Word>
+          <Word>newtype</Word>
+          <Word>next</Word>
+          <Word>os</Word>
+          <Word>pairs</Word>
+          <Word>pcall</Word>
+          <Word>print</Word>
+          <Word>rawegal</Word>
+          <Word>rawget</Word>
+          <Word>rawset</Word>
+          <Word>require</Word>
+          <Word>setfenv</Word>
+          <Word>setmetatable</Word>
+          <Word>sort</Word>
+          <Word>string</Word>
+          <Word>table</Word>
+          <Word>tinsert</Word>
+          <Word>tonumber</Word>
+          <Word>tostring</Word>
+          <Word>tremove</Word>
+          <Word>type</Word>
+          <Word>unpack</Word>
+          <Word>xpcall</Word>
+        </Keywords>
+          <Rule foreground="Purple">
+              \b0[xX][0-9a-fA-F]+  # hex number
+          |    \b
+              (    \d+(\.[0-9]+)?   #number with optional floating point
+              |    \.[0-9]+         #or just starting with floating point
+              )
+              ([eE][+-]?[0-9]+)? # optional exponent
+        </Rule>
+    </RuleSet>
+</SyntaxDefinition>

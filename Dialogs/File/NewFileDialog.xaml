@@ -1,0 +1,33 @@
+﻿<Window x:Class="NewFileDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="New File" Icon="newfile16.ico" Height="320" Width="480" MinHeight="320" MinWidth="480" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+    <Grid Background="#9BFFFFFF">
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,12,12" Name="CancelButton" VerticalAlignment="Bottom" Width="75" IsCancel="True" TabIndex="4">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/cancel16.png" />
+                <TextBlock Text="Cancel" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,93,12" Name="OKButton" VerticalAlignment="Bottom" Width="75" IsDefault="True" IsEnabled="False" TabIndex="3">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/ok16.png" />
+                <TextBlock Text="OK" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <TreeView HorizontalAlignment="Left" Margin="12,12,0,41" Name="TreeView1" Width="137" Background="#9BFFFFFF" TabIndex="0">
+            <TreeViewItem Name="ASPItem" Header="ASP.Net" />
+            <TreeViewItem Name="BooItem" Header="Boo" />
+            <TreeViewItem Name="CSItem" Header="C#" />
+            <TreeViewItem Name="CPPItem" Header="C++" />
+            <TreeViewItem Name="HtmlItem" Header="Html" />
+            <TreeViewItem Name="JavaItem" Header="Java" />
+            <TreeViewItem Name="JavaScriptItem" Header="JavaScript" />
+            <TreeViewItem Name="MiscItem" Header="Misc" />
+            <TreeViewItem Name="PhpItem" Header="Php" />
+            <TreeViewItem Name="VBItem" Header="VB.Net" />
+            <TreeViewItem Name="XmlItem" Header="Xml" />
+        </TreeView>
+        <Label Content="Name:" Height="28" HorizontalAlignment="Left" Margin="10,-2,0,9" Name="Label1" VerticalAlignment="Bottom" />
+        <TextBox Height="23" Margin="53,0,174,12" Name="TextBox1" VerticalAlignment="Bottom" Background="#9BFFFFFF" TabIndex="2" />
+        <ListBox Margin="155,12,12,41" Name="ListBox1" Background="#9BFFFFFF" TabIndex="1" />
+    </Grid>
+</Window>

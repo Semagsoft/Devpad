@@ -1,0 +1,19 @@
+﻿<Window x:Class="GoToDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Go To" Icon="goto16.ico" ShowInTaskbar="false" Height="120" Width="240" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Background="#9BFFFFFF">
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,12,12" Name="CancelButton" VerticalAlignment="Bottom" Width="75" IsCancel="True">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/cancel16.png" />
+                <TextBlock Text="Cancel" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,93,12" Name="OKButton" VerticalAlignment="Bottom" Width="75" IsDefault="True" IsEnabled="False">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/ok16.png" />
+                <TextBlock Text="OK" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <TextBlock Height="23" HorizontalAlignment="Left" Margin="12,12,0,0" Name="TextBlock1" Text="Line:" VerticalAlignment="Top" />
+        <TextBox Height="23" Margin="42,9,12,0" Name="TextBox1" VerticalAlignment="Top" />
+    </Grid>
+</Window>

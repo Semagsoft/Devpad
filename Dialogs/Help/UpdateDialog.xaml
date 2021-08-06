@@ -1,0 +1,11 @@
+﻿<Window x:Class="UpdateDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Check for Updates" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Height="126" Width="320" Background="#7AFFFFFF" ResizeMode="NoResize">
+    <StackPanel>
+        <TextBlock Name="UpdateTextBlock" Text="Checking for Updates..." Height="32" FontSize="22" Background="#7AFFFFFF" />
+        <ProgressBar Name="UpdateProgressBar" Height="32" IsIndeterminate="True" />
+        <TextBlock Visibility="Collapsed" Name="WhatsNewTextBlock" Text="Whats New?" Height="24" FontSize="16" Background="#7AFFFFFF" />
+        <TextBox Visibility="Collapsed" Name="WhatsNewTextBox" IsReadOnly="True" Height="70" VerticalScrollBarVisibility="Visible" />
+        <Button Visibility="Collapsed" Name="ApplyButton" Content="Apply" Height="32" />
+        <Button Name="CancelButton" Content="Cancel" Height="32" IsCancel="True" />
+    </StackPanel>
+</Window>

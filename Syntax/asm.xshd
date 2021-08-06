@@ -1,0 +1,90 @@
+﻿<SyntaxDefinition name="ASM" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+    <Color name="Comment" foreground="Green" />
+    <Color name="String" foreground="Red" />
+    <RuleSet>
+        <Span color="Comment" begin=";" />
+        <Span color="String">
+            <Begin>"</Begin>
+            <End>"</End>
+            <RuleSet>
+                <Span begin="\\" end="." />
+            </RuleSet>
+        </Span>
+        <Span color="String">
+          <Begin>'</Begin>
+          <End>'</End>
+          <RuleSet>
+            <Span begin="\\" end="." />
+          </RuleSet>
+        </Span>
+        <Keywords foreground="Blue">
+            <Word>aam</Word>
+            <Word>add</Word>
+            <Word>and</Word>
+            <Word>call</Word>
+            <Word>cld</Word>
+            <Word>cli</Word>
+            <Word>cmp</Word>
+            <Word>dec</Word>
+            <Word>div</Word>
+            <Word>far</Word>
+            <Word>hlt</Word>
+            <Word>in</Word>
+            <Word>inc</Word>
+            <Word>int</Word>
+            <Word>ja</Word>
+            <Word>jb</Word>
+            <Word>jcxz</Word>
+            <Word>jmp</Word>
+            <Word>jnz</Word>
+            <Word>jz</Word>
+            <Word>loop</Word>
+            <Word>mov</Word>
+            <Word>mul</Word>
+            <Word>or</Word>
+            <Word>out</Word>
+            <Word>para</Word>
+            <Word>pop</Word>
+            <Word>popf</Word>
+            <Word>push</Word>
+            <Word>pushf</Word>
+            <Word>ret</Word>
+            <Word>shl</Word>
+            <Word>shr</Word>
+            <Word>sti</Word>
+            <Word>stosw</Word>
+            <Word>sub</Word>
+            <Word>test</Word>
+            <Word>wait</Word>
+            <Word>xchg</Word>
+            <Word>xor</Word>
+        </Keywords>
+        <Keywords fontWeight="bold" foreground="Blue">
+          <Word>assume</Word>
+          <Word>db</Word>
+          <Word>dd</Word>
+          <Word>dub</Word>
+          <Word>dw</Word>
+          <Word>end</Word>
+          <Word>endp</Word>
+          <Word>ends</Word>
+          <Word>equ</Word>
+          <Word>offset</Word>
+          <Word>proc</Word>
+          <Word>public</Word>
+          <Word>org</Word>
+          <Word>proc</Word>
+          <Word>resb</Word>
+          <Word>resw</Word>
+          <Word>segment</Word>
+        </Keywords>
+        <Rule foreground="DarkBlue">
+            \b0[xX][0-9a-fA-F]+  # hex number
+        |    \b
+            (    \d+(\.[0-9]+)?   #number with optional floating point
+            |    \.[0-9]+         #or just starting with floating point
+            )
+            ([eE][+-]?[0-9]+)? # optional exponent
+        </Rule>
+    </RuleSet>
+</SyntaxDefinition>

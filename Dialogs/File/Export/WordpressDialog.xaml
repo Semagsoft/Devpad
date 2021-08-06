@@ -1,0 +1,25 @@
+﻿<Window x:Class="WordpressDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Wordpress" Height="224" Width="320" Icon="wordpress16.ico" ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterScreen">
+    <Grid Background="#7BFFFFFF">
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,12,12" Name="CancelButton" VerticalAlignment="Bottom" Width="75" IsCancel="True">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../../Images/Common/cancel16.png" />
+                <TextBlock Text="Cancel" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button IsEnabled="False" Height="23" HorizontalAlignment="Right" Margin="0,0,93,12" Name="OKButton" VerticalAlignment="Bottom" Width="75">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../../Images/Common/ok16.png" />
+                <TextBlock Text="OK" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Label Content="Blog:" Height="28" HorizontalAlignment="Left" Margin="26,12,0,0" Name="Label1" VerticalAlignment="Top" />
+        <TextBox Height="23" Margin="89,14,12,0" Name="BlogTextBox" VerticalAlignment="Top" />
+        <Label Content="Title:" Height="28" HorizontalAlignment="Left" Margin="26,46,0,0" Name="Label2" VerticalAlignment="Top" />
+        <TextBox Height="23" Margin="89,48,12,0" Name="TitleTextBox" VerticalAlignment="Top" />
+        <Label Content="User Name:" Height="28" HorizontalAlignment="Left" Margin="12,80,0,0" Name="Label3" VerticalAlignment="Top" />
+        <TextBox Height="23" Margin="89,82,12,0" Name="UserNameTextBox" VerticalAlignment="Top" />
+        <Label Content="Password:" Height="28" HorizontalAlignment="Left" Margin="12,114,0,0" Name="Label4" VerticalAlignment="Top" />
+        <PasswordBox Height="23" Margin="89,114,12,0" Name="PasswordTextBox" VerticalAlignment="Top" />
+    </Grid>
+</Window>

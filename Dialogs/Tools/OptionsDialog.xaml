@@ -1,0 +1,168 @@
+﻿<Window x:Class="OptionsDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Options" Icon="options.ico" WindowStartupLocation="CenterOwner" Height="380" Width="480" MinHeight="380" MinWidth="480" ShowInTaskbar="False">
+    <Grid Background="#9BFFFFFF">
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,12,12" Name="CancelButton" VerticalAlignment="Bottom" Width="75" IsCancel="True">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/cancel16.png" />
+                <TextBlock Text="Cancel" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button Height="23" HorizontalAlignment="Right" Margin="0,0,93,12" Name="OKButton" VerticalAlignment="Bottom" Width="75">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/ok16.png" />
+                <TextBlock Text="OK" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <TabControl Margin="-2,-3,0,41" Name="TabControl1" Background="#9BFFFFFF">
+            <TabItem Name="TabItem1" Height="34" Background="#9BFFFFFF">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <Image RenderOptions.BitmapScalingMode="Fant" Height="32" Width="32" Source="../../devpad.ico" />
+                        <TextBlock Text="General" VerticalAlignment="Center" Margin="2,0,0,0" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <GroupBox Height="57" Margin="6,6,6,0" Name="GroupBox1" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Tools/startup16.png" />
+                                <TextBlock Text="Startup" Margin="2,0,0,0" />
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Label Content="When Devpad starts:" HorizontalAlignment="Left" Name="Label1" VerticalContentAlignment="Center" />
+                            <ComboBox Height="23" Margin="126,6,6,0" Name="StartupComboBox" VerticalAlignment="Top" SelectedIndex="0">
+                                <ComboBoxItem Content="Open New File" />
+                                <ComboBoxItem Content="Show New Dialog" />
+                                <ComboBoxItem Content="Show Open Dialog" />
+                                <ComboBoxItem Content="Do Nothing" />
+                            </ComboBox>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Height="57" Margin="6,69,6,0" Name="GroupBox4" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Tools/theme16.png" />
+                                <TextBlock Text="Theme" Margin="2,0,0,0" />
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <ComboBox Height="23" HorizontalAlignment="Stretch" Margin="5,6,6,0" Name="ThemeComboBox" SelectedIndex="0" VerticalAlignment="Top">
+                                <ComboBoxItem Content="Aero" />
+                                <ComboBoxItem Content="Dark" />
+                                <ComboBoxItem Content="Light" />
+                                <ComboBoxItem Content="Classic" />
+                            </ComboBox>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Height="57" Margin="7,193,5,0" Name="GroupBox2" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/File/recentfiles16.png" />
+                                <TextBlock Text="Recent Files" Margin="2,0,0,0" />
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Button Height="23" Margin="6,6,5,0" Name="ClearRecentFilesButton" VerticalAlignment="Top">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Tools/clear16.png" />
+                                    <TextBlock Text="Clear Recent Files" Margin="2,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Height="57" Margin="7,131,5,0" Name="GroupBox3" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Tools/defaultformat16.png" />
+                                <TextBlock Text="Default Format" Margin="2,0,0,0" />
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <ComboBox Height="23" Margin="5,6,6,0" HorizontalAlignment="Stretch" Name="DefaultFormatComboBox" SelectedIndex="0" VerticalAlignment="Top">
+                                <ComboBoxItem Content="None" />
+                                <ComboBoxItem Content="ASP.Net" />
+                                <ComboBoxItem Content="Boo" />
+                                <ComboBoxItem Content="C#" />
+                                <ComboBoxItem Content="C++" />
+                                <ComboBoxItem Content="Html" />
+                                <ComboBoxItem Content="Java" />
+                                <ComboBoxItem Content="JavaScript" />
+                                <ComboBoxItem Content="Php" />
+                                <ComboBoxItem Content="VB.Net" />
+                                <ComboBoxItem Content="Xml" />
+                            </ComboBox>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+            <TabItem Height="34">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <Image RenderOptions.BitmapScalingMode="Fant" Height="32" Width="32" Source="../../Images/Tools/tabs32.png" />
+                        <TextBlock Text="Tabs" VerticalAlignment="Center" Margin="2,0,0,0" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <GroupBox Height="57" Margin="6,6,6,0" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/File/close16.png" />
+                                <TextBlock Text="Close Button" Margin="2,0,0,0" />
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Label Content="Show Close Button On:" HorizontalAlignment="Left" VerticalContentAlignment="Center" />
+                            <ComboBox Height="23" Margin="138,6,6,0" Name="CloseButtonComboBox" VerticalAlignment="Top" SelectedIndex="0">
+                                <ComboBoxItem Content="All Tabs" />
+                                <ComboBoxItem Content="Selected Tab" />
+                            </ComboBox>
+                        </Grid>
+                    </GroupBox>
+                    <CheckBox Content="Show Line Numbers" Height="16" Name="ShowLineNumbersCheckBox" Margin="6,195,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="123" IsChecked="True" />
+                    <GroupBox Height="57" Margin="6,69,6,0" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Encoding/default16.png" />
+                                <TextBlock Text="Default Encoding" Margin="2,0,0,0" />
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <ComboBox Height="23" Margin="6,6,6,0" Name="DefaultEncodingComboBox" HorizontalAlignment="Stretch" SelectedIndex="0" VerticalAlignment="Top">
+                                <ComboBoxItem Content="None" />
+                                <ComboBoxItem Content="ANSI" />
+                                <ComboBoxItem Content="UTF-7" />
+                                <ComboBoxItem Content="UTF-8" />
+                                <ComboBoxItem Content="UTF-16" />
+                            </ComboBox>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Height="57" Margin="5,132,7,0" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Tools/font16.png" />
+                                <TextBlock Text="Default Font" Margin="2,0,0,0" />
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <ComboBox Height="23" ItemsSource="{x:Static Fonts.SystemFontFamilies}" HorizontalAlignment="Stretch" Margin="67,6,135,0" Name="FontFaceComboBox" SelectedIndex="0" VerticalAlignment="Top">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontFamily="{Binding}" FontSize="15" Height="20"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Label Content="Font Face:" Height="28" HorizontalAlignment="Left" Margin="6,4,0,0" Name="Label2" VerticalAlignment="Top" />
+                            <TextBox Height="23" HorizontalAlignment="Right" Margin="0,6,6,0" Name="FontSizeBox" VerticalAlignment="Top" Width="64" />
+                            <Label Content="Font Size:" Height="28" HorizontalAlignment="Right" Margin="0,4,68,0" Name="Label3" VerticalAlignment="Top" />
+                        </Grid>
+                    </GroupBox>
+                    <CheckBox Content="Scroll Past Content" Height="16" HorizontalAlignment="Left" Margin="135,195,0,0" Name="ScrollPastContentCheckBox" VerticalAlignment="Top" IsChecked="True" />
+                    <CheckBox Visibility="Collapsed" Content="Code Collapsing" Height="16" HorizontalAlignment="Left" Margin="340,195,0,0" Name="CodeCollapsingCheckBox" VerticalAlignment="Top" IsChecked="True" />
+                    <CheckBox Content="WordWrap" Height="16" HorizontalAlignment="Left" Margin="258,195,0,0" Name="WordWrapCheckBox" VerticalAlignment="Top" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+        <Button Visibility="Collapsed" Content="Reset" Height="23" HorizontalAlignment="Left" Margin="12,0,0,12" Name="Button3" VerticalAlignment="Bottom" Width="75" />
+    </Grid>
+</Window>

@@ -1,0 +1,22 @@
+﻿<Window x:Class="EditExToolDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Edit" Height="180" Width="300" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <Grid>
+        <Button Height="23" HorizontalAlignment="Left" Margin="191,106,0,0" Name="CancelButton" VerticalAlignment="Top" Width="75" IsCancel="True">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/cancel16.png" />
+                <TextBlock Text="Cancel" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <Button Height="23" HorizontalAlignment="Left" Margin="110,106,0,0" Name="OKButton" VerticalAlignment="Top" Width="75">
+            <StackPanel Orientation="Horizontal">
+                <Image RenderOptions.BitmapScalingMode="Fant" Height="16" Width="16" Source="../../Images/Common/ok16.png" />
+                <TextBlock Text="OK" Margin="2,0,0,0" />
+            </StackPanel>
+        </Button>
+        <TextBox Height="23" HorizontalAlignment="Left" Margin="52,12,0,0" Name="TextBox1" VerticalAlignment="Top" Width="214" />
+        <TextBlock Height="23" HorizontalAlignment="Left" Margin="12,15,0,0" Name="TextBlock1" Text="Name:" VerticalAlignment="Top" />
+        <TextBox Height="23" HorizontalAlignment="Left" Margin="52,44,0,0" Name="TextBox2" VerticalAlignment="Top" Width="133" />
+        <Button Content="_Browse" Height="23" HorizontalAlignment="Left" Margin="191,44,0,0" Name="BrowseButton" VerticalAlignment="Top" Width="75" />
+        <TextBox Height="23" Margin="52,73,12,0" Name="TextBox3" VerticalAlignment="Top" />
+    </Grid>
+</Window>
