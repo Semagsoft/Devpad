@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  format:
+    name: Check formatting
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-format
+        run: sudo apt-get install -y -qq clang-format
+      - name: Check C++ formatting
+        run: |
+          find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run --Werror
+
+  tidy:
+    name: Clang-tidy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            cmake build-essential clang-tidy \
+            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev \
+            libqtermwidget6-0-dev \
+            qscintilla2-qt6-dev \
+            qttools6-dev \
+            libgl-dev
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: |
+          find src \( -name '*.cpp' \) -print0 | \
+            xargs -0 clang-tidy -p build
+
+  build:
+    name: Build and test
+    runs-on: ubuntu-24.04
+    needs: [format, tidy]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            cmake build-essential \
+            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev \
+            libqtermwidget6-0-dev \
+            qscintilla2-qt6-dev \
+            qttools6-dev \
+            libgl-dev
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: ${{ runner.os }}-cmake-${{ hashFiles('CMakeLists.txt', 'src/**') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

@@ -1,0 +1,208 @@
+QMainWindow, QDialog, QWidget {
+    background-color: %background%;
+    color: %foreground%;
+}
+QMenuBar {
+    background-color: %menuBg%;
+    color: %menuFg%;
+    border-bottom: 1px solid %separator%;
+}
+QMenuBar::item {
+    background-color: transparent;
+    padding: 4px 8px;
+}
+QMenuBar::item:selected {
+    background-color: %selectionBg%;
+}
+QMenuBar::item:pressed {
+    background-color: %tabBgActive%;
+}
+QMenu {
+    background-color: %menuBg%;
+    color: %menuFg%;
+    border: 1px solid %separator%;
+}
+QMenu::item {
+    padding: 4px 24px 4px 12px;
+}
+QMenu::item:selected {
+    background-color: %selectionBg%;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: %separator%;
+    margin: 4px 0;
+}
+QToolBar {
+    background-color: %toolbarBg%;
+    color: %toolbarFg%;
+    border-bottom: 1px solid %separator%;
+    spacing: 2px;
+    padding: 2px;
+}
+QToolBar::separator {
+    width: 1px;
+    background-color: %separator%;
+    margin: 4px 2px;
+}
+QToolButton {
+    background-color: transparent;
+    color: %toolbarFg%;
+    border: none;
+    border-radius: 3px;
+    padding: 4px;
+}
+QToolButton:hover {
+    background-color: %selectionBg%;
+}
+QToolButton:pressed {
+    background-color: %tabBgActive%;
+}
+QTabWidget::pane {
+    border: 1px solid %separator%;
+    background-color: %background%;
+}
+QTabBar::tab {
+    background-color: %tabBg%;
+    color: %tabFg%;
+    padding: 4px 12px;
+    margin-right: 1px;
+    border: 1px solid %separator%;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+QTabBar::tab:selected {
+    background-color: %tabBgActive%;
+    color: %tabFgActive%;
+}
+QTabBar::tab:hover:!selected {
+    background-color: %selectionBg%;
+}
+QStatusBar {
+    background-color: %statusbarBg%;
+    color: %statusbarFg%;
+    border-top: 1px solid %separator%;
+}
+QStatusBar QLabel {
+    color: %statusbarFg%;
+    padding: 0 4px;
+}
+QGroupBox {
+    background-color: %groupboxBg%;
+    color: %groupboxFg%;
+    border: 1px solid %separator%;
+    border-radius: 4px;
+    margin-top: 8px;
+    padding-top: 12px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+}
+QComboBox {
+    background-color: %inputBg%;
+    color: %inputFg%;
+    border: 1px solid %separator%;
+    border-radius: 3px;
+    padding: 3px 8px;
+    min-width: 6em;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+QComboBox::down-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid %inputFg%;
+}
+QComboBox QAbstractItemView {
+    background-color: %inputBg%;
+    color: %inputFg%;
+    selection-background-color: %selectionBg%;
+    border: 1px solid %separator%;
+}
+QLineEdit {
+    background-color: %inputBg%;
+    color: %inputFg%;
+    border: 1px solid %separator%;
+    border-radius: 3px;
+    padding: 3px 6px;
+}
+QCheckBox {
+    color: %foreground%;
+    spacing: 6px;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid %separator%;
+    border-radius: 2px;
+    background-color: %inputBg%;
+}
+QCheckBox::indicator:checked {
+    background-color: %checkboxIndicator%;
+    border-color: %checkboxIndicator%;
+}
+QPushButton {
+    background-color: %buttonBg%;
+    color: %buttonFg%;
+    border: 1px solid %separator%;
+    border-radius: 3px;
+    padding: 5px 16px;
+}
+QPushButton:hover {
+    background-color: %selectionBg%;
+}
+QPushButton:pressed {
+    background-color: %tabBgActive%;
+}
+QScrollBar:vertical {
+    background-color: %scrollbarBg%;
+    width: 12px;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical {
+    background-color: %scrollbarHandle%;
+    border-radius: 6px;
+    min-height: 20px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: %scrollbarHandleHover%;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+QScrollBar:horizontal {
+    background-color: %scrollbarBg%;
+    height: 12px;
+    border-radius: 6px;
+}
+QScrollBar::handle:horizontal {
+    background-color: %scrollbarHandle%;
+    border-radius: 6px;
+    min-width: 20px;
+}
+QScrollBar::handle:horizontal:hover {
+    background-color: %scrollbarHandleHover%;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0;
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: none;
+}
+QLabel {
+    color: %foreground%;
+}
+QTextEdit, QPlainTextEdit {
+    background-color: %inputBg%;
+    color: %inputFg%;
+    border: 1px solid %separator%;
+}

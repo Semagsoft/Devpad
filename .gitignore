@@ -1,0 +1,22 @@
+build/
+*.user
+*.cbp
+*.layout
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+Makefile
+
+# Generated translation files
+*.qm
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
