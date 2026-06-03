@@ -1,0 +1,42 @@
+id: com.semagsoft.Devpad
+runtime: org.kde.Platform
+runtime-version: '6.8'
+sdk: org.kde.Sdk
+command: Devpad
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --share=network
+  - --device=dri
+  - --filesystem=home
+build-options:
+  env:
+    - QMAKE: /usr/lib/x86_64-linux-gnu/qt6/bin/qmake
+modules:
+  - name: qtermwidget
+    buildsystem: cmake
+    sources:
+      - type: git
+        url: https://github.com/lxqt/qtermwidget.git
+        tag: 2.1.0
+    config-opts:
+      - -DBUILD_SHARED_LIBS=ON
+
+  - name: qscintilla
+    buildsystem: qmake
+    subdir: src/
+    sources:
+      - type: archive
+        url: https://www.riverbankcomputing.com/static/Downloads/QScintilla/2.14.1/QScintilla_src-2.14.1.tar.gz
+        sha256: df5e0e0a42d0055a6731bf11f07c099fffce7c5dde2380e26f53dd1eb866a820
+
+  - name: Devpad
+    buildsystem: cmake
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DBUILD_TESTS=OFF
+    sources:
+      - type: dir
+        path: ..
