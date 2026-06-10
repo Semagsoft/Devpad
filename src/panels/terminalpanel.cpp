@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -163,6 +163,7 @@ void TerminalPanel::setWorkingDirectory(const QString &path) {
     m_workingDirectory = path;
     if (terminalWidget && m_isRunning) {
         terminalWidget->setWorkingDirectory(path);
+        terminalWidget->sendText(QString("cd %1 && clear\n").arg(path));
     }
 }
 
