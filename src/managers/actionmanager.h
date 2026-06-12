@@ -45,18 +45,13 @@ public:
     void buildStatusBar(QStatusBar *statusBar, ProjectPanel *projectPanel, TerminalPanel *terminalPanel);
 
     QAction* newAct() const { return m_newAct; }
-    QAction* newWindowAct() const { return m_newWindowAct; }
-    QAction* openAct() const { return m_openAct; }
-    QAction* openRemoteAct() const { return m_openRemoteAct; }
-    QAction* openFolderAct() const { return m_openFolderAct; }
-    QAction* revertAct() const { return m_revertAct; }
+    QAction* quitDevpadAct() const { return m_quitDevpadAct; }
     QAction* saveAct() const { return m_saveAct; }
     QAction* saveAsAct() const { return m_saveAsAct; }
     QAction* saveAllAct() const { return m_saveAllAct; }
     QAction* closeAct() const { return m_closeAct; }
     QAction* closeAllAct() const { return m_closeAllAct; }
-    QAction* exitAct() const { return m_exitAct; }
-
+    QAction* quitDevpadAct() const { return m_quitDevpadAct; }
     QAction* undoAct() const { return m_undoAct; }
     QAction* redoAct() const { return m_redoAct; }
     QAction* cutAct() const { return m_cutAct; }
@@ -70,7 +65,6 @@ public:
     QAction* goToAct() const { return m_goToAct; }
     QAction* findNextAct() const { return m_findNextAct; }
     QAction* findPrevAct() const { return m_findPrevAct; }
-
     QAction* zoomInAct() const { return m_zoomInAct; }
     QAction* zoomOutAct() const { return m_zoomOutAct; }
     QAction* zoomResetAct() const { return m_zoomResetAct; }
@@ -89,19 +83,22 @@ public:
     QAction* clearBookmarksAct() const { return m_clearBookmarksAct; }
     QAction* optionsAct() const { return m_optionsAct; }
     QAction* aboutAct() const { return m_aboutAct; }
-
+    QAction* menuBarAct() const { return m_menuBarAct; }
     QMenu* recentFilesMenu() const { return m_recentFilesMenu; }
     QAction* recentFileAct(int index) const { return (index >= 0 && index < 10) ? m_recentFileActs[index] : nullptr; }
     QAction* clearRecentFilesAct() const { return m_clearRecentFilesAct; }
     QMenu* reopenEncodingMenu() const { return m_reopenEncodingMenu; }
     QMenu* saveEncodingMenu() const { return m_saveEncodingMenu; }
-
     QToolBar* toolBar() const { return m_toolBar; }
     QLabel* lineColLabel() const { return m_lineColLabel; }
     QComboBox* encodingComboBox() const { return m_encodingComboBox; }
     QLabel* fileTypeLabel() const { return m_fileTypeLabel; }
     QToolButton* projectPanelButton() const { return m_projectPanelButton; }
     QToolButton* terminalPanelButton() const { return m_terminalPanelButton; }
+    QAction* menuBarAct() const { return m_menuBarAct; }
+
+
+
 
 signals:
     void newFileTriggered();
@@ -116,6 +113,7 @@ signals:
     void closeCurrentTabTriggered();
     void closeAllTabsTriggered();
     void exitTriggered();
+    void quitDevpadTriggered();
 
     void undoTriggered();
     void redoTriggered();
@@ -169,6 +167,7 @@ private:
     void buildToolsMenu(QMenu *toolsMenu);
     void buildHelpMenu(QMenu *helpMenu);
 
+    QAction* m_menuBarAct = nullptr;
     QAction* m_newAct = nullptr;
     QAction* m_newWindowAct = nullptr;
     QAction* m_openAct = nullptr;
@@ -181,7 +180,7 @@ private:
     QAction* m_closeAct = nullptr;
     QAction* m_closeAllAct = nullptr;
     QAction* m_exitAct = nullptr;
-
+    QAction* m_quitDevpadAct = nullptr;
     QAction* m_undoAct = nullptr;
     QAction* m_redoAct = nullptr;
     QAction* m_cutAct = nullptr;
@@ -195,7 +194,6 @@ private:
     QAction* m_goToAct = nullptr;
     QAction* m_findNextAct = nullptr;
     QAction* m_findPrevAct = nullptr;
-
     QAction* m_zoomInAct = nullptr;
     QAction* m_zoomOutAct = nullptr;
     QAction* m_zoomResetAct = nullptr;
@@ -214,6 +212,7 @@ private:
     QAction* m_clearBookmarksAct = nullptr;
     QAction* m_optionsAct = nullptr;
     QAction* m_aboutAct = nullptr;
+
 
     QMenu* m_recentFilesMenu = nullptr;
     QAction* m_recentFileActs[10] = {};

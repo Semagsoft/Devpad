@@ -28,7 +28,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Close</source>
+        <source>Close Editor</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -224,6 +224,9 @@ void MainWindow::setupUI()
 {
     actionManager->createActions();
     actionManager->buildMenus(menuBar());
+    connect(actionManager->menuBarAct(), &QAction::triggered, this, [this]() {
+        menuBar()->setVisible(!menuBar()->isVisible());
+    });
     actionManager->buildToolBar();
     actionManager->buildStatusBar(statusBar(), projectPanel, terminalPanel);
 
@@ -244,7 +247,12 @@ void MainWindow::connectActions()
     connect(actionManager, &ActionManager::revertTriggered, this, &MainWindow::revertFile);
     connect(actionManager, &ActionManager::closeCurrentTabTriggered, editorController, &EditorController::closeCurrentTab);
     connect(actionManager, &ActionManager::closeAllTabsTriggered, editorController, &EditorController::closeAllTabs);
-    connect(actionManager, &ActionManager::exitTriggered, this, &QWidget::close);
+connect(actionManager, &ActionManager::exitTriggered, this, &QWidget::close);
+connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
+    QProcess* p = new QProcess(this);
+    p->start("pkill", QStringList() << "-i" << "Devpad");
+    connect(p, &QProcess::finished, p, &QProcess::deleteLater);
+});
 
     connect(actionManager, &ActionManager::undoTriggered, editorController, &EditorController::undo);
     connect(actionManager, &ActionManager::redoTriggered, editorController, &EditorController::redo);

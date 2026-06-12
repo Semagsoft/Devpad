@@ -33,10 +33,10 @@ void ActionManager::createActions() {
     m_saveAsAct = createIconAction(":/icons/File/saveas.svg", tr("Save As..."), QKeySequence("Ctrl+Alt+S"), [this]() { emit saveFileAsTriggered(); });
     m_saveAllAct = createIconAction(":/icons/File/saveall.svg", tr("Save All"), QKeySequence("Ctrl+Shift+S"), [this]() { emit saveAllTriggered(); });
     m_revertAct = createIconAction(":/icons/File/revert.svg", tr("Revert"), QKeySequence(), [this]() { emit revertTriggered(); });
-    m_closeAct = createIconAction(":/icons/File/close.svg", tr("Close"), QKeySequence("Ctrl+W"), [this]() { emit closeCurrentTabTriggered(); });
-    m_closeAllAct = createIconAction(":/icons/File/closeall.svg", tr("Close All"), QKeySequence("Ctrl+Shift+W"), [this]() { emit closeAllTabsTriggered(); });
-    m_exitAct = createIconAction(":/icons/File/exit.svg", tr("Exit"), QKeySequence::Quit, [this]() { emit exitTriggered(); });
-
+    m_closeAct = createIconAction(":/icons/File/close.svg", tr("Close Editor"), QKeySequence("Ctrl+W"), [this]() { emit closeCurrentTabTriggered(); });
+    m_closeAllAct = createIconAction(":/icons/File/closeall.svg", tr("Close All"), QKeySequence("Ctrl+Alt+W"), [this]() { emit closeAllTabsTriggered(); });
+m_exitAct = createIconAction("", tr("Close Window"), QKeySequence("Ctrl+Shift+W"), [this]() { emit exitTriggered(); });
+    m_quitDevpadAct = createIconAction(":/icons/File/exit.svg", tr("Quit Devpad"), QKeySequence::Quit, [this]() { emit quitDevpadTriggered(); });
     m_undoAct = createIconAction(":/icons/Edit/undo.svg", tr("Undo"), QKeySequence::Undo, [this]() { emit undoTriggered(); });
     m_redoAct = createIconAction(":/icons/Edit/redo.svg", tr("Redo"), QKeySequence::Redo, [this]() { emit redoTriggered(); });
     m_cutAct = createIconAction(":/icons/Edit/cut.svg", tr("Cut"), QKeySequence::Cut, [this]() { emit cutTriggered(); });
@@ -48,68 +48,65 @@ void ActionManager::createActions() {
     m_replaceAct = createIconAction(":/icons/Edit/replace.svg", tr("Replace..."), QKeySequence("Ctrl+H"), [this]() { emit replaceTriggered(); });
     m_findInFilesAct = createIconAction(":/icons/Edit/findinfiles.svg", tr("Find In Files..."), QKeySequence("Ctrl+Shift+F"), [this]() { emit findInFilesTriggered(); });
     m_goToAct = createIconAction(":/icons/Edit/goto.svg", tr("Go To Line..."), QKeySequence("Ctrl+G"), [this]() { emit goToLineTriggered(); });
-
     m_zoomInAct = createIconAction(":/icons/View/zoomin.svg", tr("Zoom In"), QKeySequence("Ctrl+="), [this]() { emit zoomInTriggered(); });
     m_zoomOutAct = createIconAction(":/icons/View/zoomout.svg", tr("Zoom Out"), QKeySequence("Ctrl+-"), [this]() { emit zoomOutTriggered(); });
     m_zoomResetAct = createIconAction(":/icons/View/zoomreset.svg", tr("Reset Zoom"), QKeySequence("Ctrl+0"), [this]() { emit zoomResetTriggered(); });
     m_fullScreenAct = createIconAction(":/icons/View/fullscreen.svg", tr("Fullscreen"), QKeySequence("F11"), [this]() { emit toggleFullScreenTriggered(); });
-
     m_projectPanelAct = new QAction(QIcon(":/icons/Common/folder.svg"), tr("Project Panel"), this);
     m_projectPanelAct->setCheckable(true);
     m_projectPanelAct->setChecked(false);
     m_projectPanelAct->setShortcut(QKeySequence("Ctrl+B"));
     connect(m_projectPanelAct, &QAction::triggered, this, [this]() { emit toggleProjectPanelTriggered(); });
-
     m_terminalPanelAct = new QAction(QIcon(":/icons/View/terminal.svg"), tr("Terminal Panel"), this);
     m_terminalPanelAct->setCheckable(true);
     m_terminalPanelAct->setChecked(false);
     m_terminalPanelAct->setShortcut(QKeySequence("Ctrl+`"));
     connect(m_terminalPanelAct, &QAction::triggered, this, [this]() { emit toggleTerminalPanelTriggered(); });
-
     m_toolBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Toolbar"), this);
     m_toolBarAct->setCheckable(true);
     connect(m_toolBarAct, &QAction::triggered, this, [this]() { emit toggleToolBarTriggered(); });
-
     m_statusBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Status Bar"), this);
     m_statusBarAct->setCheckable(true);
     connect(m_statusBarAct, &QAction::triggered, this, [this]() { emit toggleStatusBarTriggered(); });
-
     m_wordWrapAct = new QAction(tr("Word Wrap"), this);
     m_wordWrapAct->setCheckable(true);
     m_wordWrapAct->setShortcut(QKeySequence("Ctrl+E"));
     connect(m_wordWrapAct, &QAction::triggered, this, [this]() { emit toggleWordWrapTriggered(); });
-
     m_findNextAct = createIconAction(":/icons/Edit/find.svg", tr("Find Next"), QKeySequence("F3"), [this]() { emit findNextTriggered(); });
     m_findPrevAct = createIconAction(":/icons/Edit/find.svg", tr("Find Previous"), QKeySequence("Shift+F3"), [this]() { emit findPreviousTriggered(); });
-
     m_aboutAct = createIconAction(":/icons/Help/about.svg", tr("About..."), QKeySequence(), [this]() { emit aboutTriggered(); });
     m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options..."), QKeySequence(), [this]() { emit optionsTriggered(); });
     m_printAct = createIconAction(":/icons/File/print.svg", tr("Print..."), QKeySequence::Print, [this]() { emit printFileTriggered(); });
     m_printPreviewAct = createIconAction(":/icons/File/printpreview.svg", tr("Print Preview..."), QKeySequence(), [this]() { emit printPreviewTriggered(); });
-
     m_readOnlyAct = new QAction(QIcon(":/icons/File/readonly.svg"), tr("Read Only"), this);
     m_readOnlyAct->setCheckable(true);
     m_readOnlyAct->setShortcut(QKeySequence("Ctrl+Shift+R"));
     connect(m_readOnlyAct, &QAction::triggered, this, [this]() { emit toggleReadOnlyTriggered(); });
-
     m_toggleBookmarkAct = new QAction(tr("Toggle Bookmark"), this);
     m_toggleBookmarkAct->setShortcut(QKeySequence("Ctrl+F2"));
     connect(m_toggleBookmarkAct, &QAction::triggered, this, [this]() { emit toggleBookmarkTriggered(); });
-
     m_nextBookmarkAct = new QAction(tr("Next Bookmark"), this);
     m_nextBookmarkAct->setShortcut(QKeySequence("F2"));
     connect(m_nextBookmarkAct, &QAction::triggered, this, [this]() { emit nextBookmarkTriggered(); });
-
     m_prevBookmarkAct = new QAction(tr("Previous Bookmark"), this);
     m_prevBookmarkAct->setShortcut(QKeySequence("Shift+F2"));
     connect(m_prevBookmarkAct, &QAction::triggered, this, [this]() { emit prevBookmarkTriggered(); });
-
     m_clearBookmarksAct = new QAction(tr("Clear All Bookmarks"), this);
     m_clearBookmarksAct->setShortcut(QKeySequence("Ctrl+Shift+F2"));
     connect(m_clearBookmarksAct, &QAction::triggered, this, [this]() { emit clearBookmarksTriggered(); });
+    m_menuBarAct = new QAction(tr("Menu Bar"), this);
+    m_menuBarAct->setEnabled(false);
+
 }
 
 void ActionManager::buildMenus(QMenuBar *menuBar) {
+    QMenu *devpadMenu = menuBar->addMenu(tr("Devpad"));
+    devpadMenu->addAction(m_quitDevpadAct);
+    
+    QAction *sep = new QAction(tr("|"), this);
+    sep->setEnabled(false);
+    menuBar->addAction(sep);
+    
     QMenu *fileMenu = menuBar->addMenu(tr("File"));
     buildFileMenu(fileMenu);
 
@@ -170,7 +167,6 @@ void ActionManager::buildFileMenu(QMenu *fileMenu) {
     fileMenu->addSeparator();
     fileMenu->addAction(m_closeAct);
     fileMenu->addAction(m_closeAllAct);
-    fileMenu->addSeparator();
     fileMenu->addAction(m_exitAct);
 }
 

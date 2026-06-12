@@ -73,14 +73,17 @@ QVariant FileFilterProxyModel::data(const QModelIndex &index, int role) const {
             return m_closedFolderIcon;
         } else {
             QString filePath = sourceModel()->data(sourceIndex, QFileSystemModel::FilePathRole).toString();
-            QString ext = QFileInfo(filePath).suffix().toLower();
+            QFileInfo fileInfo(filePath);
+            QString ext = fileInfo.suffix().toLower();
 
             const auto &iconMap = fileIconMap();
             if (iconMap.contains(ext)) {
                 return QIcon(iconMap.value(ext));
+            } else if (ext.isEmpty() && fileInfo.isExecutable()) {
+                return QIcon(":/icons/Common/filetypes/executable.svg");
             }
 
-            return m_fileIconProvider.icon(QFileInfo(filePath));
+            return m_fileIconProvider.icon(fileInfo);
         }
     }
     return QSortFilterProxyModel::data(index, role);
@@ -173,7 +176,13 @@ static const QHash<QString, QString>& fileIconMap() {
         {"rar", ":/icons/Common/filetypes/archive.svg"},
         {"deb", ":/icons/Common/filetypes/archive.svg"},
         {"rpm", ":/icons/Common/filetypes/archive.svg"},
-        {"exe", ":/icons/Common/filetypes/misccode.svg"},
+        {"app", ":/icons/Common/filetypes/executable.svg"},
+        {"exe", ":/icons/Common/filetypes/executable.svg"},
+        {"bin", ":/icons/Common/filetypes/executable.svg"},
+        {"msi", ":/icons/Common/filetypes/executable.svg"},
+        {"dmg", ":/icons/Common/filetypes/executable.svg"},
+        {"apk", ":/icons/Common/filetypes/executable.svg"},
+        {"ipa", ":/icons/Common/filetypes/executable.svg"},
         {"dll", ":/icons/Common/filetypes/misccode.svg"},
         {"so", ":/icons/Common/filetypes/misccode.svg"},
         {"a", ":/icons/Common/filetypes/misccode.svg"},
