@@ -43,6 +43,7 @@ class ThemeApplier;
 class PrintManager;
 class FileWatcherManager;
 class SplitView;
+class ExternalToolManager;
 class RemoteFileService;
 
 class MainWindow : public QMainWindow
@@ -78,6 +79,7 @@ private slots:
     void showAbout();
 
     void showOptions();
+    void runExternalTool(int index);
     void printFile();
     void printPreview();
 
@@ -133,6 +135,7 @@ private:
     QTimer* autoSaveTimer;
 
     QPointer<FindInFilesDialog> findInFilesDialog;
+    ExternalToolManager* m_externalToolManager;
     RemoteFileService* m_remoteFileService;
 };
 

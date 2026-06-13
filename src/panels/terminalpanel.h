@@ -41,6 +41,7 @@ public:
     void setWorkingDirectory(const QString &path);
     QString workingDirectory() const;
 
+    void sendCommand(const QString &command);
     void toggle(QTabWidget *tabWidget, QMainWindow *mainWindow);
     void applyPosition(TerminalPanelPosition pos, QTabWidget *tabWidget, QMainWindow *mainWindow);
 

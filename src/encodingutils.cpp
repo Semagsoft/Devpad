@@ -18,7 +18,7 @@
  */
 #include "encodingutils.h"
 
-QVector<EncodingInfo> supportedEncodings() {
+const QVector<EncodingInfo>& supportedEncodings() {
     static const QVector<EncodingInfo> encodings = {
         {"UTF-8", QStringConverter::Utf8},
         {"UTF-16", QStringConverter::Utf16},

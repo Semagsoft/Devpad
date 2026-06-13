@@ -23,7 +23,7 @@
 #include <QObject>
 
 namespace Strings {
-    inline const QString AppName = QStringLiteral("Devpad");
+    inline const QString& AppName() { static const QString s = QStringLiteral("Devpad"); return s; }
     inline QString untitled() { return QObject::tr("Untitled"); }
     inline QString fileFilter() {
         return QObject::tr("All Files (*.*);;C/C++ Files (*.c *.cpp *.h *.hpp);;Python Files (*.py *.pyw);;JavaScript Files (*.js *.mjs *.cjs);;HTML Files (*.html *.htm);;CSS Files (*.css);;XML Files (*.xml);;Java Files (*.java);;C# Files (*.cs);;SQL Files (*.sql);;Text Files (*.txt)");

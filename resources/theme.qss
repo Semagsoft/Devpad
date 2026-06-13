@@ -198,6 +198,19 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
     background: none;
 }
+QSplitter::handle {
+    background-color: %separator%;
+}
+QSplitter::handle:horizontal {
+    width: 3px;
+}
+QSplitter::handle:vertical {
+    height: 3px;
+}
+QSplitter::handle:hover {
+    background-color: %scrollbarHandleHover%;
+}
+
 QLabel {
     color: %foreground%;
 }

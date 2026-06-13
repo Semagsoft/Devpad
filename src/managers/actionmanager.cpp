@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "actionmanager.h"
+#include "externaltoolmanager.h"
+#include "settingsmanager.h"
 #include <QMenuBar>
 #include <QDockWidget>
 
@@ -35,7 +37,7 @@ void ActionManager::createActions() {
     m_revertAct = createIconAction(":/icons/File/revert.svg", tr("Revert"), QKeySequence(), [this]() { emit revertTriggered(); });
     m_closeAct = createIconAction(":/icons/File/close.svg", tr("Close Editor"), QKeySequence("Ctrl+W"), [this]() { emit closeCurrentTabTriggered(); });
     m_closeAllAct = createIconAction(":/icons/File/closeall.svg", tr("Close All"), QKeySequence("Ctrl+Alt+W"), [this]() { emit closeAllTabsTriggered(); });
-m_exitAct = createIconAction("", tr("Close Window"), QKeySequence("Ctrl+Shift+W"), [this]() { emit exitTriggered(); });
+m_exitAct = createIconAction(":/icons/File/closewindow.svg", tr("Close Window"), QKeySequence("Ctrl+Shift+W"), [this]() { emit exitTriggered(); });
     m_quitDevpadAct = createIconAction(":/icons/File/exit.svg", tr("Quit Devpad"), QKeySequence::Quit, [this]() { emit quitDevpadTriggered(); });
     m_undoAct = createIconAction(":/icons/Edit/undo.svg", tr("Undo"), QKeySequence::Undo, [this]() { emit undoTriggered(); });
     m_redoAct = createIconAction(":/icons/Edit/redo.svg", tr("Redo"), QKeySequence::Redo, [this]() { emit redoTriggered(); });
@@ -62,10 +64,10 @@ m_exitAct = createIconAction("", tr("Close Window"), QKeySequence("Ctrl+Shift+W"
     m_terminalPanelAct->setChecked(false);
     m_terminalPanelAct->setShortcut(QKeySequence("Ctrl+`"));
     connect(m_terminalPanelAct, &QAction::triggered, this, [this]() { emit toggleTerminalPanelTriggered(); });
-    m_toolBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Toolbar"), this);
+    m_toolBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Toolbar\tCtrl+Alt+T"), this);
     m_toolBarAct->setCheckable(true);
     connect(m_toolBarAct, &QAction::triggered, this, [this]() { emit toggleToolBarTriggered(); });
-    m_statusBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Status Bar"), this);
+    m_statusBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Status Bar\tCtrl+Shift+Alt+S"), this);
     m_statusBarAct->setCheckable(true);
     connect(m_statusBarAct, &QAction::triggered, this, [this]() { emit toggleStatusBarTriggered(); });
     m_wordWrapAct = new QAction(tr("Word Wrap"), this);
@@ -94,8 +96,9 @@ m_exitAct = createIconAction("", tr("Close Window"), QKeySequence("Ctrl+Shift+W"
     m_clearBookmarksAct = new QAction(tr("Clear All Bookmarks"), this);
     m_clearBookmarksAct->setShortcut(QKeySequence("Ctrl+Shift+F2"));
     connect(m_clearBookmarksAct, &QAction::triggered, this, [this]() { emit clearBookmarksTriggered(); });
-    m_menuBarAct = new QAction(tr("Menu Bar"), this);
-    m_menuBarAct->setEnabled(false);
+    m_menuBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Menu Bar\tCtrl+Alt+M"), this);
+    m_menuBarAct->setCheckable(true);
+    connect(m_menuBarAct, &QAction::triggered, this, [this]() { emit toggleMenuBarTriggered(); });
 
 }
 
@@ -156,11 +159,12 @@ void ActionManager::buildFileMenu(QMenu *fileMenu) {
     fileMenu->addAction(m_revertAct);
     fileMenu->addSeparator();
 
-    m_reopenEncodingMenu = fileMenu->addMenu(tr("Reopen with Encoding"));
-    m_saveEncodingMenu = fileMenu->addMenu(tr("Save with Encoding"));
-
     fileMenu->addSeparator();
-    fileMenu->addAction(m_readOnlyAct);
+    QMenu *propertiesMenu = fileMenu->addMenu(QIcon(":/icons/File/properties.svg"), tr("Properties"));
+    propertiesMenu->addAction(m_readOnlyAct);
+    propertiesMenu->addSeparator();
+    m_reopenEncodingMenu = propertiesMenu->addMenu(tr("Reopen with Encoding"));
+    m_saveEncodingMenu = propertiesMenu->addMenu(tr("Save with Encoding"));
     fileMenu->addSeparator();
     fileMenu->addAction(m_printAct);
     fileMenu->addAction(m_printPreviewAct);
@@ -204,6 +208,7 @@ void ActionManager::buildViewMenu(QMenu *viewMenu) {
     viewMenu->addAction(m_projectPanelAct);
     viewMenu->addAction(m_terminalPanelAct);
     viewMenu->addSeparator();
+    viewMenu->addAction(m_menuBarAct);
     viewMenu->addAction(m_toolBarAct);
     viewMenu->addAction(m_statusBarAct);
     viewMenu->addSeparator();
@@ -211,7 +216,43 @@ void ActionManager::buildViewMenu(QMenu *viewMenu) {
 }
 
 void ActionManager::buildToolsMenu(QMenu *toolsMenu) {
+    m_toolsMenu = toolsMenu;
+    rebuildExternalToolsMenu();
+    toolsMenu->addSeparator();
     toolsMenu->addAction(m_optionsAct);
+}
+
+void ActionManager::rebuildExternalToolsMenu() {
+    if (!m_toolsMenu) return;
+
+    for (QAction* act : m_externalToolActs) {
+        m_toolsMenu->removeAction(act);
+        delete act;
+    }
+    m_externalToolActs.clear();
+
+    int count = SettingsManager::instance().externalToolCount();
+    for (int i = 0; i < count; ++i) {
+        QString name = SettingsManager::instance().externalToolName(i);
+        QString shortcutStr = SettingsManager::instance().externalToolShortcut(i);
+        QKeySequence ks(shortcutStr);
+
+        QAction* act = new QAction(name, this);
+        if (!ks.isEmpty())
+            act->setShortcut(ks);
+        int index = i;
+        connect(act, &QAction::triggered, this, [this, index]() { emit externalToolTriggered(index); });
+        m_toolsMenu->addAction(act);
+        m_externalToolActs.append(act);
+    }
+
+    if (count > 0)
+        m_toolsMenu->addSeparator();
+
+    QAction* configureAct = new QAction(tr("External Tools..."), this);
+    connect(configureAct, &QAction::triggered, this, [this]() { emit configureExternalToolsTriggered(); });
+    m_toolsMenu->addAction(configureAct);
+    m_externalToolActs.append(configureAct);
 }
 
 void ActionManager::buildHelpMenu(QMenu *helpMenu) {

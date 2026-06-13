@@ -23,7 +23,6 @@
 #include <QApplication>
 #include <QFile>
 #include <QMainWindow>
-#include <QHash>
 
 ThemeApplier::ThemeApplier(QObject *parent) : QObject(parent) {}
 
@@ -44,34 +43,34 @@ void ThemeApplier::applyTheme(QMainWindow *window) {
     if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
         QString ss = QString::fromUtf8(qssFile.readAll());
 
-        QHash<QString, QString> vars;
-        vars["%background%"] = colors.background.name();
-        vars["%foreground%"] = colors.foreground.name();
-        vars["%menuBg%"] = colors.menuBg.name();
-        vars["%menuFg%"] = colors.menuFg.name();
-        vars["%separator%"] = colors.separator.name();
-        vars["%selectionBg%"] = colors.selectionBg.name();
-        vars["%toolbarBg%"] = colors.toolbarBg.name();
-        vars["%toolbarFg%"] = colors.toolbarFg.name();
-        vars["%tabBg%"] = colors.tabBg.name();
-        vars["%tabFg%"] = colors.tabFg.name();
-        vars["%tabBgActive%"] = colors.tabBgActive.name();
-        vars["%tabFgActive%"] = colors.tabFgActive.name();
-        vars["%statusbarBg%"] = colors.statusbarBg.name();
-        vars["%statusbarFg%"] = colors.statusbarFg.name();
-        vars["%groupboxBg%"] = colors.groupboxBg.name();
-        vars["%groupboxFg%"] = colors.groupboxFg.name();
-        vars["%inputBg%"] = colors.inputBg.name();
-        vars["%inputFg%"] = colors.inputFg.name();
-        vars["%checkboxIndicator%"] = colors.checkboxIndicator.name();
-        vars["%buttonBg%"] = colors.buttonBg.name();
-        vars["%buttonFg%"] = colors.buttonFg.name();
-        vars["%scrollbarBg%"] = colors.scrollbarBg.name();
-        vars["%scrollbarHandle%"] = colors.scrollbarHandle.name();
-        vars["%scrollbarHandleHover%"] = colors.scrollbarHandleHover.name();
-
-        for (auto it = vars.constBegin(); it != vars.constEnd(); ++it) {
-            ss.replace(it.key(), it.value());
+        struct { const char *key; QColor ThemeColors::*member; } const mappings[] = {
+            {"%background%",           &ThemeColors::background},
+            {"%foreground%",           &ThemeColors::foreground},
+            {"%menuBg%",               &ThemeColors::menuBg},
+            {"%menuFg%",               &ThemeColors::menuFg},
+            {"%separator%",            &ThemeColors::separator},
+            {"%selectionBg%",          &ThemeColors::selectionBg},
+            {"%toolbarBg%",            &ThemeColors::toolbarBg},
+            {"%toolbarFg%",            &ThemeColors::toolbarFg},
+            {"%tabBg%",                &ThemeColors::tabBg},
+            {"%tabFg%",                &ThemeColors::tabFg},
+            {"%tabBgActive%",          &ThemeColors::tabBgActive},
+            {"%tabFgActive%",          &ThemeColors::tabFgActive},
+            {"%statusbarBg%",          &ThemeColors::statusbarBg},
+            {"%statusbarFg%",          &ThemeColors::statusbarFg},
+            {"%groupboxBg%",           &ThemeColors::groupboxBg},
+            {"%groupboxFg%",           &ThemeColors::groupboxFg},
+            {"%inputBg%",              &ThemeColors::inputBg},
+            {"%inputFg%",              &ThemeColors::inputFg},
+            {"%checkboxIndicator%",    &ThemeColors::checkboxIndicator},
+            {"%buttonBg%",             &ThemeColors::buttonBg},
+            {"%buttonFg%",             &ThemeColors::buttonFg},
+            {"%scrollbarBg%",          &ThemeColors::scrollbarBg},
+            {"%scrollbarHandle%",      &ThemeColors::scrollbarHandle},
+            {"%scrollbarHandleHover%", &ThemeColors::scrollbarHandleHover},
+        };
+        for (const auto& m : mappings) {
+            ss.replace(QLatin1String(m.key), (colors.*(m.member)).name());
         }
 
         window->setStyleSheet(ss);

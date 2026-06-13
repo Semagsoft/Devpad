@@ -36,14 +36,14 @@ void Logger::rotateLogFile(const QString &logFilePath) {
         if (QFile::exists(oldPath)) {
             QFile::remove(newPath);
             if (!QFile::rename(oldPath, newPath)) {
-                fprintf(stderr, "Failed to rotate log: %s -> %s\n", qPrintable(oldPath), qPrintable(newPath));
+                qWarning("Failed to rotate log: %s -> %s", qPrintable(oldPath), qPrintable(newPath));
             }
         }
     }
     QString rotatedPath = logFilePath + ".1";
     QFile::remove(rotatedPath);
     if (!QFile::rename(logFilePath, rotatedPath)) {
-        fprintf(stderr, "Failed to rotate log: %s -> %s\n", qPrintable(logFilePath), qPrintable(rotatedPath));
+        qWarning("Failed to rotate log: %s -> %s", qPrintable(logFilePath), qPrintable(rotatedPath));
     }
 }
 

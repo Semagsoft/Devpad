@@ -7,7 +7,7 @@ protected:
 };
 
 TEST_F(AppStringsTest, AppNameIsDevpad) {
-    EXPECT_EQ(Strings::AppName, QStringLiteral("Devpad"));
+    EXPECT_EQ(Strings::AppName(), QStringLiteral("Devpad"));
 }
 
 TEST_F(AppStringsTest, UntitledIsUntitled) {
@@ -15,7 +15,7 @@ TEST_F(AppStringsTest, UntitledIsUntitled) {
 }
 
 TEST_F(AppStringsTest, AppNameNotEmpty) {
-    EXPECT_FALSE(Strings::AppName.isEmpty());
+    EXPECT_FALSE(Strings::AppName().isEmpty());
 }
 
 TEST_F(AppStringsTest, UntitledNotEmpty) {

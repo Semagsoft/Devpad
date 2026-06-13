@@ -25,11 +25,13 @@
 #include "editorcontroller.h"
 #include "encodingmanager.h"
 #include "encodingutils.h"
+#include "externaltoolmanager.h"
 #include "filemanager.h"
 #include "filewatchermanager.h"
 #include "finddialog.h"
 #include "findinfilesdialog.h"
 #include "logger.h"
+#include "externaltoolsdialog.h"
 #include "optionsdialog.h"
 #include "printmanager.h"
 #include "projectpanel.h"
@@ -47,11 +49,13 @@
 #include <QAction>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QDialog>
 #include <QDir>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QHash>
 #include <QIcon>
 #include <QInputDialog>
@@ -62,17 +66,21 @@
 #include <QPrintPreviewDialog>
 #include <QPrinter>
 #include <QProcess>
+#include <QPushButton>
 #include <QRegularExpression>
+#include <QShortcut>
 #include <QStringConverter>
 #include <QTabBar>
 #include <QTextDocument>
+#include <QTextEdit>
 #include <QToolButton>
+#include <QVBoxLayout>
 
 MainWindow::~MainWindow() = default;
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
-    setWindowTitle(Strings::AppName);
+    setWindowTitle(Strings::AppName());
     setMinimumSize(800, 600);
     QIcon windowIcon(":/icons/devpad.svg");
     if (!windowIcon.isNull())
@@ -149,6 +157,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     editorController = new EditorController(tabManager, fileManager, fileWatcherManager, actionManager, tabWidget, this);
 
+    m_externalToolManager = new ExternalToolManager(this);
     m_remoteFileService = new RemoteFileService(this);
 
     connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
@@ -181,9 +190,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     setCentralWidget(splitView);
 
+    actionManager->menuBarAct()->setChecked(SettingsManager::instance().showMenuBar());
     actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
     actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
     addToolBar(actionManager->toolBar());
+    menuBar()->setVisible(SettingsManager::instance().showMenuBar());
     actionManager->toolBar()->setVisible(SettingsManager::instance().showToolbar());
     statusBar()->setVisible(SettingsManager::instance().showStatusbar());
 
@@ -224,14 +235,26 @@ void MainWindow::setupUI()
 {
     actionManager->createActions();
     actionManager->buildMenus(menuBar());
-    connect(actionManager->menuBarAct(), &QAction::triggered, this, [this]() {
-        menuBar()->setVisible(!menuBar()->isVisible());
-    });
     actionManager->buildToolBar();
     actionManager->buildStatusBar(statusBar(), projectPanel, terminalPanel);
 
+    actionManager->menuBarAct()->setChecked(SettingsManager::instance().showMenuBar());
     actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
     actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
+
+    auto *menuBarShortcut = new QShortcut(QKeySequence("Ctrl+Alt+M"), this);
+    connect(menuBarShortcut, &QShortcut::activated, this, [this]() {
+        bool visible = !menuBar()->isVisible();
+        menuBar()->setVisible(visible);
+        actionManager->menuBarAct()->setChecked(visible);
+        SettingsManager::instance().setShowMenuBar(visible);
+    });
+
+    auto *toolBarShortcut = new QShortcut(QKeySequence("Ctrl+Alt+T"), this);
+    connect(toolBarShortcut, &QShortcut::activated, actionManager->toolBarAct(), &QAction::trigger);
+
+    auto *statusBarShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Alt+S"), this);
+    connect(statusBarShortcut, &QShortcut::activated, actionManager->statusBarAct(), &QAction::trigger);
 }
 
 void MainWindow::connectActions()
@@ -279,6 +302,14 @@ connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
     connect(actionManager, &ActionManager::nextBookmarkTriggered, editorController, &EditorController::nextBookmark);
     connect(actionManager, &ActionManager::prevBookmarkTriggered, editorController, &EditorController::prevBookmark);
     connect(actionManager, &ActionManager::clearBookmarksTriggered, editorController, &EditorController::clearBookmarks);
+    connect(actionManager, &ActionManager::toggleMenuBarTriggered, this,
+            [this]()
+            {
+                bool visible = !menuBar()->isVisible();
+                menuBar()->setVisible(visible);
+                actionManager->menuBarAct()->setChecked(visible);
+                SettingsManager::instance().setShowMenuBar(visible);
+            });
     connect(actionManager, &ActionManager::toggleToolBarTriggered, this,
             [this]()
             {
@@ -299,7 +330,14 @@ connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
     connect(actionManager, &ActionManager::printFileTriggered, this, &MainWindow::printFile);
     connect(actionManager, &ActionManager::printPreviewTriggered, this, &MainWindow::printPreview);
     connect(actionManager, &ActionManager::optionsTriggered, this, &MainWindow::showOptions);
+    connect(actionManager, &ActionManager::configureExternalToolsTriggered, this, [this]() {
+        ExternalToolsDialog dlg(this);
+        if (dlg.exec() == QDialog::Accepted) {
+            actionManager->rebuildExternalToolsMenu();
+        }
+    });
     connect(actionManager, &ActionManager::aboutTriggered, this, &MainWindow::showAbout);
+    connect(actionManager, &ActionManager::externalToolTriggered, this, &MainWindow::runExternalTool);
 
     connect(actionManager, &ActionManager::openRecentFileTriggered, this,
             [this](const QString& filePath)
@@ -689,6 +727,82 @@ void MainWindow::showOptions()
         tabManager->updateTabBarVisibility();
         updateRecentFileActions();
         applyAutoSaveSettings();
+    }
+}
+
+void MainWindow::runExternalTool(int index)
+{
+    auto& s = SettingsManager::instance();
+    if (index < 0 || index >= s.externalToolCount())
+        return;
+
+    ExternalTool tool;
+    tool.name = s.externalToolName(index);
+    tool.command = s.externalToolCommand(index);
+    tool.arguments = s.externalToolArguments(index);
+    tool.workingDir = s.externalToolWorkingDir(index);
+    tool.shortcut = QKeySequence(s.externalToolShortcut(index));
+    tool.runInTerminal = s.externalToolRunInTerminal(index);
+
+    CodeEditor* editor = tabManager->currentEditor();
+    QString filePath;
+    int lineNumber = 1;
+    QString selectedText;
+    if (editor) {
+        filePath = editor->fileName();
+        editor->getCursorPosition(&lineNumber, nullptr);
+        lineNumber++;
+        selectedText = editor->selectedText();
+    }
+
+    QString projectDir;
+    if (projectPanel->isVisible() && !projectPanel->rootPath().isEmpty())
+        projectDir = projectPanel->rootPath();
+
+    QString cmd = m_externalToolManager->resolveVariables(tool.command, filePath,
+                                                          projectDir, selectedText, lineNumber);
+    QString args = m_externalToolManager->resolveVariables(tool.arguments, filePath,
+                                                           projectDir, selectedText, lineNumber);
+    QString workDir = m_externalToolManager->workingDirForTool(tool, filePath, projectDir);
+
+    if (tool.runInTerminal) {
+        if (!terminalPanel->isVisible()) {
+            terminalPanel->toggle(tabWidget, this);
+            terminalPanel->show();
+        }
+        QString shellCmd = QString("cd \"%1\" && %2 %3\n").arg(workDir, cmd, args);
+        terminalPanel->sendCommand(shellCmd);
+    } else {
+        auto* process = new QProcess(this);
+        process->setWorkingDirectory(workDir);
+        process->setProcessChannelMode(QProcess::MergedChannels);
+
+        auto* outputDialog = new QDialog(this);
+        outputDialog->setWindowTitle(tool.name + tr(" - Output"));
+        outputDialog->setMinimumSize(500, 300);
+        auto* layout = new QVBoxLayout(outputDialog);
+        auto* outputText = new QTextEdit(outputDialog);
+        outputText->setReadOnly(true);
+        outputText->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        layout->addWidget(outputText);
+        auto* closeBtn = new QPushButton(tr("Close"), outputDialog);
+        layout->addWidget(closeBtn);
+        connect(closeBtn, &QPushButton::clicked, outputDialog, &QDialog::accept);
+        connect(process, &QProcess::readyReadStandardOutput, outputDialog, [process, outputText]() {
+            outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
+        });
+        connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                outputDialog, [outputText, process](int, QProcess::ExitStatus) {
+            outputText->append(tr("\n--- Process exited ---"));
+            outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
+        });
+        outputDialog->setAttribute(Qt::WA_DeleteOnClose);
+        outputDialog->show();
+
+        if (!args.isEmpty())
+            process->start(cmd, QStringList() << args.split(' ', Qt::SkipEmptyParts));
+        else
+            process->start(cmd);
     }
 }
 

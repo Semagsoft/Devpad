@@ -171,6 +171,21 @@ QString TerminalPanel::workingDirectory() const {
     return m_workingDirectory;
 }
 
+void TerminalPanel::sendCommand(const QString &command) {
+    ensureTerminalWidget();
+    if (m_isRunning) {
+        terminalWidget->sendText(command);
+    } else {
+        startTerminal();
+        QPointer<TerminalPanel> guard(this);
+        QMetaObject::invokeMethod(this, [guard, command]() {
+            if (guard && guard->terminalWidget) {
+                guard->terminalWidget->sendText(command);
+            }
+        }, Qt::QueuedConnection);
+    }
+}
+
 void TerminalPanel::onSessionFinished() {
     m_isRunning = false;
     emit terminalStopped();

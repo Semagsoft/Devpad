@@ -45,14 +45,9 @@ public:
     void buildStatusBar(QStatusBar *statusBar, ProjectPanel *projectPanel, TerminalPanel *terminalPanel);
 
     QAction* newAct() const { return m_newAct; }
-    QAction* quitDevpadAct() const { return m_quitDevpadAct; }
-    QAction* saveAct() const { return m_saveAct; }
-    QAction* saveAsAct() const { return m_saveAsAct; }
-    QAction* saveAllAct() const { return m_saveAllAct; }
-    QAction* closeAct() const { return m_closeAct; }
-    QAction* closeAllAct() const { return m_closeAllAct; }
-    QAction* quitDevpadAct() const { return m_quitDevpadAct; }
-    QAction* undoAct() const { return m_undoAct; }
+     QAction* quitDevpadAct() const { return m_quitDevpadAct; }
+     QAction* undoAct() const { return m_undoAct; }
+
     QAction* redoAct() const { return m_redoAct; }
     QAction* cutAct() const { return m_cutAct; }
     QAction* copyAct() const { return m_copyAct; }
@@ -95,10 +90,8 @@ public:
     QLabel* fileTypeLabel() const { return m_fileTypeLabel; }
     QToolButton* projectPanelButton() const { return m_projectPanelButton; }
     QToolButton* terminalPanelButton() const { return m_terminalPanelButton; }
-    QAction* menuBarAct() const { return m_menuBarAct; }
 
-
-
+    void rebuildExternalToolsMenu();
 
 signals:
     void newFileTriggered();
@@ -137,6 +130,7 @@ signals:
     void toggleTerminalPanelTriggered();
     void toggleToolBarTriggered();
     void toggleStatusBarTriggered();
+    void toggleMenuBarTriggered();
     void toggleWordWrapTriggered();
     void printFileTriggered();
     void printPreviewTriggered();
@@ -146,7 +140,9 @@ signals:
     void prevBookmarkTriggered();
     void clearBookmarksTriggered();
     void optionsTriggered();
+    void configureExternalToolsTriggered();
     void aboutTriggered();
+    void externalToolTriggered(int index);
 
     void openRecentFileTriggered(const QString &filePath);
     void clearRecentFilesTriggered();
@@ -212,6 +208,8 @@ private:
     QAction* m_clearBookmarksAct = nullptr;
     QAction* m_optionsAct = nullptr;
     QAction* m_aboutAct = nullptr;
+    QList<QAction*> m_externalToolActs;
+    QMenu* m_toolsMenu = nullptr;
 
 
     QMenu* m_recentFilesMenu = nullptr;

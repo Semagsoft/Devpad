@@ -168,6 +168,7 @@ void SettingsManager::loadCache()
         static_cast<TabDisplayMode>(m_settings.value("Options_TabDisplayMode", static_cast<int>(TabDisplayMode::ShowTwoPlus)).toInt());
     m_cache.ui.tabBarPosition =
         static_cast<TabBarPosition>(m_settings.value("Options_TabBarPosition", static_cast<int>(TabBarPosition::Top)).toInt());
+    m_cache.ui.showMenuBar = m_settings.value("Options_ShowMenuBar", true).toBool();
     m_cache.ui.showToolbar = m_settings.value("Options_ShowToolbar", true).toBool();
     m_cache.ui.showStatusbar = m_settings.value("Options_ShowStatusbar", true).toBool();
     m_cache.ui.uiFontFamily = m_settings.value("Options_UIFont", "Sans Serif").toString();
@@ -352,6 +353,12 @@ CloseButtonMode SettingsManager::closeButtonMode() const
 {
     QMutexLocker locker(&m_cacheMutex);
     return m_cache.ui.closeButtonMode;
+}
+
+bool SettingsManager::showMenuBar() const
+{
+    QMutexLocker locker(&m_cacheMutex);
+    return m_cache.ui.showMenuBar;
 }
 
 bool SettingsManager::showToolbar() const
@@ -643,6 +650,13 @@ void SettingsManager::setTabBarPosition(TabBarPosition position)
     m_cache.ui.tabBarPosition = position;
 }
 
+void SettingsManager::setShowMenuBar(bool visible)
+{
+    QMutexLocker locker(&m_cacheMutex);
+    m_settings.setValue("Options_ShowMenuBar", visible);
+    m_cache.ui.showMenuBar = visible;
+}
+
 void SettingsManager::setShowToolbar(bool visible)
 {
     QMutexLocker locker(&m_cacheMutex);
@@ -771,6 +785,102 @@ QString SettingsManager::syntaxForFile(const QString& filePath) const
     if (!lang.isEmpty())
         return lang;
     return syntaxForExtension(QFileInfo(filePath).suffix());
+}
+
+int SettingsManager::externalToolCount() const {
+    QMutexLocker locker(&m_cacheMutex);
+    return m_settings.value("ExternalTools/Count", 0).toInt();
+}
+
+QString SettingsManager::externalToolName(int index) const {
+    QMutexLocker locker(&m_cacheMutex);
+    return m_settings.value(QString("ExternalTools/%1/Name").arg(index)).toString();
+}
+
+QString SettingsManager::externalToolCommand(int index) const {
+    QMutexLocker locker(&m_cacheMutex);
+    return m_settings.value(QString("ExternalTools/%1/Command").arg(index)).toString();
+}
+
+QString SettingsManager::externalToolArguments(int index) const {
+    QMutexLocker locker(&m_cacheMutex);
+    return m_settings.value(QString("ExternalTools/%1/Arguments").arg(index)).toString();
+}
+
+QString SettingsManager::externalToolWorkingDir(int index) const {
+    QMutexLocker locker(&m_cacheMutex);
+    return m_settings.value(QString("ExternalTools/%1/WorkingDir").arg(index)).toString();
+}
+
+QString SettingsManager::externalToolShortcut(int index) const {
+    QMutexLocker locker(&m_cacheMutex);
+    return m_settings.value(QString("ExternalTools/%1/Shortcut").arg(index)).toString();
+}
+
+bool SettingsManager::externalToolRunInTerminal(int index) const {
+    QMutexLocker locker(&m_cacheMutex);
+    return m_settings.value(QString("ExternalTools/%1/RunInTerminal").arg(index), true).toBool();
+}
+
+void SettingsManager::setExternalTool(int index, const QString& name, const QString& command,
+                                       const QString& arguments, const QString& workingDir,
+                                       const QString& shortcut, bool runInTerminal) {
+    QMutexLocker locker(&m_cacheMutex);
+    QString prefix = QString("ExternalTools/%1/").arg(index);
+    m_settings.setValue(prefix + "Name", name);
+    m_settings.setValue(prefix + "Command", command);
+    m_settings.setValue(prefix + "Arguments", arguments);
+    m_settings.setValue(prefix + "WorkingDir", workingDir);
+    m_settings.setValue(prefix + "Shortcut", shortcut);
+    m_settings.setValue(prefix + "RunInTerminal", runInTerminal);
+}
+
+void SettingsManager::addExternalTool(const QString& name, const QString& command,
+                                       const QString& arguments, const QString& workingDir,
+                                       const QString& shortcut, bool runInTerminal) {
+    QMutexLocker locker(&m_cacheMutex);
+    int count = m_settings.value("ExternalTools/Count", 0).toInt();
+    m_settings.setValue("ExternalTools/Count", count + 1);
+    QString prefix = QString("ExternalTools/%1/").arg(count);
+    m_settings.setValue(prefix + "Name", name);
+    m_settings.setValue(prefix + "Command", command);
+    m_settings.setValue(prefix + "Arguments", arguments);
+    m_settings.setValue(prefix + "WorkingDir", workingDir);
+    m_settings.setValue(prefix + "Shortcut", shortcut);
+    m_settings.setValue(prefix + "RunInTerminal", runInTerminal);
+}
+
+void SettingsManager::removeExternalTool(int index) {
+    QMutexLocker locker(&m_cacheMutex);
+    int count = m_settings.value("ExternalTools/Count", 0).toInt();
+    if (index < 0 || index >= count) return;
+
+    QString prefix = QString("ExternalTools/%1/").arg(index);
+    m_settings.remove(prefix + "Name");
+    m_settings.remove(prefix + "Command");
+    m_settings.remove(prefix + "Arguments");
+    m_settings.remove(prefix + "WorkingDir");
+    m_settings.remove(prefix + "Shortcut");
+    m_settings.remove(prefix + "RunInTerminal");
+
+    for (int i = index + 1; i < count; ++i) {
+        QString oldPrefix = QString("ExternalTools/%1/").arg(i);
+        QString newPrefix = QString("ExternalTools/%1/").arg(i - 1);
+        m_settings.setValue(newPrefix + "Name", m_settings.value(oldPrefix + "Name"));
+        m_settings.setValue(newPrefix + "Command", m_settings.value(oldPrefix + "Command"));
+        m_settings.setValue(newPrefix + "Arguments", m_settings.value(oldPrefix + "Arguments"));
+        m_settings.setValue(newPrefix + "WorkingDir", m_settings.value(oldPrefix + "WorkingDir"));
+        m_settings.setValue(newPrefix + "Shortcut", m_settings.value(oldPrefix + "Shortcut"));
+        m_settings.setValue(newPrefix + "RunInTerminal", m_settings.value(oldPrefix + "RunInTerminal"));
+
+        m_settings.remove(oldPrefix + "Name");
+        m_settings.remove(oldPrefix + "Command");
+        m_settings.remove(oldPrefix + "Arguments");
+        m_settings.remove(oldPrefix + "WorkingDir");
+        m_settings.remove(oldPrefix + "Shortcut");
+        m_settings.remove(oldPrefix + "RunInTerminal");
+    }
+    m_settings.setValue("ExternalTools/Count", count - 1);
 }
 
 void SettingsManager::addRecentFile(const QString& filePath)

@@ -41,11 +41,13 @@ endfunction()
 # ── Shared static library (avoids double compilation) ─────────
 add_library(Devpad_lib STATIC
     src/codeeditor.cpp
+    src/keywords.cpp
     src/languageinfo.cpp
     src/theme.cpp
     src/logger.cpp
     src/encodingutils.cpp
     src/managers/backupmanager.cpp
+    src/managers/externaltoolmanager.cpp
     src/managers/filemanager.cpp
     src/managers/settingsmanager.cpp
     src/managers/remotefileservice.cpp
@@ -62,6 +64,7 @@ add_library(Devpad_lib STATIC
     src/defaultsyntax.h
     src/appstrings.h
     src/managers/backupmanager.h
+    src/managers/externaltoolmanager.h
     src/managers/filemanager.h
     src/managers/settingsmanager.h
     src/managers/remotefileservice.h
@@ -100,6 +103,7 @@ target_sources(Devpad PRIVATE
     src/panels/projectpanel.cpp
     src/panels/terminalpanel.cpp
     src/panels/splitview.cpp
+    src/dialogs/externaltoolsdialog.cpp
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/aboutdialog.cpp
     src/dialogs/optionsdialog.cpp
@@ -121,6 +125,7 @@ target_sources(Devpad PRIVATE
         src/panels/terminalpanel.h
         src/panels/splitview.h
         src/dialogs/dialogsettings.h
+        src/dialogs/externaltoolsdialog.h
         src/dialogs/findinfilesdialog.h
         src/dialogs/aboutdialog.h
         src/dialogs/optionsdialog.h

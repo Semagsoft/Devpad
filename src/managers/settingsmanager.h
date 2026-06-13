@@ -109,6 +109,7 @@ public:
         CloseButtonMode closeButtonMode = CloseButtonMode::Right;
         TabDisplayMode tabDisplayMode = TabDisplayMode::ShowTwoPlus;
         TabBarPosition tabBarPosition = TabBarPosition::Top;
+        bool showMenuBar = true;
         bool showToolbar = true;
         bool showStatusbar = true;
         QString uiFontFamily = "Sans Serif";
@@ -190,6 +191,7 @@ public:
     CloseButtonMode closeButtonMode() const;
     TabDisplayMode tabDisplayMode() const;
     TabBarPosition tabBarPosition() const;
+    bool showMenuBar() const;
     bool showToolbar() const;
     bool showStatusbar() const;
     QString uiFontFamily() const;
@@ -199,6 +201,7 @@ public:
     void setCloseButtonMode(CloseButtonMode mode);
     void setTabDisplayMode(TabDisplayMode mode);
     void setTabBarPosition(TabBarPosition position);
+    void setShowMenuBar(bool visible);
     void setShowToolbar(bool visible);
     void setShowStatusbar(bool visible);
     void setUiFontFamily(const QString& family);
@@ -237,6 +240,22 @@ public:
     // ── File type associations ─────────────────────────────────
     QString syntaxForExtension(const QString& ext) const;
     QString syntaxForFile(const QString& filePath) const;
+
+    // ── External tools ─────────────────────────────────────────
+    int externalToolCount() const;
+    QString externalToolName(int index) const;
+    QString externalToolCommand(int index) const;
+    QString externalToolArguments(int index) const;
+    QString externalToolWorkingDir(int index) const;
+    QString externalToolShortcut(int index) const;
+    bool externalToolRunInTerminal(int index) const;
+    void setExternalTool(int index, const QString& name, const QString& command,
+                         const QString& arguments, const QString& workingDir,
+                         const QString& shortcut, bool runInTerminal);
+    void addExternalTool(const QString& name, const QString& command,
+                         const QString& arguments, const QString& workingDir,
+                         const QString& shortcut, bool runInTerminal);
+    void removeExternalTool(int index);
 
     // ── Recent files / folders ─────────────────────────────────
     void addRecentFile(const QString& filePath);

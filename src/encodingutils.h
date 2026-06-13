@@ -28,7 +28,7 @@ struct EncodingInfo {
     QStringConverter::Encoding encoding;
 };
 
-QVector<EncodingInfo> supportedEncodings();
+const QVector<EncodingInfo>& supportedEncodings();
 QStringConverter::Encoding encodingFromName(const QString &name);
 QString encodingToDisplayName(QStringConverter::Encoding enc);
 

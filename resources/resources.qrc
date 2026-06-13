@@ -25,7 +25,7 @@
         <file>icons/Common/filetypes/archive.svg</file>
         <file>icons/File/close.svg</file>
         <file>icons/File/closeall.svg</file>
-
+        <file>icons/File/closewindow.svg</file>
         <file>icons/Common/filetypes/htmlfile.svg</file>
         <file>icons/Common/filetypes/misccode.svg</file>
         <file>icons/File/exit.svg</file>

@@ -343,12 +343,13 @@ ThemeColors getThemeColors(ThemeId themeId) {
     if (themeId == ThemeId::System) {
         QStyleHints* hints = QApplication::styleHints();
         return (hints && hints->colorScheme() == Qt::ColorScheme::Dark)
-            ? createDarkTheme() : createLightTheme();
+            ? s_cache[static_cast<int>(ThemeId::Dark)]
+            : s_cache[static_cast<int>(ThemeId::Light)];
     }
 
     int idx = static_cast<int>(themeId);
     if (idx < 0 || idx >= static_cast<int>(s_cache.size()))
-        return createLightTheme();
+        return s_cache[static_cast<int>(ThemeId::Light)];
     return s_cache[idx];
 }
 
