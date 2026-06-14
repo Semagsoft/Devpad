@@ -160,6 +160,8 @@ void SettingsManager::loadCache()
     m_cache.editor.highlightCurrentLine = m_settings.value("Options_HighlightCurrentLine", true).toBool();
     m_cache.editor.verticalEdgeEnabled = m_settings.value("Options_VerticalEdgeEnabled", false).toBool();
     m_cache.editor.verticalEdgeColumn = m_settings.value("Options_VerticalEdgeColumn", 80).toInt();
+    m_cache.editor.snippetsEnabled = m_settings.value("Options_SnippetsEnabled", true).toBool();
+    m_cache.editor.predictiveSnippets = m_settings.value("Options_PredictiveSnippets", true).toBool();
 
     m_cache.ui.startupMode = static_cast<StartupMode>(m_settings.value("Options_StartupMode", static_cast<int>(StartupMode::NewFile)).toInt());
     m_cache.ui.closeButtonMode =
@@ -531,6 +533,31 @@ void SettingsManager::setTheme(ThemeId theme)
     m_cache.editor.theme = theme;
 }
 
+QColor SettingsManager::accentColor() const
+{
+    QMutexLocker locker(&m_cacheMutex);
+    return m_settings.value("Options_AccentColor", QColor()).value<QColor>();
+}
+
+bool SettingsManager::hasAccentColor() const
+{
+    QMutexLocker locker(&m_cacheMutex);
+    QVariant v = m_settings.value("Options_AccentColor");
+    return v.isValid() && v.value<QColor>().isValid();
+}
+
+void SettingsManager::setAccentColor(const QColor &color)
+{
+    QMutexLocker locker(&m_cacheMutex);
+    m_settings.setValue("Options_AccentColor", color);
+}
+
+void SettingsManager::clearAccentColor()
+{
+    QMutexLocker locker(&m_cacheMutex);
+    m_settings.remove("Options_AccentColor");
+}
+
 void SettingsManager::setDefaultEncoding(int encoding)
 {
     QMutexLocker locker(&m_cacheMutex);
@@ -620,6 +647,32 @@ void SettingsManager::setVerticalEdgeColumn(int column)
     QMutexLocker locker(&m_cacheMutex);
     m_settings.setValue("Options_VerticalEdgeColumn", column);
     m_cache.editor.verticalEdgeColumn = column;
+}
+
+bool SettingsManager::snippetsEnabled() const
+{
+    QMutexLocker locker(&m_cacheMutex);
+    return m_cache.editor.snippetsEnabled;
+}
+
+bool SettingsManager::predictiveSnippets() const
+{
+    QMutexLocker locker(&m_cacheMutex);
+    return m_cache.editor.predictiveSnippets;
+}
+
+void SettingsManager::setSnippetsEnabled(bool enabled)
+{
+    QMutexLocker locker(&m_cacheMutex);
+    m_settings.setValue("Options_SnippetsEnabled", enabled);
+    m_cache.editor.snippetsEnabled = enabled;
+}
+
+void SettingsManager::setPredictiveSnippets(bool enabled)
+{
+    QMutexLocker locker(&m_cacheMutex);
+    m_settings.setValue("Options_PredictiveSnippets", enabled);
+    m_cache.editor.predictiveSnippets = enabled;
 }
 
 void SettingsManager::setStartupMode(StartupMode mode)

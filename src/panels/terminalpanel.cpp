@@ -171,6 +171,13 @@ QString TerminalPanel::workingDirectory() const {
     return m_workingDirectory;
 }
 
+void TerminalPanel::refreshTheme() {
+    if (terminalWidget) {
+        QString scheme = themeToColorScheme(SettingsManager::instance().theme());
+        terminalWidget->setColorScheme(scheme);
+    }
+}
+
 void TerminalPanel::sendCommand(const QString &command) {
     ensureTerminalWidget();
     if (m_isRunning) {
@@ -189,16 +196,7 @@ void TerminalPanel::sendCommand(const QString &command) {
 void TerminalPanel::onSessionFinished() {
     m_isRunning = false;
     emit terminalStopped();
-    if (isVisible() && terminalWidget) {
-        QPointer<TerminalPanel> guard(this);
-        QMetaObject::invokeMethod(this, [guard]() {
-            if (guard && !guard->m_isRunning && guard->terminalWidget) {
-                guard->terminalWidget->startShellProgram();
-                guard->m_isRunning = true;
-                emit guard->terminalStarted();
-            }
-        }, Qt::QueuedConnection);
-    }
+    emit sessionExited();
 }
 
 void TerminalPanel::onCurrentDirectoryChanged(const QString &dir) {

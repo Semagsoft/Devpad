@@ -76,8 +76,11 @@ public:
     QAction* nextBookmarkAct() const { return m_nextBookmarkAct; }
     QAction* prevBookmarkAct() const { return m_prevBookmarkAct; }
     QAction* clearBookmarksAct() const { return m_clearBookmarksAct; }
+    QAction* insertSnippetAct() const { return m_insertSnippetAct; }
     QAction* optionsAct() const { return m_optionsAct; }
     QAction* aboutAct() const { return m_aboutAct; }
+    QAction* donateAct() const { return m_donateAct; }
+    QAction* websiteAct() const { return m_websiteAct; }
     QAction* menuBarAct() const { return m_menuBarAct; }
     QMenu* recentFilesMenu() const { return m_recentFilesMenu; }
     QAction* recentFileAct(int index) const { return (index >= 0 && index < 10) ? m_recentFileActs[index] : nullptr; }
@@ -92,6 +95,7 @@ public:
     QToolButton* terminalPanelButton() const { return m_terminalPanelButton; }
 
     void rebuildExternalToolsMenu();
+    QList<QAction*> actionsWithShortcuts() const { return m_actionsWithShortcuts; }
 
 signals:
     void newFileTriggered();
@@ -139,13 +143,17 @@ signals:
     void nextBookmarkTriggered();
     void prevBookmarkTriggered();
     void clearBookmarksTriggered();
+    void insertSnippetTriggered();
     void optionsTriggered();
     void configureExternalToolsTriggered();
     void aboutTriggered();
+    void donateTriggered();
+    void websiteTriggered();
     void externalToolTriggered(int index);
 
     void openRecentFileTriggered(const QString &filePath);
     void clearRecentFilesTriggered();
+    void actionsWithShortcutsChanged();
 
 private:
     template<typename Functor>
@@ -153,6 +161,8 @@ private:
         QIcon icon(iconPath);
         QAction *action = new QAction(icon, text, this);
         action->setShortcut(shortcut);
+        if (!shortcut.isEmpty())
+            m_actionsWithShortcuts.append(action);
         connect(action, &QAction::triggered, this, slot);
         return action;
     }
@@ -206,10 +216,14 @@ private:
     QAction* m_nextBookmarkAct = nullptr;
     QAction* m_prevBookmarkAct = nullptr;
     QAction* m_clearBookmarksAct = nullptr;
+    QAction* m_insertSnippetAct = nullptr;
     QAction* m_optionsAct = nullptr;
+    QAction* m_donateAct = nullptr;
+    QAction* m_websiteAct = nullptr;
     QAction* m_aboutAct = nullptr;
     QList<QAction*> m_externalToolActs;
     QMenu* m_toolsMenu = nullptr;
+    QList<QAction*> m_actionsWithShortcuts;
 
 
     QMenu* m_recentFilesMenu = nullptr;

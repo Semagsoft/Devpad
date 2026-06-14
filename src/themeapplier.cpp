@@ -29,9 +29,11 @@ ThemeApplier::ThemeApplier(QObject *parent) : QObject(parent) {}
 void ThemeApplier::applyTheme(QMainWindow *window) {
     ThemeId themeId = SettingsManager::instance().theme();
     ThemeColors colors = getThemeColors(themeId);
-    QPalette palette = getThemePalette(colors);
 
-    QApplication::setPalette(palette);
+    if (!prefersNativeStyling(themeId)) {
+        QPalette palette = getThemePalette(colors);
+        QApplication::setPalette(palette);
+    }
 
     const auto& ui = SettingsManager::instance().uiSettings();
     if (!ui.uiFontFamily.isEmpty()) {
@@ -39,41 +41,45 @@ void ThemeApplier::applyTheme(QMainWindow *window) {
         QApplication::setFont(uiFont);
     }
 
-    QFile qssFile(":/theme.qss");
-    if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
-        QString ss = QString::fromUtf8(qssFile.readAll());
+    if (!prefersNativeStyling(themeId)) {
+        QFile qssFile(":/theme.qss");
+        if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
+            QString ss = QString::fromUtf8(qssFile.readAll());
 
-        struct { const char *key; QColor ThemeColors::*member; } const mappings[] = {
-            {"%background%",           &ThemeColors::background},
-            {"%foreground%",           &ThemeColors::foreground},
-            {"%menuBg%",               &ThemeColors::menuBg},
-            {"%menuFg%",               &ThemeColors::menuFg},
-            {"%separator%",            &ThemeColors::separator},
-            {"%selectionBg%",          &ThemeColors::selectionBg},
-            {"%toolbarBg%",            &ThemeColors::toolbarBg},
-            {"%toolbarFg%",            &ThemeColors::toolbarFg},
-            {"%tabBg%",                &ThemeColors::tabBg},
-            {"%tabFg%",                &ThemeColors::tabFg},
-            {"%tabBgActive%",          &ThemeColors::tabBgActive},
-            {"%tabFgActive%",          &ThemeColors::tabFgActive},
-            {"%statusbarBg%",          &ThemeColors::statusbarBg},
-            {"%statusbarFg%",          &ThemeColors::statusbarFg},
-            {"%groupboxBg%",           &ThemeColors::groupboxBg},
-            {"%groupboxFg%",           &ThemeColors::groupboxFg},
-            {"%inputBg%",              &ThemeColors::inputBg},
-            {"%inputFg%",              &ThemeColors::inputFg},
-            {"%checkboxIndicator%",    &ThemeColors::checkboxIndicator},
-            {"%buttonBg%",             &ThemeColors::buttonBg},
-            {"%buttonFg%",             &ThemeColors::buttonFg},
-            {"%scrollbarBg%",          &ThemeColors::scrollbarBg},
-            {"%scrollbarHandle%",      &ThemeColors::scrollbarHandle},
-            {"%scrollbarHandleHover%", &ThemeColors::scrollbarHandleHover},
-        };
-        for (const auto& m : mappings) {
-            ss.replace(QLatin1String(m.key), (colors.*(m.member)).name());
+            struct { const char *key; QColor ThemeColors::*member; } const mappings[] = {
+                {"%background%",           &ThemeColors::background},
+                {"%foreground%",           &ThemeColors::foreground},
+                {"%menuBg%",               &ThemeColors::menuBg},
+                {"%menuFg%",               &ThemeColors::menuFg},
+                {"%separator%",            &ThemeColors::separator},
+                {"%selectionBg%",          &ThemeColors::selectionBg},
+                {"%toolbarBg%",            &ThemeColors::toolbarBg},
+                {"%toolbarFg%",            &ThemeColors::toolbarFg},
+                {"%tabBg%",                &ThemeColors::tabBg},
+                {"%tabFg%",                &ThemeColors::tabFg},
+                {"%tabBgActive%",          &ThemeColors::tabBgActive},
+                {"%tabFgActive%",          &ThemeColors::tabFgActive},
+                {"%statusbarBg%",          &ThemeColors::statusbarBg},
+                {"%statusbarFg%",          &ThemeColors::statusbarFg},
+                {"%groupboxBg%",           &ThemeColors::groupboxBg},
+                {"%groupboxFg%",           &ThemeColors::groupboxFg},
+                {"%inputBg%",              &ThemeColors::inputBg},
+                {"%inputFg%",              &ThemeColors::inputFg},
+                {"%checkboxIndicator%",    &ThemeColors::checkboxIndicator},
+                {"%buttonBg%",             &ThemeColors::buttonBg},
+                {"%buttonFg%",             &ThemeColors::buttonFg},
+                {"%scrollbarBg%",          &ThemeColors::scrollbarBg},
+                {"%scrollbarHandle%",      &ThemeColors::scrollbarHandle},
+                {"%scrollbarHandleHover%", &ThemeColors::scrollbarHandleHover},
+            };
+            for (const auto& m : mappings) {
+                ss.replace(QLatin1String(m.key), (colors.*(m.member)).name());
+            }
+
+            window->setStyleSheet(ss);
         }
-
-        window->setStyleSheet(ss);
+    } else {
+        window->setStyleSheet(QString());
     }
 }
 

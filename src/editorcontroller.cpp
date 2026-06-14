@@ -27,6 +27,7 @@
 #include "filewatchermanager.h"
 #include "logger.h"
 #include "settingsmanager.h"
+#include "snippetmanager.h"
 #include "tabmanager.h"
 
 #include <QApplication>
@@ -373,6 +374,38 @@ void EditorController::clearBookmarks()
     if (editor)
     {
         editor->clearBookmarks();
+    }
+}
+
+void EditorController::insertSnippet()
+{
+    CodeEditor* editor = currentEditor();
+    if (!editor || editor->isReadOnly())
+        return;
+
+    if (SnippetManager* sm = SnippetManager::instance())
+    {
+        QList<Snippet> snippets = sm->snippetsForLanguage(editor->syntax());
+        if (snippets.isEmpty())
+            return;
+
+        QStringList names;
+        for (const auto& s : snippets)
+            names << s.name;
+
+        bool ok;
+        QString chosen = QInputDialog::getItem(
+            qobject_cast<QWidget*>(parent()), tr("Insert Snippet"),
+            tr("Select a snippet:"), names, 0, false, &ok);
+
+        if (ok && !chosen.isEmpty())
+        {
+            Snippet snip = sm->snippetByName(chosen);
+            if (!snip.prefix.isEmpty())
+            {
+                editor->insertSnippet(snip);
+            }
+        }
     }
 }
 

@@ -24,6 +24,7 @@ protected:
 
 TEST_F(SettingsManagerTest, RecentFilesAddAndList)
 {
+    SettingsManager::instance().clearRecentFiles();
     EXPECT_TRUE(SettingsManager::instance().recentFiles().isEmpty());
 
     SettingsManager::instance().addRecentFile("/path/to/file1.txt");
@@ -37,6 +38,7 @@ TEST_F(SettingsManagerTest, RecentFilesAddAndList)
 
 TEST_F(SettingsManagerTest, RecentFilesMaxTen)
 {
+    SettingsManager::instance().clearRecentFiles();
     for (int i = 0; i < 15; ++i)
     {
         SettingsManager::instance().addRecentFile(QString("/path/to/file%1.txt").arg(i));
@@ -48,6 +50,7 @@ TEST_F(SettingsManagerTest, RecentFilesMaxTen)
 
 TEST_F(SettingsManagerTest, RecentFilesClear)
 {
+    SettingsManager::instance().clearRecentFiles();
     SettingsManager::instance().addRecentFile("/path/to/file.txt");
     EXPECT_FALSE(SettingsManager::instance().recentFiles().isEmpty());
 
@@ -57,6 +60,7 @@ TEST_F(SettingsManagerTest, RecentFilesClear)
 
 TEST_F(SettingsManagerTest, RecentFoldersAddAndList)
 {
+    SettingsManager::instance().clearRecentFolders();
     EXPECT_TRUE(SettingsManager::instance().recentFolders().isEmpty());
 
     SettingsManager::instance().addRecentFolder("/path/to/folder1");

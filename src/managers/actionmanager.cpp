@@ -58,11 +58,13 @@ m_exitAct = createIconAction(":/icons/File/closewindow.svg", tr("Close Window"),
     m_projectPanelAct->setCheckable(true);
     m_projectPanelAct->setChecked(false);
     m_projectPanelAct->setShortcut(QKeySequence("Ctrl+B"));
+    m_actionsWithShortcuts.append(m_projectPanelAct);
     connect(m_projectPanelAct, &QAction::triggered, this, [this]() { emit toggleProjectPanelTriggered(); });
     m_terminalPanelAct = new QAction(QIcon(":/icons/View/terminal.svg"), tr("Terminal Panel"), this);
     m_terminalPanelAct->setCheckable(true);
     m_terminalPanelAct->setChecked(false);
     m_terminalPanelAct->setShortcut(QKeySequence("Ctrl+`"));
+    m_actionsWithShortcuts.append(m_terminalPanelAct);
     connect(m_terminalPanelAct, &QAction::triggered, this, [this]() { emit toggleTerminalPanelTriggered(); });
     m_toolBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Toolbar\tCtrl+Alt+T"), this);
     m_toolBarAct->setCheckable(true);
@@ -73,28 +75,42 @@ m_exitAct = createIconAction(":/icons/File/closewindow.svg", tr("Close Window"),
     m_wordWrapAct = new QAction(tr("Word Wrap"), this);
     m_wordWrapAct->setCheckable(true);
     m_wordWrapAct->setShortcut(QKeySequence("Ctrl+E"));
+    m_actionsWithShortcuts.append(m_wordWrapAct);
     connect(m_wordWrapAct, &QAction::triggered, this, [this]() { emit toggleWordWrapTriggered(); });
     m_findNextAct = createIconAction(":/icons/Edit/find.svg", tr("Find Next"), QKeySequence("F3"), [this]() { emit findNextTriggered(); });
     m_findPrevAct = createIconAction(":/icons/Edit/find.svg", tr("Find Previous"), QKeySequence("Shift+F3"), [this]() { emit findPreviousTriggered(); });
     m_aboutAct = createIconAction(":/icons/Help/about.svg", tr("About..."), QKeySequence(), [this]() { emit aboutTriggered(); });
+    m_donateAct = new QAction(QIcon(":/icons/Help/donate.svg"), tr("Donate..."), this);
+    connect(m_donateAct, &QAction::triggered, this, [this]() { emit donateTriggered(); });
+    m_websiteAct = new QAction(QIcon(":/icons/Help/website.svg"), tr("Website..."), this);
+    connect(m_websiteAct, &QAction::triggered, this, [this]() { emit websiteTriggered(); });
     m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options..."), QKeySequence(), [this]() { emit optionsTriggered(); });
     m_printAct = createIconAction(":/icons/File/print.svg", tr("Print..."), QKeySequence::Print, [this]() { emit printFileTriggered(); });
     m_printPreviewAct = createIconAction(":/icons/File/printpreview.svg", tr("Print Preview..."), QKeySequence(), [this]() { emit printPreviewTriggered(); });
     m_readOnlyAct = new QAction(QIcon(":/icons/File/readonly.svg"), tr("Read Only"), this);
     m_readOnlyAct->setCheckable(true);
     m_readOnlyAct->setShortcut(QKeySequence("Ctrl+Shift+R"));
+    m_actionsWithShortcuts.append(m_readOnlyAct);
     connect(m_readOnlyAct, &QAction::triggered, this, [this]() { emit toggleReadOnlyTriggered(); });
     m_toggleBookmarkAct = new QAction(tr("Toggle Bookmark"), this);
     m_toggleBookmarkAct->setShortcut(QKeySequence("Ctrl+F2"));
+    m_actionsWithShortcuts.append(m_toggleBookmarkAct);
     connect(m_toggleBookmarkAct, &QAction::triggered, this, [this]() { emit toggleBookmarkTriggered(); });
+    m_insertSnippetAct = new QAction(QIcon(":/icons/Edit/insertsnip.svg"), tr("Insert Snippet..."), this);
+    m_insertSnippetAct->setShortcut(QKeySequence("Ctrl+Shift+I"));
+    m_actionsWithShortcuts.append(m_insertSnippetAct);
+    connect(m_insertSnippetAct, &QAction::triggered, this, [this]() { emit insertSnippetTriggered(); });
     m_nextBookmarkAct = new QAction(tr("Next Bookmark"), this);
     m_nextBookmarkAct->setShortcut(QKeySequence("F2"));
+    m_actionsWithShortcuts.append(m_nextBookmarkAct);
     connect(m_nextBookmarkAct, &QAction::triggered, this, [this]() { emit nextBookmarkTriggered(); });
     m_prevBookmarkAct = new QAction(tr("Previous Bookmark"), this);
     m_prevBookmarkAct->setShortcut(QKeySequence("Shift+F2"));
+    m_actionsWithShortcuts.append(m_prevBookmarkAct);
     connect(m_prevBookmarkAct, &QAction::triggered, this, [this]() { emit prevBookmarkTriggered(); });
     m_clearBookmarksAct = new QAction(tr("Clear All Bookmarks"), this);
     m_clearBookmarksAct->setShortcut(QKeySequence("Ctrl+Shift+F2"));
+    m_actionsWithShortcuts.append(m_clearBookmarksAct);
     connect(m_clearBookmarksAct, &QAction::triggered, this, [this]() { emit clearBookmarksTriggered(); });
     m_menuBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Menu Bar\tCtrl+Alt+M"), this);
     m_menuBarAct->setCheckable(true);
@@ -198,6 +214,8 @@ void ActionManager::buildEditMenu(QMenu *editMenu) {
     bookmarksMenu->addAction(m_prevBookmarkAct);
     bookmarksMenu->addSeparator();
     bookmarksMenu->addAction(m_clearBookmarksAct);
+    editMenu->addSeparator();
+    editMenu->addAction(m_insertSnippetAct);
 }
 
 void ActionManager::buildViewMenu(QMenu *viewMenu) {
@@ -226,6 +244,7 @@ void ActionManager::rebuildExternalToolsMenu() {
     if (!m_toolsMenu) return;
 
     for (QAction* act : m_externalToolActs) {
+        m_actionsWithShortcuts.removeAll(act);
         m_toolsMenu->removeAction(act);
         delete act;
     }
@@ -244,6 +263,8 @@ void ActionManager::rebuildExternalToolsMenu() {
         connect(act, &QAction::triggered, this, [this, index]() { emit externalToolTriggered(index); });
         m_toolsMenu->addAction(act);
         m_externalToolActs.append(act);
+        if (!ks.isEmpty())
+            m_actionsWithShortcuts.append(act);
     }
 
     if (count > 0)
@@ -253,9 +274,15 @@ void ActionManager::rebuildExternalToolsMenu() {
     connect(configureAct, &QAction::triggered, this, [this]() { emit configureExternalToolsTriggered(); });
     m_toolsMenu->addAction(configureAct);
     m_externalToolActs.append(configureAct);
+
+    emit actionsWithShortcutsChanged();
 }
 
 void ActionManager::buildHelpMenu(QMenu *helpMenu) {
+    helpMenu->addAction(m_donateAct);
+    helpMenu->addSeparator();
+    helpMenu->addAction(m_websiteAct);
+    helpMenu->addSeparator();
     helpMenu->addAction(m_aboutAct);
 }
 

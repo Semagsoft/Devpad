@@ -101,6 +101,8 @@ public:
         bool highlightCurrentLine = true;
         bool verticalEdgeEnabled = false;
         int verticalEdgeColumn = 80;
+        bool snippetsEnabled = true;
+        bool predictiveSnippets = true;
     };
 
     struct UISettings
@@ -150,6 +152,10 @@ public:
     ThemeId theme() const;
     bool isDarkTheme() const;
     ThemeColors currentThemeColors() const;
+    QColor accentColor() const;
+    bool hasAccentColor() const;
+    void setAccentColor(const QColor &color);
+    void clearAccentColor();
     int defaultEncoding() const;
     int defaultFormat() const;
     bool showWhitespace() const;
@@ -179,6 +185,10 @@ public:
     void setAutoCloseBrackets(bool enabled);
     void setTabWidth(int width);
     void setCursorStyle(CursorStyle style);
+    bool snippetsEnabled() const;
+    bool predictiveSnippets() const;
+    void setSnippetsEnabled(bool enabled);
+    void setPredictiveSnippets(bool enabled);
     void setCursorBlinking(bool enabled);
     void setHighlightCurrentLine(bool enabled);
     void setVerticalEdgeEnabled(bool enabled);

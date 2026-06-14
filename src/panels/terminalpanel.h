@@ -42,12 +42,14 @@ public:
     QString workingDirectory() const;
 
     void sendCommand(const QString &command);
+    void refreshTheme();
     void toggle(QTabWidget *tabWidget, QMainWindow *mainWindow);
     void applyPosition(TerminalPanelPosition pos, QTabWidget *tabWidget, QMainWindow *mainWindow);
 
 signals:
     void terminalStarted();
     void terminalStopped();
+    void sessionExited();
 
 private slots:
     void onSessionFinished();

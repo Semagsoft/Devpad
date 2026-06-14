@@ -17,13 +17,16 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "optionsdialog.h"
+#include "widgets/themepreviewwidget.h"
 
 #include "defaultsyntax.h"
 #include "encodingutils.h"
 #include "settingsmanager.h"
 #include "theme.h"
 
+#include <QColorDialog>
 #include <QFontDatabase>
+#include <QLabel>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QIntValidator>
@@ -117,6 +120,48 @@ void OptionsDialog::setupUI()
         themeComboBox->addItem(themeDisplayName(static_cast<ThemeId>(i)), i);
     }
     themeLayout->addRow(tr("Theme:"), themeComboBox);
+
+    themePreview = new ThemePreviewWidget(themeGroup);
+    themePreview->setFixedHeight(110);
+    themeLayout->addRow(themePreview);
+
+    QHBoxLayout *accentLayout = new QHBoxLayout();
+    accentColorButton = new QPushButton(themeGroup);
+    accentColorButton->setFixedSize(24, 24);
+    accentColorButton->setCursor(Qt::PointingHandCursor);
+    QLabel *accentLabel = new QLabel(tr("Accent color:"), themeGroup);
+    QPushButton *clearAccentBtn = new QPushButton(tr("Clear"), themeGroup);
+    accentLayout->addWidget(accentColorButton);
+    accentLayout->addWidget(clearAccentBtn);
+    accentLayout->addStretch();
+    themeLayout->addRow(accentLabel, accentLayout);
+
+    connect(themeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+        SettingsManager::instance().setTheme(static_cast<ThemeId>(themeComboBox->currentData().toInt()));
+        updateThemePreview();
+        emit themeChanged();
+    });
+
+    connect(accentColorButton, &QPushButton::clicked, this, [this]() {
+        QColor chosen = QColorDialog::getColor(m_accentColor, this, tr("Choose Accent Color"));
+        if (chosen.isValid()) {
+            m_accentColor = chosen;
+            SettingsManager::instance().setAccentColor(m_accentColor);
+            QString bg = chosen.name();
+            accentColorButton->setStyleSheet(QString("background-color: %1; border: 1px solid gray; border-radius: 3px;").arg(bg));
+            updateThemePreview();
+            emit themeChanged();
+        }
+    });
+
+    connect(clearAccentBtn, &QPushButton::clicked, this, [this]() {
+        m_accentColor = QColor();
+        SettingsManager::instance().clearAccentColor();
+        accentColorButton->setStyleSheet(QString());
+        updateThemePreview();
+        emit themeChanged();
+    });
+
     appearanceMainLayout->addWidget(themeGroup);
 
     QGroupBox* uiFontGroup = new QGroupBox(tr("Interface Font"), appearanceContent);
@@ -213,6 +258,16 @@ void OptionsDialog::setupUI()
     completionLayout->addRow(tr("Trigger after:"), autoCompletionThresholdSpin);
     autoCompletionCaseSensitiveCheckBox = new QCheckBox(tr("Case sensitive"), completionGroup);
     completionLayout->addRow(autoCompletionCaseSensitiveCheckBox);
+
+    QGroupBox* snippetGroup = new QGroupBox(tr("Snippets"), editorContent);
+    QVBoxLayout* snippetLayout = new QVBoxLayout(snippetGroup);
+    snippetsCheckBox = new QCheckBox(tr("Enable snippets"), snippetGroup);
+    snippetLayout->addWidget(snippetsCheckBox);
+    predictiveSnippetsCheckBox = new QCheckBox(tr("Show snippets in auto-completion (predictive)"), snippetGroup);
+    snippetLayout->addWidget(predictiveSnippetsCheckBox);
+    snippetLayout->addStretch();
+    editorMainLayout->addWidget(snippetGroup);
+
     editorMainLayout->addWidget(completionGroup);
 
     QGroupBox* typingGroup = new QGroupBox(tr("Typing"), editorContent);
@@ -310,10 +365,25 @@ void OptionsDialog::setupUI()
     connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
 }
 
+void OptionsDialog::updateThemePreview()
+{
+    ThemeId tid = static_cast<ThemeId>(themeComboBox->currentData().toInt());
+    ThemeColors colors = getThemeColors(tid);
+    if (m_accentColor.isValid()) {
+        colors.accent = m_accentColor;
+        colors.resolve();
+    }
+    themePreview->setThemeColors(colors);
+}
+
 void OptionsDialog::loadSettings()
 {
     const auto& s = SettingsManager::instance();
     startupComboBox->setCurrentIndex(static_cast<int>(s.startupMode()));
+    m_accentColor = s.accentColor();
+    if (m_accentColor.isValid()) {
+        accentColorButton->setStyleSheet(QString("background-color: %1; border: 1px solid gray; border-radius: 3px;").arg(m_accentColor.name()));
+    }
     int savedTheme = static_cast<int>(s.theme());
     for (int i = 0; i < themeComboBox->count(); ++i)
     {
@@ -323,6 +393,7 @@ void OptionsDialog::loadSettings()
             break;
         }
     }
+    updateThemePreview();
     defaultFormatComboBox->setCurrentIndex(s.defaultFormat());
     closeButtonComboBox->setCurrentIndex(static_cast<int>(s.closeButtonMode()));
     tabDisplayComboBox->setCurrentIndex(static_cast<int>(s.tabDisplayMode()));
@@ -362,6 +433,8 @@ void OptionsDialog::loadSettings()
     autoCompletionThresholdSpin->setValue(s.autoCompletionThreshold());
     autoCompletionCaseSensitiveCheckBox->setChecked(s.autoCompletionCaseSensitive());
     autoCloseBracketsCheckBox->setChecked(s.autoCloseBrackets());
+    snippetsCheckBox->setChecked(s.snippetsEnabled());
+    predictiveSnippetsCheckBox->setChecked(s.predictiveSnippets());
     autoSaveCheckBox->setChecked(s.autoSaveEnabled());
     autoSaveIntervalSpin->setValue(s.autoSaveInterval());
     autoSaveIntervalSpin->setEnabled(autoSaveCheckBox->isChecked());
@@ -371,6 +444,10 @@ void OptionsDialog::saveSettings()
 {
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(startupComboBox->currentIndex()));
     SettingsManager::instance().setTheme(static_cast<ThemeId>(themeComboBox->currentData().toInt()));
+    if (m_accentColor.isValid())
+        SettingsManager::instance().setAccentColor(m_accentColor);
+    else
+        SettingsManager::instance().clearAccentColor();
     SettingsManager::instance().setDefaultFormat(defaultFormatComboBox->currentIndex());
     SettingsManager::instance().setCloseButtonMode(static_cast<CloseButtonMode>(closeButtonComboBox->currentIndex()));
     SettingsManager::instance().setTabDisplayMode(static_cast<TabDisplayMode>(tabDisplayComboBox->currentIndex()));
@@ -400,6 +477,8 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setAutoCompletionThreshold(autoCompletionThresholdSpin->value());
     SettingsManager::instance().setAutoCompletionCaseSensitive(autoCompletionCaseSensitiveCheckBox->isChecked());
     SettingsManager::instance().setAutoCloseBrackets(autoCloseBracketsCheckBox->isChecked());
+    SettingsManager::instance().setSnippetsEnabled(snippetsCheckBox->isChecked());
+    SettingsManager::instance().setPredictiveSnippets(predictiveSnippetsCheckBox->isChecked());
     SettingsManager::instance().setAutoSaveEnabled(autoSaveCheckBox->isChecked());
     SettingsManager::instance().setAutoSaveInterval(autoSaveIntervalSpin->value());
     SettingsManager::instance().setDefaultEncoding(defaultEncodingComboBox->currentIndex());

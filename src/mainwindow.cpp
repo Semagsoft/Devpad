@@ -40,6 +40,7 @@
 #include "searchmanager.h"
 #include "sessionmanager.h"
 #include "settingsmanager.h"
+#include "snippetmanager.h"
 #include "splitview.h"
 #include "tabmanager.h"
 #include "terminalpanel.h"
@@ -57,6 +58,7 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QHash>
+#include <QDesktopServices>
 #include <QIcon>
 #include <QInputDialog>
 #include <QMessageBox>
@@ -159,6 +161,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     m_externalToolManager = new ExternalToolManager(this);
     m_remoteFileService = new RemoteFileService(this);
+    m_snippetManager = new SnippetManager(this);
 
     connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
 
@@ -255,6 +258,10 @@ void MainWindow::setupUI()
 
     auto *statusBarShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Alt+S"), this);
     connect(statusBarShortcut, &QShortcut::activated, actionManager->statusBarAct(), &QAction::trigger);
+
+    const auto shortcutActions = actionManager->actionsWithShortcuts();
+    for (QAction *act : shortcutActions)
+        addAction(act);
 }
 
 void MainWindow::connectActions()
@@ -270,12 +277,13 @@ void MainWindow::connectActions()
     connect(actionManager, &ActionManager::revertTriggered, this, &MainWindow::revertFile);
     connect(actionManager, &ActionManager::closeCurrentTabTriggered, editorController, &EditorController::closeCurrentTab);
     connect(actionManager, &ActionManager::closeAllTabsTriggered, editorController, &EditorController::closeAllTabs);
-connect(actionManager, &ActionManager::exitTriggered, this, &QWidget::close);
+    connect(actionManager, &ActionManager::exitTriggered, this, &QWidget::close);
 connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
     QProcess* p = new QProcess(this);
     p->start("pkill", QStringList() << "-i" << "Devpad");
     connect(p, &QProcess::finished, p, &QProcess::deleteLater);
 });
+    connect(terminalPanel, &TerminalPanel::sessionExited, this, &QWidget::close);
 
     connect(actionManager, &ActionManager::undoTriggered, editorController, &EditorController::undo);
     connect(actionManager, &ActionManager::redoTriggered, editorController, &EditorController::redo);
@@ -329,6 +337,7 @@ connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
     connect(actionManager, &ActionManager::toggleWordWrapTriggered, editorController, &EditorController::toggleWordWrap);
     connect(actionManager, &ActionManager::printFileTriggered, this, &MainWindow::printFile);
     connect(actionManager, &ActionManager::printPreviewTriggered, this, &MainWindow::printPreview);
+    connect(actionManager, &ActionManager::insertSnippetTriggered, editorController, &EditorController::insertSnippet);
     connect(actionManager, &ActionManager::optionsTriggered, this, &MainWindow::showOptions);
     connect(actionManager, &ActionManager::configureExternalToolsTriggered, this, [this]() {
         ExternalToolsDialog dlg(this);
@@ -337,6 +346,12 @@ connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
         }
     });
     connect(actionManager, &ActionManager::aboutTriggered, this, &MainWindow::showAbout);
+    connect(actionManager, &ActionManager::donateTriggered, this, []() {
+        QDesktopServices::openUrl(QUrl("https://www.paypal.com/ncp/payment/RFY5Z3KJ8UY8W"));
+    });
+    connect(actionManager, &ActionManager::websiteTriggered, this, []() {
+        QDesktopServices::openUrl(QUrl("https://semagsoft.com"));
+    });
     connect(actionManager, &ActionManager::externalToolTriggered, this, &MainWindow::runExternalTool);
 
     connect(actionManager, &ActionManager::openRecentFileTriggered, this,
@@ -371,6 +386,12 @@ connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
 
     encodingManager->populateEncodingMenu(actionManager->reopenEncodingMenu(), true);
     encodingManager->populateEncodingMenu(actionManager->saveEncodingMenu(), false);
+
+    connect(actionManager, &ActionManager::actionsWithShortcutsChanged, this, [this]() {
+        const auto shortcutActions = actionManager->actionsWithShortcuts();
+        for (QAction *act : shortcutActions)
+            addAction(act);
+    });
 }
 
 void MainWindow::connectPanelSignals()
@@ -718,6 +739,14 @@ void MainWindow::findInFiles()
 void MainWindow::showOptions()
 {
     OptionsDialog dlg(this);
+    ThemeId originalTheme = SettingsManager::instance().theme();
+    QColor originalAccent = SettingsManager::instance().accentColor();
+
+    connect(&dlg, &OptionsDialog::themeChanged, this, [this]() {
+        applySettings();
+        terminalPanel->refreshTheme();
+    });
+
     if (dlg.exec() == QDialog::Accepted)
     {
         applySettings();
@@ -727,6 +756,13 @@ void MainWindow::showOptions()
         tabManager->updateTabBarVisibility();
         updateRecentFileActions();
         applyAutoSaveSettings();
+    }
+    else
+    {
+        SettingsManager::instance().setTheme(originalTheme);
+        SettingsManager::instance().setAccentColor(originalAccent);
+        applySettings();
+        terminalPanel->refreshTheme();
     }
 }
 
@@ -1066,6 +1102,23 @@ void MainWindow::changeEvent(QEvent* event)
     if (event->type() == QEvent::WindowStateChange)
     {
         actionManager->fullScreenAct()->setChecked(isFullScreen());
+    }
+    else if (event->type() == QEvent::ThemeChange)
+    {
+        if (prefersNativeStyling(SettingsManager::instance().theme()))
+        {
+            window()->setStyleSheet(QString());
+
+            for (int i = 0; i < tabManager->count(); ++i)
+            {
+                CodeEditor* editor = tabManager->editorAt(i);
+                if (editor) {
+                    editor->applyTheme(ThemeId::System);
+                }
+            }
+
+            terminalPanel->refreshTheme();
+        }
     }
     QMainWindow::changeEvent(event);
 }

@@ -1,25 +1,8 @@
-/*
- * Devpad - A C++/Qt6 code editor
- * Copyright (C) 2026 Semagsoft
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
 #include "codeeditor.h"
 
 #include "languageinfo.h"
 #include "settingsmanager.h"
+#include "snippetmanager.h"
 #include "theme.h"
 
 #include <QApplication>
@@ -40,14 +23,31 @@ constexpr int SCI_SETCARETPERIOD = 2075;
 constexpr int SCI_SETEDGEMODE = 2360;
 constexpr int SCI_SETEDGECOLUMN = 2361;
 constexpr int SCI_SETEDGECOLOUR = 2362;
+constexpr int SCI_INDICSETSTYLE = 2088;
+constexpr int SCI_INDICSETFORE = 2089;
+constexpr int SCI_INDICATORFILLRANGE = 2100;
+constexpr int SCI_INDICATORCLEARRANGE = 2101;
+constexpr int SCI_INDICATORSTART = 2102;
+constexpr int SCI_INDICATOREND = 2103;
+constexpr int SCI_SETSELECTIONSTART = 2142;
+constexpr int SCI_SETSELECTIONEND = 2143;
+constexpr int SCI_GETSELECTIONSTART = 2144;
+constexpr int SCI_GETSELECTIONEND = 2145;
+constexpr int SCI_GETCURRENTPOS = 2008;
+constexpr int SCI_SETCURRENTPOS = 2141;
+constexpr int SCI_GETANCHOR = 2009;
+constexpr int SCI_SETANCHOR = 2025;
+constexpr int SCI_AUTOCSETAUTOMATIC = 2231;
 
-constexpr int CARETSTYLE_INVISIBLE = 0;
+constexpr int INDIC_HIDDEN = 8;
+
 constexpr int CARETSTYLE_LINE = 1;
 constexpr int CARETSTYLE_BLOCK = 2;
 constexpr int CARETSTYLE_UNDERLINE = 4;
 
 constexpr int EDGE_NONE = 0;
-constexpr int EDGE_LINE = 1;
+
+const QString SNIPPET_MARKER = QStringLiteral("\u00ABsnip\u00BB");
 } // namespace
 
 CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF-8"), m_themeId(ThemeId::Light), m_lineNumbersVisible(true)
@@ -63,6 +63,40 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                     toggleBookmark(line);
                 }
             });
+
+    // Set up invisible indicator for snippet tab stops
+    SendScintilla(SCI_INDICSETSTYLE, static_cast<unsigned long>(SNIPPET_INDICATOR), static_cast<unsigned long>(INDIC_HIDDEN));
+    SendScintilla(SCI_INDICSETFORE, static_cast<unsigned long>(SNIPPET_INDICATOR), static_cast<unsigned long>(0));
+
+    // Connect autocompletion selection signal to handle snippet expansion
+    connect(this, static_cast<void(QsciScintillaBase::*)(const char*, int)>(&QsciScintillaBase::SCN_AUTOCSELECTION), this, [this](const char* selection, int position) {
+        if (!SettingsManager::instance().predictiveSnippets() || !selection)
+            return;
+
+        QString selectedText = QString::fromUtf8(selection);
+        if (selectedText.endsWith(SNIPPET_MARKER))
+        {
+            QString prefix = selectedText.left(selectedText.length() - SNIPPET_MARKER.length());
+            if (SnippetManager* sm = SnippetManager::instance())
+            {
+                QList<Snippet> candidates = sm->snippetsByPrefix(prefix, m_syntax);
+                for (const Snippet& snip : candidates)
+                {
+                    if (snip.prefix == prefix)
+                    {
+                        int triggerLen = prefix.length();
+                        int triggerStart = position - triggerLen;
+                        if (triggerStart >= 0)
+                        {
+                            Snippet::ExpandedSnippet expanded = snip.expand();
+                            enterSnippetMode(expanded, position, prefix);
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+    });
 }
 
 CodeEditor::~CodeEditor() = default;
@@ -113,25 +147,20 @@ void CodeEditor::setupEditor()
     setMarginsBackgroundColor(QColor(240, 240, 240));
     setMarginsForegroundColor(Qt::darkGray);
 
-    // Enable code folding
     setFolding(QsciScintilla::BoxedTreeFoldStyle);
     setFoldMarginColors(QColor(220, 220, 220), QColor(200, 200, 200));
 
-    // Brace matching
     setBraceMatching(QsciScintilla::SloppyBraceMatch);
     setMatchedBraceBackgroundColor(QColor(255, 255, 200));
     setMatchedBraceForegroundColor(Qt::darkGreen);
 
-    // Auto indentation
     setAutoIndent(true);
     setTabWidth(4);
     setIndentationsUseTabs(false);
 
-    // Current line highlighting
     setCaretLineVisible(true);
     setCaretLineBackgroundColor(QColor(232, 242, 254));
 
-    // Bookmark margin
     setMarginType(BOOKMARK_MARGIN, QsciScintilla::SymbolMargin);
     setMarginWidth(BOOKMARK_MARGIN, 16);
     setMarginSensitivity(BOOKMARK_MARGIN, true);
@@ -139,6 +168,9 @@ void CodeEditor::setupEditor()
     markerDefine(QsciScintilla::SC_MARK_BOOKMARK, MARKER_BOOKMARK);
     setMarkerForegroundColor(QColor(255, 160, 0), MARKER_BOOKMARK);
     setMarkerBackgroundColor(QColor(255, 200, 100), MARKER_BOOKMARK);
+
+    // Enable automatic autocompletion list mode
+    SendScintilla(SCI_AUTOCSETAUTOMATIC, 1);
 }
 
 void CodeEditor::applyTheme(ThemeId themeId)
@@ -216,8 +248,42 @@ void CodeEditor::setSyntax(const QString& language)
         lexer->setAPIs(m_apis.data());
     }
 
+    // Register snippet auto-completion entries
+    if (SnippetManager* sm = SnippetManager::instance())
+    {
+        QList<Snippet> snippets = sm->snippetsForLanguage(language);
+        if (!snippets.isEmpty())
+        {
+            registerSnippetAutoCompletion(snippets);
+        }
+    }
+
     setLexer(lexer);
     applyLexerTheme();
+}
+
+void CodeEditor::registerSnippetAutoCompletion(const QList<Snippet>& snippets)
+{
+    if (snippets.isEmpty() || !SettingsManager::instance().predictiveSnippets())
+        return;
+
+    if (!m_apis && m_lexer)
+    {
+        m_apis.reset(new QsciAPIs(m_lexer.data()));
+    }
+
+    if (!m_apis)
+        return;
+
+    for (const Snippet& s : snippets)
+    {
+        m_apis->add(s.prefix + SNIPPET_MARKER);
+    }
+    m_apis->prepare();
+    if (m_lexer)
+    {
+        m_lexer->setAPIs(m_apis.data());
+    }
 }
 
 void CodeEditor::setLineNumbersVisible(bool visible)
@@ -249,9 +315,6 @@ void CodeEditor::updateLineNumberWidth()
 
 void CodeEditor::forceModified()
 {
-    // QScintilla's setModified(true) is documented as a no-op.
-    // Work around by inserting and deleting a character, advancing
-    // past the save point in the undo stack without changing content.
     int line, index;
     getCursorPosition(&line, &index);
 
@@ -325,6 +388,7 @@ void CodeEditor::setupAutoCompletion(bool enabled, int threshold, bool caseSensi
     if (!enabled)
     {
         setAutoCompletionSource(QsciScintilla::AcsNone);
+        SendScintilla(SCI_AUTOCSETAUTOMATIC, 0);
         return;
     }
 
@@ -335,6 +399,7 @@ void CodeEditor::setupAutoCompletion(bool enabled, int threshold, bool caseSensi
     setAutoCompletionShowSingle(false);
     setAutoCompletionFillupsEnabled(true);
     setAutoCompletionUseSingle(QsciScintilla::AcusExplicit);
+    SendScintilla(SCI_AUTOCSETAUTOMATIC, 1);
 }
 
 void CodeEditor::setCursorStyle(CursorStyle style)
@@ -598,6 +663,30 @@ bool CodeEditor::handleBracketSkip(QChar ch, int pos)
 
 void CodeEditor::keyPressEvent(QKeyEvent* event)
 {
+    // Handle snippet mode Tab/Shift+Tab navigation
+    if (m_snippetActive)
+    {
+        if (event->key() == Qt::Key_Tab && !(event->modifiers() & ~Qt::ShiftModifier))
+        {
+            if (event->modifiers() & Qt::ShiftModifier)
+            {
+                retreatTabStop();
+            }
+            else
+            {
+                advanceTabStop();
+            }
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_Escape)
+        {
+            exitSnippetMode();
+            event->accept();
+            return;
+        }
+    }
+
     if (m_autoCloseBrackets && !isReadOnly() && !(event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)))
     {
         QString eventText = event->text();
@@ -615,3 +704,219 @@ void CodeEditor::keyPressEvent(QKeyEvent* event)
     }
     QsciScintilla::keyPressEvent(event);
 }
+
+// ── Snippet Implementation ──────────────────────────────────────────────────
+
+void CodeEditor::insertSnippet(const Snippet& snippet)
+{
+    if (isReadOnly())
+        return;
+
+    Snippet::ExpandedSnippet expanded = snippet.expand();
+    int pos = SendScintilla(SCI_GETCURRENTPOS);
+    enterSnippetMode(expanded, pos);
+}
+
+void CodeEditor::enterSnippetMode(const Snippet::ExpandedSnippet& expanded, int insertPos, const QString& triggerText)
+{
+    // If we were already in snippet mode, clean up
+    if (m_snippetActive)
+        clearSnippetMarkers();
+
+    QString textToInsert = expanded.text;
+
+    // Replace trigger text if present (used for predictive snippets)
+    if (!triggerText.isEmpty())
+    {
+        int triggerStart = insertPos - triggerText.length();
+        if (triggerStart >= 0)
+        {
+            SendScintilla(SCI_SETSELECTIONSTART, triggerStart);
+            SendScintilla(SCI_SETSELECTIONEND, insertPos);
+            insertPos = triggerStart;
+        }
+    }
+
+    // Insert the expanded snippet text
+    beginUndoAction();
+
+    // Replace current selection if any
+    int selStart = SendScintilla(SCI_GETSELECTIONSTART);
+    int selEnd = SendScintilla(SCI_GETSELECTIONEND);
+    if (selStart != selEnd)
+    {
+        if (triggerText.isEmpty())
+        {
+            insertPos = selStart;
+            SendScintilla(SCI_SETSELECTIONSTART, selStart);
+            SendScintilla(SCI_SETSELECTIONEND, selEnd);
+        }
+    }
+
+    insert(textToInsert);
+    endUndoAction();
+
+    m_snippetStartPos = insertPos;
+    m_snippetEndPos = insertPos + textToInsert.length();
+
+    // Set up tab stops with absolute positions
+    m_tabStopInfos.clear();
+    for (const auto& ts : expanded.tabStops)
+    {
+        for (int offset : ts.positions)
+        {
+            TabStopInfo info;
+            info.number = ts.number;
+            info.pos = insertPos + offset;
+            info.length = ts.length;
+            info.defaultValue = ts.defaultValue;
+            m_tabStopInfos.append(info);
+        }
+    }
+
+    // Sort by position
+    std::sort(m_tabStopInfos.begin(), m_tabStopInfos.end(),
+              [](const TabStopInfo& a, const TabStopInfo& b) { return a.pos < b.pos; });
+
+    if (m_tabStopInfos.isEmpty())
+    {
+        // No tab stops - just position cursor at end of snippet
+        SendScintilla(SCI_SETCURRENTPOS, m_snippetEndPos);
+        SendScintilla(SCI_SETANCHOR, m_snippetEndPos);
+        m_snippetActive = false;
+        emit snippetModeChanged(false);
+        return;
+    }
+
+    // Mark all tab stops with invisible indicators
+    for (const auto& info : m_tabStopInfos)
+    {
+        if (info.length > 0 || info.defaultValue.isEmpty())
+        {
+            int len = qMax(info.length, 1);
+            SendScintilla(SCI_INDICATORFILLRANGE, static_cast<unsigned long>(info.pos), static_cast<unsigned long>(len));
+        }
+    }
+
+    m_snippetActive = true;
+    m_currentTabStopIdx = 0;
+    emit snippetModeChanged(true);
+
+    // Select first tab stop
+    selectTabStopRange(m_tabStopInfos[0].pos, m_tabStopInfos[0].length);
+}
+
+void CodeEditor::advanceTabStop()
+{
+    if (!m_snippetActive || m_tabStopInfos.isEmpty())
+        return;
+
+    // Find next unique tab stop number
+    int currentNumber = m_tabStopInfos[m_currentTabStopIdx].number;
+    int nextIdx = -1;
+
+    // Find the first tab stop with a number > current
+    for (int i = 0; i < m_tabStopInfos.size(); ++i)
+    {
+        if (m_tabStopInfos[i].number > currentNumber)
+        {
+            nextIdx = i;
+            break;
+        }
+    }
+
+    if (nextIdx < 0)
+    {
+        // No more tab stops - look for $0 (final position, number 0)
+        // If no $0, go to end of snippet
+        SendScintilla(SCI_SETCURRENTPOS, m_snippetEndPos);
+        SendScintilla(SCI_SETANCHOR, m_snippetEndPos);
+        exitSnippetMode();
+        return;
+    }
+
+    m_currentTabStopIdx = nextIdx;
+    selectTabStopRange(m_tabStopInfos[nextIdx].pos, m_tabStopInfos[nextIdx].length);
+}
+
+void CodeEditor::retreatTabStop()
+{
+    if (!m_snippetActive || m_tabStopInfos.isEmpty())
+        return;
+
+    // Find previous unique tab stop number
+    int currentNumber = m_tabStopInfos[m_currentTabStopIdx].number;
+    int prevIdx = -1;
+
+    for (int i = m_tabStopInfos.size() - 1; i >= 0; --i)
+    {
+        if (m_tabStopInfos[i].number < currentNumber)
+        {
+            prevIdx = i;
+            break;
+        }
+    }
+
+    if (prevIdx < 0)
+    {
+        // Go to start of snippet
+        SendScintilla(SCI_SETCURRENTPOS, m_snippetStartPos);
+        SendScintilla(SCI_SETANCHOR, m_snippetStartPos);
+        return;
+    }
+
+    m_currentTabStopIdx = prevIdx;
+    selectTabStopRange(m_tabStopInfos[prevIdx].pos, m_tabStopInfos[prevIdx].length);
+}
+
+void CodeEditor::exitSnippetMode()
+{
+    if (!m_snippetActive)
+        return;
+
+    clearSnippetMarkers();
+    m_snippetActive = false;
+    m_currentTabStopIdx = -1;
+    m_tabStopInfos.clear();
+    emit snippetModeChanged(false);
+}
+
+void CodeEditor::clearSnippetMarkers()
+{
+    if (m_snippetEndPos > m_snippetStartPos)
+    {
+        SendScintilla(SCI_INDICATORCLEARRANGE, static_cast<unsigned long>(m_snippetStartPos), static_cast<unsigned long>(m_snippetEndPos - m_snippetStartPos));
+    }
+}
+
+void CodeEditor::selectTabStopRange(int pos, int len)
+{
+    if (len > 0)
+    {
+        SendScintilla(SCI_SETSELECTIONSTART, pos);
+        SendScintilla(SCI_SETSELECTIONEND, pos + len);
+    }
+    else
+    {
+        SendScintilla(SCI_SETCURRENTPOS, pos);
+        SendScintilla(SCI_SETANCHOR, pos);
+    }
+}
+
+void CodeEditor::recalculateTabStopPositions()
+{
+    // Re-read tab stop positions using indicators
+    for (int i = 0; i < m_tabStopInfos.size(); ++i)
+    {
+        auto& info = m_tabStopInfos[i];
+        int start = static_cast<int>(SendScintilla(SCI_INDICATORSTART, static_cast<unsigned long>(SNIPPET_INDICATOR), static_cast<unsigned long>(info.pos)));
+        int end = static_cast<int>(SendScintilla(SCI_INDICATOREND, static_cast<unsigned long>(SNIPPET_INDICATOR), static_cast<unsigned long>(info.pos)));
+        if (start >= 0 && end > start)
+        {
+            info.pos = start;
+            info.length = end - start;
+        }
+    }
+}
+
+

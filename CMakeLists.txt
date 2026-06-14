@@ -46,6 +46,9 @@ add_library(Devpad_lib STATIC
     src/theme.cpp
     src/logger.cpp
     src/encodingutils.cpp
+    src/mainwindow.cpp
+    src/editorcontroller.cpp
+    src/themeapplier.cpp
     src/managers/backupmanager.cpp
     src/managers/externaltoolmanager.cpp
     src/managers/filemanager.cpp
@@ -53,9 +56,25 @@ add_library(Devpad_lib STATIC
     src/managers/remotefileservice.cpp
     src/managers/tabmanager.cpp
     src/managers/searchmanager.cpp
+    src/managers/snippetmanager.cpp
+    src/managers/actionmanager.cpp
+    src/managers/sessionmanager.cpp
+    src/managers/encodingmanager.cpp
+    src/managers/printmanager.cpp
+    src/managers/filewatchermanager.cpp
+    src/snippet.cpp
     src/dialogs/finddialog.cpp
     src/dialogs/replacedialog.cpp
+    src/dialogs/findinfilesdialog.cpp
+    src/dialogs/aboutdialog.cpp
+    src/dialogs/optionsdialog.cpp
+    src/dialogs/externaltoolsdialog.cpp
+    src/panels/projectpanel.cpp
+    src/panels/terminalpanel.cpp
+    src/panels/splitview.cpp
+    src/widgets/themepreviewwidget.cpp
     src/codeeditor.h
+    src/snippet.h
     src/theme.h
     src/languageinfo.h
     src/logger.h
@@ -70,9 +89,26 @@ add_library(Devpad_lib STATIC
     src/managers/remotefileservice.h
     src/managers/tabmanager.h
     src/managers/searchmanager.h
+    src/mainwindow.h
+    src/editorcontroller.h
+    src/themeapplier.h
+    src/managers/actionmanager.h
+    src/managers/sessionmanager.h
+    src/managers/encodingmanager.h
+    src/managers/printmanager.h
+    src/managers/filewatchermanager.h
+    src/managers/snippetmanager.h
     src/dialogs/finddialog.h
     src/dialogs/dialogsettings.h
     src/dialogs/replacedialog.h
+    src/dialogs/findinfilesdialog.h
+    src/dialogs/aboutdialog.h
+    src/dialogs/optionsdialog.h
+    src/dialogs/externaltoolsdialog.h
+    src/panels/projectpanel.h
+    src/panels/terminalpanel.h
+    src/panels/splitview.h
+    src/widgets/themepreviewwidget.h
 )
 target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -83,6 +119,7 @@ target_link_libraries(Devpad_lib PUBLIC
     Qt6::PrintSupport
     Qt6::Multimedia
     Qt6::Network
+    qtermwidget6
 )
 target_include_directories(Devpad_lib PUBLIC
     src
@@ -97,58 +134,12 @@ add_executable(Devpad)
 
 target_sources(Devpad PRIVATE
     src/main.cpp
-    src/mainwindow.cpp
-    src/editorcontroller.cpp
-    src/themeapplier.cpp
-    src/panels/projectpanel.cpp
-    src/panels/terminalpanel.cpp
-    src/panels/splitview.cpp
-    src/dialogs/externaltoolsdialog.cpp
-    src/dialogs/findinfilesdialog.cpp
-    src/dialogs/aboutdialog.cpp
-    src/dialogs/optionsdialog.cpp
-    src/managers/actionmanager.cpp
-    src/managers/sessionmanager.cpp
-    src/managers/encodingmanager.cpp
-    src/managers/printmanager.cpp
-    src/managers/filewatchermanager.cpp
-)
-
-target_sources(Devpad PRIVATE
-    FILE_SET HEADERS
-    BASE_DIRS src
-    FILES
-        src/mainwindow.h
-        src/editorcontroller.h
-        src/themeapplier.h
-        src/panels/projectpanel.h
-        src/panels/terminalpanel.h
-        src/panels/splitview.h
-        src/dialogs/dialogsettings.h
-        src/dialogs/externaltoolsdialog.h
-        src/dialogs/findinfilesdialog.h
-        src/dialogs/aboutdialog.h
-        src/dialogs/optionsdialog.h
-        src/managers/actionmanager.h
-        src/managers/sessionmanager.h
-        src/managers/encodingmanager.h
-        src/managers/printmanager.h
-        src/managers/filewatchermanager.h
-)
-
-target_sources(Devpad PRIVATE
     resources/resources.qrc
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::PrintSupport
-    Qt6::Multimedia
-    qtermwidget6
     Devpad_lib
 )
 target_link_qscintilla(Devpad)
@@ -205,6 +196,12 @@ if(BUILD_TESTS)
         tests/test_codeeditor.cpp
         tests/test_tabmanager.cpp
         tests/test_searchmanager.cpp
+        tests/test_theme.cpp
+        tests/test_themeapplier.cpp
+        tests/test_editorcontroller.cpp
+        tests/test_mainwindow.cpp
+        tests/test_languageinfo.cpp
+        tests/test_sessionmanager.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES})

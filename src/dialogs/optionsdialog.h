@@ -29,12 +29,17 @@
 #include <QScrollArea>
 #include <QGroupBox>
 
+class ThemePreviewWidget;
+
 class OptionsDialog : public QDialog {
     Q_OBJECT
 
 public:
     explicit OptionsDialog(QWidget *parent = nullptr);
     ~OptionsDialog() override;
+
+signals:
+    void themeChanged();
 
 private slots:
     void accept() override;
@@ -44,6 +49,7 @@ private:
     QWidget* createScrollContainer(QWidget *content);
     void loadSettings();
     void saveSettings();
+    void updateThemePreview();
 
     QTabWidget *tabWidget;
 
@@ -77,10 +83,15 @@ private:
     QSpinBox *autoCompletionThresholdSpin;
     QCheckBox *autoCompletionCaseSensitiveCheckBox;
     QCheckBox *autoCloseBracketsCheckBox;
+    QCheckBox *snippetsCheckBox;
+    QCheckBox *predictiveSnippetsCheckBox;
     QCheckBox *autoSaveCheckBox;
     QSpinBox *autoSaveIntervalSpin;
     QCheckBox *showHiddenFilesCheckBox;
     QComboBox *projectPanelPositionComboBox;
+    ThemePreviewWidget *themePreview;
+    QPushButton *accentColorButton;
+    QColor m_accentColor;
 };
 
 #endif // OPTIONSDIALOG_H

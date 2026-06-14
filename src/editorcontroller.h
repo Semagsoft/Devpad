@@ -64,6 +64,7 @@ public:
     void toggleReadOnly();
     void toggleBookmark();
     void nextBookmark();
+    void insertSnippet();
     void prevBookmark();
     void clearBookmarks();
 
