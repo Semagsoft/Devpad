@@ -48,10 +48,15 @@ void FileWatcherManager::unwatchAll() {
     m_watcher.removePaths(m_watcher.files());
     m_modificationTimes.clear();
 }
-
-QDateTime FileWatcherManager::lastKnownModification(const QString &filePath) const {
-    return m_modificationTimes.value(filePath);
+void FileWatcherManager::updateModificationTime(const QString &filePath)
+{
+    QFileInfo info(filePath);
+    if (info.exists())
+    {
+        m_modificationTimes[filePath] = info.lastModified();
+    }
 }
+
 
 void FileWatcherManager::onDirectoryChanged(const QString &path) {
     QFileInfo info(path);

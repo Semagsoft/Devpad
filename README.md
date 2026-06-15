@@ -1,4 +1,4 @@
-# Devpad
+﻿# Devpad
 
 A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 

@@ -25,7 +25,7 @@
 #include <QPointer>
 #include <QMainWindow>
 #include <QStandardPaths>
-#include <QTabWidget>
+#include <QShortcut>
 #include <QFile>
 #include <QResource>
 
@@ -124,18 +124,34 @@ void TerminalPanel::ensureTerminalWidget() {
     terminalWidget->setHistorySize(-1);
     terminalWidget->setScrollBarPosition(QTermWidgetInterface::ScrollBarRight);
     terminalWidget->setTerminalFont(SettingsManager::instance().terminalFont());
-
+    
     if (!m_workingDirectory.isEmpty() && QDir(m_workingDirectory).exists()) {
         terminalWidget->setWorkingDirectory(m_workingDirectory);
     }
-
+    
     QString colorScheme = themeToColorScheme(SettingsManager::instance().theme());
     terminalWidget->setColorScheme(colorScheme);
-
+    
     connect(terminalWidget, &QTermWidget::finished, this, &TerminalPanel::onSessionFinished);
     connect(terminalWidget, &QTermWidget::currentDirectoryChanged, this, &TerminalPanel::onCurrentDirectoryChanged);
-
+    
     mainLayout->addWidget(terminalWidget);
+
+    // Clipboard support
+    auto copyAction = new QShortcut(QKeySequence::Copy, this);
+    connect(copyAction, &QShortcut::activated, [this]() {
+        if (terminalWidget && terminalWidget->hasFocus()) {
+            terminalWidget->copyClipboard();
+        }
+    });
+
+    auto pasteAction = new QShortcut(QKeySequence::Paste, this);
+    connect(pasteAction, &QShortcut::activated, [this]() {
+        if (terminalWidget && terminalWidget->hasFocus()) {
+            terminalWidget->pasteClipboard();
+        }
+    });
+
 }
 
 void TerminalPanel::startTerminal() {

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -18,7 +18,7 @@
  */
 #include "tabmanager.h"
 
-#include "settingsmanager.h"
+#include "panels/terminalpanel.h"
 
 #include <QFileInfo>
 #include <QFont>
@@ -284,6 +284,10 @@ void TabManager::updateCloseButton(int tabIndex, QTabWidget* pane, CloseButtonMo
     QTabBar* tabBar = pane->tabBar();
     if (!tabBar)
         return;
+    if (qobject_cast<TerminalPanel*>(pane->widget(tabIndex)))
+    {
+        return;
+    }
     QToolButton* closeButton = qobject_cast<QToolButton*>(tabBar->tabButton(tabIndex, QTabBar::RightSide));
     if (!closeButton)
     {
