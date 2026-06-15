@@ -67,17 +67,19 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
     connect(reply, &QNetworkReply::finished, this,
             [this, reply]()
             {
-                reply->deleteLater();
                 QString urlStr = reply->property("remoteUrl").toString();
 
                 if (reply->error() != QNetworkReply::NoError)
                 {
-                    emit downloadFailed(urlStr, reply->errorString());
+                    QString err = reply->errorString();
+                    reply->deleteLater();
+                    emit downloadFailed(urlStr, err);
                     return;
                 }
 
                 QByteArray data = reply->readAll();
                 QString fileName = QUrl(urlStr).fileName();
+                reply->deleteLater();
                 emit fileDownloaded(urlStr, fileName, data);
             });
 

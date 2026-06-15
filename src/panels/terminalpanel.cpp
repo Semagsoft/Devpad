@@ -21,7 +21,12 @@
 #include "theme.h"
 #include <qtermwidget.h>
 #include <QApplication>
+#include <QClipboard>
+#include <QContextMenuEvent>
+#include <QDesktopServices>
 #include <QDir>
+#include <QFileInfo>
+#include <QMenu>
 #include <QPointer>
 #include <QMainWindow>
 #include <QStandardPaths>
@@ -219,6 +224,38 @@ void TerminalPanel::onCurrentDirectoryChanged(const QString &dir) {
     m_workingDirectory = dir;
 }
 
+void TerminalPanel::contextMenuEvent(QContextMenuEvent *event) {
+    QMenu menu(this);
+
+    QAction *copyAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy"));
+
+    QAction *pasteAct = menu.addAction(QIcon(":/icons/Edit/paste.svg"), tr("Paste"));
+
+    menu.addSeparator();
+
+    QAction *clearAct = menu.addAction(QIcon(":/icons/Common/clear.svg"), tr("Clear"));
+
+    menu.addSeparator();
+
+    QAction *copyPathAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy Path"));
+
+    QAction *showInFmAct = menu.addAction(QIcon(":/icons/Common/openinfolder.svg"), tr("Show in File Manager"));
+
+    QAction *chosen = menu.exec(event->globalPos());
+    if (!chosen) return;
+
+    if (chosen == copyAct)
+        terminalWidget->copyClipboard();
+    else if (chosen == pasteAct)
+        terminalWidget->pasteClipboard();
+    else if (chosen == clearAct)
+        terminalWidget->sendText("clear\n");
+    else if (chosen == copyPathAct)
+        QApplication::clipboard()->setText(m_workingDirectory);
+    else if (chosen == showInFmAct)
+        QDesktopServices::openUrl(QUrl::fromLocalFile(m_workingDirectory));
+}
+
 void TerminalPanel::applyPosition(TerminalPanelPosition pos, QTabWidget *tabWidget, QMainWindow *mainWindow)
 {
     if (pos == TerminalPanelPosition::Tab)
@@ -226,7 +263,7 @@ void TerminalPanel::applyPosition(TerminalPanelPosition pos, QTabWidget *tabWidg
         mainWindow->removeDockWidget(this);
         int tabIndex = tabWidget->indexOf(this);
         if (tabIndex == -1)
-            tabWidget->addTab(this, tr("Terminal"));
+            tabWidget->addTab(this, QIcon(":/icons/View/terminal.svg"), tr("Terminal"));
         setFeatures(QDockWidget::DockWidgetFeature::NoDockWidgetFeatures);
     }
     else
@@ -261,7 +298,7 @@ void TerminalPanel::toggle(QTabWidget *tabWidget, QMainWindow *mainWindow)
         }
         else
         {
-            tabWidget->addTab(this, tr("Terminal"));
+            tabWidget->addTab(this, QIcon(":/icons/View/terminal.svg"), tr("Terminal"));
             tabWidget->setCurrentWidget(this);
             SettingsManager::instance().setShowTerminalPanel(true);
         }

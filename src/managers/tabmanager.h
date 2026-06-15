@@ -24,6 +24,7 @@
 
 #include <QList>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QTabWidget>
 #include <QToolButton>
@@ -66,6 +67,11 @@ public:
 
     void applySettingsToAll(const SettingsManager::EditorSettings& settings);
 
+    void setTabPinned(CodeEditor* editor, bool pinned);
+    bool isTabPinned(CodeEditor* editor) const;
+    QStringList pinnedFiles() const;
+    void setPinnedFiles(const QStringList& files);
+
 signals:
     void editorCreated(CodeEditor* editor);
     void editorClosed(CodeEditor* editor);
@@ -76,6 +82,7 @@ private:
     QList<QTabWidget*> m_panes;
     QTabWidget* m_primaryWidget;
     QTabWidget* m_activePane;
+    QSet<CodeEditor*> m_pinnedEditors;
     QString getFileBaseName(const QString& fullPath) const;
     void removeCloseButtons(int tabIndex, QTabWidget* pane);
     QTabWidget* paneForEditor(CodeEditor* editor) const;

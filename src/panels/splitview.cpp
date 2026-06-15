@@ -24,22 +24,39 @@
 #include <QDrag>
 #include <QMimeData>
 #include <QApplication>
+#include <QClipboard>
 #include <QProcess>
 #include <QFileInfo>
+#include <QDir>
 #include <QTabBar>
 #include <QPainter>
+#include <QMenu>
+#include <QDesktopServices>
+#include <QStandardPaths>
+#include <QUrl>
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
 #include <QResizeEvent>
+#include <QContextMenuEvent>
 #include <QTemporaryFile>
 #include <QStylePainter>
 #include <QStyleOptionTab>
+#include <QSet>
+#include <QFile>
+#include <QCoreApplication>
 
 static const char *MIME_TAB = "application/x-devpad-tab";
 
+static QString dragResponsePath(qint64 pid, quint64 dragId) {
+    return QStringLiteral("/tmp/devpad-drag-resp-%1-%2").arg(pid).arg(dragId);
+}
+
 quint64 SplitView::s_dragIdCounter = 0;
 QMap<quint64, QPointer<QTabWidget>> SplitView::s_dragSourceMap;
+
+// Tracks drag IDs handled by a same-process handleDrop() call
+static QSet<quint64> s_handledDragIds;
 
 static QColor dropHighlightColor() {
     ThemeColors colors = SettingsManager::instance().currentThemeColors();
@@ -126,13 +143,26 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent *event) {
         quint64 dragId = ++SplitView::s_dragIdCounter;
         SplitView::s_dragSourceMap[dragId] = tabWidget;
 
+        auto *expectedWidget = tabWidget->widget(m_dragTabIndex);
+        auto *ce = qobject_cast<CodeEditor*>(expectedWidget);
+        QString filePath = ce ? ce->fileName() : QString();
+
+        // Remove any stale response file from a previous run
+        QFile::remove(dragResponsePath(QCoreApplication::applicationPid(), dragId));
+
         QDrag *drag = new QDrag(this);
         auto *mimeData = new QMimeData();
 
         QByteArray data;
         QDataStream stream(&data, QIODevice::WriteOnly);
-        stream << dragId << m_dragTabIndex;
+        qint64 srcPid = QCoreApplication::applicationPid();
+        stream << srcPid << dragId << m_dragTabIndex << filePath;
         mimeData->setData(MIME_TAB, data);
+        if (ce && !filePath.isEmpty()) {
+            QList<QUrl> urls;
+            urls << QUrl::fromLocalFile(filePath);
+            mimeData->setUrls(urls);
+        }
         drag->setMimeData(mimeData);
 
         QRect r = tabRect(m_dragTabIndex);
@@ -149,15 +179,43 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent *event) {
 
         Qt::DropAction result = drag->exec(Qt::MoveAction);
 
-        if (result == Qt::IgnoreAction) {
-            auto *tw = qobject_cast<QTabWidget*>(parent());
-            if (tw) {
-                auto *ce = qobject_cast<CodeEditor*>(tw->widget(m_dragTabIndex));
+        SplitView::s_dragSourceMap.remove(dragId);
+
+        auto removeTabFromSource = [&]() {
+            if (tabWidget && m_dragTabIndex >= 0 && m_dragTabIndex < tabWidget->count()) {
+                if (tabWidget->widget(m_dragTabIndex) == expectedWidget) {
+                    tabWidget->removeTab(m_dragTabIndex);
+                    if (tabWidget->count() == 0) {
+                        for (QWidget *p = tabWidget->parentWidget(); p; p = p->parentWidget()) {
+                            if (auto *sv = qobject_cast<SplitView*>(p)) {
+                                sv->removePane(tabWidget);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        if (result != Qt::IgnoreAction && !s_handledDragIds.contains(dragId)) {
+            // Cross-process drop was accepted by another window — remove tab from source
+            s_handledDragIds.remove(dragId);
+            removeTabFromSource();
+        } else if (result == Qt::IgnoreAction) {
+            // Check if a cross-process target acknowledged the drop via response file
+            QString respPath = dragResponsePath(QCoreApplication::applicationPid(), dragId);
+            bool crossProcessAccepted = QFile::exists(respPath);
+            if (crossProcessAccepted) {
+                QFile::remove(respPath);
+                removeTabFromSource();
+            } else if (tabWidget) {
+                auto *ce = qobject_cast<CodeEditor*>(tabWidget->widget(m_dragTabIndex));
                 QString filePath = ce ? ce->fileName() : QString();
                 emit tabDroppedOutside(m_dragTabIndex, filePath);
             }
         }
 
+        s_handledDragIds.remove(dragId);
         m_dragTabIndex = -1;
         m_dragging = false;
         return;
@@ -189,6 +247,78 @@ void DraggableTabBar::paintEvent(QPaintEvent *event) {
             p.drawRect(r.adjusted(0, 0, 0, 0));
         }
     }
+}
+
+void DraggableTabBar::contextMenuEvent(QContextMenuEvent *event) {
+    int idx = tabAt(event->pos());
+    if (idx < 0) return;
+
+    auto *tw = qobject_cast<QTabWidget*>(parent());
+    auto *editor = tw ? qobject_cast<CodeEditor*>(tw->widget(idx)) : nullptr;
+    if (!editor) return;
+
+    bool isUntitled = editor->fileName().isEmpty() || editor->fileName() == Strings::untitled();
+    int tabCount = count();
+    bool readOnly = editor->isReadOnly();
+
+    QMenu menu(this);
+
+    QAction *closeAct = menu.addAction(QIcon(":/icons/File/close.svg"), tr("Close"));
+    closeAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_W));
+    closeAct->setEnabled(!readOnly);
+
+    QAction *closeOthersAct = menu.addAction(tr("Close Others"));
+    closeOthersAct->setEnabled(tabCount > 1 && !readOnly);
+
+    QAction *closeRightAct = menu.addAction(tr("Close to the Right"));
+    closeRightAct->setEnabled(idx < tabCount - 1 && !readOnly);
+
+    QAction *closeAllAct = menu.addAction(QIcon(":/icons/File/closeall.svg"), tr("Close All"));
+    closeAllAct->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_W));
+    closeAllAct->setEnabled(tabCount > 0 && !readOnly);
+
+    menu.addSeparator();
+
+    QAction *pinAct = menu.addAction(QStringLiteral("\U0001F4CC ") + tr("Pin Tab"));
+    pinAct->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_P));
+
+    menu.addSeparator();
+
+    QAction *copyPathAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy Path"));
+    copyPathAct->setEnabled(!isUntitled);
+
+    QAction *copyNameAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy File Name"));
+    copyNameAct->setEnabled(!isUntitled);
+
+    menu.addSeparator();
+
+    QAction *showInFmAct = menu.addAction(QIcon(":/icons/Common/openinfolder.svg"), tr("Show in File Manager"));
+    showInFmAct->setEnabled(!isUntitled);
+
+    QAction *openTermAct = menu.addAction(QIcon(":/icons/Common/openinterminal.svg"), tr("Open in Terminal"));
+    openTermAct->setEnabled(!isUntitled);
+
+    QAction *chosen = menu.exec(event->globalPos());
+    if (!chosen) return;
+
+    if (chosen == closeAct)
+        emit closeTabRequested(idx);
+    else if (chosen == closeOthersAct)
+        emit closeOtherTabsRequested(idx);
+    else if (chosen == closeRightAct)
+        emit closeTabsToRightRequested(idx);
+    else if (chosen == closeAllAct)
+        emit closeAllTabsRequested();
+    else if (chosen == pinAct)
+        emit toggleTabPinnedRequested(idx);
+    else if (chosen == copyPathAct)
+        emit copyPathRequested(idx);
+    else if (chosen == copyNameAct)
+        emit copyFileNameRequested(idx);
+    else if (chosen == showInFmAct)
+        emit showInFileManagerRequested(idx);
+    else if (chosen == openTermAct)
+        emit openInTerminalRequested(idx);
 }
 
 // ── SplitView ──────────────────────────────────────────────────
@@ -250,6 +380,74 @@ QTabWidget* SplitView::createTabWidget() {
             if (tw->count() == 0) {
                 removePane(tw);
             }
+        });
+
+        connect(bar, &DraggableTabBar::closeTabRequested, this, [this, tw](int idx) {
+            Q_UNUSED(this)
+            emit tw->tabCloseRequested(idx);
+        });
+
+        connect(bar, &DraggableTabBar::closeOtherTabsRequested, this, [tw](int keepIdx) {
+            for (int i = tw->count() - 1; i >= 0; --i) {
+                if (i != keepIdx)
+                    emit tw->tabCloseRequested(i);
+            }
+        });
+
+        connect(bar, &DraggableTabBar::closeTabsToRightRequested, this, [tw](int pos) {
+            for (int i = tw->count() - 1; i > pos; --i)
+                emit tw->tabCloseRequested(i);
+        });
+
+        connect(bar, &DraggableTabBar::closeAllTabsRequested, this, [this]() {
+            emit this->closeAllTabsRequested();
+        });
+
+        connect(bar, &DraggableTabBar::copyPathRequested, this, [tw](int idx) {
+            auto *editor = qobject_cast<CodeEditor*>(tw->widget(idx));
+            if (editor)
+                QApplication::clipboard()->setText(editor->fileName());
+        });
+
+        connect(bar, &DraggableTabBar::copyFileNameRequested, this, [tw](int idx) {
+            auto *editor = qobject_cast<CodeEditor*>(tw->widget(idx));
+            if (editor)
+                QApplication::clipboard()->setText(QFileInfo(editor->fileName()).fileName());
+        });
+
+        connect(bar, &DraggableTabBar::showInFileManagerRequested, this, [tw](int idx) {
+            auto *editor = qobject_cast<CodeEditor*>(tw->widget(idx));
+            if (editor) {
+                QString path = editor->fileName();
+                if (!path.isEmpty())
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).path()));
+            }
+        });
+
+        connect(bar, &DraggableTabBar::openInTerminalRequested, this, [tw](int idx) {
+            auto *editor = qobject_cast<CodeEditor*>(tw->widget(idx));
+            if (!editor) return;
+            QString dirPath = QFileInfo(editor->fileName()).path();
+            QString terminal = qEnvironmentVariable("TERMINAL");
+            if (terminal.isEmpty()) {
+                static const QStringList terminals = {
+                    QStringLiteral("x-terminal-emulator"), QStringLiteral("gnome-terminal"),
+                    QStringLiteral("konsole"), QStringLiteral("xfce4-terminal"),
+                    QStringLiteral("lxterminal"), QStringLiteral("urxvt"), QStringLiteral("xterm")
+                };
+                for (const QString &t : terminals) {
+                    if (!QStandardPaths::findExecutable(t).isEmpty()) {
+                        terminal = t;
+                        break;
+                    }
+                }
+            }
+            if (!terminal.isEmpty())
+                QProcess::startDetached(terminal, QStringList(), dirPath);
+        });
+
+        connect(bar, &DraggableTabBar::toggleTabPinnedRequested, this, [this, tw](int idx) {
+            emit this->tabPinToggled(idx, tw);
         });
     }
 
@@ -416,13 +614,31 @@ void SplitView::resizeEvent(QResizeEvent *event) {
 void SplitView::handleDrop(QDropEvent *event) {
     QByteArray data = event->mimeData()->data(MIME_TAB);
     QDataStream stream(&data, QIODevice::ReadOnly);
-    quint64 dragId;
-    int srcIndex;
-    stream >> dragId >> srcIndex;
+    qint64 srcPid = 0;
+    quint64 dragId = 0;
+    int srcIndex = -1;
+    QString filePath;
+    stream >> srcPid >> dragId >> srcIndex >> filePath;
 
     auto *srcTw = s_dragSourceMap.value(dragId).data();
     s_dragSourceMap.remove(dragId);
-    if (!srcTw || srcIndex < 0 || srcIndex >= srcTw->count()) return;
+
+    if (!srcTw || srcIndex < 0 || srcIndex >= srcTw->count()) {
+        // Cross-process or invalid drop
+        if (!filePath.isEmpty()) {
+            emit externalTabDropped(filePath);
+            event->setDropAction(Qt::MoveAction);
+            event->accept();
+            // Acknowledge to source process so it removes the tab
+            QString respPath = dragResponsePath(srcPid, dragId);
+            QFile respFile(respPath);
+            if (respFile.open(QIODevice::WriteOnly))
+                respFile.close();
+        }
+        return;
+    }
+
+    s_handledDragIds.insert(dragId);
 
     // Find the actual widget under the cursor
     QWidget *under = QApplication::widgetAt(QCursor::pos());

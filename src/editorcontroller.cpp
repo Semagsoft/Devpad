@@ -456,16 +456,15 @@ void EditorController::autoSave()
             QString fileName = editor->fileName();
             if (!fileName.isEmpty() && fileName != Strings::untitled())
             {
-                        if (saveToOriginal)
-                        {
-                            if (m_fileManager->saveFile(fileName, editor))
-                            {
-                                m_fileWatcherManager->updateModificationTime(fileName);
-                                m_tabManager->updateTabTitle(editor);
-                                emit fileSaved(fileName);
-                                Logger::instance().debug(QString("Auto-saved file: %1").arg(fileName));
-                            }
-                        }
+                if (saveToOriginal)
+                {
+                    if (m_fileManager->saveFile(fileName, editor))
+                    {
+                        m_fileWatcherManager->updateModificationTime(fileName);
+                        m_tabManager->updateTabTitle(editor);
+                        emit fileSaved(fileName);
+                        Logger::instance().debug(QString("Auto-saved file: %1").arg(fileName));
+                    }
                 }
                 else
                 {
@@ -475,8 +474,16 @@ void EditorController::autoSave()
                     }
                 }
             }
+            else
+            {
+                if (BackupManager::saveBackup(fileName, editor->text()))
+                {
+                    Logger::instance().debug(QString("Auto-saved backup: %1").arg(fileName));
+                }
+            }
         }
     }
+}
 
 void EditorController::promptBackupRestore(const QString& filePath)
 {

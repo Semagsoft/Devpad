@@ -6,11 +6,15 @@
 #include "theme.h"
 
 #include <QApplication>
+#include <QClipboard>
+#include <QContextMenuEvent>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileInfo>
 #include <QFont>
+#include <QIcon>
 #include <QKeyEvent>
+#include <QMenu>
 #include <QMimeData>
 
 #include <Qsci/qsciapis.h>
@@ -103,6 +107,9 @@ CodeEditor::~CodeEditor() = default;
 
 void CodeEditor::dragEnterEvent(QDragEnterEvent* event)
 {
+    if (event->mimeData()->hasFormat("application/x-devpad-tab"))
+        return;
+
     if (event->mimeData()->hasUrls())
     {
         event->acceptProposedAction();
@@ -115,6 +122,9 @@ void CodeEditor::dragEnterEvent(QDragEnterEvent* event)
 
 void CodeEditor::dropEvent(QDropEvent* event)
 {
+    if (event->mimeData()->hasFormat("application/x-devpad-tab"))
+        return;
+
     const QMimeData* mimeData = event->mimeData();
     if (mimeData->hasUrls())
     {
@@ -584,16 +594,71 @@ CodeEditor::BracketContext CodeEditor::contextAtPosition(int pos) const
 {
     BracketContext ctx;
     int line = SendScintilla(SCI_LINEFROMPOSITION, pos);
+    int col = pos - SendScintilla(SCI_POSITIONFROMLINE, line);
+
+    // Scan previous lines to determine if we're inside a multi-line block comment
+    bool inBlockComment = false;
+    for (int l = 0; l < line; ++l)
+    {
+        int lStart = SendScintilla(SCI_POSITIONFROMLINE, l);
+        int lEnd = SendScintilla(SCI_GETLINEENDPOSITION, l);
+        QString lText = QsciScintilla::text(lStart, lEnd);
+
+        for (int i = 0; i < lText.length(); ++i)
+        {
+            QChar c = lText[i];
+            if (!inBlockComment)
+            {
+                if (c == '/' && i + 1 < lText.length() && lText[i + 1] == '*')
+                {
+                    inBlockComment = true;
+                    ++i;
+                }
+            }
+            else
+            {
+                if (c == '*' && i + 1 < lText.length() && lText[i + 1] == '/')
+                {
+                    inBlockComment = false;
+                    ++i;
+                }
+            }
+        }
+    }
+
+    // Scan current line up to the cursor position
     int lineStart = SendScintilla(SCI_POSITIONFROMLINE, line);
     int lineLength = SendScintilla(SCI_GETLINEENDPOSITION, line);
     QString lineText = QsciScintilla::text(lineStart, lineLength);
-    int col = pos - lineStart;
 
     for (int i = 0; i < col && i < lineText.length(); ++i)
     {
         QChar c = lineText[i];
+        if (inBlockComment)
+        {
+            if (c == '*' && i + 1 < lineText.length() && lineText[i + 1] == '/')
+            {
+                inBlockComment = false;
+                ++i;
+            }
+            continue;
+        }
         if (ctx.inComment)
             continue;
+        if (c == '/' && i + 1 < lineText.length())
+        {
+            if (lineText[i + 1] == '*')
+            {
+                inBlockComment = true;
+                ++i;
+                continue;
+            }
+            if (lineText[i + 1] == '/')
+            {
+                ctx.inComment = true;
+                continue;
+            }
+        }
         if (c == '\\' && (ctx.inString || ctx.inCharLiteral))
         {
             ++i;
@@ -603,9 +668,9 @@ CodeEditor::BracketContext CodeEditor::contextAtPosition(int pos) const
             ctx.inString = !ctx.inString;
         else if (c == '\'' && !ctx.inString)
             ctx.inCharLiteral = !ctx.inCharLiteral;
-        else if (c == '/' && i + 1 < lineText.length() && lineText[i + 1] == '/')
-            ctx.inComment = true;
     }
+
+    ctx.inBlockComment = inBlockComment;
     return ctx;
 }
 
@@ -617,7 +682,7 @@ bool CodeEditor::handleAutoClose(QChar ch, int pos)
         QChar close;
     } pairs[] = {{'(', ')'}, {'[', ']'}, {'{', '}'}, {'"', '"'}, {'\'', '\''}};
     BracketContext ctx = contextAtPosition(pos);
-    if (ctx.inComment || ctx.inCharLiteral)
+    if (ctx.inComment || ctx.inBlockComment || ctx.inCharLiteral)
         return false;
 
     for (const auto& pair : pairs)
@@ -641,7 +706,7 @@ bool CodeEditor::handleBracketSkip(QChar ch, int pos)
 {
     static const QChar closers[] = {')', ']', '}', '"', '\''};
     BracketContext ctx = contextAtPosition(pos);
-    if (ctx.inString || ctx.inComment)
+    if (ctx.inString || ctx.inComment || ctx.inBlockComment)
         return false;
 
     for (QChar closer : closers)
@@ -917,6 +982,115 @@ void CodeEditor::recalculateTabStopPositions()
             info.length = end - start;
         }
     }
+}
+
+void CodeEditor::contextMenuEvent(QContextMenuEvent* event)
+{
+    QMenu menu(this);
+
+    bool hasSelection = !selectedText().isEmpty();
+    bool canUndo = isUndoAvailable();
+    bool canRedo = isRedoAvailable();
+    bool readOnly = isReadOnly();
+
+    QAction* undoAct = menu.addAction(QIcon(":/icons/Edit/undo.svg"), tr("Undo"));
+    undoAct->setShortcut(QKeySequence::Undo);
+    undoAct->setEnabled(canUndo && !readOnly);
+
+    QAction* redoAct = menu.addAction(QIcon(":/icons/Edit/redo.svg"), tr("Redo"));
+    redoAct->setShortcut(QKeySequence::Redo);
+    redoAct->setEnabled(canRedo && !readOnly);
+
+    menu.addSeparator();
+
+    QAction* cutAct = menu.addAction(QIcon(":/icons/Edit/cut.svg"), tr("Cut"));
+    cutAct->setShortcut(QKeySequence::Cut);
+    cutAct->setEnabled(hasSelection && !readOnly);
+
+    QAction* copyAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy"));
+    copyAct->setShortcut(QKeySequence::Copy);
+    copyAct->setEnabled(hasSelection);
+
+    QAction* pasteAct = menu.addAction(QIcon(":/icons/Edit/paste.svg"), tr("Paste"));
+    pasteAct->setShortcut(QKeySequence::Paste);
+    pasteAct->setEnabled(!readOnly);
+
+    QAction* deleteAct = menu.addAction(QIcon(":/icons/Edit/delete.svg"), tr("Delete"));
+    deleteAct->setShortcut(QKeySequence::Delete);
+    deleteAct->setEnabled(hasSelection && !readOnly);
+
+    menu.addSeparator();
+
+    QAction* selectAllAct = menu.addAction(QIcon(":/icons/Edit/selectall.svg"), tr("Select All"));
+    selectAllAct->setShortcut(QKeySequence::SelectAll);
+
+    menu.addSeparator();
+
+    QAction* findAct = menu.addAction(QIcon(":/icons/Edit/find.svg"), tr("Find..."));
+    findAct->setShortcut(QKeySequence::Find);
+
+    QAction* replaceAct = menu.addAction(QIcon(":/icons/Edit/replace.svg"), tr("Replace..."));
+    replaceAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_H));
+
+    QAction* goToLineAct = menu.addAction(QIcon(":/icons/Edit/goto.svg"), tr("Go To Line..."));
+    goToLineAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_G));
+
+    menu.addSeparator();
+
+    QAction* toggleBookmarkAct = menu.addAction(tr("Toggle Bookmark"));
+    toggleBookmarkAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F2));
+    toggleBookmarkAct->setEnabled(!readOnly);
+
+    QAction* nextBookmarkAct = menu.addAction(tr("Next Bookmark"));
+    nextBookmarkAct->setShortcut(QKeySequence(Qt::Key_F2));
+
+    QAction* prevBookmarkAct = menu.addAction(tr("Previous Bookmark"));
+    prevBookmarkAct->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F2));
+
+    QAction* clearBookmarksAct = menu.addAction(tr("Clear Bookmarks"));
+    clearBookmarksAct->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F2));
+
+    menu.addSeparator();
+
+    QAction* insertSnippetAct = menu.addAction(tr("Insert Snippet..."));
+    insertSnippetAct->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_I));
+    insertSnippetAct->setEnabled(!readOnly);
+
+    QAction* chosen = menu.exec(event->globalPos());
+
+    if (!chosen)
+        return;
+
+    if (chosen == undoAct)
+        undo();
+    else if (chosen == redoAct)
+        redo();
+    else if (chosen == cutAct)
+        cut();
+    else if (chosen == copyAct)
+        copy();
+    else if (chosen == pasteAct)
+        paste();
+    else if (chosen == deleteAct)
+        removeSelectedText();
+    else if (chosen == selectAllAct)
+        selectAll();
+    else if (chosen == findAct)
+        emit findRequested();
+    else if (chosen == replaceAct)
+        emit replaceRequested();
+    else if (chosen == goToLineAct)
+        emit goToLineRequested();
+    else if (chosen == toggleBookmarkAct)
+        toggleBookmark();
+    else if (chosen == nextBookmarkAct)
+        nextBookmark();
+    else if (chosen == prevBookmarkAct)
+        prevBookmark();
+    else if (chosen == clearBookmarksAct)
+        clearBookmarks();
+    else if (chosen == insertSnippetAct)
+        emit insertSnippetRequested();
 }
 
 

@@ -24,6 +24,7 @@
 #include <QStringList>
 #include <QHash>
 #include <QList>
+#include <QLockFile>
 #include <QSettings>
 #include <functional>
 
@@ -50,11 +51,13 @@ public:
 
     // ── Persistence ────────────────────────────────────────────
     void saveSessionData(const QStringList &files, int activeIndex, const QString &projectPath);
-    QStringList sessionFiles() const;
-    int sessionActiveIndex() const;
-    QString sessionProjectPath() const;
+    QStringList sessionFiles();
+    int sessionActiveIndex();
+    QString sessionProjectPath();
     void saveSessionBookmarks(const QHash<QString, QList<int>> &bookmarks);
-    QHash<QString, QList<int>> loadSessionBookmarks() const;
+    QHash<QString, QList<int>> loadSessionBookmarks();
+    void saveSessionPinnedFiles(const QStringList &pinnedFiles);
+    QStringList loadSessionPinnedFiles();
     void clearSession();
 
 signals:
@@ -68,8 +71,11 @@ private:
         QHash<QString, QList<int>> bookmarks;
     };
 
-    SessionData loadSessionData() const;
+    SessionData loadSessionData();
+    QString sessionGroupPrefix() const;
+
     QSettings m_sessionSettings;
+    QLockFile m_sessionLock;
 };
 
 #endif

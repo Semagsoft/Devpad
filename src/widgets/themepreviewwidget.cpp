@@ -56,16 +56,16 @@ void ThemePreviewWidget::paintEvent(QPaintEvent *)
     lines[3] = {{{"    let ", m_colors.keyword}, {"y", m_colors.foreground}, {" = ", m_colors.operator_}, {"x", m_colors.foreground}, {" + ", m_colors.operator_}, {"1", m_colors.number}, {";", m_colors.operator_}}};
     lines[4] = {{{"}", m_colors.operator_}}};
 
-    // Selection highlight on line 2
-    int selY = 14 + 1 * 18;
-    QRect selRect(cx + 50, selY - 12, 80, 16);
+    // Selection highlight on line 3 (the "hello" string)
+    int selY = 14 + 2 * 18;
+    QRect selRect(cx + 50, selY - 12, 40, 16);
     p.fillRect(selRect, m_colors.selectionBg);
 
     lineY = 14;
     for (int li = 0; li < 5; ++li) {
         int tx = cx;
         for (const auto &token : lines[li].tokens) {
-            if (li == 1 && token.text == "hello") {
+            if (li == 2 && token.text == "hello") {
                 p.setPen(m_colors.selectionFg);
             } else {
                 p.setPen(token.color);

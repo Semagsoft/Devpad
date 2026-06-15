@@ -59,6 +59,7 @@
 #include <QFontDatabase>
 #include <QHash>
 #include <QDesktopServices>
+#include <QLocalSocket>
 #include <QIcon>
 #include <QInputDialog>
 #include <QMessageBox>
@@ -77,6 +78,7 @@
 #include <QTextEdit>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <qtermwidget.h>
 
 MainWindow::~MainWindow() = default;
 
@@ -133,6 +135,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 }
             });
 
+    connect(splitView, &SplitView::externalTabDropped, this,
+            [this](const QString &filePath)
+            {
+                loadFile(filePath);
+            });
+
     projectPanel = new ProjectPanel(this);
     {
         auto pos = SettingsManager::instance().projectPanelPosition();
@@ -146,6 +154,24 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     addDockWidget(Qt::BottomDockWidgetArea, terminalPanel);
     terminalPanel->hide();
 
+    // Install SplitView's event filter on MainWindow to catch drag events over
+    // dock widgets and other areas where no child widget accepts drops
+    installEventFilter(splitView);
+
+    // QTermWidget's internal drag handling intercepts events before our
+    // filters; disable acceptDrops on all terminal child widgets so that drag
+    // events fall through to MainWindow where the SplitView's filter handles
+    // them (cross-process acknowledgments, etc.)
+    connect(terminalPanel, &TerminalPanel::terminalStarted, this, [this]() {
+        auto disableDrops = [](auto &&self, QObject *obj) -> void {
+            if (auto *w = qobject_cast<QWidget*>(obj))
+                w->setAcceptDrops(false);
+            for (QObject *child : obj->children())
+                self(self, child);
+        };
+        disableDrops(disableDrops, terminalPanel);
+    });
+
     tabManager = new TabManager(tabWidget, this);
     searchManager = new SearchManager(this);
 
@@ -158,6 +184,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     fileWatcherManager = new FileWatcherManager(this);
 
     editorController = new EditorController(tabManager, fileManager, fileWatcherManager, actionManager, tabWidget, this);
+
+    m_localServer = new QLocalServer(this);
+    QString serverName = QStringLiteral("devpad-%1").arg(QCoreApplication::applicationPid());
+    QLocalServer::removeServer(serverName);
+    m_localServer->listen(serverName);
+    connect(m_localServer, &QLocalServer::newConnection, this, &MainWindow::handleQuitRequest);
 
     m_externalToolManager = new ExternalToolManager(this);
     m_remoteFileService = new RemoteFileService(this);
@@ -226,6 +258,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             {
                 connect(editor, &QsciScintilla::textChanged, this, &MainWindow::updateStatusBar);
                 connect(editor, &QsciScintilla::cursorPositionChanged, this, [this]() { updateStatusBar(); });
+                connect(editor, &CodeEditor::findRequested, this, &MainWindow::find);
+                connect(editor, &CodeEditor::replaceRequested, this, &MainWindow::replace);
+                connect(editor, &CodeEditor::goToLineRequested, this, &MainWindow::goToLine);
+                connect(editor, &CodeEditor::insertSnippetRequested, editorController, &EditorController::insertSnippet);
+                connect(editor, &CodeEditor::fileDropped, this, [this](const QString &path) {
+                    loadFile(path);
+                });
             });
 
     autoSaveTimer = new QTimer(this);
@@ -278,11 +317,7 @@ void MainWindow::connectActions()
     connect(actionManager, &ActionManager::closeCurrentTabTriggered, editorController, &EditorController::closeCurrentTab);
     connect(actionManager, &ActionManager::closeAllTabsTriggered, editorController, &EditorController::closeAllTabs);
     connect(actionManager, &ActionManager::exitTriggered, this, &QWidget::close);
-connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
-    QProcess* p = new QProcess(this);
-    p->start("pkill", QStringList() << "-i" << "Devpad");
-    connect(p, &QProcess::finished, p, &QProcess::deleteLater);
-});
+    connect(actionManager, &ActionManager::quitDevpadTriggered, this, &MainWindow::quitDevpad);
     connect(terminalPanel, &TerminalPanel::sessionExited, this, &QWidget::close);
 
     connect(actionManager, &ActionManager::undoTriggered, editorController, &EditorController::undo);
@@ -310,6 +345,14 @@ connect(actionManager, &ActionManager::quitDevpadTriggered, [this]() {
     connect(actionManager, &ActionManager::nextBookmarkTriggered, editorController, &EditorController::nextBookmark);
     connect(actionManager, &ActionManager::prevBookmarkTriggered, editorController, &EditorController::prevBookmark);
     connect(actionManager, &ActionManager::clearBookmarksTriggered, editorController, &EditorController::clearBookmarks);
+    connect(splitView, &SplitView::closeAllTabsRequested, editorController, &EditorController::closeAllTabs);
+    connect(splitView, &SplitView::tabPinToggled, this,
+            [this](int localIdx, QTabWidget* pane)
+            {
+                auto* editor = qobject_cast<CodeEditor*>(pane->widget(localIdx));
+                if (editor)
+                    tabManager->setTabPinned(editor, !tabManager->isTabPinned(editor));
+            });
     connect(actionManager, &ActionManager::toggleMenuBarTriggered, this,
             [this]()
             {
@@ -786,7 +829,8 @@ void MainWindow::runExternalTool(int index)
     QString selectedText;
     if (editor) {
         filePath = editor->fileName();
-        editor->getCursorPosition(&lineNumber, nullptr);
+        int dummyIndex;
+        editor->getCursorPosition(&lineNumber, &dummyIndex);
         lineNumber++;
         selectedText = editor->selectedText();
     }
@@ -873,6 +917,7 @@ void MainWindow::applyStartupMode()
     else if (mode == StartupMode::RestoreSession)
     {
         sessionManager->restoreSession([this](const QString& filePath) { loadFile(filePath); }, splitView, projectPanel);
+        tabManager->setPinnedFiles(sessionManager->loadSessionPinnedFiles());
         QString projectPath = projectPanel->rootPath();
         if (!projectPath.isEmpty())
         {
@@ -1081,8 +1126,100 @@ void MainWindow::updateStatusBarLabelsVisibility()
     actionManager->fileTypeLabel()->setVisible(shouldShow);
 }
 
+void MainWindow::quitDevpad()
+{
+    m_quitRequested = true;
+
+    QProcess pgrep;
+    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-x") << QStringLiteral("Devpad"));
+    pgrep.waitForFinished();
+    QList<qint64> pids;
+    for (const QString& line : QString::fromUtf8(pgrep.readAllStandardOutput())
+             .split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+        qint64 pid = line.trimmed().toLongLong();
+        if (pid > 0 && pid != QCoreApplication::applicationPid())
+            pids.append(pid);
+    }
+
+    for (qint64 pid : pids) {
+        QLocalSocket socket;
+        socket.connectToServer(QStringLiteral("devpad-%1").arg(pid));
+        if (!socket.waitForConnected(3000))
+            continue;
+
+        socket.write("save_and_quit\n");
+        socket.flush();
+
+        while (socket.state() == QLocalSocket::ConnectedState) {
+            if (socket.waitForReadyRead(500)) {
+                while (socket.canReadLine()) {
+                    QString line = QString::fromUtf8(socket.readLine()).trimmed();
+                    if (line == QStringLiteral("abort")) {
+                        m_quitRequested = false;
+                        return;
+                    }
+                }
+            }
+            QApplication::processEvents();
+        }
+    }
+
+    for (int i = tabManager->count() - 1; i >= 0; --i) {
+        CodeEditor* editor = tabManager->editorAt(i);
+        if (!editorController->maybeSave(editor)) {
+            m_quitRequested = false;
+            return;
+        }
+    }
+
+    SettingsManager::instance().setShowTerminalPanel(actionManager->terminalPanelAct()->isChecked());
+    sessionManager->saveSession(tabManager, projectPanel);
+    QApplication::quit();
+}
+
+void MainWindow::handleQuitRequest()
+{
+    QLocalSocket* client = m_localServer->nextPendingConnection();
+    connect(client, &QLocalSocket::readyRead, this, [this, client]() {
+        if (!client->canReadLine())
+            return;
+
+        QString command = QString::fromUtf8(client->readLine()).trimmed();
+        if (command != QStringLiteral("save_and_quit"))
+            return;
+
+        if (m_quitRequested) {
+            client->disconnectFromServer();
+            return;
+        }
+        m_quitRequested = true;
+
+        for (int i = tabManager->count() - 1; i >= 0; --i) {
+            CodeEditor* editor = tabManager->editorAt(i);
+            if (!editorController->maybeSave(editor)) {
+                client->write("abort\n");
+                client->flush();
+                client->disconnectFromServer();
+                m_quitRequested = false;
+                return;
+            }
+        }
+
+        SettingsManager::instance().setShowTerminalPanel(actionManager->terminalPanelAct()->isChecked());
+        sessionManager->saveSession(tabManager, projectPanel);
+        client->disconnectFromServer();
+        QApplication::quit();
+    });
+    connect(client, &QLocalSocket::disconnected, client, &QObject::deleteLater);
+}
+
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    if (m_quitRequested)
+    {
+        event->accept();
+        return;
+    }
     for (int i = tabManager->count() - 1; i >= 0; --i)
     {
         CodeEditor* editor = tabManager->editorAt(i);
@@ -1318,6 +1455,6 @@ void MainWindow::openTransferFile(const QString& filePath)
         editor->setFileName(Strings::untitled());
         editor->forceModified();
         tabManager->updateTabTitle(editor);
+        QFile::remove(filePath);
     }
-    QFile::remove(filePath);
 }

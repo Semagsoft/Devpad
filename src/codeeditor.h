@@ -80,6 +80,10 @@ signals:
     void fileDropped(const QString& filePath);
     void bookmarksChanged();
     void snippetModeChanged(bool active);
+    void findRequested();
+    void replaceRequested();
+    void goToLineRequested();
+    void insertSnippetRequested();
 
 public slots:
     void forceModified();
@@ -91,6 +95,7 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void contextMenuEvent(QContextMenuEvent* event) override;
 
 private:
     QString m_fileName;
@@ -108,6 +113,7 @@ private:
         bool inString = false;
         bool inCharLiteral = false;
         bool inComment = false;
+        bool inBlockComment = false;
     };
 
     BracketContext contextAtPosition(int pos) const;

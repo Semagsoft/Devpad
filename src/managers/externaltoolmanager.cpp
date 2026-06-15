@@ -19,7 +19,9 @@ ExternalToolManager& ExternalToolManager::instance() {
 }
 
 ExternalToolManager::ExternalToolManager(QObject *parent) : QObject(parent) {
-    s_instance = this;
+    if (!s_instance) {
+        s_instance = this;
+    }
 }
 
 QList<ExternalTool> ExternalToolManager::tools() const {

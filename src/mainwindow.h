@@ -3,6 +3,7 @@
 
 #include "appstrings.h"
 
+#include <QLocalServer>
 #include <QMainWindow>
 #include <QPointer>
 
@@ -82,6 +83,8 @@ private:
     void applyCloseButtonPosition();
     void applyTabBarPosition();
     void applyTerminalPanelPosition();
+    void quitDevpad();
+    void handleQuitRequest();
     void applySettings();
     void applyStartupMode();
     void applyAutoSaveSettings();
@@ -117,6 +120,9 @@ private:
     ExternalToolManager* m_externalToolManager;
     RemoteFileService* m_remoteFileService;
     SnippetManager* m_snippetManager;
+
+    QLocalServer* m_localServer = nullptr;
+    bool m_quitRequested = false;
 };
 
 #endif // MAINWINDOW_H

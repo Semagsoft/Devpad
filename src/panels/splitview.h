@@ -29,6 +29,7 @@
 #include <QApplication>
 #include <QPointer>
 #include <QMap>
+#include <QContextMenuEvent>
 #include <functional>
 
 class DraggableTabBar : public QTabBar {
@@ -42,10 +43,20 @@ public:
 signals:
     void tabDragStarted(int index);
     void tabDroppedOutside(int index, const QString &filePath);
+    void closeTabRequested(int tabIndex);
+    void closeOtherTabsRequested(int tabIndex);
+    void closeTabsToRightRequested(int tabIndex);
+    void closeAllTabsRequested();
+    void copyPathRequested(int tabIndex);
+    void copyFileNameRequested(int tabIndex);
+    void showInFileManagerRequested(int tabIndex);
+    void openInTerminalRequested(int tabIndex);
+    void toggleTabPinnedRequested(int tabIndex);
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
 
 private:
@@ -85,6 +96,9 @@ public:
 signals:
     void activeTabWidgetChanged(QTabWidget *tabWidget);
     void tabDetachedToWindow(const QString &filePath);
+    void closeAllTabsRequested();
+    void tabPinToggled(int tabIndex, QTabWidget *pane);
+    void externalTabDropped(const QString &filePath);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;

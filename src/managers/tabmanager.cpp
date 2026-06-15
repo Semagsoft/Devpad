@@ -18,6 +18,7 @@
  */
 #include "tabmanager.h"
 
+#include "appstrings.h"
 #include "panels/terminalpanel.h"
 
 #include <QFileInfo>
@@ -139,6 +140,63 @@ void TabManager::addEditor(CodeEditor* editor, const QString& title)
     emit editorCreated(editor);
 }
 
+void TabManager::setTabPinned(CodeEditor* editor, bool pinned)
+{
+    if (pinned)
+        m_pinnedEditors.insert(editor);
+    else
+        m_pinnedEditors.remove(editor);
+
+    QTabWidget* pane = paneForEditor(editor);
+    if (pane) {
+        int idx = pane->indexOf(editor);
+        if (idx >= 0) {
+            updateTabTitle(editor);
+            updateCloseButton(idx, pane, SettingsManager::instance().closeButtonMode());
+        }
+    }
+}
+
+bool TabManager::isTabPinned(CodeEditor* editor) const
+{
+    return m_pinnedEditors.contains(editor);
+}
+
+QStringList TabManager::pinnedFiles() const
+{
+    QStringList files;
+    for (CodeEditor* editor : m_pinnedEditors)
+    {
+        QString name = editor->fileName();
+        if (!name.isEmpty() && name != Strings::untitled())
+            files.append(name);
+    }
+    return files;
+}
+
+void TabManager::setPinnedFiles(const QStringList& files)
+{
+    m_pinnedEditors.clear();
+    for (const QString& file : files)
+    {
+        CodeEditor* editor = findEditorByFileName(file);
+        if (editor)
+            m_pinnedEditors.insert(editor);
+    }
+    for (QTabWidget* pane : m_panes)
+    {
+        for (int i = 0; i < pane->count(); ++i)
+        {
+            CodeEditor* editor = qobject_cast<CodeEditor*>(pane->widget(i));
+            if (editor)
+            {
+                updateTabTitle(editor);
+                updateCloseButton(i, pane, SettingsManager::instance().closeButtonMode());
+            }
+        }
+    }
+}
+
 void TabManager::removeEditor(int index)
 {
     int globalIdx = 0;
@@ -150,7 +208,10 @@ void TabManager::removeEditor(int index)
             auto* editor = qobject_cast<CodeEditor*>(pane->widget(localIdx));
             if (!editor)
                 return;
+            if (m_pinnedEditors.contains(editor))
+                return;
             removeCloseButtons(localIdx, pane);
+            m_pinnedEditors.remove(editor);
             pane->removeTab(localIdx);
             for (int i = localIdx; i < pane->count(); ++i)
             {
@@ -176,7 +237,10 @@ bool TabManager::closeEditor(int index)
             auto* editor = qobject_cast<CodeEditor*>(pane->widget(localIdx));
             if (!editor)
                 return false;
+            if (m_pinnedEditors.contains(editor))
+                return false;
             removeCloseButtons(localIdx, pane);
+            m_pinnedEditors.remove(editor);
             pane->removeTab(localIdx);
             for (int i = localIdx; i < pane->count(); ++i)
             {
@@ -262,6 +326,10 @@ void TabManager::updateTabTitle(CodeEditor* editor)
     if (index >= 0)
     {
         QString baseName = getFileBaseName(editor->fileName());
+        if (m_pinnedEditors.contains(editor))
+        {
+            baseName = QStringLiteral("\U0001F4CC ") + baseName;
+        }
         if (editor->isModified())
         {
             baseName = "*" + baseName;
@@ -286,6 +354,14 @@ void TabManager::updateCloseButton(int tabIndex, QTabWidget* pane, CloseButtonMo
         return;
     if (qobject_cast<TerminalPanel*>(pane->widget(tabIndex)))
     {
+        return;
+    }
+
+    auto* editor = qobject_cast<CodeEditor*>(pane->widget(tabIndex));
+    if (editor && m_pinnedEditors.contains(editor))
+    {
+        tabBar->setTabButton(tabIndex, QTabBar::RightSide, nullptr);
+        tabBar->setTabButton(tabIndex, QTabBar::LeftSide, nullptr);
         return;
     }
     QToolButton* closeButton = qobject_cast<QToolButton*>(tabBar->tabButton(tabIndex, QTabBar::RightSide));
