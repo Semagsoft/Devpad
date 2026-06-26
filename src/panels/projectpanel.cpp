@@ -31,6 +31,10 @@
 #include <QUrl>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 static const QHash<QString, QString>& fileIconMap();
 
@@ -47,11 +51,16 @@ FileFilterProxyModel::FileFilterProxyModel(QObject *parent)
     : QSortFilterProxyModel(parent) {
     m_closedFolderIcon = QIcon(":/icons/Common/folder.svg");
     m_openFolderIcon = QIcon(":/icons/File/openfolder.svg");
+    m_hiddenFolderIcon = QIcon(":/icons/Common/hiddenfolder.svg");
 }
 
 void FileFilterProxyModel::setFolderIcons(const QIcon &closed, const QIcon &open) {
     m_closedFolderIcon = closed;
     m_openFolderIcon = open;
+}
+
+void FileFilterProxyModel::setHiddenFolderIcon(const QIcon &icon) {
+    m_hiddenFolderIcon = icon;
 }
 
 void FileFilterProxyModel::setExpandedFolders(const QSet<QString> &paths) {
@@ -67,6 +76,9 @@ QVariant FileFilterProxyModel::data(const QModelIndex &index, int role) const {
         QModelIndex sourceIndex = mapToSource(index);
         if (sourceModel()->hasChildren(sourceIndex)) {
             QString path = sourceModel()->data(sourceIndex, QFileSystemModel::FilePathRole).toString();
+            if (QFileInfo(path).isHidden()) {
+                return m_hiddenFolderIcon;
+            }
             if (m_expandedFolders.contains(path)) {
                 return m_openFolderIcon;
             }
@@ -90,120 +102,24 @@ QVariant FileFilterProxyModel::data(const QModelIndex &index, int role) const {
 }
 
 static const QHash<QString, QString>& fileIconMap() {
-    static const QHash<QString, QString> map = {
-        {"c", ":/icons/Common/filetypes/cppfile.svg"},
-        {"cpp", ":/icons/Common/filetypes/cppfile.svg"},
-        {"h", ":/icons/Common/filetypes/cppfile.svg"},
-        {"hpp", ":/icons/Common/filetypes/cppfile.svg"},
-        {"cc", ":/icons/Common/filetypes/cppfile.svg"},
-        {"cxx", ":/icons/Common/filetypes/cppfile.svg"},
-        {"c++", ":/icons/Common/filetypes/cppfile.svg"},
-        {"h++", ":/icons/Common/filetypes/cppfile.svg"},
-        {"hxx", ":/icons/Common/filetypes/cppfile.svg"},
-        {"cs", ":/icons/Common/filetypes/misccode.svg"},
-        {"java", ":/icons/Common/filetypes/misccode.svg"},
-        {"class", ":/icons/Common/filetypes/misccode.svg"},
-        {"jar", ":/icons/Common/filetypes/archive.svg"},
-        {"py", ":/icons/Common/filetypes/misccode.svg"},
-        {"pyw", ":/icons/Common/filetypes/misccode.svg"},
-        {"pyi", ":/icons/Common/filetypes/misccode.svg"},
-        {"pyc", ":/icons/Common/filetypes/misccode.svg"},
-        {"js", ":/icons/Common/filetypes/misccode.svg"},
-        {"mjs", ":/icons/Common/filetypes/misccode.svg"},
-        {"cjs", ":/icons/Common/filetypes/misccode.svg"},
-        {"ts", ":/icons/Common/filetypes/misccode.svg"},
-        {"tsx", ":/icons/Common/filetypes/misccode.svg"},
-        {"jsx", ":/icons/Common/filetypes/misccode.svg"},
-        {"html", ":/icons/File/htmlfile.svg"},
-        {"htm", ":/icons/File/htmlfile.svg"},
-        {"xhtml", ":/icons/File/htmlfile.svg"},
-        {"css", ":/icons/Common/filetypes/misccode.svg"},
-        {"scss", ":/icons/Common/filetypes/misccode.svg"},
-        {"sass", ":/icons/Common/filetypes/misccode.svg"},
-        {"less", ":/icons/Common/filetypes/misccode.svg"},
-        {"xaml", ":/icons/File/htmlfile.svg"},
-        {"xsl", ":/icons/File/htmlfile.svg"},
-        {"xslt", ":/icons/File/htmlfile.svg"},
-        {"svg", ":/icons/Common/filetypes/imagefile.svg"},
-        {"sql", ":/icons/Common/filetypes/misccode.svg"},
-        {"ddl", ":/icons/Common/filetypes/misccode.svg"},
-        {"sh", ":/icons/Common/filetypes/misccode.svg"},
-        {"bash", ":/icons/Common/filetypes/misccode.svg"},
-        {"zsh", ":/icons/Common/filetypes/misccode.svg"},
-        {"ksh", ":/icons/Common/filetypes/misccode.svg"},
-        {"fish", ":/icons/Common/filetypes/misccode.svg"},
-        {"bat", ":/icons/Common/filetypes/misccode.svg"},
-        {"cmd", ":/icons/Common/filetypes/misccode.svg"},
-        {"ps1", ":/icons/Common/filetypes/misccode.svg"},
-        {"txt", ":/icons/Common/filetypes/textfile.svg"},
-        {"md", ":/icons/Common/filetypes/textfile.svg"},
-        {"markdown", ":/icons/Common/filetypes/textfile.svg"},
-        {"log", ":/icons/Common/filetypes/textfile.svg"},
-        {"cfg", ":/icons/Common/filetypes/textfile.svg"},
-        {"ini", ":/icons/Common/filetypes/textfile.svg"},
-        {"conf", ":/icons/Common/filetypes/textfile.svg"},
-        {"config", ":/icons/Common/filetypes/textfile.svg"},
-        {"json", ":/icons/Common/filetypes/misccode.svg"},
-        {"jsonc", ":/icons/Common/filetypes/misccode.svg"},
-        {"yaml", ":/icons/Common/filetypes/misccode.svg"},
-        {"yml", ":/icons/Common/filetypes/misccode.svg"},
-        {"toml", ":/icons/Common/filetypes/misccode.svg"},
-        {"xml", ":/icons/File/htmlfile.svg"},
-        {"csv", ":/icons/Common/filetypes/textfile.svg"},
-        {"tsv", ":/icons/Common/filetypes/textfile.svg"},
-        {"rtf", ":/icons/Common/filetypes/textfile.svg"},
-        {"doc", ":/icons/Common/filetypes/misccode.svg"},
-        {"docx", ":/icons/Common/filetypes/misccode.svg"},
-        {"pdf", ":/icons/Common/filetypes/misccode.svg"},
-        {"png", ":/icons/Common/filetypes/imagefile.svg"},
-        {"jpg", ":/icons/Common/filetypes/imagefile.svg"},
-        {"jpeg", ":/icons/Common/filetypes/imagefile.svg"},
-        {"gif", ":/icons/Common/filetypes/imagefile.svg"},
-        {"bmp", ":/icons/Common/filetypes/imagefile.svg"},
-        {"ico", ":/icons/Common/filetypes/imagefile.svg"},
-        {"webp", ":/icons/Common/filetypes/imagefile.svg"},
-        {"tiff", ":/icons/Common/filetypes/imagefile.svg"},
-        {"tif", ":/icons/Common/filetypes/imagefile.svg"},
-        {"psd", ":/icons/Common/filetypes/imagefile.svg"},
-        {"ai", ":/icons/Common/filetypes/imagefile.svg"},
-        {"zip", ":/icons/Common/filetypes/archive.svg"},
-        {"tar", ":/icons/Common/filetypes/archive.svg"},
-        {"gz", ":/icons/Common/filetypes/archive.svg"},
-        {"tgz", ":/icons/Common/filetypes/archive.svg"},
-        {"bz2", ":/icons/Common/filetypes/archive.svg"},
-        {"xz", ":/icons/Common/filetypes/archive.svg"},
-        {"7z", ":/icons/Common/filetypes/archive.svg"},
-        {"rar", ":/icons/Common/filetypes/archive.svg"},
-        {"deb", ":/icons/Common/filetypes/archive.svg"},
-        {"rpm", ":/icons/Common/filetypes/archive.svg"},
-        {"app", ":/icons/Common/filetypes/executable.svg"},
-        {"exe", ":/icons/Common/filetypes/executable.svg"},
-        {"bin", ":/icons/Common/filetypes/executable.svg"},
-        {"msi", ":/icons/Common/filetypes/executable.svg"},
-        {"dmg", ":/icons/Common/filetypes/executable.svg"},
-        {"apk", ":/icons/Common/filetypes/executable.svg"},
-        {"ipa", ":/icons/Common/filetypes/executable.svg"},
-        {"dll", ":/icons/Common/filetypes/misccode.svg"},
-        {"so", ":/icons/Common/filetypes/misccode.svg"},
-        {"a", ":/icons/Common/filetypes/misccode.svg"},
-        {"lib", ":/icons/Common/filetypes/misccode.svg"},
-        {"o", ":/icons/Common/filetypes/misccode.svg"},
-        {"obj", ":/icons/Common/filetypes/misccode.svg"},
-        {"cmake", ":/icons/Common/filetypes/misccode.svg"},
-        {"make", ":/icons/Common/filetypes/misccode.svg"},
-        {"mk", ":/icons/Common/filetypes/misccode.svg"},
-        {"dockerfile", ":/icons/Common/filetypes/misccode.svg"},
-        {"gitignore", ":/icons/Common/filetypes/textfile.svg"},
-        {"gitattributes", ":/icons/Common/filetypes/textfile.svg"},
-        {"gitmodules", ":/icons/Common/filetypes/textfile.svg"},
-        {"lock", ":/icons/Common/filetypes/misccode.svg"},
-        {"env", ":/icons/Common/filetypes/textfile.svg"},
-        {"properties", ":/icons/File/properties.svg"},
-
-        {"url", ":/icons/File/htmlfile.svg"},
-        {"desktop", ":/icons/Common/filetypes/misccode.svg"},
-        {"service", ":/icons/Common/filetypes/misccode.svg"},
-    };
+    static QHash<QString, QString> map;
+    if (map.isEmpty()) {
+        QFile f(QStringLiteral(":/fileicons.json"));
+        if (f.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+            f.close();
+            if (doc.isObject()) {
+                const QJsonObject obj = doc.object();
+                for (auto it = obj.begin(); it != obj.end(); ++it) {
+                    const QString iconPath = it.key();
+                    const QJsonArray exts = it.value().toArray();
+                    for (const auto &extVal : exts) {
+                        map.insert(extVal.toString(), iconPath);
+                    }
+                }
+            }
+        }
+    }
     return map;
 }
 
@@ -307,10 +223,7 @@ void ProjectPanel::setupUI() {
     treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     fileModel = new QFileSystemModel(this);
-    QDir::Filters filters = QDir::AllEntries | QDir::NoDotAndDotDot;
-    if (SettingsManager::instance().showHiddenFiles())
-        filters |= QDir::Hidden;
-    fileModel->setFilter(filters);
+    reloadFilter();
 
     filterProxyModel = new FileFilterProxyModel(this);
     filterProxyModel->setSourceModel(fileModel);
@@ -380,6 +293,13 @@ void ProjectPanel::onFilterTextChanged(const QString &text) {
 
 void ProjectPanel::applyFilter() {
     filterProxyModel->setFilterText(currentFilter);
+}
+
+void ProjectPanel::reloadFilter() {
+    QDir::Filters filters = QDir::AllEntries | QDir::NoDotAndDotDot;
+    if (SettingsManager::instance().showHiddenFiles())
+        filters |= QDir::Hidden;
+    fileModel->setFilter(filters);
 }
 
 void ProjectPanel::showRecentFoldersMenu() {
@@ -457,7 +377,7 @@ void ProjectPanel::onContextMenu(const QPoint &pos) {
         QFileInfo fi(path);
 
         if (fi.isDir()) {
-            QAction *newAct = menu.addAction(QIcon(":/icons/File/new.svg"), tr("New"));
+            QAction *newAct = menu.addAction(QIcon(":/icons/File/newfile.svg"), tr("New File"));
             connect(newAct, &QAction::triggered, this, [this, path]() { newFile(path); });
 
             QAction *newFolderAct = menu.addAction(QIcon(":/icons/Common/newfolder.svg"), tr("New Folder"));
@@ -502,7 +422,7 @@ void ProjectPanel::onContextMenu(const QPoint &pos) {
             connect(showInFmAct, &QAction::triggered, this, [this, path]() { showInFileManager(path); });
         }
     } else {
-        QAction *newAct = menu.addAction(QIcon(":/icons/File/new.svg"), tr("New"));
+        QAction *newAct = menu.addAction(QIcon(":/icons/File/newfile.svg"), tr("New File"));
         connect(newAct, &QAction::triggered, this, [this]() { newFile(currentRootPath); });
 
         QAction *newFolderAct = menu.addAction(QIcon(":/icons/Common/newfolder.svg"), tr("New Folder"));
@@ -518,6 +438,16 @@ void ProjectPanel::onContextMenu(const QPoint &pos) {
 
         QAction *openTermAct = menu.addAction(tr("Open in Terminal"));
         connect(openTermAct, &QAction::triggered, this, [this]() { openInTerminal(currentRootPath); });
+
+        menu.addSeparator();
+
+        bool hiddenVisible = SettingsManager::instance().showHiddenFiles();
+        QAction *showHiddenAct = menu.addAction(
+            hiddenVisible ? tr("Hide Hidden Files and Folders") : tr("Show Hidden Files and Folders"));
+        connect(showHiddenAct, &QAction::triggered, this, [this, hiddenVisible]() {
+            SettingsManager::instance().setShowHiddenFiles(!hiddenVisible);
+            reloadFilter();
+        });
     }
 
     menu.exec(treeView->viewport()->mapToGlobal(pos));
@@ -639,7 +569,25 @@ void ProjectPanel::openInTerminal(const QString &dirPath) {
             tr("No terminal emulator found."));
         return;
     }
-    QProcess::startDetached(terminal, QStringList(), dirPath);
+
+    QStringList termArgs;
+    QString terminalBase = QFileInfo(terminal).baseName();
+    if (terminalBase == "gnome-terminal" || terminalBase == "kgx") {
+        termArgs << "--working-directory" << dirPath;
+    } else if (terminalBase == "konsole") {
+        termArgs << "--workdir" << dirPath;
+    } else if (terminalBase == "xfce4-terminal") {
+        termArgs << "--working-directory" << dirPath;
+    } else if (terminalBase == "alacritty" || terminalBase == "kitty" || terminalBase == "ghostty") {
+        termArgs << "--working-directory" << dirPath;
+    } else if (terminalBase == "urxvt" || terminalBase == "xterm") {
+        termArgs << "-e" << QString("cd %1 && exec $SHELL").arg(dirPath);
+    } else if (terminalBase == "lxterminal") {
+        termArgs << "--working-directory" << dirPath;
+    } else if (terminalBase == "foot") {
+        termArgs << "--working-directory" << dirPath;
+    }
+    QProcess::startDetached(terminal, termArgs, dirPath);
 }
 
 void ProjectPanel::onFolderCollapsed(const QModelIndex &index) {

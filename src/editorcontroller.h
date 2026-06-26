@@ -65,6 +65,7 @@ public:
     void toggleBookmark();
     void nextBookmark();
     void insertSnippet();
+    void toggleComment();
     void prevBookmark();
     void clearBookmarks();
 
@@ -75,6 +76,17 @@ public:
     void promptBackupRestore(const QString& filePath);
     void connectEditorSignals(CodeEditor* editor);
     void saveEditor(CodeEditor* editor, const QString& fileName);
+
+    // Load a file from disk into a new editor tab.
+    // Returns the editor on success, nullptr on failure.
+    // Does NOT check if file is already open (caller handles that).
+    CodeEditor* openFile(const QString& fileName, const QString& encoding = QString());
+
+    // Reload the current editor using a different encoding
+    void reloadWithEncoding(const QString& encoding);
+
+    // Save the current editor with a specific encoding
+    void saveWithEncoding(const QString& encoding);
 
 signals:
     void fileSaved(const QString& fileName);

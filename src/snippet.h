@@ -33,7 +33,6 @@ struct Snippet
 
     // Parse a VS Code-format snippet body string into our representation
     static ExpandedSnippet parseBody(const QStringList& bodyLines);
-    static QString escapeRegExp(const QString& s);
 };
 
 #endif // SNIPPET_H

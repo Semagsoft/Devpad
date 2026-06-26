@@ -28,6 +28,8 @@
 #include <QTabWidget>
 #include <QScrollArea>
 #include <QGroupBox>
+#include <QTableWidget>
+#include "dialogsettings.h"
 
 class ThemePreviewWidget;
 
@@ -43,10 +45,16 @@ signals:
 
 private slots:
     void accept() override;
+    void reject() override;
 
 private:
     void setupUI();
     QWidget* createScrollContainer(QWidget *content);
+    void setupGeneralTab();
+    void setupAppearanceTab();
+    void setupEditorTab();
+    void setupPanelsTab();
+    void setupLspTab();
     void loadSettings();
     void saveSettings();
     void updateThemePreview();
@@ -92,6 +100,13 @@ private:
     ThemePreviewWidget *themePreview;
     QPushButton *accentColorButton;
     QColor m_accentColor;
+    DialogSettings m_geometrySettings;
+
+    // LSP settings
+    QCheckBox *lspEnabledCheckBox;
+    QCheckBox *lspShowErrorListCheckBox;
+    QSpinBox *lspCompletionTriggerSpin;
+    QTableWidget *lspServerTable;
 };
 
 #endif // OPTIONSDIALOG_H

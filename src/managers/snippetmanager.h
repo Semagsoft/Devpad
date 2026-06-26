@@ -14,6 +14,7 @@ class SnippetManager : public QObject
 
 public:
     explicit SnippetManager(QObject* parent = nullptr);
+    ~SnippetManager() override;
 
     QList<Snippet> snippetsForLanguage(const QString& language) const;
     QList<Snippet> allSnippets() const;

@@ -20,69 +20,37 @@
 #define SPLITVIEW_H
 
 #include <QWidget>
-#include <QTabBar>
 #include <QTabWidget>
 #include <QSplitter>
 #include <QDrag>
 #include <QMimeData>
-#include <QMouseEvent>
-#include <QApplication>
 #include <QPointer>
 #include <QMap>
-#include <QContextMenuEvent>
 #include <functional>
 
-class DraggableTabBar : public QTabBar {
-    Q_OBJECT
+#include "draggabletabbar.h"
 
-public:
-    explicit DraggableTabBar(QWidget *parent = nullptr);
-    void setDropIndicator(int index);
-    void setDropIndicatorColor(const QColor &color);
-
-signals:
-    void tabDragStarted(int index);
-    void tabDroppedOutside(int index, const QString &filePath);
-    void closeTabRequested(int tabIndex);
-    void closeOtherTabsRequested(int tabIndex);
-    void closeTabsToRightRequested(int tabIndex);
-    void closeAllTabsRequested();
-    void copyPathRequested(int tabIndex);
-    void copyFileNameRequested(int tabIndex);
-    void showInFileManagerRequested(int tabIndex);
-    void openInTerminalRequested(int tabIndex);
-    void toggleTabPinnedRequested(int tabIndex);
-
-protected:
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void contextMenuEvent(QContextMenuEvent *event) override;
-    void paintEvent(QPaintEvent *event) override;
-
-private:
-    QPoint m_dragStartPos;
-    int m_dragTabIndex = -1;
-    bool m_dragging = false;
-    int m_dropIndicatorIndex = -1;
-    QColor m_dropColor;
-};
+class DropZoneOverlay;
 
 class SplitView : public QWidget {
     Q_OBJECT
 
 public:
+    enum class DropZone { None, Left, Right, Top, Bottom, Center };
+
     explicit SplitView(QWidget *parent = nullptr);
     ~SplitView() override;
 
     QTabWidget* activeTabWidget() const;
     QTabWidget* primaryTabWidget() const { return m_primaryWidget; }
-    QTabWidget* addNewPane(Qt::Orientation orientation, int index = -1);
+    QTabWidget* addNewPane(QTabWidget *relativeTo, Qt::Orientation orientation, bool after);
     void removePane(QTabWidget *tabWidget);
     bool moveTabToPane(int tabIndex, QTabWidget *source, QTabWidget *target, int insertIndex = -1);
     void detachTabToWindow(int tabIndex, QTabWidget *source);
 
     static quint64 nextDragId();
     static void registerDragSource(quint64 id, QTabWidget *widget);
+    static void removeDragSource(quint64 id);
     static QTabWidget* dragSource(quint64 id);
 
     int paneCount() const { return m_panes.size(); }
@@ -92,6 +60,9 @@ public:
     void setPaneCallbacks(std::function<void(QTabWidget*)> onAdded,
                           std::function<void(QTabWidget*)> onRemoved,
                           std::function<void(QTabWidget*, int)> onTabMoved = nullptr);
+
+    // Split current active pane
+    void splitActivePane(Qt::Orientation orientation);
 
 signals:
     void activeTabWidgetChanged(QTabWidget *tabWidget);
@@ -115,21 +86,40 @@ private slots:
 private:
     QTabWidget* createTabWidget();
     QTabWidget* findPaneAt(QPoint screenPos) const;
+    QTabBar* tabBarAt(QPoint screenPos) const;
     QTabWidget* tabWidgetForBar(QTabBar *bar) const;
     void installFilterOnChildWidgets(QWidget *widget);
+    DropZoneOverlay* overlay();
     void handleDrop(QDropEvent *event);
     int totalTabCount() const;
 
+    // Nested splitter helpers
+    QSplitter* parentSplitterFor(QWidget *widget) const;
+    void splitPane(QTabWidget *pane, DropZone zone, QTabWidget *sourcePane, int sourceIndex);
+    void collapseSplitter(QSplitter *splitter);
+    void syncPaneList();
+    void distributeSplitter(QSplitter *splitter);
+    void setupNewPane(QTabWidget *newPane);
+
+    // Zone detection
+    DropZone calcDropZone(QTabWidget *pane, QPoint screenPos) const;
+    void updateDropOverlay(QPoint screenPos);
+    void clearDropIndicators();
+
     QSplitter *m_splitter;
-    QWidget *m_dropOverlay;
+    DropZoneOverlay *m_dropOverlay = nullptr;
     QTabWidget *m_primaryWidget;
     QList<QTabWidget*> m_panes;
     QTabWidget *m_activeWidget = nullptr;
     bool m_dragActive = false;
 
-    // highlight state
+    // highlight state for tab bar
     QPointer<QTabBar> m_highlightBar;
     int m_highlightIndex = -1;
+
+    // drop zone state
+    DropZone m_activeDropZone = DropZone::None;
+    QTabWidget *m_dropTargetPane = nullptr;
 
     bool m_dropping = false;
 
@@ -139,6 +129,7 @@ private:
 
     static quint64 s_dragIdCounter;
     static QMap<quint64, QPointer<QTabWidget>> s_dragSourceMap;
+    static constexpr int MAX_PANES = 4;
     friend class DraggableTabBar;
 };
 

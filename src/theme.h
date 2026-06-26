@@ -4,6 +4,7 @@
 #include <QString>
 #include <QColor>
 #include <QPalette>
+#include <QJsonObject>
 
 enum class ThemeId {
     Light = 0,
@@ -12,7 +13,18 @@ enum class ThemeId {
     Nord = 3,
     SolarizedLight = 4,
     Monokai = 5,
-    GruvboxDark = 6
+    GruvboxDark = 6,
+    CatppuccinMocha = 7,
+    CatppuccinMacchiato = 8,
+    CatppuccinFrappe = 9,
+    CatppuccinLatte = 10,
+    TokyoNight = 11,
+    TokyoNightStorm = 12,
+    Dracula = 13,
+    OneDark = 14,
+    AyuLight = 15,
+    AyuDark = 16,
+    Count
 };
 
 struct ThemeColors {
@@ -73,10 +85,19 @@ struct ThemeColors {
     void resolve();
 };
 
+void initThemeSystem();
 ThemeColors getThemeColors(ThemeId themeId);
 QPalette getThemePalette(const ThemeColors& colors);
 QString themeDisplayName(ThemeId themeId);
 bool isThemeDark(ThemeId themeId);
 bool prefersNativeStyling(ThemeId themeId);
+int builtInThemeCount();
+QList<ThemeId> allBuiltInThemes();
+
+// Custom user themes from ~/.config/devpad/themes/*.json
+QList<ThemeColors> loadCustomThemes();
+ThemeColors parseThemeJson(const QJsonObject &json);
+QStringList customThemeNames();
+ThemeColors getCustomThemeColors(const QString &name);
 
 #endif

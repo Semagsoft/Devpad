@@ -67,6 +67,16 @@ void TerminalPanel::extractColorSchemes() {
         "DevpadSolarizedLight.colorscheme",
         "DevpadMonokai.colorscheme",
         "DevpadGruvboxDark.colorscheme",
+        "DevpadCatppuccinMocha.colorscheme",
+        "DevpadCatppuccinMacchiato.colorscheme",
+        "DevpadCatppuccinFrappe.colorscheme",
+        "DevpadCatppuccinLatte.colorscheme",
+        "DevpadTokyoNight.colorscheme",
+        "DevpadTokyoNightStorm.colorscheme",
+        "DevpadDracula.colorscheme",
+        "DevpadOneDark.colorscheme",
+        "DevpadAyuLight.colorscheme",
+        "DevpadAyuDark.colorscheme",
     };
 
     for (const QString &fileName : schemeFiles) {
@@ -103,18 +113,22 @@ void TerminalPanel::showEvent(QShowEvent *event) {
 
 QString TerminalPanel::themeToColorScheme(ThemeId themeId) const {
     switch (themeId) {
-        case ThemeId::Light:
-            return "DevpadLight";
-        case ThemeId::Dark:
-            return "DevpadDark";
-        case ThemeId::Nord:
-            return "DevpadNord";
-        case ThemeId::SolarizedLight:
-            return "DevpadSolarizedLight";
-        case ThemeId::Monokai:
-            return "DevpadMonokai";
-        case ThemeId::GruvboxDark:
-            return "DevpadGruvboxDark";
+        case ThemeId::Light:           return "DevpadLight";
+        case ThemeId::Dark:            return "DevpadDark";
+        case ThemeId::Nord:            return "DevpadNord";
+        case ThemeId::SolarizedLight:  return "DevpadSolarizedLight";
+        case ThemeId::Monokai:         return "DevpadMonokai";
+        case ThemeId::GruvboxDark:     return "DevpadGruvboxDark";
+        case ThemeId::CatppuccinMocha:      return "DevpadCatppuccinMocha";
+        case ThemeId::CatppuccinMacchiato:  return "DevpadCatppuccinMacchiato";
+        case ThemeId::CatppuccinFrappe:     return "DevpadCatppuccinFrappe";
+        case ThemeId::CatppuccinLatte:      return "DevpadCatppuccinLatte";
+        case ThemeId::TokyoNight:           return "DevpadTokyoNight";
+        case ThemeId::TokyoNightStorm:      return "DevpadTokyoNightStorm";
+        case ThemeId::Dracula:              return "DevpadDracula";
+        case ThemeId::OneDark:              return "DevpadOneDark";
+        case ThemeId::AyuLight:             return "DevpadAyuLight";
+        case ThemeId::AyuDark:              return "DevpadAyuDark";
         case ThemeId::System:
             return SettingsManager::instance().isDarkTheme() ? "DevpadDark" : "DevpadLight";
     }
@@ -138,7 +152,6 @@ void TerminalPanel::ensureTerminalWidget() {
     terminalWidget->setColorScheme(colorScheme);
     
     connect(terminalWidget, &QTermWidget::finished, this, &TerminalPanel::onSessionFinished);
-    connect(terminalWidget, &QTermWidget::currentDirectoryChanged, this, &TerminalPanel::onCurrentDirectoryChanged);
     
     mainLayout->addWidget(terminalWidget);
 
@@ -193,10 +206,13 @@ QString TerminalPanel::workingDirectory() const {
 }
 
 void TerminalPanel::refreshTheme() {
-    if (terminalWidget) {
-        QString scheme = themeToColorScheme(SettingsManager::instance().theme());
-        terminalWidget->setColorScheme(scheme);
-    }
+    if (!terminalWidget) return;
+
+    ThemeId tid = SettingsManager::instance().theme();
+    ThemeColors colors = getThemeColors(tid);
+
+    QString scheme = themeToColorScheme(tid);
+    terminalWidget->setColorScheme(scheme);
 }
 
 void TerminalPanel::sendCommand(const QString &command) {
@@ -218,10 +234,6 @@ void TerminalPanel::onSessionFinished() {
     m_isRunning = false;
     emit terminalStopped();
     emit sessionExited();
-}
-
-void TerminalPanel::onCurrentDirectoryChanged(const QString &dir) {
-    m_workingDirectory = dir;
 }
 
 void TerminalPanel::contextMenuEvent(QContextMenuEvent *event) {

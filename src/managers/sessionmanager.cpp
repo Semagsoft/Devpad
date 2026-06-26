@@ -36,7 +36,7 @@ SessionManager::SessionManager(QObject *parent)
                     + QStringLiteral("/devpad/session.lock"))
 {
     QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/devpad"));
-    m_sessionLock.setStaleLockTime(0);
+    m_sessionLock.setStaleLockTime(30000);
 }
 
 QString SessionManager::sessionGroupPrefix() const
@@ -49,6 +49,11 @@ SessionManager::SessionData SessionManager::loadSessionData() {
     QStringList allFiles;
     QHash<QString, QList<int>> allBookmarks;
     int totalOffset = 0;
+
+    if (!m_sessionLock.tryLock(5000)) {
+        Logger::instance().error("SessionManager: failed to acquire lock in loadSessionData");
+        return data;
+    }
 
     for (const QString& group : m_sessionSettings.childGroups()) {
         if (!group.startsWith(QStringLiteral("Session_")))
@@ -79,6 +84,9 @@ SessionManager::SessionData SessionManager::loadSessionData() {
 
     data.files = allFiles;
     data.bookmarks = allBookmarks;
+
+    m_sessionLock.unlock();
+
     return data;
 }
 
@@ -114,7 +122,8 @@ void SessionManager::restoreSession(
     for (int p = 0; p < splitView->paneCount(); ++p) {
         QTabWidget *pane = splitView->paneAt(p);
         for (int i = 0; i < pane->count(); ++i) {
-            auto *editor = qobject_cast<CodeEditor*>(pane->widget(i));
+            auto *w = pane->widget(i);
+            auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
             if (editor) {
                 auto it = data.bookmarks.constFind(editor->fileName());
                 if (it != data.bookmarks.constEnd()) {
@@ -138,53 +147,79 @@ void SessionManager::saveSessionData(const QStringList &files, int activeIndex, 
         return;
     }
 
-    QSettings settings(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-    settings.beginGroup(sessionGroupPrefix());
-    settings.setValue(QStringLiteral("Files"), files);
-    settings.setValue(QStringLiteral("ActiveIndex"), activeIndex);
-    settings.setValue(QStringLiteral("ProjectPath"), projectPath);
-    settings.setValue(QStringLiteral("HasSession"), true);
-    settings.endGroup();
-    settings.sync();
+    m_sessionSettings.beginGroup(sessionGroupPrefix());
+    m_sessionSettings.setValue(QStringLiteral("Files"), files);
+    m_sessionSettings.setValue(QStringLiteral("ActiveIndex"), activeIndex);
+    m_sessionSettings.setValue(QStringLiteral("ProjectPath"), projectPath);
+    m_sessionSettings.setValue(QStringLiteral("HasSession"), true);
+    m_sessionSettings.endGroup();
 
+    // Remove stale session groups from previous (crashed) process PIDs
+    for (const QString &g : m_sessionSettings.childGroups()) {
+        if (g.startsWith(QStringLiteral("Session_")) && g != sessionGroupPrefix()) {
+            m_sessionSettings.remove(g);
+        }
+    }
+
+    m_sessionSettings.sync();
     m_sessionLock.unlock();
 }
 
 QStringList SessionManager::sessionFiles()
 {
+    if (!m_sessionLock.tryLock(5000)) {
+        Logger::instance().error("SessionManager: failed to acquire lock in sessionFiles");
+        return {};
+    }
     QString group = sessionGroupPrefix();
+    QStringList files;
     if (m_sessionSettings.childGroups().contains(group)) {
         m_sessionSettings.beginGroup(group);
-        QStringList files = m_sessionSettings.value(QStringLiteral("Files")).toStringList();
+        files = m_sessionSettings.value(QStringLiteral("Files")).toStringList();
         m_sessionSettings.endGroup();
-        if (!files.isEmpty())
-            return files;
     }
-    return m_sessionSettings.value(QStringLiteral("Session_Files")).toStringList();
+    if (files.isEmpty())
+        files = m_sessionSettings.value(QStringLiteral("Session_Files")).toStringList();
+    m_sessionLock.unlock();
+    return files;
 }
 
 int SessionManager::sessionActiveIndex()
 {
+    if (!m_sessionLock.tryLock(5000)) {
+        Logger::instance().error("SessionManager: failed to acquire lock in sessionActiveIndex");
+        return 0;
+    }
     QString group = sessionGroupPrefix();
+    int idx = 0;
     if (m_sessionSettings.childGroups().contains(group)) {
         m_sessionSettings.beginGroup(group);
-        int idx = m_sessionSettings.value(QStringLiteral("ActiveIndex"), 0).toInt();
+        idx = m_sessionSettings.value(QStringLiteral("ActiveIndex"), 0).toInt();
         m_sessionSettings.endGroup();
-        return idx;
+    } else {
+        idx = m_sessionSettings.value(QStringLiteral("Session_ActiveIndex"), 0).toInt();
     }
-    return m_sessionSettings.value(QStringLiteral("Session_ActiveIndex"), 0).toInt();
+    m_sessionLock.unlock();
+    return idx;
 }
 
 QString SessionManager::sessionProjectPath()
 {
+    if (!m_sessionLock.tryLock(5000)) {
+        Logger::instance().error("SessionManager: failed to acquire lock in sessionProjectPath");
+        return {};
+    }
     QString group = sessionGroupPrefix();
+    QString path;
     if (m_sessionSettings.childGroups().contains(group)) {
         m_sessionSettings.beginGroup(group);
-        QString path = m_sessionSettings.value(QStringLiteral("ProjectPath")).toString();
+        path = m_sessionSettings.value(QStringLiteral("ProjectPath")).toString();
         m_sessionSettings.endGroup();
-        return path;
     }
-    return m_sessionSettings.value(QStringLiteral("Session_ProjectPath")).toString();
+    if (path.isEmpty())
+        path = m_sessionSettings.value(QStringLiteral("Session_ProjectPath")).toString();
+    m_sessionLock.unlock();
+    return path;
 }
 
 void SessionManager::saveSessionBookmarks(const QHash<QString, QList<int>> &bookmarks)
@@ -194,7 +229,6 @@ void SessionManager::saveSessionBookmarks(const QHash<QString, QList<int>> &book
         return;
     }
 
-    QSettings settings(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
     QVariantMap map;
     for (auto it = bookmarks.constBegin(); it != bookmarks.constEnd(); ++it)
     {
@@ -203,16 +237,21 @@ void SessionManager::saveSessionBookmarks(const QHash<QString, QList<int>> &book
             lines.append(line);
         map.insert(it.key(), lines);
     }
-    settings.beginGroup(sessionGroupPrefix());
-    settings.setValue(QStringLiteral("Bookmarks"), map);
-    settings.endGroup();
-    settings.sync();
+    m_sessionSettings.beginGroup(sessionGroupPrefix());
+    m_sessionSettings.setValue(QStringLiteral("Bookmarks"), map);
+    m_sessionSettings.endGroup();
+    m_sessionSettings.sync();
 
     m_sessionLock.unlock();
 }
 
 QHash<QString, QList<int>> SessionManager::loadSessionBookmarks()
 {
+    if (!m_sessionLock.tryLock(5000)) {
+        Logger::instance().error("SessionManager: failed to acquire lock in loadSessionBookmarks");
+        return {};
+    }
+
     QHash<QString, QList<int>> result;
     QVariantMap map;
     QString group = sessionGroupPrefix();
@@ -223,6 +262,9 @@ QHash<QString, QList<int>> SessionManager::loadSessionBookmarks()
     }
     if (map.isEmpty())
         map = m_sessionSettings.value(QStringLiteral("Session_Bookmarks")).toMap();
+
+    m_sessionLock.unlock();
+
     for (auto it = map.constBegin(); it != map.constEnd(); ++it)
     {
         QList<int> lines;
@@ -241,17 +283,21 @@ void SessionManager::saveSessionPinnedFiles(const QStringList &pinnedFiles)
         return;
     }
 
-    QSettings settings(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-    settings.beginGroup(sessionGroupPrefix());
-    settings.setValue(QStringLiteral("PinnedFiles"), pinnedFiles);
-    settings.endGroup();
-    settings.sync();
+    m_sessionSettings.beginGroup(sessionGroupPrefix());
+    m_sessionSettings.setValue(QStringLiteral("PinnedFiles"), pinnedFiles);
+    m_sessionSettings.endGroup();
+    m_sessionSettings.sync();
 
     m_sessionLock.unlock();
 }
 
 QStringList SessionManager::loadSessionPinnedFiles()
 {
+    if (!m_sessionLock.tryLock(5000)) {
+        Logger::instance().error("SessionManager: failed to acquire lock in loadSessionPinnedFiles");
+        return {};
+    }
+
     QStringList files;
     QString group = sessionGroupPrefix();
     if (m_sessionSettings.childGroups().contains(group)) {
@@ -261,6 +307,9 @@ QStringList SessionManager::loadSessionPinnedFiles()
     }
     if (files.isEmpty())
         files = m_sessionSettings.value(QStringLiteral("Session_PinnedFiles")).toStringList();
+
+    m_sessionLock.unlock();
+
     return files;
 }
 
@@ -299,7 +348,8 @@ void SessionManager::saveSession(
     QTabWidget *currentPane = tabManager->activePane();
     for (QTabWidget *pane : tabManager->panes()) {
         for (int i = 0; i < pane->count(); ++i) {
-            auto *editor = qobject_cast<CodeEditor*>(pane->widget(i));
+            auto *w = pane->widget(i);
+            auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
             if (!editor) continue;
             QString fileName = editor->fileName();
             if (fileName == Strings::untitled() || fileName.isEmpty()) {
@@ -315,7 +365,8 @@ void SessionManager::saveSession(
     QHash<QString, QList<int>> bookmarks;
     for (QTabWidget *pane : tabManager->panes()) {
         for (int i = 0; i < pane->count(); ++i) {
-            auto *editor = qobject_cast<CodeEditor*>(pane->widget(i));
+            auto *w = pane->widget(i);
+            auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
             if (editor && editor->fileName() != Strings::untitled() && !editor->fileName().isEmpty()) {
                 QList<int> lines = editor->bookmarkLines();
                 if (!lines.isEmpty()) {

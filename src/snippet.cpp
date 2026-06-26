@@ -3,14 +3,6 @@
 #include <QRegularExpression>
 #include <QMap>
 
-QString Snippet::escapeRegExp(const QString& s)
-{
-    QString escaped = s;
-    static const QRegularExpression specialChars(R"([\.\+*\?\^\$\(\)\[\]\{\}\|\\])");
-    escaped.replace(specialChars, "\\\\1");
-    return escaped;
-}
-
 Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 {
     QString joined = bodyLines.join('\n');
@@ -61,12 +53,59 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
     for (const auto& pr : replacements)
     {
         joined.replace(pr.pos, pr.len, pr.replacement);
-        TabStop ts;
-        ts.number = pr.number;
-        ts.positions.append(pr.pos);
-        ts.defaultValue = pr.defaultValue;
-        ts.length = pr.defaultValue.length();
-        tabStopMap.insert(pr.number, ts);
+        auto mapIt = tabStopMap.find(pr.number);
+        if (mapIt != tabStopMap.end())
+        {
+            mapIt->positions.append(pr.pos);
+        }
+        else
+        {
+            TabStop ts;
+            ts.number = pr.number;
+            ts.positions.append(pr.pos);
+            ts.defaultValue = pr.defaultValue;
+            ts.length = pr.defaultValue.length();
+            tabStopMap.insert(pr.number, ts);
+        }
+    }
+
+    // Replace ${n} (braces without default)
+    static const QRegularExpression braceStopRe(R"(\$\{(\d+)\})");
+    QRegularExpressionMatchIterator braceIt = braceStopRe.globalMatch(joined);
+    QList<PlaceholderReplace> braceReplacements;
+    while (braceIt.hasNext())
+    {
+        QRegularExpressionMatch m = braceIt.next();
+        int number = m.captured(1).toInt();
+
+        PlaceholderReplace pr;
+        pr.pos = m.capturedStart();
+        pr.len = m.capturedLength();
+        pr.number = number;
+        pr.replacement.clear();
+        braceReplacements.append(pr);
+    }
+
+    std::sort(braceReplacements.begin(), braceReplacements.end(),
+              [](const PlaceholderReplace& a, const PlaceholderReplace& b) { return a.pos > b.pos; });
+
+    for (const auto& pr : braceReplacements)
+    {
+        joined.replace(pr.pos, pr.len, pr.replacement);
+        auto mapIt = tabStopMap.find(pr.number);
+        if (mapIt != tabStopMap.end())
+        {
+            mapIt->positions.append(pr.pos);
+        }
+        else
+        {
+            TabStop ts;
+            ts.number = pr.number;
+            ts.positions.append(pr.pos);
+            ts.defaultValue.clear();
+            ts.length = 0;
+            tabStopMap.insert(pr.number, ts);
+        }
     }
 
     // Replace $n (simple tab stops without defaults)
@@ -93,12 +132,20 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
     for (const auto& pr : simpleReplacements)
     {
         joined.replace(pr.pos, pr.len, pr.replacement);
-        TabStop ts;
-        ts.number = pr.number;
-        ts.positions.append(pr.pos);
-        ts.defaultValue.clear();
-        ts.length = 0;
-        tabStopMap.insert(pr.number, ts);
+        auto mapIt = tabStopMap.find(pr.number);
+        if (mapIt != tabStopMap.end())
+        {
+            mapIt->positions.append(pr.pos);
+        }
+        else
+        {
+            TabStop ts;
+            ts.number = pr.number;
+            ts.positions.append(pr.pos);
+            ts.defaultValue.clear();
+            ts.length = 0;
+            tabStopMap.insert(pr.number, ts);
+        }
     }
 
     result.text = joined;

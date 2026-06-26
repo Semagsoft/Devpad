@@ -13,6 +13,7 @@
 #include <gmock/gmock.h>
 
 #include <QApplication>
+#include <QObject>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTabWidget>
@@ -29,14 +30,14 @@ protected:
     FileWatcherManager* fileWatcherManager = nullptr;
     ActionManager* actionManager = nullptr;
     EditorController* controller = nullptr;
-    SettingsManager* m_testSettings = nullptr;
+    std::unique_ptr<SettingsManager> m_testSettings;
 
     void SetUp() override
     {
         ASSERT_TRUE(m_tempDir.isValid());
 
         m_testSettings = SettingsManager::createForTesting();
-        SettingsManager::setTestingInstance(m_testSettings);
+        SettingsManager::setTestingInstance(m_testSettings.get());
         SettingsManager::instance().setAutoSaveEnabled(false);
 
         tabWidget = new QTabWidget();
@@ -62,7 +63,7 @@ protected:
         delete tabWidget;
 
         SettingsManager::setTestingInstance(nullptr);
-        SettingsManager::destroyForTesting(m_testSettings);
+        m_testSettings.reset();
     }
 
     QString testFilePath(const QString& name) const
@@ -325,4 +326,185 @@ TEST_F(EditorControllerTest, UpdateReadOnlyActionStateWithEditor)
     editor->setReadOnlyMode(false);
     controller->updateReadOnlyActionState();
     EXPECT_FALSE(actionManager->readOnlyAct()->isChecked());
+}
+
+TEST_F(EditorControllerTest, SaveModifiedNamedFile)
+{
+    QString path = testFilePath("save_named.txt");
+    {
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        QTextStream out(&file);
+        out << "original content";
+    }
+
+    CodeEditor* editor = controller->openFile(path);
+    ASSERT_NE(editor, nullptr);
+
+    editor->setText("modified content");
+    editor->setModified(true);
+
+    bool result = controller->saveFile();
+    EXPECT_TRUE(result);
+
+    QFile savedFile(path);
+    ASSERT_TRUE(savedFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    EXPECT_EQ(QString::fromUtf8(savedFile.readAll()), "modified content");
+}
+
+TEST_F(EditorControllerTest, SaveNamedFileMultipleTimes)
+{
+    QString path = testFilePath("multi_save.txt");
+    {
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        QTextStream out(&file);
+        out << "hello";
+    }
+
+    CodeEditor* editor = controller->openFile(path);
+    ASSERT_NE(editor, nullptr);
+
+    for (int i = 0; i < 10; i++) {
+        editor->setText(QString("modified %1").arg(i));
+        editor->setModified(true);
+        EXPECT_TRUE(controller->saveFile());
+    }
+
+    QFile savedFile(path);
+    ASSERT_TRUE(savedFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    EXPECT_EQ(QString::fromUtf8(savedFile.readAll()), "modified 9");
+}
+
+TEST_F(EditorControllerTest, SaveNamedFileWithEventProcessing)
+{
+    QString path = testFilePath("event_save.txt");
+    {
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        QTextStream out(&file);
+        out << "original";
+    }
+
+    CodeEditor* editor = controller->openFile(path);
+    ASSERT_NE(editor, nullptr);
+    editor->setText("modified");
+    editor->setModified(true);
+    EXPECT_TRUE(controller->saveFile());
+
+    QApplication::processEvents();
+
+    editor->setText("modified again");
+    editor->setModified(true);
+    EXPECT_TRUE(controller->saveFile());
+}
+
+TEST_F(EditorControllerTest, SaveWithFileSavedSpy)
+{
+    QString path = testFilePath("spy_save.txt");
+    {
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        QTextStream out(&file);
+        out << "original";
+    }
+
+    CodeEditor* editor = controller->openFile(path);
+    ASSERT_NE(editor, nullptr);
+
+    QSignalSpy spy(controller, &EditorController::fileSaved);
+
+    editor->setText("modified");
+    editor->setModified(true);
+    EXPECT_TRUE(controller->saveFile());
+    EXPECT_EQ(spy.count(), 1);
+
+    // Editor should still be valid
+    EXPECT_FALSE(editor->isModified());
+    EXPECT_EQ(editor->fileName(), path);
+}
+
+// Simulate the EXACT crash scenario: file watcher fires after save
+TEST_F(EditorControllerTest, FileWatcherFiresAfterSave)
+{
+    QString path = testFilePath("watcher_after_save.txt");
+    {
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        QTextStream out(&file);
+        out << "original";
+    }
+
+    CodeEditor* editor = controller->openFile(path);
+    ASSERT_NE(editor, nullptr);
+
+    editor->setText("modified");
+    editor->setModified(true);
+
+    // Connect fileModifiedExternally like MainWindow does
+    QPointer<CodeEditor> editorPtr = editor;
+    QObject::connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally,
+                     fileWatcherManager, [editorPtr](const QString& filePath) {
+        // This simulates the MainWindow::onFileModifiedExternally behavior
+        if (!editorPtr) return;  // QPointer null-check after dialog
+        // Access the editor - this would crash with raw pointer
+        editorPtr->isModified();
+        editorPtr->bookmarkLines();
+        editorPtr->encoding();
+    });
+
+    EXPECT_TRUE(controller->saveFile());
+
+    // Force processing of pending file watcher events
+    QApplication::processEvents();
+}
+
+// Save with concurrent external modification notification
+TEST_F(EditorControllerTest, SaveTriggersExternalModification)
+{
+    QString path = testFilePath("ext_mod_save.txt");
+    {
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        QTextStream out(&file);
+        out << "original";
+    }
+
+    CodeEditor* editor = controller->openFile(path);
+    ASSERT_NE(editor, nullptr);
+
+    editor->setText("modified");
+    editor->setModified(true);
+
+    // Simulate what happens when file watcher fires AFTER save
+    // by manually calling onFileChanged with a stale timestamp
+    QPointer<CodeEditor> editorPtr = editor;
+    QObject::connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally,
+                     fileWatcherManager, [editorPtr](const QString&) {
+        if (editorPtr) {
+            // Touch the editor - shouldn't crash with QPointer
+            editorPtr->setModified(true);
+        }
+    });
+
+    // Save once
+    EXPECT_TRUE(controller->saveFile());
+    QApplication::processEvents();
+
+    // Modify external timestamps to simulate race condition
+    // by touching the file externally
+    {
+        QFile file(path);
+        file.open(QIODevice::WriteOnly | QIODevice::Text);
+        QTextStream out(&file);
+        out << "externally modified";
+    }
+
+    // Process events to trigger file watcher
+    QApplication::processEvents();
+
+    // Editor should still be usable if QPointer guard works
+    if (editorPtr) {
+        EXPECT_FALSE(editorPtr->isModified());
+    }
 }

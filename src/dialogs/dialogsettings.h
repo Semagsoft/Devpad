@@ -19,6 +19,8 @@
 #ifndef DIALOGSETTINGS_H
 #define DIALOGSETTINGS_H
 
+#include <QByteArray>
+#include <QDialog>
 #include <QSettings>
 #include <QString>
 #include <QVariant>
@@ -33,6 +35,16 @@ public:
 
     QVariant load(const QString &key, const QVariant &defaultValue = QVariant()) const {
         return m_settings.value(m_prefix + "_" + key, defaultValue);
+    }
+
+    void saveGeometry(QDialog *dialog) const {
+        save("Geometry", dialog->saveGeometry());
+    }
+
+    void restoreGeometry(QDialog *dialog) const {
+        QByteArray geo = load("Geometry").toByteArray();
+        if (!geo.isEmpty())
+            dialog->restoreGeometry(geo);
     }
 
 private:

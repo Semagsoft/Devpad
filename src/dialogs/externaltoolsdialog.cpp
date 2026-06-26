@@ -9,13 +9,14 @@
 #include <QMessageBox>
 
 ExternalToolsDialog::ExternalToolsDialog(QWidget *parent)
-    : QDialog(parent)
+    : QDialog(parent), m_geometrySettings("ExternalTools")
 {
     setWindowTitle(tr("External Tools"));
     setModal(true);
     setMinimumSize(550, 350);
     setupUI();
     loadTools();
+    m_geometrySettings.restoreGeometry(this);
 }
 
 ExternalToolsDialog::~ExternalToolsDialog() = default;
@@ -139,6 +140,12 @@ void ExternalToolsDialog::loadTools()
         m_table->setItem(row, 4, new QTableWidgetItem(
             tool.runInTerminal ? tr("Yes") : tr("No")));
     }
+}
+
+void ExternalToolsDialog::closeEvent(QCloseEvent *event)
+{
+    m_geometrySettings.saveGeometry(this);
+    QDialog::closeEvent(event);
 }
 
 void ExternalToolsDialog::saveTools()

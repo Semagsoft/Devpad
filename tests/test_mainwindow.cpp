@@ -20,21 +20,22 @@ class MainWindowTest : public ::testing::Test
 {
 protected:
     QTemporaryDir m_tempDir;
-    SettingsManager* m_testSettings = nullptr;
+    std::unique_ptr<SettingsManager> m_testSettings;
 
     void SetUp() override
     {
         ASSERT_TRUE(m_tempDir.isValid());
 
         m_testSettings = SettingsManager::createForTesting();
-        SettingsManager::setTestingInstance(m_testSettings);
+        SettingsManager::setTestingInstance(m_testSettings.get());
         SettingsManager::instance().setAutoSaveEnabled(false);
+        SettingsManager::instance().setStartupMode(StartupMode::Empty);
     }
 
     void TearDown() override
     {
         SettingsManager::setTestingInstance(nullptr);
-        SettingsManager::destroyForTesting(m_testSettings);
+        m_testSettings.reset();
     }
 
     QString testFilePath(const QString& name) const

@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "splitview.h"
+#include "draggabletabbar.h"
 #include "codeeditor.h"
 #include "appstrings.h"
 #include "settingsmanager.h"
@@ -30,6 +31,7 @@
 #include <QDir>
 #include <QTabBar>
 #include <QPainter>
+#include <QPainterPath>
 #include <QMenu>
 #include <QDesktopServices>
 #include <QStandardPaths>
@@ -46,280 +48,138 @@
 #include <QFile>
 #include <QCoreApplication>
 
-static const char *MIME_TAB = "application/x-devpad-tab";
-
-static QString dragResponsePath(qint64 pid, quint64 dragId) {
-    return QStringLiteral("/tmp/devpad-drag-resp-%1-%2").arg(pid).arg(dragId);
-}
-
 quint64 SplitView::s_dragIdCounter = 0;
 QMap<quint64, QPointer<QTabWidget>> SplitView::s_dragSourceMap;
 
-// Tracks drag IDs handled by a same-process handleDrop() call
-static QSet<quint64> s_handledDragIds;
+quint64 SplitView::nextDragId() { return ++s_dragIdCounter; }
+void SplitView::registerDragSource(quint64 id, QTabWidget *widget) { s_dragSourceMap[id] = widget; }
+void SplitView::removeDragSource(quint64 id) { s_dragSourceMap.remove(id); }
+QTabWidget* SplitView::dragSource(quint64 id) { return s_dragSourceMap.value(id).data(); }
 
-static QColor dropHighlightColor() {
-    ThemeColors colors = SettingsManager::instance().currentThemeColors();
-    return colors.selectionBg;
-}
+// ── DropZoneOverlay ───────────────────────────────────────────
 
-// ── DropOverlay ─────────────────────────────────────────────────
-
-class DropOverlay : public QWidget {
+class DropZoneOverlay : public QWidget {
 public:
-    explicit DropOverlay(QWidget *parent) : QWidget(parent) {
+    explicit DropZoneOverlay(QWidget *parent, QWidget *viewWidget)
+        : QWidget(parent), m_viewWidget(viewWidget) {
         setAttribute(Qt::WA_TransparentForMouseEvents);
         setAttribute(Qt::WA_TranslucentBackground);
+        raise();
     }
 
-    void setHighlightColor(const QColor &c) {
-        m_color = QColor(c.red(), c.green(), c.blue(), 128);
-        update();
+    void setTargetPane(QTabWidget *pane, SplitView::DropZone zone, const QColor &color) {
+        m_zone = zone;
+        m_color = color;
+        if (pane && zone != SplitView::DropZone::None) {
+            QPoint topLeft = pane->mapTo(parentWidget(), QPoint(0, 0));
+            m_paneRect = QRect(topLeft, pane->size());
+        } else {
+            m_paneRect = QRect();
+        }
+        repaint();
+    }
+
+    void clearZone() {
+        m_zone = SplitView::DropZone::None;
+        m_paneRect = QRect();
+        repaint();
+    }
+
+    void updateGeometry() {
+        if (m_viewWidget) {
+            QPoint tl = m_viewWidget->mapTo(parentWidget(), QPoint(0, 0));
+            setGeometry(tl.x(), tl.y(), m_viewWidget->width(), m_viewWidget->height());
+        }
     }
 
 protected:
     void paintEvent(QPaintEvent *) override {
+        if (m_zone == SplitView::DropZone::None || !m_paneRect.isValid())
+            return;
+
         QPainter p(this);
-        p.fillRect(rect(), m_color);
-    }
+        p.setRenderHint(QPainter::Antialiasing);
 
-private:
-    QColor m_color;
-};
+        QRect r = m_paneRect;
+        QColor accent = m_color;
 
-// ── EditorTabWidget ───────────────────────────────────────────
+        if (m_zone == SplitView::DropZone::Center) {
+            QColor fill = accent;
+            fill.setAlpha(80);
+            p.fillRect(r, fill);
 
-class EditorTabWidget : public QTabWidget {
-public:
-    explicit EditorTabWidget(QWidget *parent = nullptr) : QTabWidget(parent) {
-        auto *bar = new DraggableTabBar(this);
-        QTabWidget::setTabBar(bar);
-    }
-};
-
-// ── DraggableTabBar ────────────────────────────────────────────
-
-DraggableTabBar::DraggableTabBar(QWidget *parent) : QTabBar(parent) {
-    setMovable(true);
-    QColor c = dropHighlightColor();
-    m_dropColor = QColor(c.red(), c.green(), c.blue(), 180);
-}
-
-void DraggableTabBar::mousePressEvent(QMouseEvent *event) {
-    m_dragTabIndex = -1;
-    if (event->button() == Qt::LeftButton) {
-        int idx = tabAt(event->pos());
-        if (idx >= 0) {
-            m_dragTabIndex = idx;
-            m_dragStartPos = event->pos();
-            m_dragging = false;
-        }
-    }
-    QTabBar::mousePressEvent(event);
-}
-
-void DraggableTabBar::mouseMoveEvent(QMouseEvent *event) {
-    if (m_dragTabIndex < 0 || !(event->buttons() & Qt::LeftButton)) {
-        QTabBar::mouseMoveEvent(event);
-        return;
-    }
-
-    if (!m_dragging && (event->pos() - m_dragStartPos).manhattanLength() >= QApplication::startDragDistance()) {
-        // If cursor is still within the tab bar, let QTabBar handle native reorder
-        if (rect().contains(event->pos())) {
-            QTabBar::mouseMoveEvent(event);
+            int m = std::min(r.width(), r.height()) / 5;
+            QRect inner = r.adjusted(m, m, -m, -m);
+            QColor border = accent;
+            border.setAlpha(220);
+            QPen pen(border, 4);
+            p.setPen(pen);
+            p.setBrush(Qt::NoBrush);
+            p.drawRoundedRect(inner, 10, 10);
             return;
         }
 
-        // Cursor left the tab bar — start QDrag for cross-pane / external move
-        m_dragging = true;
-        emit tabDragStarted(m_dragTabIndex);
-
-        // Reset QTabBar's internal movable state so it doesn't hang mid-drag
-        setMovable(false);
-        setMovable(true);
-
-        auto *tabWidget = qobject_cast<QTabWidget*>(parent());
-        quint64 dragId = ++SplitView::s_dragIdCounter;
-        SplitView::s_dragSourceMap[dragId] = tabWidget;
-
-        auto *expectedWidget = tabWidget->widget(m_dragTabIndex);
-        auto *ce = qobject_cast<CodeEditor*>(expectedWidget);
-        QString filePath = ce ? ce->fileName() : QString();
-
-        // Remove any stale response file from a previous run
-        QFile::remove(dragResponsePath(QCoreApplication::applicationPid(), dragId));
-
-        QDrag *drag = new QDrag(this);
-        auto *mimeData = new QMimeData();
-
-        QByteArray data;
-        QDataStream stream(&data, QIODevice::WriteOnly);
-        qint64 srcPid = QCoreApplication::applicationPid();
-        stream << srcPid << dragId << m_dragTabIndex << filePath;
-        mimeData->setData(MIME_TAB, data);
-        if (ce && !filePath.isEmpty()) {
-            QList<QUrl> urls;
-            urls << QUrl::fromLocalFile(filePath);
-            mimeData->setUrls(urls);
-        }
-        drag->setMimeData(mimeData);
-
-        QRect r = tabRect(m_dragTabIndex);
-        if (r.isValid()) {
-            QPixmap pixmap(r.size() * devicePixelRatioF());
-            pixmap.setDevicePixelRatio(devicePixelRatioF());
-            pixmap.fill(Qt::transparent);
-            QPainter p(&pixmap);
-            render(&p, QPoint(), QRegion(r));
-            p.end();
-            drag->setPixmap(pixmap);
-            drag->setHotSpot(QPoint(r.width() / 2, r.height() / 2));
+        QRect zoneRect;
+        switch (m_zone) {
+        case SplitView::DropZone::Left:
+            zoneRect = QRect(r.left(), r.top(), r.width() / 3, r.height());
+            break;
+        case SplitView::DropZone::Right:
+            zoneRect = QRect(r.right() - r.width() / 3, r.top(), r.width() / 3, r.height());
+            break;
+        case SplitView::DropZone::Top:
+            zoneRect = QRect(r.left(), r.top(), r.width(), r.height() / 3);
+            break;
+        case SplitView::DropZone::Bottom:
+            zoneRect = QRect(r.left(), r.bottom() - r.height() / 3, r.width(), r.height() / 3);
+            break;
+        default:
+            return;
         }
 
-        Qt::DropAction result = drag->exec(Qt::MoveAction);
+        QColor fill = accent;
+        fill.setAlpha(140);
+        p.fillRect(zoneRect, fill);
 
-        SplitView::s_dragSourceMap.remove(dragId);
+        QColor line = accent;
+        line.setAlpha(230);
+        QPen linePen(line, 5);
+        p.setPen(linePen);
 
-        auto removeTabFromSource = [&]() {
-            if (tabWidget && m_dragTabIndex >= 0 && m_dragTabIndex < tabWidget->count()) {
-                if (tabWidget->widget(m_dragTabIndex) == expectedWidget) {
-                    tabWidget->removeTab(m_dragTabIndex);
-                    if (tabWidget->count() == 0) {
-                        for (QWidget *p = tabWidget->parentWidget(); p; p = p->parentWidget()) {
-                            if (auto *sv = qobject_cast<SplitView*>(p)) {
-                                sv->removePane(tabWidget);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        };
-
-        if (result != Qt::IgnoreAction && !s_handledDragIds.contains(dragId)) {
-            // Cross-process drop was accepted by another window — remove tab from source
-            s_handledDragIds.remove(dragId);
-            removeTabFromSource();
-        } else if (result == Qt::IgnoreAction) {
-            // Check if a cross-process target acknowledged the drop via response file
-            QString respPath = dragResponsePath(QCoreApplication::applicationPid(), dragId);
-            bool crossProcessAccepted = QFile::exists(respPath);
-            if (crossProcessAccepted) {
-                QFile::remove(respPath);
-                removeTabFromSource();
-            } else if (tabWidget) {
-                auto *ce = qobject_cast<CodeEditor*>(tabWidget->widget(m_dragTabIndex));
-                QString filePath = ce ? ce->fileName() : QString();
-                emit tabDroppedOutside(m_dragTabIndex, filePath);
-            }
-        }
-
-        s_handledDragIds.remove(dragId);
-        m_dragTabIndex = -1;
-        m_dragging = false;
-        return;
-    }
-
-    QTabBar::mouseMoveEvent(event);
-}
-
-void DraggableTabBar::setDropIndicator(int index) {
-    if (m_dropIndicatorIndex != index) {
-        m_dropIndicatorIndex = index;
-        update();
-    }
-}
-
-void DraggableTabBar::setDropIndicatorColor(const QColor &color) {
-    m_dropColor = QColor(color.red(), color.green(), color.blue(), 180);
-    if (m_dropIndicatorIndex >= 0) update();
-}
-
-void DraggableTabBar::paintEvent(QPaintEvent *event) {
-    QTabBar::paintEvent(event);
-    if (m_dropIndicatorIndex >= 0 && m_dropIndicatorIndex < count()) {
-        QRect r = tabRect(m_dropIndicatorIndex);
-        if (r.isValid()) {
-            QPainter p(this);
-            p.setPen(Qt::NoPen);
-            p.setBrush(m_dropColor);
-            p.drawRect(r.adjusted(0, 0, 0, 0));
+        switch (m_zone) {
+        case SplitView::DropZone::Left:
+            p.drawLine(zoneRect.topRight(), zoneRect.bottomRight());
+            break;
+        case SplitView::DropZone::Right:
+            p.drawLine(zoneRect.topLeft(), zoneRect.bottomLeft());
+            break;
+        case SplitView::DropZone::Top:
+            p.drawLine(zoneRect.bottomLeft(), zoneRect.bottomRight());
+            break;
+        case SplitView::DropZone::Bottom:
+            p.drawLine(zoneRect.topLeft(), zoneRect.topRight());
+            break;
+        default:
+            break;
         }
     }
-}
 
-void DraggableTabBar::contextMenuEvent(QContextMenuEvent *event) {
-    int idx = tabAt(event->pos());
-    if (idx < 0) return;
+private:
+    SplitView::DropZone m_zone = SplitView::DropZone::None;
+    QRect m_paneRect;
+    QColor m_color;
+    QWidget *m_viewWidget = nullptr;
+};
 
-    auto *tw = qobject_cast<QTabWidget*>(parent());
-    auto *editor = tw ? qobject_cast<CodeEditor*>(tw->widget(idx)) : nullptr;
-    if (!editor) return;
+// ── TabWidget helper ────────────────────────────────────────────
 
-    bool isUntitled = editor->fileName().isEmpty() || editor->fileName() == Strings::untitled();
-    int tabCount = count();
-    bool readOnly = editor->isReadOnly();
-
-    QMenu menu(this);
-
-    QAction *closeAct = menu.addAction(QIcon(":/icons/File/close.svg"), tr("Close"));
-    closeAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_W));
-    closeAct->setEnabled(!readOnly);
-
-    QAction *closeOthersAct = menu.addAction(tr("Close Others"));
-    closeOthersAct->setEnabled(tabCount > 1 && !readOnly);
-
-    QAction *closeRightAct = menu.addAction(tr("Close to the Right"));
-    closeRightAct->setEnabled(idx < tabCount - 1 && !readOnly);
-
-    QAction *closeAllAct = menu.addAction(QIcon(":/icons/File/closeall.svg"), tr("Close All"));
-    closeAllAct->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_W));
-    closeAllAct->setEnabled(tabCount > 0 && !readOnly);
-
-    menu.addSeparator();
-
-    QAction *pinAct = menu.addAction(QStringLiteral("\U0001F4CC ") + tr("Pin Tab"));
-    pinAct->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_P));
-
-    menu.addSeparator();
-
-    QAction *copyPathAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy Path"));
-    copyPathAct->setEnabled(!isUntitled);
-
-    QAction *copyNameAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy File Name"));
-    copyNameAct->setEnabled(!isUntitled);
-
-    menu.addSeparator();
-
-    QAction *showInFmAct = menu.addAction(QIcon(":/icons/Common/openinfolder.svg"), tr("Show in File Manager"));
-    showInFmAct->setEnabled(!isUntitled);
-
-    QAction *openTermAct = menu.addAction(QIcon(":/icons/Common/openinterminal.svg"), tr("Open in Terminal"));
-    openTermAct->setEnabled(!isUntitled);
-
-    QAction *chosen = menu.exec(event->globalPos());
-    if (!chosen) return;
-
-    if (chosen == closeAct)
-        emit closeTabRequested(idx);
-    else if (chosen == closeOthersAct)
-        emit closeOtherTabsRequested(idx);
-    else if (chosen == closeRightAct)
-        emit closeTabsToRightRequested(idx);
-    else if (chosen == closeAllAct)
-        emit closeAllTabsRequested();
-    else if (chosen == pinAct)
-        emit toggleTabPinnedRequested(idx);
-    else if (chosen == copyPathAct)
-        emit copyPathRequested(idx);
-    else if (chosen == copyNameAct)
-        emit copyFileNameRequested(idx);
-    else if (chosen == showInFmAct)
-        emit showInFileManagerRequested(idx);
-    else if (chosen == openTermAct)
-        emit openInTerminalRequested(idx);
-}
+class TabWidgetWithDraggableBar : public QTabWidget {
+public:
+    explicit TabWidgetWithDraggableBar(QWidget *parent) : QTabWidget(parent) {
+        auto *bar = new DraggableTabBar(this);
+        setTabBar(bar);
+    }
+};
 
 // ── SplitView ──────────────────────────────────────────────────
 
@@ -329,11 +189,6 @@ SplitView::SplitView(QWidget *parent) : QWidget(parent) {
     m_splitter = new QSplitter(Qt::Horizontal, this);
     m_splitter->setChildrenCollapsible(false);
     m_splitter->installEventFilter(this);
-
-    m_dropOverlay = new DropOverlay(this);
-    QColor c = dropHighlightColor();
-    static_cast<DropOverlay*>(m_dropOverlay)->setHighlightColor(c);
-    m_dropOverlay->hide();
 
     m_primaryWidget = createTabWidget();
     m_splitter->addWidget(m_primaryWidget);
@@ -347,19 +202,256 @@ SplitView::SplitView(QWidget *parent) : QWidget(parent) {
 
 SplitView::~SplitView() = default;
 
+DropZoneOverlay* SplitView::overlay() {
+    if (!m_dropOverlay) {
+        m_dropOverlay = new DropZoneOverlay(this, this);
+        m_dropOverlay->hide();
+    }
+    return m_dropOverlay;
+}
+
+// ── Nested Splitter Helpers ────────────────────────────────────
+
+QSplitter* SplitView::parentSplitterFor(QWidget *widget) const {
+    QWidget *parent = widget->parentWidget();
+    while (parent) {
+        if (auto *split = qobject_cast<QSplitter*>(parent))
+            return split;
+        if (parent == this)
+            return nullptr;
+        parent = parent->parentWidget();
+    }
+    return nullptr;
+}
+
+void SplitView::syncPaneList() {
+    m_panes.clear();
+    std::function<void(QSplitter*)> collect = [&](QSplitter *split) {
+        for (int i = 0; i < split->count(); ++i) {
+            QWidget *w = split->widget(i);
+            if (auto *tw = qobject_cast<QTabWidget*>(w)) {
+                m_panes.append(tw);
+            } else if (auto *sub = qobject_cast<QSplitter*>(w)) {
+                collect(sub);
+            }
+        }
+    };
+    collect(m_splitter);
+}
+
+void SplitView::distributeSplitter(QSplitter *splitter) {
+    for (int i = 0; i < splitter->count(); ++i)
+        splitter->setStretchFactor(i, 1);
+}
+
+void SplitView::setupNewPane(QTabWidget *newPane) {
+    if (m_onPaneAdded)
+        m_onPaneAdded(newPane);
+    syncPaneList();
+    QSplitter *parentSplit = parentSplitterFor(newPane);
+    distributeSplitter(parentSplit ? parentSplit : m_splitter);
+}
+
+void SplitView::splitPane(QTabWidget *pane, DropZone zone, QTabWidget *sourcePane, int sourceIndex) {
+    if (m_panes.size() >= MAX_PANES)
+        return;
+
+    Qt::Orientation orientation;
+    bool insertBefore;
+
+    switch (zone) {
+    case DropZone::Left:
+        orientation = Qt::Horizontal;
+        insertBefore = true;
+        break;
+    case DropZone::Right:
+        orientation = Qt::Horizontal;
+        insertBefore = false;
+        break;
+    case DropZone::Top:
+        orientation = Qt::Vertical;
+        insertBefore = true;
+        break;
+    case DropZone::Bottom:
+        orientation = Qt::Vertical;
+        insertBefore = false;
+        break;
+    default:
+        return;
+    }
+
+    // Create the new tab widget
+    auto *newPane = createTabWidget();
+
+    if (sourcePane) {
+        QWidget *tabW = sourcePane->widget(sourceIndex);
+        QString text = sourcePane->tabText(sourceIndex);
+        QIcon icon = sourcePane->tabIcon(sourceIndex);
+        QString tooltip = sourcePane->tabToolTip(sourceIndex);
+        sourcePane->removeTab(sourceIndex);
+        int newIdx = newPane->addTab(tabW, icon, text);
+        newPane->setTabToolTip(newIdx, tooltip);
+        newPane->setCurrentWidget(tabW);
+        tabW->setFocus();
+        if (m_onTabMoved)
+            m_onTabMoved(newPane, newIdx);
+    }
+
+    QSplitter *parentSplit = parentSplitterFor(pane);
+    if (!parentSplit)
+        parentSplit = m_splitter;
+
+    if (parentSplit->orientation() == orientation) {
+        int idx = parentSplit->indexOf(pane);
+        if (!insertBefore)
+            idx++;
+        parentSplit->insertWidget(idx, newPane);
+        distributeSplitter(parentSplit);
+    } else {
+        int idx = parentSplit->indexOf(pane);
+        auto *subSplit = new QSplitter(orientation);
+        subSplit->setChildrenCollapsible(false);
+        parentSplit->insertWidget(idx, subSplit);
+        if (insertBefore) {
+            subSplit->addWidget(newPane);
+            subSplit->addWidget(pane);
+        } else {
+            subSplit->addWidget(pane);
+            subSplit->addWidget(newPane);
+        }
+        distributeSplitter(subSplit);
+    }
+
+    setupNewPane(newPane);
+}
+
+void SplitView::collapseSplitter(QSplitter *splitter) {
+    if (!splitter || splitter == m_splitter)
+        return;
+
+    QSplitter *parentSplit = qobject_cast<QSplitter*>(splitter->parentWidget());
+    if (!parentSplit)
+        return;
+
+    int idx = parentSplit->indexOf(splitter);
+
+    if (splitter->count() == 1) {
+        // Replace the splitter with its sole child
+        QWidget *child = splitter->widget(0);
+        parentSplit->replaceWidget(idx, child);
+        splitter->deleteLater();
+    } else if (splitter->count() == 0) {
+        // Empty splitter - remove it by replacing with a dummy that gets deleted
+        auto *dummy = new QWidget();
+        dummy->hide();
+        parentSplit->replaceWidget(idx, dummy);
+        splitter->deleteLater();
+        dummy->deleteLater();
+    }
+}
+
+// ── Zone Detection ─────────────────────────────────────────────
+
+SplitView::DropZone SplitView::calcDropZone(QTabWidget *pane, QPoint screenPos) const {
+    QPoint localPos = pane->mapFromGlobal(screenPos);
+    QSize size = pane->size();
+
+    if (size.width() <= 0 || size.height() <= 0)
+        return DropZone::None;
+
+    double relX = static_cast<double>(localPos.x()) / size.width();
+    double relY = static_cast<double>(localPos.y()) / size.height();
+
+    // Edge threshold: 33% from each edge
+    if (relX < 0.33)
+        return DropZone::Left;
+    if (relX > 0.67)
+        return DropZone::Right;
+    if (relY < 0.33)
+        return DropZone::Top;
+    if (relY > 0.67)
+        return DropZone::Bottom;
+
+    return DropZone::Center;
+}
+
+void SplitView::updateDropOverlay(QPoint screenPos) {
+    QTabWidget *pane = findPaneAt(screenPos);
+    if (!pane) {
+        clearDropIndicators();
+        return;
+    }
+
+    DropZone zone = calcDropZone(pane, screenPos);
+
+    if (pane != m_dropTargetPane || zone != m_activeDropZone) {
+        m_dropTargetPane = pane;
+        m_activeDropZone = zone;
+        QColor c = dropHighlightColor();
+        overlay()->setGeometry(rect());
+        overlay()->setTargetPane(pane, zone, c);
+        overlay()->show();
+        overlay()->raise();
+    }
+}
+
+void SplitView::clearDropIndicators() {
+    m_activeDropZone = DropZone::None;
+    m_dropTargetPane = nullptr;
+    if (m_highlightBar) {
+        if (auto *oldDrag = qobject_cast<DraggableTabBar*>(m_highlightBar))
+            oldDrag->setDropIndicator(-1);
+        m_highlightBar = nullptr;
+    }
+    m_highlightIndex = -1;
+    overlay()->clearZone();
+    overlay()->hide();
+}
+
+// ── Split Active Pane ──────────────────────────────────────────
+
+void SplitView::splitActivePane(Qt::Orientation orientation) {
+    if (!m_activeWidget || m_panes.size() >= MAX_PANES)
+        return;
+
+    auto *newPane = createTabWidget();
+
+    QSplitter *parentSplit = parentSplitterFor(m_activeWidget);
+    if (!parentSplit)
+        parentSplit = m_splitter;
+
+    if (parentSplit->orientation() == orientation) {
+        int idx = parentSplit->indexOf(m_activeWidget) + 1;
+        parentSplit->insertWidget(idx, newPane);
+        distributeSplitter(parentSplit);
+    } else {
+        int idx = parentSplit->indexOf(m_activeWidget);
+        auto *subSplit = new QSplitter(orientation);
+        subSplit->setChildrenCollapsible(false);
+        parentSplit->insertWidget(idx, subSplit);
+        subSplit->addWidget(m_activeWidget);
+        subSplit->addWidget(newPane);
+        distributeSplitter(subSplit);
+    }
+
+    setupNewPane(newPane);
+}
+
+// ── Tab Widget Creation ────────────────────────────────────────
+
 QTabWidget* SplitView::createTabWidget() {
-    auto *tw = new EditorTabWidget(this);
+    auto *tw = new TabWidgetWithDraggableBar(this);
     tw->setDocumentMode(true);
     tw->installEventFilter(this);
     connect(tw, &QTabWidget::currentChanged, this, &SplitView::onTabWidgetCurrentChanged);
 
-    // Install filter on the tab bar and all its children (close buttons etc.)
-    installFilterOnChildWidgets(tw->tabBar());
+    // Install filter on the tab widget and all its children (editor, close buttons, etc.)
+    installFilterOnChildWidgets(tw);
 
     auto *bar = qobject_cast<DraggableTabBar*>(tw->tabBar());
     if (bar) {
         connect(bar, &DraggableTabBar::tabDroppedOutside, this, [this, tw](int index, const QString &filePath) {
-            auto *editor = qobject_cast<CodeEditor*>(tw->widget(index));
+            auto *editor = tw->widget(index) ? tw->widget(index)->findChild<CodeEditor*>() : nullptr;
             if (!editor) return;
             if (totalTabCount() <= 1) return;
 
@@ -404,19 +496,22 @@ QTabWidget* SplitView::createTabWidget() {
         });
 
         connect(bar, &DraggableTabBar::copyPathRequested, this, [tw](int idx) {
-            auto *editor = qobject_cast<CodeEditor*>(tw->widget(idx));
+            auto *w = tw->widget(idx);
+            auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
             if (editor)
                 QApplication::clipboard()->setText(editor->fileName());
         });
 
         connect(bar, &DraggableTabBar::copyFileNameRequested, this, [tw](int idx) {
-            auto *editor = qobject_cast<CodeEditor*>(tw->widget(idx));
+            auto *w = tw->widget(idx);
+            auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
             if (editor)
                 QApplication::clipboard()->setText(QFileInfo(editor->fileName()).fileName());
         });
 
         connect(bar, &DraggableTabBar::showInFileManagerRequested, this, [tw](int idx) {
-            auto *editor = qobject_cast<CodeEditor*>(tw->widget(idx));
+            auto *w = tw->widget(idx);
+            auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
             if (editor) {
                 QString path = editor->fileName();
                 if (!path.isEmpty())
@@ -425,7 +520,8 @@ QTabWidget* SplitView::createTabWidget() {
         });
 
         connect(bar, &DraggableTabBar::openInTerminalRequested, this, [tw](int idx) {
-            auto *editor = qobject_cast<CodeEditor*>(tw->widget(idx));
+            auto *w = tw->widget(idx);
+            auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
             if (!editor) return;
             QString dirPath = QFileInfo(editor->fileName()).path();
             QString terminal = qEnvironmentVariable("TERMINAL");
@@ -465,19 +561,21 @@ void SplitView::installFilterOnChildWidgets(QWidget *widget) {
     }
 }
 
+// ── Event Handling ─────────────────────────────────────────────
+
 bool SplitView::eventFilter(QObject *obj, QEvent *event) {
     switch (event->type()) {
     case QEvent::DragEnter: {
-        m_highlightBar = nullptr;
-        m_highlightIndex = -1;
         auto *de = static_cast<QDragEnterEvent*>(event);
         if (de->mimeData()->hasFormat(MIME_TAB)) {
             m_dragActive = true;
-            m_dropOverlay->setGeometry(rect());
-            m_dropOverlay->raise();
-            m_dropOverlay->show();
             de->setDropAction(Qt::MoveAction);
             de->accept();
+            return true;
+        }
+        // Also accept file drops for external files
+        if (de->mimeData()->hasUrls()) {
+            de->acceptProposedAction();
             return true;
         }
         break;
@@ -485,32 +583,32 @@ bool SplitView::eventFilter(QObject *obj, QEvent *event) {
     case QEvent::DragMove: {
         auto *dm = static_cast<QDragMoveEvent*>(event);
         if (dm->mimeData()->hasFormat(MIME_TAB)) {
-            // Update highlight
-            QWidget *under = QApplication::widgetAt(QCursor::pos());
-            QTabBar *bar = nullptr;
-            while (under && under != this) {
-                bar = qobject_cast<QTabBar*>(under);
-                if (bar) break;
-                under = under->parentWidget();
-            }
+            dm->setDropAction(Qt::MoveAction);
+            dm->accept();
 
-            if (bar != m_highlightBar) {
-                if (m_highlightBar) {
-                    if (auto *oldDrag = qobject_cast<DraggableTabBar*>(m_highlightBar))
-                        oldDrag->setDropIndicator(-1);
-                }
-                m_highlightBar = bar;
-            }
+            QPoint globalPos = static_cast<QWidget*>(obj)->mapToGlobal(dm->position().toPoint());
+            QTabBar *bar = tabBarAt(globalPos);
             if (bar) {
-                m_highlightIndex = bar->tabAt(bar->mapFromGlobal(QCursor::pos()));
+                if (bar != m_highlightBar) {
+                    clearDropIndicators();
+                    m_highlightBar = bar;
+                }
+                m_highlightIndex = bar->tabAt(bar->mapFromGlobal(globalPos));
                 if (auto *dragBar = qobject_cast<DraggableTabBar*>(bar))
                     dragBar->setDropIndicator(m_highlightIndex);
             } else {
-                m_highlightIndex = -1;
+                if (m_highlightBar) {
+                    if (auto *oldDrag = qobject_cast<DraggableTabBar*>(m_highlightBar))
+                        oldDrag->setDropIndicator(-1);
+                    m_highlightBar = nullptr;
+                    m_highlightIndex = -1;
+                }
+                updateDropOverlay(globalPos);
             }
-
-            dm->setDropAction(Qt::MoveAction);
-            dm->accept();
+            return true;
+        }
+        if (dm->mimeData()->hasUrls()) {
+            dm->acceptProposedAction();
             return true;
         }
         break;
@@ -518,13 +616,7 @@ bool SplitView::eventFilter(QObject *obj, QEvent *event) {
     case QEvent::DragLeave: {
         if (m_dragActive) {
             m_dragActive = false;
-            m_dropOverlay->hide();
-            if (m_highlightBar) {
-                if (auto *oldDrag = qobject_cast<DraggableTabBar*>(m_highlightBar))
-                    oldDrag->setDropIndicator(-1);
-                m_highlightBar = nullptr;
-            }
-            m_highlightIndex = -1;
+            clearDropIndicators();
         }
         break;
     }
@@ -533,13 +625,18 @@ bool SplitView::eventFilter(QObject *obj, QEvent *event) {
         if (de->mimeData()->hasFormat(MIME_TAB)) {
             handleDrop(de);
             m_dragActive = false;
-            m_dropOverlay->hide();
-            if (m_highlightBar) {
-                if (auto *oldDrag = qobject_cast<DraggableTabBar*>(m_highlightBar))
-                    oldDrag->setDropIndicator(-1);
-                m_highlightBar = nullptr;
+            clearDropIndicators();
+            return true;
+        }
+        if (de->mimeData()->hasUrls()) {
+            for (const QUrl &url : de->mimeData()->urls()) {
+                if (url.isLocalFile()) {
+                    emit externalTabDropped(url.toLocalFile());
+                }
             }
-            m_highlightIndex = -1;
+            de->acceptProposedAction();
+            m_dragActive = false;
+            clearDropIndicators();
             return true;
         }
         break;
@@ -553,11 +650,15 @@ bool SplitView::eventFilter(QObject *obj, QEvent *event) {
 void SplitView::dragEnterEvent(QDragEnterEvent *event) {
     if (event->mimeData()->hasFormat(MIME_TAB)) {
         m_dragActive = true;
-        m_dropOverlay->setGeometry(rect());
-        m_dropOverlay->raise();
-        m_dropOverlay->show();
+        overlay()->setGeometry(rect());
+        overlay()->show();
+        overlay()->raise();
         event->setDropAction(Qt::MoveAction);
         event->accept();
+        return;
+    }
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
         return;
     }
     QWidget::dragEnterEvent(event);
@@ -567,6 +668,12 @@ void SplitView::dragMoveEvent(QDragMoveEvent *event) {
     if (event->mimeData()->hasFormat(MIME_TAB)) {
         event->setDropAction(Qt::MoveAction);
         event->accept();
+        if (!tabBarAt(mapToGlobal(event->position().toPoint())))
+            updateDropOverlay(mapToGlobal(event->position().toPoint()));
+        return;
+    }
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
         return;
     }
     QWidget::dragMoveEvent(event);
@@ -574,13 +681,7 @@ void SplitView::dragMoveEvent(QDragMoveEvent *event) {
 
 void SplitView::dragLeaveEvent(QDragLeaveEvent *event) {
     m_dragActive = false;
-    m_dropOverlay->hide();
-    if (m_highlightBar) {
-        if (auto *oldDrag = qobject_cast<DraggableTabBar*>(m_highlightBar))
-            oldDrag->setDropIndicator(-1);
-        m_highlightBar = nullptr;
-    }
-    m_highlightIndex = -1;
+    clearDropIndicators();
     QWidget::dragLeaveEvent(event);
 }
 
@@ -588,13 +689,18 @@ void SplitView::dropEvent(QDropEvent *event) {
     if (event->mimeData()->hasFormat(MIME_TAB)) {
         handleDrop(event);
         m_dragActive = false;
-        m_dropOverlay->hide();
-        if (m_highlightBar) {
-            if (auto *oldDrag = qobject_cast<DraggableTabBar*>(m_highlightBar))
-                oldDrag->setDropIndicator(-1);
-            m_highlightBar = nullptr;
+        clearDropIndicators();
+        return;
+    }
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile()) {
+                emit externalTabDropped(url.toLocalFile());
+            }
         }
-        m_highlightIndex = -1;
+        event->acceptProposedAction();
+        m_dragActive = false;
+        clearDropIndicators();
         return;
     }
     QWidget::dropEvent(event);
@@ -606,10 +712,9 @@ void SplitView::paintEvent(QPaintEvent *event) {
 
 void SplitView::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event);
-    if (m_dropOverlay->isVisible()) {
-        m_dropOverlay->setGeometry(rect());
-    }
 }
+
+// ── Drop Handler ───────────────────────────────────────────────
 
 void SplitView::handleDrop(QDropEvent *event) {
     QByteArray data = event->mimeData()->data(MIME_TAB);
@@ -638,26 +743,15 @@ void SplitView::handleDrop(QDropEvent *event) {
         return;
     }
 
-    s_handledDragIds.insert(dragId);
+    handledDragIds().insert(dragId);
 
-    // Find the actual widget under the cursor
-    QWidget *under = QApplication::widgetAt(QCursor::pos());
-
-    // Walk up to find a tab bar
-    QTabBar *targetBar = nullptr;
-    QWidget *w = under;
-    while (w && w != this) {
-        targetBar = qobject_cast<QTabBar*>(w);
-        if (targetBar) break;
-        w = w->parentWidget();
-    }
-
+    QTabBar *targetBar = tabBarAt(mapToGlobal(event->position().toPoint()));
     if (targetBar) {
         auto *targetPane = qobject_cast<QTabWidget*>(targetBar->parent());
         if (!targetPane) targetPane = tabWidgetForBar(targetBar);
 
         if (targetPane) {
-            QPoint localPt = targetBar->mapFromGlobal(QCursor::pos());
+            QPoint localPt = targetBar->mapFromGlobal(mapToGlobal(event->position().toPoint()));
             int insertAt = targetBar->tabAt(localPt);
 
             if (targetPane == srcTw) {
@@ -695,17 +789,31 @@ void SplitView::handleDrop(QDropEvent *event) {
         }
     }
 
-    // Not on a tab bar — check if over an existing pane's editor area
-    QTabWidget *targetPane = findPaneAt(QCursor::pos());
-    if (targetPane && targetPane != srcTw) {
-        QWidget *tabW = srcTw->widget(srcIndex);
-        QString text = srcTw->tabText(srcIndex);
-        QIcon icon = srcTw->tabIcon(srcIndex);
-        srcTw->removeTab(srcIndex);
-        int newIdx = targetPane->addTab(tabW, icon, text);
-        targetPane->setCurrentWidget(tabW);
-        tabW->setFocus();
-        if (m_onTabMoved) m_onTabMoved(targetPane, newIdx);
+    // Not on a tab bar — check for zone-based split
+    QTabWidget *targetPane = findPaneAt(mapToGlobal(event->position().toPoint()));
+    if (targetPane) {
+        DropZone zone = calcDropZone(targetPane, mapToGlobal(event->position().toPoint()));
+
+        if (zone == DropZone::Center || m_panes.size() >= MAX_PANES) {
+            // Add tab to target pane
+            if (targetPane == srcTw && srcIndex >= 0) {
+                // Same pane, already handled by tab bar case above
+                event->setDropAction(Qt::MoveAction);
+                event->accept();
+                return;
+            }
+            QWidget *tabW = srcTw->widget(srcIndex);
+            QString text = srcTw->tabText(srcIndex);
+            QIcon icon = srcTw->tabIcon(srcIndex);
+            srcTw->removeTab(srcIndex);
+            int newIdx = targetPane->addTab(tabW, icon, text);
+            targetPane->setCurrentWidget(tabW);
+            tabW->setFocus();
+            if (m_onTabMoved) m_onTabMoved(targetPane, newIdx);
+        } else {
+            // Split the pane
+            splitPane(targetPane, zone, srcTw, srcIndex);
+        }
     } else {
         // Not on a tab bar or existing pane — don't split if source pane has only one tab
         if (srcTw->count() <= 1) {
@@ -714,20 +822,28 @@ void SplitView::handleDrop(QDropEvent *event) {
             return;
         }
 
-        // Create a new pane
-        m_dropping = true;
-        QTabWidget *newPane = addNewPane(Qt::Horizontal, m_panes.indexOf(srcTw));
-        if (!newPane) return;
+        // Create a new pane via split
+        if (m_panes.size() < MAX_PANES) {
+            m_dropping = true;
+            // Default to right split
+            if (m_panes.size() == 1) {
+                splitPane(srcTw, DropZone::Right, srcTw, srcIndex);
+            } else {
+                // Find the best adjacent pane
+                int srcIdx = m_panes.indexOf(srcTw);
+                QTabWidget *adjPane = nullptr;
+                if (srcIdx + 1 < m_panes.size())
+                    adjPane = m_panes[srcIdx + 1];
+                else if (srcIdx > 0)
+                    adjPane = m_panes[srcIdx - 1];
 
-        QWidget *tabW = srcTw->widget(srcIndex);
-        QString text = srcTw->tabText(srcIndex);
-        QIcon icon = srcTw->tabIcon(srcIndex);
-        srcTw->removeTab(srcIndex);
-        int newIdx = newPane->addTab(tabW, icon, text);
-        newPane->setCurrentWidget(tabW);
-        tabW->setFocus();
-        if (m_onTabMoved) m_onTabMoved(newPane, newIdx);
-        m_dropping = false;
+                if (adjPane)
+                    splitPane(adjPane, DropZone::Right, srcTw, srcIndex);
+                else
+                    splitPane(srcTw, DropZone::Right, srcTw, srcIndex);
+            }
+            m_dropping = false;
+        }
     }
 
     event->setDropAction(Qt::MoveAction);
@@ -738,6 +854,8 @@ void SplitView::handleDrop(QDropEvent *event) {
     }
 }
 
+// ── Pane Lookup ────────────────────────────────────────────────
+
 QTabWidget* SplitView::tabWidgetForBar(QTabBar *bar) const {
     for (QTabWidget *pane : m_panes) {
         if (pane->tabBar() == bar) return pane;
@@ -746,15 +864,26 @@ QTabWidget* SplitView::tabWidgetForBar(QTabBar *bar) const {
 }
 
 QTabWidget* SplitView::findPaneAt(QPoint screenPos) const {
-    QWidget *w = QApplication::widgetAt(screenPos);
-    while (w) {
-        auto *tw = qobject_cast<QTabWidget*>(w);
-        if (tw && m_panes.contains(tw)) return tw;
-        w = w->parentWidget();
-        if (!w || w == this || w == m_splitter) break;
+    for (QTabWidget *pane : m_panes) {
+        QRect r(pane->mapToGlobal(QPoint(0, 0)), pane->size());
+        if (r.contains(screenPos))
+            return pane;
     }
     return nullptr;
 }
+
+QTabBar* SplitView::tabBarAt(QPoint screenPos) const {
+    for (QTabWidget *pane : m_panes) {
+        QTabBar *bar = pane->tabBar();
+        if (!bar || !bar->isVisible()) continue;
+        QRect r(bar->mapToGlobal(QPoint(0, 0)), bar->size());
+        if (r.contains(screenPos))
+            return bar;
+    }
+    return nullptr;
+}
+
+// ── Public API ─────────────────────────────────────────────────
 
 void SplitView::setPaneCallbacks(std::function<void(QTabWidget*)> onAdded,
                                  std::function<void(QTabWidget*)> onRemoved,
@@ -773,32 +902,61 @@ QTabWidget* SplitView::paneAt(int index) const {
     return nullptr;
 }
 
-QTabWidget* SplitView::addNewPane(Qt::Orientation orientation, int index) {
+QTabWidget* SplitView::addNewPane(QTabWidget *relativeTo, Qt::Orientation orientation, bool after) {
+    if (m_panes.size() >= MAX_PANES)
+        return nullptr;
+
     auto *newPane = createTabWidget();
 
-    m_splitter->setOrientation(orientation);
-    if (index >= 0 && index < m_panes.size()) {
-        int splitterIdx = m_splitter->indexOf(m_panes[index]);
-        m_splitter->insertWidget(splitterIdx + 1, newPane);
-        m_panes.insert(index + 1, newPane);
+    QSplitter *parentSplit = parentSplitterFor(relativeTo);
+    if (!parentSplit)
+        parentSplit = m_splitter;
+
+    if (parentSplit->orientation() == orientation) {
+        int idx = parentSplit->indexOf(relativeTo);
+        if (after) idx++;
+        parentSplit->insertWidget(idx, newPane);
+        distributeSplitter(parentSplit);
     } else {
-        m_splitter->addWidget(newPane);
-        m_panes.append(newPane);
+        int idx = parentSplit->indexOf(relativeTo);
+        auto *subSplit = new QSplitter(orientation);
+        subSplit->setChildrenCollapsible(false);
+        parentSplit->insertWidget(idx, subSplit);
+        if (after) {
+            subSplit->addWidget(relativeTo);
+            subSplit->addWidget(newPane);
+        } else {
+            subSplit->addWidget(newPane);
+            subSplit->addWidget(relativeTo);
+        }
+        distributeSplitter(subSplit);
     }
 
-    if (m_onPaneAdded) m_onPaneAdded(newPane);
-
+    setupNewPane(newPane);
     return newPane;
 }
 
 void SplitView::removePane(QTabWidget *tw) {
-    if ((tw == m_primaryWidget && m_panes.size() == 1) || !m_panes.contains(tw) || m_dropping) return;
+    if ((tw == m_primaryWidget && m_panes.size() == 1) || !m_panes.contains(tw) || m_dropping)
+        return;
 
-    if (m_onPaneRemoved) m_onPaneRemoved(tw);
+    QSplitter *parentSplit = parentSplitterFor(tw);
 
-    int idx = m_splitter->indexOf(tw);
-    if (idx >= 0) {
-        m_splitter->widget(idx)->hide();
+    if (m_onPaneRemoved)
+        m_onPaneRemoved(tw);
+
+    if (parentSplit) {
+        int idx = parentSplit->indexOf(tw);
+        // Replace with dummy to remove from layout, then delete it
+        auto *dummy = new QWidget();
+        dummy->hide();
+        parentSplit->replaceWidget(idx, dummy);
+        // Collapse dummy to 0 size so remaining panes fill the space
+        parentSplit->setStretchFactor(idx, 0);
+        QList<int> sz = parentSplit->sizes();
+        if (idx < sz.size()) sz[idx] = 0;
+        parentSplit->setSizes(sz);
+        dummy->deleteLater();
     }
     m_panes.removeOne(tw);
 
@@ -807,6 +965,13 @@ void SplitView::removePane(QTabWidget *tw) {
     }
     tw->deleteLater();
 
+    // Collapse parent splitter if needed
+    if (parentSplit && parentSplit != m_splitter)
+        collapseSplitter(parentSplit);
+
+    syncPaneList();
+
+    // If only one pane left, remove the now-unnecessary root splitter orientation change
     if (m_splitter->count() <= 1) {
         m_splitter->setOrientation(Qt::Horizontal);
     }
@@ -863,6 +1028,8 @@ void SplitView::onTabWidgetCurrentChanged(int index) {
     if (tw) {
         m_activeWidget = tw;
         emit activeTabWidgetChanged(tw);
+        if (auto *w = tw->currentWidget())
+            w->installEventFilter(this);
     }
 }
 

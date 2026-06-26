@@ -21,11 +21,13 @@
 
 #include "defaultsyntax.h"
 #include "encodingutils.h"
+#include "lsp/lspservermanager.h"
 #include "settingsmanager.h"
 #include "theme.h"
 
 #include <QColorDialog>
 #include <QFontDatabase>
+#include <QHeaderView>
 #include <QLabel>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -34,13 +36,15 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
-OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent)
+OptionsDialog::OptionsDialog(QWidget* parent)
+    : QDialog(parent), m_geometrySettings("Options")
 {
     setWindowTitle(tr("Options"));
     setModal(true);
     setMinimumSize(440, 400);
     setupUI();
     loadSettings();
+    m_geometrySettings.restoreGeometry(this);
 }
 
 OptionsDialog::~OptionsDialog() = default;
@@ -59,19 +63,39 @@ void OptionsDialog::setupUI()
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
     tabWidget = new QTabWidget(this);
+    setupGeneralTab();
+    setupAppearanceTab();
+    setupEditorTab();
+    setupPanelsTab();
+    setupLspTab();
 
-    // === General Tab ===
-    QWidget* generalContent = new QWidget();
-    QVBoxLayout* generalMainLayout = new QVBoxLayout(generalContent);
+    mainLayout->addWidget(tabWidget);
 
-    QGroupBox* startupGroup = new QGroupBox(tr("Startup"), generalContent);
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    QPushButton* okButton = new QPushButton(tr("OK"), this);
+    QPushButton* cancelButton = new QPushButton(tr("Cancel"), this);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+    mainLayout->addLayout(buttonLayout);
+
+    connect(okButton, &QPushButton::clicked, this, &OptionsDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+}
+
+void OptionsDialog::setupGeneralTab()
+{
+    QWidget* content = new QWidget();
+    QVBoxLayout* mainLayout = new QVBoxLayout(content);
+
+    QGroupBox* startupGroup = new QGroupBox(tr("Startup"), content);
     QFormLayout* startupLayout = new QFormLayout(startupGroup);
     startupComboBox = new QComboBox(startupGroup);
     startupComboBox->addItems({tr("New File"), tr("Restore Session"), tr("Open Last File"), tr("Empty")});
     startupLayout->addRow(tr("Startup mode:"), startupComboBox);
-    generalMainLayout->addWidget(startupGroup);
+    mainLayout->addWidget(startupGroup);
 
-    QGroupBox* defaultsGroup = new QGroupBox(tr("Defaults"), generalContent);
+    QGroupBox* defaultsGroup = new QGroupBox(tr("Defaults"), content);
     QFormLayout* defaultsLayout = new QFormLayout(defaultsGroup);
     defaultFormatComboBox = new QComboBox(defaultsGroup);
     const QHash<QString, QString> displayNames = {
@@ -103,21 +127,31 @@ void OptionsDialog::setupUI()
         defaultEncodingComboBox->addItem(enc.displayName);
     }
     defaultsLayout->addRow(tr("Default encoding:"), defaultEncodingComboBox);
-    generalMainLayout->addWidget(defaultsGroup);
-    generalMainLayout->addStretch();
+    mainLayout->addWidget(defaultsGroup);
+    mainLayout->addStretch();
 
-    tabWidget->addTab(createScrollContainer(generalContent), tr("General"));
+    tabWidget->addTab(createScrollContainer(content), tr("General"));
+}
 
-    // === Appearance Tab ===
-    QWidget* appearanceContent = new QWidget();
-    QVBoxLayout* appearanceMainLayout = new QVBoxLayout(appearanceContent);
+void OptionsDialog::setupAppearanceTab()
+{
+    QWidget* content = new QWidget();
+    QVBoxLayout* mainLayout = new QVBoxLayout(content);
 
-    QGroupBox* themeGroup = new QGroupBox(tr("Theme"), appearanceContent);
+    QGroupBox* themeGroup = new QGroupBox(tr("Theme"), content);
     QFormLayout* themeLayout = new QFormLayout(themeGroup);
     themeComboBox = new QComboBox(themeGroup);
-    for (int i = 0; i <= static_cast<int>(ThemeId::GruvboxDark); ++i)
+    for (auto id : allBuiltInThemes())
     {
-        themeComboBox->addItem(themeDisplayName(static_cast<ThemeId>(i)), i);
+        themeComboBox->addItem(themeDisplayName(id), static_cast<int>(id));
+    }
+    // Add custom user themes
+    QStringList customThemes = customThemeNames();
+    if (!customThemes.isEmpty()) {
+        themeComboBox->insertSeparator(themeComboBox->count());
+        for (const QString &name : customThemes) {
+            themeComboBox->addItem(name, -1);
+        }
     }
     themeLayout->addRow(tr("Theme:"), themeComboBox);
 
@@ -137,7 +171,10 @@ void OptionsDialog::setupUI()
     themeLayout->addRow(accentLabel, accentLayout);
 
     connect(themeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
-        SettingsManager::instance().setTheme(static_cast<ThemeId>(themeComboBox->currentData().toInt()));
+        int data = themeComboBox->currentData().toInt();
+        if (data >= 0) {
+            SettingsManager::instance().setTheme(static_cast<ThemeId>(data));
+        }
         updateThemePreview();
         emit themeChanged();
     });
@@ -162,9 +199,9 @@ void OptionsDialog::setupUI()
         emit themeChanged();
     });
 
-    appearanceMainLayout->addWidget(themeGroup);
+    mainLayout->addWidget(themeGroup);
 
-    QGroupBox* uiFontGroup = new QGroupBox(tr("Interface Font"), appearanceContent);
+    QGroupBox* uiFontGroup = new QGroupBox(tr("Interface Font"), content);
     QFormLayout* uiFontLayout = new QFormLayout(uiFontGroup);
     uiFontFaceComboBox = new QComboBox(uiFontGroup);
     for (const QString& family : QFontDatabase::families())
@@ -177,9 +214,9 @@ void OptionsDialog::setupUI()
     QIntValidator* uiFontSizeValidator = new QIntValidator(6, 72, uiFontSizeBox);
     uiFontSizeBox->setValidator(uiFontSizeValidator);
     uiFontLayout->addRow(tr("Font size:"), uiFontSizeBox);
-    appearanceMainLayout->addWidget(uiFontGroup);
+    mainLayout->addWidget(uiFontGroup);
 
-    QGroupBox* tabsGroup = new QGroupBox(tr("Tabs"), appearanceContent);
+    QGroupBox* tabsGroup = new QGroupBox(tr("Tabs"), content);
     QFormLayout* tabsLayout = new QFormLayout(tabsGroup);
     tabDisplayComboBox = new QComboBox(tabsGroup);
     tabDisplayComboBox->addItems({tr("Always Show"), tr("Show Two-plus"), tr("Never Show")});
@@ -190,17 +227,19 @@ void OptionsDialog::setupUI()
     tabBarPositionComboBox = new QComboBox(tabsGroup);
     tabBarPositionComboBox->addItems({tr("Top"), tr("Bottom")});
     tabsLayout->addRow(tr("Tab bar position:"), tabBarPositionComboBox);
-    appearanceMainLayout->addWidget(tabsGroup);
+    mainLayout->addWidget(tabsGroup);
 
-    appearanceMainLayout->addStretch();
+    mainLayout->addStretch();
 
-    tabWidget->addTab(createScrollContainer(appearanceContent), tr("Appearance"));
+    tabWidget->addTab(createScrollContainer(content), tr("Appearance"));
+}
 
-    // === Editor Tab ===
-    QWidget* editorContent = new QWidget();
-    QVBoxLayout* editorMainLayout = new QVBoxLayout(editorContent);
+void OptionsDialog::setupEditorTab()
+{
+    QWidget* content = new QWidget();
+    QVBoxLayout* mainLayout = new QVBoxLayout(content);
 
-    QGroupBox* fontGroup = new QGroupBox(tr("Font"), editorContent);
+    QGroupBox* fontGroup = new QGroupBox(tr("Font"), content);
     QFormLayout* fontLayout = new QFormLayout(fontGroup);
     fontFaceComboBox = new QComboBox(fontGroup);
     for (const QString& family : QFontDatabase::families())
@@ -216,9 +255,9 @@ void OptionsDialog::setupUI()
     QIntValidator* fontSizeValidator = new QIntValidator(6, 72, fontSizeBox);
     fontSizeBox->setValidator(fontSizeValidator);
     fontLayout->addRow(tr("Font size:"), fontSizeBox);
-    editorMainLayout->addWidget(fontGroup);
+    mainLayout->addWidget(fontGroup);
 
-    QGroupBox* cursorGroup = new QGroupBox(tr("Cursor"), editorContent);
+    QGroupBox* cursorGroup = new QGroupBox(tr("Cursor"), content);
     QFormLayout* cursorLayout = new QFormLayout(cursorGroup);
     tabWidthSpin = new QSpinBox(cursorGroup);
     tabWidthSpin->setRange(1, 16);
@@ -230,9 +269,9 @@ void OptionsDialog::setupUI()
     cursorLayout->addRow(tr("Cursor style:"), cursorStyleComboBox);
     cursorBlinkingCheckBox = new QCheckBox(tr("Cursor blinking"), cursorGroup);
     cursorLayout->addRow(cursorBlinkingCheckBox);
-    editorMainLayout->addWidget(cursorGroup);
+    mainLayout->addWidget(cursorGroup);
 
-    QGroupBox* displayGroup = new QGroupBox(tr("Display"), editorContent);
+    QGroupBox* displayGroup = new QGroupBox(tr("Display"), content);
     QVBoxLayout* displayLayout = new QVBoxLayout(displayGroup);
     showLineNumbersCheckBox = new QCheckBox(tr("Show line numbers"), displayGroup);
     scrollPastContentCheckBox = new QCheckBox(tr("Scroll past content"), displayGroup);
@@ -245,9 +284,9 @@ void OptionsDialog::setupUI()
     displayLayout->addWidget(codeCollapsingCheckBox);
     displayLayout->addWidget(showWhitespaceCheckBox);
     displayLayout->addStretch();
-    editorMainLayout->addWidget(displayGroup);
+    mainLayout->addWidget(displayGroup);
 
-    QGroupBox* completionGroup = new QGroupBox(tr("Auto-Completion"), editorContent);
+    QGroupBox* completionGroup = new QGroupBox(tr("Auto-Completion"), content);
     QFormLayout* completionLayout = new QFormLayout(completionGroup);
     autoCompletionCheckBox = new QCheckBox(tr("Enable auto-completion"), completionGroup);
     completionLayout->addRow(autoCompletionCheckBox);
@@ -259,25 +298,25 @@ void OptionsDialog::setupUI()
     autoCompletionCaseSensitiveCheckBox = new QCheckBox(tr("Case sensitive"), completionGroup);
     completionLayout->addRow(autoCompletionCaseSensitiveCheckBox);
 
-    QGroupBox* snippetGroup = new QGroupBox(tr("Snippets"), editorContent);
+    QGroupBox* snippetGroup = new QGroupBox(tr("Snippets"), content);
     QVBoxLayout* snippetLayout = new QVBoxLayout(snippetGroup);
     snippetsCheckBox = new QCheckBox(tr("Enable snippets"), snippetGroup);
     snippetLayout->addWidget(snippetsCheckBox);
     predictiveSnippetsCheckBox = new QCheckBox(tr("Show snippets in auto-completion (predictive)"), snippetGroup);
     snippetLayout->addWidget(predictiveSnippetsCheckBox);
     snippetLayout->addStretch();
-    editorMainLayout->addWidget(snippetGroup);
+    mainLayout->addWidget(snippetGroup);
 
-    editorMainLayout->addWidget(completionGroup);
+    mainLayout->addWidget(completionGroup);
 
-    QGroupBox* typingGroup = new QGroupBox(tr("Typing"), editorContent);
+    QGroupBox* typingGroup = new QGroupBox(tr("Typing"), content);
     QVBoxLayout* typingLayout = new QVBoxLayout(typingGroup);
     autoCloseBracketsCheckBox = new QCheckBox(tr("Auto-close brackets and quotes"), typingGroup);
     typingLayout->addWidget(autoCloseBracketsCheckBox);
     typingLayout->addStretch();
-    editorMainLayout->addWidget(typingGroup);
+    mainLayout->addWidget(typingGroup);
 
-    QGroupBox* editorDisplayGroup = new QGroupBox(tr("Editor Display"), editorContent);
+    QGroupBox* editorDisplayGroup = new QGroupBox(tr("Editor Display"), content);
     QVBoxLayout* editorDisplayLayout = new QVBoxLayout(editorDisplayGroup);
     highlightCurrentLineCheckBox = new QCheckBox(tr("Highlight current line"), editorDisplayGroup);
     editorDisplayLayout->addWidget(highlightCurrentLineCheckBox);
@@ -291,9 +330,9 @@ void OptionsDialog::setupUI()
     edgeLayout->addStretch();
     editorDisplayLayout->addLayout(edgeLayout);
     editorDisplayLayout->addStretch();
-    editorMainLayout->addWidget(editorDisplayGroup);
+    mainLayout->addWidget(editorDisplayGroup);
 
-    QGroupBox* autoSaveGroup = new QGroupBox(tr("Auto-Save"), editorContent);
+    QGroupBox* autoSaveGroup = new QGroupBox(tr("Auto-Save"), content);
     QFormLayout* autoSaveLayout = new QFormLayout(autoSaveGroup);
     autoSaveCheckBox = new QCheckBox(tr("Enable auto-save"), autoSaveGroup);
     autoSaveLayout->addRow(autoSaveCheckBox);
@@ -303,17 +342,19 @@ void OptionsDialog::setupUI()
     autoSaveIntervalSpin->setSuffix(tr(" seconds"));
     autoSaveLayout->addRow(tr("Interval:"), autoSaveIntervalSpin);
     connect(autoSaveCheckBox, &QCheckBox::toggled, autoSaveIntervalSpin, &QSpinBox::setEnabled);
-    editorMainLayout->addWidget(autoSaveGroup);
+    mainLayout->addWidget(autoSaveGroup);
 
-    editorMainLayout->addStretch();
+    mainLayout->addStretch();
 
-    tabWidget->addTab(createScrollContainer(editorContent), tr("Editor"));
+    tabWidget->addTab(createScrollContainer(content), tr("Editor"));
+}
 
-    // === Panels Tab ===
-    QWidget* panelsContent = new QWidget();
-    QVBoxLayout* panelsMainLayout = new QVBoxLayout(panelsContent);
+void OptionsDialog::setupPanelsTab()
+{
+    QWidget* content = new QWidget();
+    QVBoxLayout* mainLayout = new QVBoxLayout(content);
 
-    QGroupBox* terminalGroup = new QGroupBox(tr("Terminal"), panelsContent);
+    QGroupBox* terminalGroup = new QGroupBox(tr("Terminal"), content);
     QFormLayout* terminalLayout = new QFormLayout(terminalGroup);
     terminalPanelPositionComboBox = new QComboBox(terminalGroup);
     terminalPanelPositionComboBox->addItems({tr("Bottom"), tr("Right"), tr("Tab")});
@@ -337,38 +378,69 @@ void OptionsDialog::setupUI()
     QIntValidator* terminalFontSizeValidator = new QIntValidator(6, 72, terminalFontSizeBox);
     terminalFontSizeBox->setValidator(terminalFontSizeValidator);
     terminalLayout->addRow(tr("Font size:"), terminalFontSizeBox);
-    panelsMainLayout->addWidget(terminalGroup);
+    mainLayout->addWidget(terminalGroup);
 
-    QGroupBox* projectGroup = new QGroupBox(tr("Project"), panelsContent);
+    QGroupBox* projectGroup = new QGroupBox(tr("Project"), content);
     QFormLayout* projectLayout = new QFormLayout(projectGroup);
     projectPanelPositionComboBox = new QComboBox(projectGroup);
     projectPanelPositionComboBox->addItems({tr("Left"), tr("Right")});
     projectLayout->addRow(tr("Panel position:"), projectPanelPositionComboBox);
     showHiddenFilesCheckBox = new QCheckBox(tr("Show hidden files"), projectGroup);
     projectLayout->addRow(showHiddenFilesCheckBox);
-    panelsMainLayout->addWidget(projectGroup);
-    panelsMainLayout->addStretch();
+    mainLayout->addWidget(projectGroup);
+    mainLayout->addStretch();
 
-    tabWidget->addTab(createScrollContainer(panelsContent), tr("Panels"));
+    tabWidget->addTab(createScrollContainer(content), tr("Panels"));
+}
 
-    mainLayout->addWidget(tabWidget);
+void OptionsDialog::setupLspTab()
+{
+    QWidget* content = new QWidget();
+    QVBoxLayout* mainLayout = new QVBoxLayout(content);
 
-    QHBoxLayout* buttonLayout = new QHBoxLayout();
-    QPushButton* okButton = new QPushButton(tr("OK"), this);
-    QPushButton* cancelButton = new QPushButton(tr("Cancel"), this);
-    buttonLayout->addStretch();
-    buttonLayout->addWidget(okButton);
-    buttonLayout->addWidget(cancelButton);
-    mainLayout->addLayout(buttonLayout);
+    QGroupBox* generalGroup = new QGroupBox(tr("Language Server Protocol"), content);
+    QVBoxLayout* generalLayout = new QVBoxLayout(generalGroup);
+    lspEnabledCheckBox = new QCheckBox(tr("Enable LSP (Language Server Protocol)"), generalGroup);
+    generalLayout->addWidget(lspEnabledCheckBox);
+    lspShowErrorListCheckBox = new QCheckBox(tr("Show error list"), generalGroup);
+    generalLayout->addWidget(lspShowErrorListCheckBox);
+    QFormLayout* thresholdLayout = new QFormLayout();
+    lspCompletionTriggerSpin = new QSpinBox(generalGroup);
+    lspCompletionTriggerSpin->setRange(1, 10);
+    lspCompletionTriggerSpin->setValue(2);
+    lspCompletionTriggerSpin->setSuffix(tr(" character(s)"));
+    thresholdLayout->addRow(tr("Completion trigger after:"), lspCompletionTriggerSpin);
+    generalLayout->addLayout(thresholdLayout);
+    mainLayout->addWidget(generalGroup);
 
-    connect(okButton, &QPushButton::clicked, this, &OptionsDialog::accept);
-    connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+    QGroupBox* serverGroup = new QGroupBox(tr("Server Commands"), content);
+    QVBoxLayout* serverLayout = new QVBoxLayout(serverGroup);
+    lspServerTable = new QTableWidget(serverGroup);
+    lspServerTable->setColumnCount(3);
+    lspServerTable->setHorizontalHeaderLabels({tr("Language"), tr("Command"), tr("Arguments")});
+    lspServerTable->horizontalHeader()->setStretchLastSection(true);
+    lspServerTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    lspServerTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    lspServerTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    lspServerTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    serverLayout->addWidget(lspServerTable);
+    mainLayout->addWidget(serverGroup);
+
+    mainLayout->addStretch();
+    tabWidget->addTab(createScrollContainer(content), tr("LSP"));
 }
 
 void OptionsDialog::updateThemePreview()
 {
-    ThemeId tid = static_cast<ThemeId>(themeComboBox->currentData().toInt());
-    ThemeColors colors = getThemeColors(tid);
+    ThemeColors colors;
+    int data = themeComboBox->currentData().toInt();
+    if (data < 0) {
+        // Custom theme
+        QString name = themeComboBox->currentText();
+        colors = getCustomThemeColors(name);
+    } else {
+        colors = getThemeColors(static_cast<ThemeId>(data));
+    }
     if (m_accentColor.isValid()) {
         colors.accent = m_accentColor;
         colors.resolve();
@@ -384,14 +456,19 @@ void OptionsDialog::loadSettings()
     if (m_accentColor.isValid()) {
         accentColorButton->setStyleSheet(QString("background-color: %1; border: 1px solid gray; border-radius: 3px;").arg(m_accentColor.name()));
     }
-    int savedTheme = static_cast<int>(s.theme());
+    ThemeId savedThemeId = s.theme();
+    bool found = false;
     for (int i = 0; i < themeComboBox->count(); ++i)
     {
-        if (themeComboBox->itemData(i).toInt() == savedTheme)
+        if (themeComboBox->itemData(i).toInt() == static_cast<int>(savedThemeId))
         {
             themeComboBox->setCurrentIndex(i);
+            found = true;
             break;
         }
+    }
+    if (!found && themeComboBox->count() > 0) {
+        themeComboBox->setCurrentIndex(0);
     }
     updateThemePreview();
     defaultFormatComboBox->setCurrentIndex(s.defaultFormat());
@@ -438,12 +515,37 @@ void OptionsDialog::loadSettings()
     autoSaveCheckBox->setChecked(s.autoSaveEnabled());
     autoSaveIntervalSpin->setValue(s.autoSaveInterval());
     autoSaveIntervalSpin->setEnabled(autoSaveCheckBox->isChecked());
+
+    lspEnabledCheckBox->setChecked(s.lspEnabled());
+    lspShowErrorListCheckBox->setChecked(s.lspShowErrorList());
+    lspCompletionTriggerSpin->setValue(s.lspCompletionTriggerChars());
+
+    // Populate LSP server table with default + custom entries
+    auto defaultCmds = lsp::LspServerManager::defaultServerCommands();
+    QSet<QString> seen;
+    lspServerTable->setRowCount(0);
+    for (auto it = defaultCmds.constBegin(); it != defaultCmds.constEnd(); ++it) {
+        int row = lspServerTable->rowCount();
+        lspServerTable->insertRow(row);
+        QString lang = it.key();
+        QString cmd = s.lspServerCommand(lang);
+        QStringList args = s.lspServerArgs(lang);
+        if (cmd.isEmpty()) cmd = it.value();
+        if (args.isEmpty()) args = lsp::LspServerManager::defaultServerArgs(lang);
+        lspServerTable->setItem(row, 0, new QTableWidgetItem(lang));
+        lspServerTable->setItem(row, 1, new QTableWidgetItem(cmd));
+        lspServerTable->setItem(row, 2, new QTableWidgetItem(args.join(' ')));
+        seen.insert(lang);
+    }
 }
 
 void OptionsDialog::saveSettings()
 {
+    int themeData = themeComboBox->currentData().toInt();
+    if (themeData >= 0) {
+        SettingsManager::instance().setTheme(static_cast<ThemeId>(themeData));
+    }
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(startupComboBox->currentIndex()));
-    SettingsManager::instance().setTheme(static_cast<ThemeId>(themeComboBox->currentData().toInt()));
     if (m_accentColor.isValid())
         SettingsManager::instance().setAccentColor(m_accentColor);
     else
@@ -482,10 +584,42 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setAutoSaveEnabled(autoSaveCheckBox->isChecked());
     SettingsManager::instance().setAutoSaveInterval(autoSaveIntervalSpin->value());
     SettingsManager::instance().setDefaultEncoding(defaultEncodingComboBox->currentIndex());
+
+    SettingsManager::instance().setLspEnabled(lspEnabledCheckBox->isChecked());
+    SettingsManager::instance().setLspShowErrorList(lspShowErrorListCheckBox->isChecked());
+    SettingsManager::instance().setLspCompletionTriggerChars(lspCompletionTriggerSpin->value());
+
+    // Save LSP server table
+    for (int i = 0; i < lspServerTable->rowCount(); ++i) {
+        QTableWidgetItem* langItem = lspServerTable->item(i, 0);
+        QTableWidgetItem* cmdItem = lspServerTable->item(i, 1);
+        QTableWidgetItem* argsItem = lspServerTable->item(i, 2);
+        if (!langItem || !cmdItem) continue;
+        QString lang = langItem->text().trimmed();
+        QString cmd = cmdItem->text().trimmed();
+        QStringList args;
+        if (argsItem && !argsItem->text().trimmed().isEmpty())
+            args = argsItem->text().trimmed().split(' ', Qt::SkipEmptyParts);
+        auto defaultCmds = lsp::LspServerManager::defaultServerCommands();
+        if (cmd != defaultCmds.value(lang)) {
+            SettingsManager::instance().setLspServerCommand(lang, cmd);
+        }
+        auto defaultArgs = lsp::LspServerManager::defaultServerArgs(lang);
+        if (args != defaultArgs) {
+            SettingsManager::instance().setLspServerArgs(lang, args);
+        }
+    }
 }
 
 void OptionsDialog::accept()
 {
+    m_geometrySettings.saveGeometry(this);
     saveSettings();
     QDialog::accept();
+}
+
+void OptionsDialog::reject()
+{
+    m_geometrySettings.saveGeometry(this);
+    QDialog::reject();
 }

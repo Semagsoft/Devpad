@@ -22,21 +22,24 @@
 #include "actionmanager.h"
 #include "backupmanager.h"
 #include "codeeditor.h"
+#include "errorlistpanel.h"
+#include "findsymbolsdialog.h"
 #include "editorcontroller.h"
 #include "encodingmanager.h"
 #include "encodingutils.h"
 #include "externaltoolmanager.h"
 #include "filemanager.h"
 #include "filewatchermanager.h"
-#include "finddialog.h"
 #include "findinfilesdialog.h"
 #include "logger.h"
 #include "externaltoolsdialog.h"
+#include "lsp/lsptypes.h"
+#include "lsp/lspservermanager.h"
+#include "lsp/lspclient.h"
 #include "optionsdialog.h"
 #include "printmanager.h"
 #include "projectpanel.h"
 #include "remotefileservice.h"
-#include "replacedialog.h"
 #include "searchmanager.h"
 #include "sessionmanager.h"
 #include "settingsmanager.h"
@@ -56,8 +59,6 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QFontDatabase>
-#include <QHash>
 #include <QDesktopServices>
 #include <QLocalSocket>
 #include <QIcon>
@@ -65,22 +66,27 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPointer>
+#include <QPageSetupDialog>
 #include <QPrintDialog>
 #include <QPrintPreviewDialog>
 #include <QPrinter>
 #include <QProcess>
-#include <QPushButton>
 #include <QRegularExpression>
 #include <QShortcut>
 #include <QStringConverter>
 #include <QTabBar>
 #include <QTextDocument>
-#include <QTextEdit>
 #include <QToolButton>
-#include <QVBoxLayout>
 #include <qtermwidget.h>
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // Natural QObject child destruction order (reverse creation) is correct:
+    //   m_editorController (created last)  → destroyed first  → m_tabManager alive ✓
+    //   m_tabManager       (created second) → destroyed second → m_splitView alive ✓
+    //   m_splitView        (created first)  → destroyed last
+    // No manual delete ordering needed.
+}
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
@@ -93,28 +99,31 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     }
     setAcceptDrops(true);
 
-    splitView = new SplitView(this);
-    tabWidget = splitView->primaryTabWidget();
-    tabWidget->setDocumentMode(true);
-    tabWidget->tabBar()->setExpanding(false);
+    m_splitView = new SplitView(this);
+    m_tabWidget = m_splitView->primaryTabWidget();
+    m_tabWidget->setDocumentMode(true);
+    m_tabWidget->tabBar()->setExpanding(false);
 
-    splitView->setPaneCallbacks([this](QTabWidget* pane) { tabManager->addPane(pane); }, [this](QTabWidget* pane) { tabManager->removePane(pane); },
+    m_splitView->setPaneCallbacks([this](QTabWidget* pane) { m_tabManager->addPane(pane); }, [this](QTabWidget* pane) { m_tabManager->removePane(pane); },
                                 [this](QTabWidget* pane, int index)
-                                { tabManager->updateCloseButton(index, pane, SettingsManager::instance().closeButtonMode()); });
+                                {
+                                    m_tabManager->updateCloseButton(index, pane, SettingsManager::instance().closeButtonMode());
+                                    m_tabManager->updateTabBarVisibility();
+                                });
 
-    connect(splitView, &SplitView::activeTabWidgetChanged, this,
+    connect(m_splitView, &SplitView::activeTabWidgetChanged, this,
             [this](QTabWidget* tw)
             {
-                tabManager->setActivePane(tw);
+                m_tabManager->setActivePane(tw);
                 updateStatusBar();
-                editorController->updateUndoRedoState();
+                m_editorController->updateUndoRedoState();
                 updateFileTypeLabel();
                 updateStatusBarLabelsVisibility();
                 updateEncodingSelector();
-                editorController->updateReadOnlyActionState();
+                m_editorController->updateReadOnlyActionState();
             });
 
-    connect(splitView, &SplitView::tabDetachedToWindow, this,
+    connect(m_splitView, &SplitView::tabDetachedToWindow, this,
             [](const QString& filePath)
             {
                 QString appPath = QApplication::applicationFilePath();
@@ -135,55 +144,55 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 }
             });
 
-    connect(splitView, &SplitView::externalTabDropped, this,
+    connect(m_splitView, &SplitView::externalTabDropped, this,
             [this](const QString &filePath)
             {
                 loadFile(filePath);
             });
 
-    projectPanel = new ProjectPanel(this);
+    m_projectPanel = new ProjectPanel(this);
     {
         auto pos = SettingsManager::instance().projectPanelPosition();
         Qt::DockWidgetArea area = (pos == ProjectPanelPosition::Right)
             ? Qt::RightDockWidgetArea : Qt::LeftDockWidgetArea;
-        addDockWidget(area, projectPanel);
+        addDockWidget(area, m_projectPanel);
     }
-    projectPanel->hide();
+    m_projectPanel->hide();
 
-    terminalPanel = new TerminalPanel(this);
-    addDockWidget(Qt::BottomDockWidgetArea, terminalPanel);
-    terminalPanel->hide();
+    m_terminalPanel = new TerminalPanel(this);
+    addDockWidget(Qt::BottomDockWidgetArea, m_terminalPanel);
+    m_terminalPanel->hide();
 
     // Install SplitView's event filter on MainWindow to catch drag events over
     // dock widgets and other areas where no child widget accepts drops
-    installEventFilter(splitView);
+    installEventFilter(m_splitView);
 
     // QTermWidget's internal drag handling intercepts events before our
     // filters; disable acceptDrops on all terminal child widgets so that drag
     // events fall through to MainWindow where the SplitView's filter handles
     // them (cross-process acknowledgments, etc.)
-    connect(terminalPanel, &TerminalPanel::terminalStarted, this, [this]() {
+    connect(m_terminalPanel, &TerminalPanel::terminalStarted, this, [this]() {
         auto disableDrops = [](auto &&self, QObject *obj) -> void {
             if (auto *w = qobject_cast<QWidget*>(obj))
                 w->setAcceptDrops(false);
             for (QObject *child : obj->children())
                 self(self, child);
         };
-        disableDrops(disableDrops, terminalPanel);
+        disableDrops(disableDrops, m_terminalPanel);
     });
 
-    tabManager = new TabManager(tabWidget, this);
-    searchManager = new SearchManager(this);
+    m_tabManager = new TabManager(m_tabWidget, this);
+    m_searchManager = new SearchManager(this, m_tabManager);
 
-    actionManager = new ActionManager(this);
-    sessionManager = new SessionManager(this);
-    encodingManager = new EncodingManager(this);
-    themeApplier = new ThemeApplier(this);
-    printManager = new PrintManager(this);
-    fileManager = new FileManager(this);
-    fileWatcherManager = new FileWatcherManager(this);
+    m_actionManager = new ActionManager(this);
+    m_sessionManager = new SessionManager(this);
+    m_encodingManager = new EncodingManager(this);
+    m_themeApplier = new ThemeApplier(this);
+    m_printManager = new PrintManager(this);
+    m_fileManager = new FileManager(this);
+    m_fileWatcherManager = new FileWatcherManager(this);
 
-    editorController = new EditorController(tabManager, fileManager, fileWatcherManager, actionManager, tabWidget, this);
+    m_editorController = new EditorController(m_tabManager, m_fileManager, m_fileWatcherManager, m_actionManager, m_tabWidget, this);
 
     m_localServer = new QLocalServer(this);
     QString serverName = QStringLiteral("devpad-%1").arg(QCoreApplication::applicationPid());
@@ -195,7 +204,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     m_remoteFileService = new RemoteFileService(this);
     m_snippetManager = new SnippetManager(this);
 
-    connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
+    m_lspServerManager = new lsp::LspServerManager(this);
+    m_errorListPanel = new ErrorListPanel(this);
+    addDockWidget(Qt::BottomDockWidgetArea, m_errorListPanel);
+    bool showErrorList = SettingsManager::instance().lspShowErrorList();
+    m_errorListPanel->setVisible(showErrorList);
+
+    connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
 
     connect(m_remoteFileService, &RemoteFileService::fileDownloaded, this,
             [this](const QString& url, const QString& fileName, const QByteArray& data)
@@ -214,46 +229,49 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             {
                 if (total > 0)
                 {
-                    statusBar()->showMessage(tr("Downloading... %1%").arg(static_cast<int>(received * 100 / total)));
+                    int percent = static_cast<int>(received * 100 / total);
+                    statusBar()->showMessage(tr("Downloading... %1%").arg(qBound(0, percent, 100)));
                 }
             });
     connect(m_remoteFileService, &RemoteFileService::statusMessage, this, [this](const QString& message) { statusBar()->showMessage(message); });
 
     setupUI();
-    connectActions();
+    wireActions();
     connectPanelSignals();
 
-    setCentralWidget(splitView);
+    setCentralWidget(m_splitView);
 
-    actionManager->menuBarAct()->setChecked(SettingsManager::instance().showMenuBar());
-    actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
-    actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
-    addToolBar(actionManager->toolBar());
+    m_actionManager->menuBarAct()->setChecked(SettingsManager::instance().showMenuBar());
+    m_actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
+    m_actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
+    addToolBar(m_actionManager->toolBar());
     menuBar()->setVisible(SettingsManager::instance().showMenuBar());
-    actionManager->toolBar()->setVisible(SettingsManager::instance().showToolbar());
+    m_actionManager->toolBar()->setVisible(SettingsManager::instance().showToolbar());
     statusBar()->setVisible(SettingsManager::instance().showStatusbar());
 
-    actionManager->terminalPanelAct()->setChecked(SettingsManager::instance().showTerminalPanel());
-    actionManager->terminalPanelButton()->setChecked(SettingsManager::instance().showTerminalPanel());
+    m_actionManager->terminalPanelAct()->setChecked(SettingsManager::instance().showTerminalPanel());
+    m_actionManager->terminalPanelButton()->setChecked(SettingsManager::instance().showTerminalPanel());
+    m_actionManager->errorListPanelAct()->setChecked(showErrorList);
+    m_actionManager->errorListPanelButton()->setChecked(showErrorList);
 
     applyStartupMode();
     updateRecentFileActions();
 
     if (SettingsManager::instance().showTerminalPanel())
     {
-        terminalPanel->toggle(tabWidget, this);
-        actionManager->terminalPanelAct()->setChecked(true);
-        actionManager->terminalPanelButton()->setChecked(true);
+        m_terminalPanel->toggle(m_tabWidget, this);
+        m_actionManager->terminalPanelAct()->setChecked(true);
+        m_actionManager->terminalPanelButton()->setChecked(true);
     }
     else
     {
-        terminalPanel->applyPosition(SettingsManager::instance().terminalPanelPosition(), tabWidget, this);
+        m_terminalPanel->applyPosition(SettingsManager::instance().terminalPanelPosition(), m_tabWidget, this);
     }
 
     applySettings();
 
-    connect(tabManager, &TabManager::currentChanged, this, &MainWindow::onTabChanged);
-    connect(editorController, &EditorController::editorConnected, this,
+    connect(m_tabManager, &TabManager::currentChanged, this, &MainWindow::onTabChanged);
+    connect(m_editorController, &EditorController::editorConnected, this,
             [this](CodeEditor* editor)
             {
                 connect(editor, &QsciScintilla::textChanged, this, &MainWindow::updateStatusBar);
@@ -261,206 +279,311 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 connect(editor, &CodeEditor::findRequested, this, &MainWindow::find);
                 connect(editor, &CodeEditor::replaceRequested, this, &MainWindow::replace);
                 connect(editor, &CodeEditor::goToLineRequested, this, &MainWindow::goToLine);
-                connect(editor, &CodeEditor::insertSnippetRequested, editorController, &EditorController::insertSnippet);
+                connect(editor, &CodeEditor::insertSnippetRequested, m_editorController, &EditorController::insertSnippet);
                 connect(editor, &CodeEditor::fileDropped, this, [this](const QString &path) {
                     loadFile(path);
                 });
+                connect(editor, &CodeEditor::navigateToLocation, this, &MainWindow::onNavigateToLocation);
+                connect(editor, &CodeEditor::diagnosticsChanged, this, [this](const QString& uri, const QList<lsp::Diagnostic>& diags) {
+                    m_errorListPanel->updateDiagnostics(uri, diags);
+                });
+
+                // Setup LSP for this editor
+                QString filePath = editor->fileName();
+                if (!filePath.isEmpty() && filePath != Strings::untitled()) {
+                    QString syntax = SettingsManager::instance().syntaxForFile(filePath);
+                    if (!syntax.isEmpty()) {
+                        editor->setLspLanguage(syntax);
+                        editor->setLspServerManager(m_lspServerManager);
+                        QPointer<CodeEditor> guard(editor);
+                        QTimer::singleShot(200, this, [guard]() {
+                            if (guard) guard->sendDidOpen();
+                        });
+                    }
+                }
             });
 
-    autoSaveTimer = new QTimer(this);
-    connect(autoSaveTimer, &QTimer::timeout, editorController, &EditorController::autoSave);
+    // Initialize LSP when a previously-untitled file is saved
+    connect(m_editorController, &EditorController::fileSaved, this,
+            [this](const QString& fileName) {
+        CodeEditor* editor = m_editorController->findEditorByFileName(fileName);
+        if (!editor) return;
+
+        if (!editor->lspActive()) {
+            QString syntax = SettingsManager::instance().syntaxForFile(fileName);
+            if (!syntax.isEmpty()) {
+                editor->setLspLanguage(syntax);
+                editor->setLspServerManager(m_lspServerManager);
+                QPointer<CodeEditor> guard(editor);
+                QTimer::singleShot(200, this, [guard]() {
+                    if (guard) guard->sendDidOpen();
+                });
+            }
+        } else {
+            QString uri = lsp::uriFromPath(fileName);
+            m_lspServerManager->saveDocument(uri);
+        }
+    });
+
+    m_autoSaveTimer = new QTimer(this);
+    connect(m_autoSaveTimer, &QTimer::timeout, m_editorController, &EditorController::autoSave);
+    // Connect LSP server signals
+    connect(m_lspServerManager, &lsp::LspServerManager::definitionReady, this,
+            [this](const QString&, const lsp::Location& location)
+            {
+                QString filePath = lsp::pathFromUri(location.uri);
+                onNavigateToLocation(filePath, location.range.start.line, location.range.start.character);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::completionReady, this,
+            [this](const QString& uri, const lsp::CompletionList& completions)
+            {
+                Q_UNUSED(uri)
+                CodeEditor* editor = m_tabManager->currentEditor();
+                if (editor)
+                    editor->showCompletion(completions);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::typeDefinitionReady, this,
+            [this](const QString&, const lsp::Location& location)
+            {
+                QString filePath = lsp::pathFromUri(location.uri);
+                onNavigateToLocation(filePath, location.range.start.line, location.range.start.character);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::declarationReady, this,
+            [this](const QString&, const lsp::Location& location)
+            {
+                QString filePath = lsp::pathFromUri(location.uri);
+                onNavigateToLocation(filePath, location.range.start.line, location.range.start.character);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::codeActionReady, this,
+            [this](const QString& uri, const QList<QJsonObject>& actions)
+            {
+                if (actions.isEmpty()) return;
+                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
+                if (!editor) return;
+
+                QMenu menu(editor);
+                for (const auto& a : actions) {
+                    QString title = a["title"].toString();
+                    QAction* act = menu.addAction(title);
+                    QString command = a["command"].toObject()["command"].toString();
+                    QJsonObject cmdArgs = a["command"].toObject()["arguments"].toArray().first().toObject();
+                    act->setData(command);
+                }
+                QAction* chosen = menu.exec(QCursor::pos());
+                if (chosen && !chosen->data().toString().isEmpty()) {
+                    // Execute command via a simple approach: just log for now
+                    qDebug() << "Code action:" << chosen->data().toString();
+                }
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::referencesReady, this,
+            [this](const QString&, const QList<lsp::Location>& locations)
+            {
+                if (locations.isEmpty()) return;
+                const auto& loc = locations.first();
+                QString filePath = lsp::pathFromUri(loc.uri);
+                onNavigateToLocation(filePath, loc.range.start.line, loc.range.start.character);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::hoverReady, this,
+            [this](const QString& uri, const QString& contents)
+            {
+                Q_UNUSED(uri)
+                CodeEditor* editor = m_tabManager->currentEditor();
+                if (editor && !contents.isEmpty()) {
+                    int pos = editor->cursorPosition();
+                    editor->showToolTip(pos, contents);
+                }
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::selectionRangesReady, this,
+            [this](const QString& uri, const QJsonArray& ranges)
+            {
+                Q_UNUSED(uri)
+                CodeEditor* editor = m_tabManager->currentEditor();
+                if (editor)
+                    editor->setSelectionRanges(ranges);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::semanticTokensFullReady, this,
+            [this](const QString& uri, const QJsonArray& tokens)
+            {
+                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
+                if (editor)
+                    editor->applySemanticTokens(uri, tokens);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::linkedEditingRangeReady, this,
+            [this](const QString& uri, const QJsonObject& result)
+            {
+                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
+                if (editor)
+                    editor->setLinkedEditingRanges(result);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::formattingReady, this,
+            [this](const QString& uri, const QList<QJsonObject>& edits)
+            {
+                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
+                if (editor)
+                    editor->applyFormattingEdits(edits);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::rangeFormattingReady, this,
+            [this](const QString& uri, const QList<QJsonObject>& edits)
+            {
+                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
+                if (editor)
+                    editor->applyFormattingEdits(edits);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::signatureHelpReady, this,
+            [this](const QString& uri, const QJsonObject& info)
+            {
+                Q_UNUSED(uri)
+                CodeEditor* editor = m_tabManager->currentEditor();
+                if (editor)
+                    editor->showSignatureHelp(info);
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::documentHighlightReady, this,
+            [this](const QString& uri, const QJsonArray& highlights)
+            {
+                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
+                if (editor) {
+                    editor->applyHighlights(highlights);
+                }
+            });
+
+    connect(m_lspServerManager, &lsp::LspServerManager::diagnosticsReady, this,
+            [this](const QString& uri, const QList<lsp::Diagnostic>& diagnostics)
+            {
+                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
+                if (editor) {
+                    editor->applyDiagnostics(uri, diagnostics);
+                }
+                m_errorListPanel->updateDiagnostics(uri, diagnostics);
+            });
+
+    // Connect diagnostics panel navigation
+    connect(m_errorListPanel, &ErrorListPanel::navigateToLocation, this, &MainWindow::onNavigateToLocation);
+
+    // Sync diagnostics panel action and button with panel visibility
+    if (m_actionManager->errorListPanelAct())
+        connect(m_errorListPanel, &QDockWidget::visibilityChanged, m_actionManager->errorListPanelAct(), &QAction::setChecked);
+    connect(m_errorListPanel, &QDockWidget::visibilityChanged, m_actionManager->errorListPanelButton(), &QToolButton::setChecked);
+
+    // Notify LSP servers when settings change
+    connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
+            [this]() {
+        for (const QString& lang : m_lspServerManager->languages()) {
+            auto* client = m_lspServerManager->clientForLanguage(lang);
+            if (client)
+                client->sendDidChangeConfiguration(QJsonObject());
+        }
+    });
+
     applyAutoSaveSettings();
     updateSplitViewVisibility();
 }
 
 void MainWindow::setupUI()
 {
-    actionManager->createActions();
-    actionManager->buildMenus(menuBar());
-    actionManager->buildToolBar();
-    actionManager->buildStatusBar(statusBar(), projectPanel, terminalPanel);
+    m_actionManager->createActions();
+    m_actionManager->buildMenus(menuBar());
+    m_actionManager->buildToolBar();
+    m_actionManager->buildStatusBar(statusBar(), m_projectPanel, m_terminalPanel);
 
-    actionManager->menuBarAct()->setChecked(SettingsManager::instance().showMenuBar());
-    actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
-    actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
+    m_actionManager->menuBarAct()->setChecked(SettingsManager::instance().showMenuBar());
+    m_actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
+    m_actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
 
     auto *menuBarShortcut = new QShortcut(QKeySequence("Ctrl+Alt+M"), this);
     connect(menuBarShortcut, &QShortcut::activated, this, [this]() {
         bool visible = !menuBar()->isVisible();
         menuBar()->setVisible(visible);
-        actionManager->menuBarAct()->setChecked(visible);
+        m_actionManager->menuBarAct()->setChecked(visible);
         SettingsManager::instance().setShowMenuBar(visible);
     });
 
     auto *toolBarShortcut = new QShortcut(QKeySequence("Ctrl+Alt+T"), this);
-    connect(toolBarShortcut, &QShortcut::activated, actionManager->toolBarAct(), &QAction::trigger);
+    connect(toolBarShortcut, &QShortcut::activated, m_actionManager->toolBarAct(), &QAction::trigger);
 
     auto *statusBarShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Alt+S"), this);
-    connect(statusBarShortcut, &QShortcut::activated, actionManager->statusBarAct(), &QAction::trigger);
+    connect(statusBarShortcut, &QShortcut::activated, m_actionManager->statusBarAct(), &QAction::trigger);
 
-    const auto shortcutActions = actionManager->actionsWithShortcuts();
+    const auto shortcutActions = m_actionManager->actionsWithShortcuts();
     for (QAction *act : shortcutActions)
         addAction(act);
 }
 
-void MainWindow::connectActions()
+void MainWindow::wireActions()
 {
-    connect(actionManager, &ActionManager::newFileTriggered, editorController, &EditorController::newFile);
-    connect(actionManager, &ActionManager::newWindowTriggered, this, &MainWindow::newWindow);
-    connect(actionManager, &ActionManager::openFileTriggered, this, &MainWindow::openFile);
-    connect(actionManager, &ActionManager::openRemoteTriggered, this, &MainWindow::openRemote);
-    connect(actionManager, &ActionManager::openFolderTriggered, this, &MainWindow::openFolder);
-    connect(actionManager, &ActionManager::saveFileTriggered, editorController, &EditorController::saveFile);
-    connect(actionManager, &ActionManager::saveFileAsTriggered, editorController, &EditorController::saveFileAs);
-    connect(actionManager, &ActionManager::saveAllTriggered, editorController, &EditorController::saveAll);
-    connect(actionManager, &ActionManager::revertTriggered, this, &MainWindow::revertFile);
-    connect(actionManager, &ActionManager::closeCurrentTabTriggered, editorController, &EditorController::closeCurrentTab);
-    connect(actionManager, &ActionManager::closeAllTabsTriggered, editorController, &EditorController::closeAllTabs);
-    connect(actionManager, &ActionManager::exitTriggered, this, &QWidget::close);
-    connect(actionManager, &ActionManager::quitDevpadTriggered, this, &MainWindow::quitDevpad);
-    connect(terminalPanel, &TerminalPanel::sessionExited, this, &QWidget::close);
-
-    connect(actionManager, &ActionManager::undoTriggered, editorController, &EditorController::undo);
-    connect(actionManager, &ActionManager::redoTriggered, editorController, &EditorController::redo);
-    connect(actionManager, &ActionManager::cutTriggered, editorController, &EditorController::cut);
-    connect(actionManager, &ActionManager::copyTriggered, editorController, &EditorController::copy);
-    connect(actionManager, &ActionManager::pasteTriggered, editorController, &EditorController::paste);
-    connect(actionManager, &ActionManager::selectAllTriggered, editorController, &EditorController::selectAll);
-    connect(actionManager, &ActionManager::deleteTriggered, editorController, &EditorController::deleteText);
-    connect(actionManager, &ActionManager::findTriggered, this, &MainWindow::find);
-    connect(actionManager, &ActionManager::replaceTriggered, this, &MainWindow::replace);
-    connect(actionManager, &ActionManager::findInFilesTriggered, this, &MainWindow::findInFiles);
-    connect(actionManager, &ActionManager::goToLineTriggered, this, &MainWindow::goToLine);
-    connect(actionManager, &ActionManager::findNextTriggered, this, &MainWindow::findNext);
-    connect(actionManager, &ActionManager::findPreviousTriggered, this, &MainWindow::findPrevious);
-
-    connect(actionManager, &ActionManager::zoomInTriggered, editorController, &EditorController::zoomIn);
-    connect(actionManager, &ActionManager::zoomOutTriggered, editorController, &EditorController::zoomOut);
-    connect(actionManager, &ActionManager::zoomResetTriggered, editorController, &EditorController::zoomReset);
-    connect(actionManager, &ActionManager::toggleFullScreenTriggered, this, &MainWindow::toggleFullScreen);
-    connect(actionManager, &ActionManager::toggleProjectPanelTriggered, this, &MainWindow::toggleProjectPanel);
-    connect(actionManager, &ActionManager::toggleTerminalPanelTriggered, this, &MainWindow::toggleTerminalPanel);
-    connect(actionManager, &ActionManager::toggleReadOnlyTriggered, editorController, &EditorController::toggleReadOnly);
-    connect(actionManager, &ActionManager::toggleBookmarkTriggered, editorController, &EditorController::toggleBookmark);
-    connect(actionManager, &ActionManager::nextBookmarkTriggered, editorController, &EditorController::nextBookmark);
-    connect(actionManager, &ActionManager::prevBookmarkTriggered, editorController, &EditorController::prevBookmark);
-    connect(actionManager, &ActionManager::clearBookmarksTriggered, editorController, &EditorController::clearBookmarks);
-    connect(splitView, &SplitView::closeAllTabsRequested, editorController, &EditorController::closeAllTabs);
-    connect(splitView, &SplitView::tabPinToggled, this,
-            [this](int localIdx, QTabWidget* pane)
-            {
-                auto* editor = qobject_cast<CodeEditor*>(pane->widget(localIdx));
-                if (editor)
-                    tabManager->setTabPinned(editor, !tabManager->isTabPinned(editor));
-            });
-    connect(actionManager, &ActionManager::toggleMenuBarTriggered, this,
-            [this]()
-            {
-                bool visible = !menuBar()->isVisible();
-                menuBar()->setVisible(visible);
-                actionManager->menuBarAct()->setChecked(visible);
-                SettingsManager::instance().setShowMenuBar(visible);
-            });
-    connect(actionManager, &ActionManager::toggleToolBarTriggered, this,
-            [this]()
-            {
-                bool visible = actionManager->toolBar()->isVisible();
-                actionManager->toolBar()->setVisible(!visible);
-                actionManager->toolBarAct()->setChecked(!visible);
-                SettingsManager::instance().setShowToolbar(!visible);
-            });
-    connect(actionManager, &ActionManager::toggleStatusBarTriggered, this,
-            [this]()
-            {
-                bool visible = statusBar()->isVisible();
-                statusBar()->setVisible(!visible);
-                actionManager->statusBarAct()->setChecked(!visible);
-                SettingsManager::instance().setShowStatusbar(!visible);
-            });
-    connect(actionManager, &ActionManager::toggleWordWrapTriggered, editorController, &EditorController::toggleWordWrap);
-    connect(actionManager, &ActionManager::printFileTriggered, this, &MainWindow::printFile);
-    connect(actionManager, &ActionManager::printPreviewTriggered, this, &MainWindow::printPreview);
-    connect(actionManager, &ActionManager::insertSnippetTriggered, editorController, &EditorController::insertSnippet);
-    connect(actionManager, &ActionManager::optionsTriggered, this, &MainWindow::showOptions);
-    connect(actionManager, &ActionManager::configureExternalToolsTriggered, this, [this]() {
-        ExternalToolsDialog dlg(this);
-        if (dlg.exec() == QDialog::Accepted) {
-            actionManager->rebuildExternalToolsMenu();
-        }
-    });
-    connect(actionManager, &ActionManager::aboutTriggered, this, &MainWindow::showAbout);
-    connect(actionManager, &ActionManager::donateTriggered, this, []() {
-        QDesktopServices::openUrl(QUrl("https://www.paypal.com/ncp/payment/RFY5Z3KJ8UY8W"));
-    });
-    connect(actionManager, &ActionManager::websiteTriggered, this, []() {
-        QDesktopServices::openUrl(QUrl("https://semagsoft.com"));
-    });
-    connect(actionManager, &ActionManager::externalToolTriggered, this, &MainWindow::runExternalTool);
-
-    connect(actionManager, &ActionManager::openRecentFileTriggered, this,
-            [this](const QString& filePath)
-            {
-                if (!filePath.isEmpty() && QFile::exists(filePath))
-                {
-                    loadFile(filePath);
-                }
-            });
-    connect(actionManager, &ActionManager::clearRecentFilesTriggered, this,
-            [this]()
-            {
-                SettingsManager::instance().clearRecentFiles();
-                updateRecentFileActions();
-            });
-
-    connect(encodingManager, &EncodingManager::encodingSelected, this,
-            [this](const QString& encoding, bool reopen)
-            {
-                if (reopen)
-                {
-                    reloadCurrentFileWithEncoding(encoding);
-                }
-                else
-                {
-                    saveCurrentFileWithEncoding(encoding);
-                }
-            });
-
-    connect(editorController, &EditorController::fileSaved, this, [this](const QString&) { updateRecentFileActions(); });
-
-    encodingManager->populateEncodingMenu(actionManager->reopenEncodingMenu(), true);
-    encodingManager->populateEncodingMenu(actionManager->saveEncodingMenu(), false);
-
-    connect(actionManager, &ActionManager::actionsWithShortcutsChanged, this, [this]() {
-        const auto shortcutActions = actionManager->actionsWithShortcuts();
-        for (QAction *act : shortcutActions)
-            addAction(act);
-    });
+    ActionTargets targets;
+    targets.editorController = m_editorController;
+    targets.terminalPanel = m_terminalPanel;
+    targets.splitView = m_splitView;
+    targets.encodingManager = m_encodingManager;
+    targets.mainWindow = this;
+    targets.openRecentFile = [this](const QString &filePath) { loadFile(filePath); };
+    targets.clearRecentFiles = [this]() { updateRecentFileActions(); };
+    targets.updateRecentFileActions = [this]() { updateRecentFileActions(); };
+    targets.encodingSelected = [this](const QString &encoding, bool reopen) {
+        if (reopen)
+            reloadCurrentFileWithEncoding(encoding);
+        else
+            saveCurrentFileWithEncoding(encoding);
+    };
+    targets.tabPinToggled = [this](int localIdx, QTabWidget *pane) {
+        auto *w = pane->widget(localIdx);
+        auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
+        if (editor)
+            m_tabManager->setTabPinned(editor, !m_tabManager->isTabPinned(editor));
+    };
+    m_actionManager->wireConnections(targets);
 }
 
 void MainWindow::connectPanelSignals()
 {
-    connect(tabManager, &TabManager::editorCreated, this, &MainWindow::onEditorCreated);
-    connect(tabManager, &TabManager::editorClosed, this, [this](CodeEditor*) { updateSplitViewVisibility(); });
-    connect(tabManager, &TabManager::tabCloseRequested, this,
+    connect(m_tabManager, &TabManager::editorCreated, this, [this](CodeEditor* editor)
+            {
+                onEditorCreated(editor);
+                connect(editor, &CodeEditor::findRequested, this, &MainWindow::find);
+                connect(editor, &CodeEditor::replaceRequested, this, &MainWindow::replace);
+                connect(editor, &CodeEditor::goToLineRequested, this, &MainWindow::goToLine);
+            });
+    connect(m_tabManager, &TabManager::editorClosed, this,
+            [this](CodeEditor* editor)
+            {
+                QString filePath = editor->fileName();
+                if (!filePath.isEmpty() && filePath != Strings::untitled())
+                    m_lspServerManager->closeDocument(lsp::uriFromPath(filePath));
+                updateSplitViewVisibility();
+            });
+    connect(m_tabManager, &TabManager::tabCloseRequested, this,
             [this](int index)
             {
-                if (editorController->onTabCloseRequested(index))
+                if (m_editorController->onTabCloseRequested(index))
                 {
                     updateSplitViewVisibility();
                     updateStatusBarLabelsVisibility();
-                    editorController->updateReadOnlyActionState();
+                    m_editorController->updateReadOnlyActionState();
                 }
             });
-    connect(projectPanel, &ProjectPanel::fileDoubleClicked, this, &MainWindow::openFileFromProject);
-    connect(projectPanel, &ProjectPanel::folderSelected, this, &MainWindow::openFolderFromPath);
+    connect(m_projectPanel, &ProjectPanel::fileDoubleClicked, this, &MainWindow::openFileFromProject);
+    connect(m_projectPanel, &ProjectPanel::folderSelected, this, &MainWindow::openFolderFromPath);
 
-    connect(projectPanel, &QDockWidget::visibilityChanged, actionManager->projectPanelAct(), &QAction::setChecked);
-    connect(projectPanel, &QDockWidget::visibilityChanged, actionManager->projectPanelButton(), &QToolButton::setChecked);
-    connect(terminalPanel, &QDockWidget::visibilityChanged, this,
+    connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelAct(), &QAction::setChecked);
+    connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelButton(), &QToolButton::setChecked);
+    connect(m_terminalPanel, &QDockWidget::visibilityChanged, this,
             [this](bool visible) {
                 if (SettingsManager::instance().terminalPanelPosition() != TerminalPanelPosition::Tab) {
-                    actionManager->terminalPanelAct()->setChecked(visible);
-                    actionManager->terminalPanelButton()->setChecked(visible);
+                    m_actionManager->terminalPanelAct()->setChecked(visible);
+                    m_actionManager->terminalPanelButton()->setChecked(visible);
                     SettingsManager::instance().setShowTerminalPanel(visible);
                 }
             });
@@ -468,8 +591,8 @@ void MainWindow::connectPanelSignals()
 
 void MainWindow::applyCloseButtonPosition()
 {
-    tabManager->updateAllCloseButtons(SettingsManager::instance().closeButtonMode());
-    for (QTabWidget* pane : splitView->findChildren<QTabWidget*>())
+    m_tabManager->updateAllCloseButtons(SettingsManager::instance().closeButtonMode());
+    for (QTabWidget* pane : m_splitView->findChildren<QTabWidget*>())
     {
         QTabBar* tabBar = pane->tabBar();
         if (tabBar)
@@ -484,7 +607,7 @@ void MainWindow::applyTabBarPosition()
 {
     TabBarPosition position = SettingsManager::instance().tabBarPosition();
     QTabWidget::TabPosition tp = position == TabBarPosition::Top ? QTabWidget::North : QTabWidget::South;
-    for (QTabWidget* pane : tabManager->panes())
+    for (QTabWidget* pane : m_tabManager->panes())
     {
         pane->setTabPosition(tp);
     }
@@ -492,10 +615,10 @@ void MainWindow::applyTabBarPosition()
 
 void MainWindow::applyTerminalPanelPosition()
 {
-    terminalPanel->applyPosition(SettingsManager::instance().terminalPanelPosition(), tabWidget, this);
+    m_terminalPanel->applyPosition(SettingsManager::instance().terminalPanelPosition(), m_tabWidget, this);
     bool visible = SettingsManager::instance().showTerminalPanel();
-    actionManager->terminalPanelAct()->setChecked(visible);
-    actionManager->terminalPanelButton()->setChecked(visible);
+    m_actionManager->terminalPanelAct()->setChecked(visible);
+    m_actionManager->terminalPanelButton()->setChecked(visible);
 }
 
 void MainWindow::openFile()
@@ -521,12 +644,12 @@ void MainWindow::openRemoteFileFromData(const QString& urlStr, const QString& fi
         displayName = tr("Remote");
     }
 
-    CodeEditor* editor = tabManager->createEditor();
+    CodeEditor* editor = m_tabManager->createEditor();
     editor->setFileName(urlStr);
     editor->setText(content);
     editor->setModified(false);
 
-    editorController->connectEditorSignals(editor);
+    m_editorController->connectEditorSignals(editor);
 
     SettingsManager::instance().applyToEditor(editor);
 
@@ -536,8 +659,8 @@ void MainWindow::openRemoteFileFromData(const QString& urlStr, const QString& fi
         editor->setSyntax(syntax);
     }
 
-    tabManager->addEditor(editor, displayName);
-    editorController->updateUndoRedoState();
+    m_tabManager->addEditor(editor, displayName);
+    m_editorController->updateUndoRedoState();
     updateFileTypeLabel();
 
     Logger::instance().info(QString("Opened remote file: %1").arg(urlStr));
@@ -581,11 +704,20 @@ void MainWindow::openFolder()
     if (dirPath.isEmpty())
         return;
 
-    projectPanel->setRootPath(dirPath);
-    projectPanel->show();
-    actionManager->projectPanelAct()->setChecked(true);
-    terminalPanel->setWorkingDirectory(dirPath);
+    m_projectPanel->setRootPath(dirPath);
+    m_projectPanel->show();
+    m_actionManager->projectPanelAct()->setChecked(true);
+    m_terminalPanel->setWorkingDirectory(dirPath);
     Logger::instance().info(QString("Opened folder: %1").arg(dirPath));
+}
+
+void MainWindow::closeProject()
+{
+    m_projectPanel->setRootPath(QString());
+    m_projectPanel->hide();
+    m_actionManager->projectPanelAct()->setChecked(false);
+    m_actionManager->projectPanelButton()->setChecked(false);
+    Logger::instance().info("Closed project");
 }
 
 void MainWindow::openFileFromProject(const QString& filePath)
@@ -595,67 +727,46 @@ void MainWindow::openFileFromProject(const QString& filePath)
 
 void MainWindow::openFolderFromPath(const QString& folderPath)
 {
-    projectPanel->setRootPath(folderPath);
-    projectPanel->show();
-    actionManager->projectPanelAct()->setChecked(true);
-    terminalPanel->setWorkingDirectory(folderPath);
+    m_projectPanel->setRootPath(folderPath);
+    m_projectPanel->show();
+    m_actionManager->projectPanelAct()->setChecked(true);
+    m_terminalPanel->setWorkingDirectory(folderPath);
     Logger::instance().info(QString("Opened folder: %1").arg(folderPath));
 }
 
 void MainWindow::loadFile(const QString& fileName, const QString& encoding)
 {
-    CodeEditor* existingEditor = tabManager->findEditorByFileName(fileName);
+    CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName);
     if (existingEditor)
     {
-        for (QTabWidget* pane : tabManager->panes())
+        for (QTabWidget* pane : m_tabManager->panes())
         {
             int index = pane->indexOf(existingEditor);
             if (index >= 0)
             {
                 pane->setCurrentIndex(index);
                 existingEditor->setFocus();
-                tabManager->setActivePane(pane);
+                m_tabManager->setActivePane(pane);
                 return;
             }
         }
         return;
     }
 
-    CodeEditor* editor = tabManager->createEditor();
-
-    if (!fileManager->loadFile(fileName, editor, encoding))
+    CodeEditor* editor = m_editorController->openFile(fileName, encoding);
+    if (!editor)
     {
         QMessageBox::warning(this, tr("Error"), tr("Cannot open file: ") + fileName);
-        editor->setParent(nullptr);
-        editor->deleteLater();
         return;
     }
 
-    SettingsManager::instance().applyToEditor(editor);
-
-    QString syntax = getSyntaxForFile(fileName);
-    if (!syntax.isEmpty())
-    {
-        editor->setSyntax(syntax);
-    }
-
-    editorController->connectEditorSignals(editor);
-
-    QFileInfo fileInfo(fileName);
-    if (!fileInfo.isWritable())
-    {
-        editor->setReadOnlyMode(true);
-    }
-
-    tabManager->addEditor(editor, QFileInfo(fileName).fileName());
-    fileWatcherManager->watchFile(fileName);
     SettingsManager::instance().addRecentFile(fileName);
     updateRecentFileActions();
     updateEncodingSelector();
-    editorController->updateUndoRedoState();
+    m_editorController->updateUndoRedoState();
     updateFileTypeLabel();
     Logger::instance().info(QString("Opened file: %1").arg(fileName));
-    editorController->promptBackupRestore(fileName);
+    m_editorController->promptBackupRestore(fileName);
 }
 
 void MainWindow::newWindow()
@@ -670,25 +781,17 @@ void MainWindow::newWindow()
 
 void MainWindow::find()
 {
-    if (auto* editor = tabManager->currentEditor())
-    {
-        searchManager->setEditor(editor);
-    }
-    searchManager->showFindDialog();
+    m_searchManager->showFindDialog();
 }
 
 void MainWindow::replace()
 {
-    if (auto* editor = tabManager->currentEditor())
-    {
-        searchManager->setEditor(editor);
-    }
-    searchManager->showReplaceDialog();
+    m_searchManager->showReplaceDialog();
 }
 
 void MainWindow::goToLine()
 {
-    CodeEditor* editor = tabManager->currentEditor();
+    CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
     int lineCount = editor->lines();
@@ -704,46 +807,38 @@ void MainWindow::goToLine()
 
 void MainWindow::findNext()
 {
-    if (auto* editor = tabManager->currentEditor())
-    {
-        searchManager->setEditor(editor);
-    }
-    searchManager->findNext();
+    m_searchManager->findNext();
 }
 
 void MainWindow::findPrevious()
 {
-    if (auto* editor = tabManager->currentEditor())
-    {
-        searchManager->setEditor(editor);
-    }
-    searchManager->findPrevious();
+    m_searchManager->findPrevious();
 }
 
 void MainWindow::findInFiles()
 {
-    if (!findInFilesDialog)
+    if (!m_findInFilesDialog)
     {
         QString defaultDir;
-        if (projectPanel->isVisible())
-            defaultDir = projectPanel->rootPath();
+        if (m_projectPanel->isVisible())
+            defaultDir = m_projectPanel->rootPath();
         else
             defaultDir = QDir::homePath();
 
-        findInFilesDialog = new FindInFilesDialog(defaultDir, this);
-        connect(findInFilesDialog, &FindInFilesDialog::navigateToResult, this,
+        m_findInFilesDialog = new FindInFilesDialog(defaultDir, this);
+        connect(m_findInFilesDialog, &FindInFilesDialog::navigateToResult, this,
                 [this](const QString& filePath, int lineNumber)
                 {
-                    CodeEditor* existing = tabManager->findEditorByFileName(filePath);
+                    CodeEditor* existing = m_tabManager->findEditorByFileName(filePath);
                     if (existing)
                     {
-                        for (QTabWidget* pane : tabManager->panes())
+                        for (QTabWidget* pane : m_tabManager->panes())
                         {
                             int idx = pane->indexOf(existing);
                             if (idx >= 0)
                             {
                                 pane->setCurrentIndex(idx);
-                                tabManager->setActivePane(pane);
+                                m_tabManager->setActivePane(pane);
                                 break;
                             }
                         }
@@ -753,30 +848,30 @@ void MainWindow::findInFiles()
                     }
 
                     loadFile(filePath);
-                    CodeEditor* editor = tabManager->currentEditor();
+                    CodeEditor* editor = m_tabManager->currentEditor();
                     if (editor)
                     {
                         editor->setCursorPosition(lineNumber - 1, 0);
                     }
                 });
-        connect(findInFilesDialog, &QDialog::finished, this,
+        connect(m_findInFilesDialog, &QDialog::finished, this,
                 [this]()
                 {
-                    findInFilesDialog->deleteLater();
-                    findInFilesDialog = nullptr;
+                    m_findInFilesDialog->deleteLater();
+                    m_findInFilesDialog = nullptr;
                 });
     }
 
-    if (auto* editor = tabManager->currentEditor())
+    if (auto* editor = m_tabManager->currentEditor())
     {
         QString selected = editor->selectedText();
         if (!selected.isEmpty())
-            findInFilesDialog->startSearch(selected, projectPanel->isVisible() ? projectPanel->rootPath() : QDir::homePath());
+            m_findInFilesDialog->startSearch(selected, m_projectPanel->isVisible() ? m_projectPanel->rootPath() : QDir::homePath());
     }
 
-    findInFilesDialog->show();
-    findInFilesDialog->raise();
-    findInFilesDialog->activateWindow();
+    m_findInFilesDialog->show();
+    m_findInFilesDialog->raise();
+    m_findInFilesDialog->activateWindow();
 }
 
 void MainWindow::showOptions()
@@ -787,7 +882,7 @@ void MainWindow::showOptions()
 
     connect(&dlg, &OptionsDialog::themeChanged, this, [this]() {
         applySettings();
-        terminalPanel->refreshTheme();
+        m_terminalPanel->refreshTheme();
     });
 
     if (dlg.exec() == QDialog::Accepted)
@@ -796,7 +891,8 @@ void MainWindow::showOptions()
         applyCloseButtonPosition();
         applyTabBarPosition();
         applyTerminalPanelPosition();
-        tabManager->updateTabBarVisibility();
+    m_errorListPanel->setVisible(SettingsManager::instance().lspShowErrorList());
+        m_tabManager->updateTabBarVisibility();
         updateRecentFileActions();
         applyAutoSaveSettings();
     }
@@ -805,25 +901,13 @@ void MainWindow::showOptions()
         SettingsManager::instance().setTheme(originalTheme);
         SettingsManager::instance().setAccentColor(originalAccent);
         applySettings();
-        terminalPanel->refreshTheme();
+        m_terminalPanel->refreshTheme();
     }
 }
 
 void MainWindow::runExternalTool(int index)
 {
-    auto& s = SettingsManager::instance();
-    if (index < 0 || index >= s.externalToolCount())
-        return;
-
-    ExternalTool tool;
-    tool.name = s.externalToolName(index);
-    tool.command = s.externalToolCommand(index);
-    tool.arguments = s.externalToolArguments(index);
-    tool.workingDir = s.externalToolWorkingDir(index);
-    tool.shortcut = QKeySequence(s.externalToolShortcut(index));
-    tool.runInTerminal = s.externalToolRunInTerminal(index);
-
-    CodeEditor* editor = tabManager->currentEditor();
+    CodeEditor* editor = m_tabManager->currentEditor();
     QString filePath;
     int lineNumber = 1;
     QString selectedText;
@@ -836,60 +920,23 @@ void MainWindow::runExternalTool(int index)
     }
 
     QString projectDir;
-    if (projectPanel->isVisible() && !projectPanel->rootPath().isEmpty())
-        projectDir = projectPanel->rootPath();
+    if (m_projectPanel->isVisible() && !m_projectPanel->rootPath().isEmpty())
+        projectDir = m_projectPanel->rootPath();
 
-    QString cmd = m_externalToolManager->resolveVariables(tool.command, filePath,
-                                                          projectDir, selectedText, lineNumber);
-    QString args = m_externalToolManager->resolveVariables(tool.arguments, filePath,
-                                                           projectDir, selectedText, lineNumber);
-    QString workDir = m_externalToolManager->workingDirForTool(tool, filePath, projectDir);
-
-    if (tool.runInTerminal) {
-        if (!terminalPanel->isVisible()) {
-            terminalPanel->toggle(tabWidget, this);
-            terminalPanel->show();
-        }
-        QString shellCmd = QString("cd \"%1\" && %2 %3\n").arg(workDir, cmd, args);
-        terminalPanel->sendCommand(shellCmd);
-    } else {
-        auto* process = new QProcess(this);
-        process->setWorkingDirectory(workDir);
-        process->setProcessChannelMode(QProcess::MergedChannels);
-
-        auto* outputDialog = new QDialog(this);
-        outputDialog->setWindowTitle(tool.name + tr(" - Output"));
-        outputDialog->setMinimumSize(500, 300);
-        auto* layout = new QVBoxLayout(outputDialog);
-        auto* outputText = new QTextEdit(outputDialog);
-        outputText->setReadOnly(true);
-        outputText->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-        layout->addWidget(outputText);
-        auto* closeBtn = new QPushButton(tr("Close"), outputDialog);
-        layout->addWidget(closeBtn);
-        connect(closeBtn, &QPushButton::clicked, outputDialog, &QDialog::accept);
-        connect(process, &QProcess::readyReadStandardOutput, outputDialog, [process, outputText]() {
-            outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
-        });
-        connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                outputDialog, [outputText, process](int, QProcess::ExitStatus) {
-            outputText->append(tr("\n--- Process exited ---"));
-            outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
-        });
-        outputDialog->setAttribute(Qt::WA_DeleteOnClose);
-        outputDialog->show();
-
-        if (!args.isEmpty())
-            process->start(cmd, QStringList() << args.split(' ', Qt::SkipEmptyParts));
-        else
-            process->start(cmd);
-    }
+    m_externalToolManager->runTool(index, filePath, projectDir, selectedText, lineNumber,
+        [this](const QString& cmd) {
+            if (!m_terminalPanel->isVisible()) {
+                m_terminalPanel->toggle(m_tabWidget, this);
+                m_terminalPanel->show();
+            }
+            m_terminalPanel->sendCommand(cmd);
+        }, this);
 }
 
 void MainWindow::applySettings()
 {
-    themeApplier->applyTheme(this);
-    themeApplier->applySettingsToAllEditors(tabManager);
+    m_themeApplier->applyTheme(this);
+    m_themeApplier->applySettingsToAllEditors(m_tabManager);
 }
 
 void MainWindow::applyStartupMode()
@@ -900,7 +947,7 @@ void MainWindow::applyStartupMode()
     StartupMode mode = SettingsManager::instance().startupMode();
     if (mode == StartupMode::NewFile)
     {
-        editorController->newFile();
+        m_editorController->newFile();
     }
     else if (mode == StartupMode::OpenLastFile)
     {
@@ -916,30 +963,30 @@ void MainWindow::applyStartupMode()
     }
     else if (mode == StartupMode::RestoreSession)
     {
-        sessionManager->restoreSession([this](const QString& filePath) { loadFile(filePath); }, splitView, projectPanel);
-        tabManager->setPinnedFiles(sessionManager->loadSessionPinnedFiles());
-        QString projectPath = projectPanel->rootPath();
+        m_sessionManager->restoreSession([this](const QString& filePath) { loadFile(filePath); }, m_splitView, m_projectPanel);
+        m_tabManager->setPinnedFiles(m_sessionManager->loadSessionPinnedFiles());
+        QString projectPath = m_projectPanel->rootPath();
         if (!projectPath.isEmpty())
         {
-            terminalPanel->setWorkingDirectory(projectPath);
+            m_terminalPanel->setWorkingDirectory(projectPath);
         }
     }
 }
 
 void MainWindow::updateStatusBar()
 {
-    CodeEditor* editor = tabManager->currentEditor();
+    CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
 
     int line, index;
     editor->getCursorPosition(&line, &index);
-    actionManager->lineColLabel()->setText(tr("Line: %1, Col: %2").arg(line + 1).arg(index + 1));
+    m_actionManager->lineColLabel()->setText(tr("Line: %1, Col: %2").arg(line + 1).arg(index + 1));
 }
 
 void MainWindow::updateFileTypeLabel()
 {
-    CodeEditor* editor = tabManager->currentEditor();
+    CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
 
@@ -964,7 +1011,7 @@ void MainWindow::updateFileTypeLabel()
         syntax += tr(" | Read Only");
     }
 
-    actionManager->fileTypeLabel()->setText(syntax);
+    m_actionManager->fileTypeLabel()->setText(syntax);
 }
 
 void MainWindow::onTabChanged(int index)
@@ -972,20 +1019,20 @@ void MainWindow::onTabChanged(int index)
     Q_UNUSED(index)
     updateSplitViewVisibility();
     updateStatusBar();
-    editorController->updateUndoRedoState();
+    m_editorController->updateUndoRedoState();
     updateFileTypeLabel();
     updateStatusBarLabelsVisibility();
     updateEncodingSelector();
-    editorController->updateReadOnlyActionState();
+    m_editorController->updateReadOnlyActionState();
 }
 
 void MainWindow::onEditorCreated(CodeEditor* editor)
 {
     Q_UNUSED(editor)
     updateSplitViewVisibility();
-    editorController->updateUndoRedoState();
+    m_editorController->updateUndoRedoState();
     updateStatusBarLabelsVisibility();
-    editorController->updateReadOnlyActionState();
+    m_editorController->updateReadOnlyActionState();
 }
 
 void MainWindow::updateRecentFileActions()
@@ -996,21 +1043,21 @@ void MainWindow::updateRecentFileActions()
     for (int i = 0; i < numRecentFiles; ++i)
     {
         QString text = tr("&%1 %2").arg(i + 1).arg(QFileInfo(recentFiles[i]).fileName());
-        actionManager->recentFileAct(i)->setText(text);
-        actionManager->recentFileAct(i)->setData(recentFiles[i]);
-        actionManager->recentFileAct(i)->setIcon(ProjectPanel::iconForFile(recentFiles[i]));
-        actionManager->recentFileAct(i)->setVisible(true);
+        m_actionManager->recentFileAct(i)->setText(text);
+        m_actionManager->recentFileAct(i)->setData(recentFiles[i]);
+        m_actionManager->recentFileAct(i)->setIcon(ProjectPanel::iconForFile(recentFiles[i]));
+        m_actionManager->recentFileAct(i)->setVisible(true);
     }
     for (int i = numRecentFiles; i < 10; ++i)
     {
-        actionManager->recentFileAct(i)->setVisible(false);
+        m_actionManager->recentFileAct(i)->setVisible(false);
     }
-    actionManager->recentFilesMenu()->setEnabled(numRecentFiles > 0);
+    m_actionManager->recentFilesMenu()->setEnabled(numRecentFiles > 0);
 }
 
 void MainWindow::revertFile()
 {
-    CodeEditor* editor = tabManager->currentEditor();
+    CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
 
@@ -1030,15 +1077,15 @@ void MainWindow::revertFile()
             return;
     }
 
-    int idx = tabManager->indexOf(editor);
+    int idx = m_tabManager->indexOf(editor);
     QString encoding = editor->encoding();
     QString syntax = editor->syntax();
     QList<int> bookmarks = editor->bookmarkLines();
 
-    tabManager->closeEditor(idx);
-    fileWatcherManager->unwatchFile(fileName);
+    m_tabManager->closeEditor(idx);
+    m_fileWatcherManager->unwatchFile(fileName);
     loadFile(fileName, encoding);
-    if (auto* newEditor = tabManager->currentEditor())
+    if (auto* newEditor = m_tabManager->currentEditor())
     {
         newEditor->setBookmarks(bookmarks);
     }
@@ -1046,7 +1093,7 @@ void MainWindow::revertFile()
 
 void MainWindow::printFile()
 {
-    CodeEditor* editor = tabManager->currentEditor();
+    CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
 
@@ -1054,13 +1101,13 @@ void MainWindow::printFile()
     QPrintDialog dialog(&printer, this);
     if (dialog.exec() == QDialog::Accepted)
     {
-        printManager->printEditorWithHighlighting(editor, &printer);
+        m_printManager->printEditorWithHighlighting(editor, &printer);
     }
 }
 
 void MainWindow::printPreview()
 {
-    CodeEditor* editor = tabManager->currentEditor();
+    CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
 
@@ -1073,10 +1120,21 @@ void MainWindow::printPreview()
             {
                 if (editorPtr && thisPtr)
                 {
-                    thisPtr->printManager->printEditorWithHighlighting(editorPtr, p);
+                    thisPtr->m_printManager->printEditorWithHighlighting(editorPtr, p);
                 }
             });
     preview.exec();
+}
+
+void MainWindow::pageSetup()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (!editor)
+        return;
+
+    QPrinter printer(QPrinter::HighResolution);
+    QPageSetupDialog dlg(&printer, this);
+    dlg.exec();
 }
 
 void MainWindow::toggleFullScreen()
@@ -1086,53 +1144,103 @@ void MainWindow::toggleFullScreen()
         showFullScreen();
     else
         showNormal();
-    actionManager->fullScreenAct()->setChecked(fullScreen);
+    m_actionManager->fullScreenAct()->setChecked(fullScreen);
 }
 
 void MainWindow::toggleProjectPanel()
 {
-    if (projectPanel->isVisible())
+    if (m_projectPanel->isVisible())
     {
-        projectPanel->hide();
-        actionManager->projectPanelAct()->setChecked(false);
-        actionManager->projectPanelButton()->setChecked(false);
+        m_projectPanel->hide();
+        m_actionManager->projectPanelAct()->setChecked(false);
+        m_actionManager->projectPanelButton()->setChecked(false);
     }
     else
     {
-        projectPanel->show();
-        actionManager->projectPanelAct()->setChecked(true);
-        actionManager->projectPanelButton()->setChecked(true);
+        m_projectPanel->show();
+        m_actionManager->projectPanelAct()->setChecked(true);
+        m_actionManager->projectPanelButton()->setChecked(true);
     }
 }
 
 void MainWindow::toggleTerminalPanel()
 {
-    terminalPanel->toggle(tabWidget, this);
+    m_terminalPanel->toggle(m_tabWidget, this);
     bool visible = SettingsManager::instance().showTerminalPanel();
-    actionManager->terminalPanelAct()->setChecked(visible);
-    actionManager->terminalPanelButton()->setChecked(visible);
+    m_actionManager->terminalPanelAct()->setChecked(visible);
+    m_actionManager->terminalPanelButton()->setChecked(visible);
+}
+
+void MainWindow::toggleErrorListPanel()
+{
+    bool visible = !m_errorListPanel->isVisible();
+    m_errorListPanel->setVisible(visible);
+    m_actionManager->errorListPanelAct()->setChecked(visible);
+    m_actionManager->errorListPanelButton()->setChecked(visible);
+    SettingsManager::instance().setLspShowErrorList(visible);
+}
+
+void MainWindow::findSymbols()
+{
+    if (!m_findSymbolsDialog) {
+        m_findSymbolsDialog = new FindSymbolsDialog(m_lspServerManager, this);
+        connect(m_findSymbolsDialog, &FindSymbolsDialog::navigateToSymbol, this, &MainWindow::onNavigateToLocation);
+    }
+    m_findSymbolsDialog->show();
+    m_findSymbolsDialog->raise();
+    m_findSymbolsDialog->activateWindow();
+    m_findSymbolsDialog->setFocus();
+}
+
+void MainWindow::expandSelection()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->expandSelection();
+}
+
+void MainWindow::shrinkSelection()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->shrinkSelection();
 }
 
 void MainWindow::updateStatusBarLabelsVisibility()
 {
-    bool hasEditor = tabManager->count() > 0;
-    QTabWidget* activePane = tabManager->activePane();
+    bool hasEditor = m_tabManager->count() > 0;
+    QTabWidget* activePane = m_tabManager->activePane();
     bool isTerminalTab = (activePane != nullptr) &&
                          (SettingsManager::instance().terminalPanelPosition() == TerminalPanelPosition::Tab) &&
-                         (activePane->currentWidget() == terminalPanel);
+                         (activePane->currentWidget() == m_terminalPanel);
     bool shouldShow = hasEditor && !isTerminalTab;
-    actionManager->lineColLabel()->setVisible(shouldShow);
-    actionManager->encodingComboBox()->setVisible(shouldShow);
-    actionManager->fileTypeLabel()->setVisible(shouldShow);
+    m_actionManager->lineColLabel()->setVisible(shouldShow);
+    m_actionManager->encodingComboBox()->setVisible(shouldShow);
+    m_actionManager->fileTypeLabel()->setVisible(shouldShow);
 }
 
 void MainWindow::quitDevpad()
 {
     m_quitRequested = true;
 
+    if (!signalOtherInstancesToQuit())
+        return;
+
+    if (!saveAllModifiedTabs())
+        return;
+
+    SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
+    m_sessionManager->saveSession(m_tabManager, m_projectPanel);
+    QApplication::quit();
+}
+
+bool MainWindow::signalOtherInstancesToQuit()
+{
     QProcess pgrep;
-    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-x") << QStringLiteral("Devpad"));
-    pgrep.waitForFinished();
+    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("Devpad"));
+    if (!pgrep.waitForFinished(2000))
+        return true;
+
     QList<qint64> pids;
     for (const QString& line : QString::fromUtf8(pgrep.readAllStandardOutput())
              .split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
@@ -1144,37 +1252,35 @@ void MainWindow::quitDevpad()
     for (qint64 pid : pids) {
         QLocalSocket socket;
         socket.connectToServer(QStringLiteral("devpad-%1").arg(pid));
-        if (!socket.waitForConnected(3000))
+        if (!socket.waitForConnected(1000))
             continue;
 
         socket.write("save_and_quit\n");
         socket.flush();
 
-        while (socket.state() == QLocalSocket::ConnectedState) {
-            if (socket.waitForReadyRead(500)) {
-                while (socket.canReadLine()) {
-                    QString line = QString::fromUtf8(socket.readLine()).trimmed();
-                    if (line == QStringLiteral("abort")) {
-                        m_quitRequested = false;
-                        return;
-                    }
+        if (socket.waitForReadyRead(1000)) {
+            while (socket.canReadLine()) {
+                QString line = QString::fromUtf8(socket.readLine()).trimmed();
+                if (line == QStringLiteral("abort")) {
+                    m_quitRequested = false;
+                    return false;
                 }
             }
-            QApplication::processEvents();
         }
     }
+    return true;
+}
 
-    for (int i = tabManager->count() - 1; i >= 0; --i) {
-        CodeEditor* editor = tabManager->editorAt(i);
-        if (!editorController->maybeSave(editor)) {
+bool MainWindow::saveAllModifiedTabs()
+{
+    for (int i = m_tabManager->count() - 1; i >= 0; --i) {
+        CodeEditor* editor = m_tabManager->editorAt(i);
+        if (!m_editorController->maybeSave(editor)) {
             m_quitRequested = false;
-            return;
+            return false;
         }
     }
-
-    SettingsManager::instance().setShowTerminalPanel(actionManager->terminalPanelAct()->isChecked());
-    sessionManager->saveSession(tabManager, projectPanel);
-    QApplication::quit();
+    return true;
 }
 
 void MainWindow::handleQuitRequest()
@@ -1194,19 +1300,15 @@ void MainWindow::handleQuitRequest()
         }
         m_quitRequested = true;
 
-        for (int i = tabManager->count() - 1; i >= 0; --i) {
-            CodeEditor* editor = tabManager->editorAt(i);
-            if (!editorController->maybeSave(editor)) {
-                client->write("abort\n");
-                client->flush();
-                client->disconnectFromServer();
-                m_quitRequested = false;
-                return;
-            }
+        if (!saveAllModifiedTabs()) {
+            client->write("abort\n");
+            client->flush();
+            client->disconnectFromServer();
+            return;
         }
 
-        SettingsManager::instance().setShowTerminalPanel(actionManager->terminalPanelAct()->isChecked());
-        sessionManager->saveSession(tabManager, projectPanel);
+        SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
+        m_sessionManager->saveSession(m_tabManager, m_projectPanel);
         client->disconnectFromServer();
         QApplication::quit();
     });
@@ -1220,17 +1322,17 @@ void MainWindow::closeEvent(QCloseEvent* event)
         event->accept();
         return;
     }
-    for (int i = tabManager->count() - 1; i >= 0; --i)
+    for (int i = m_tabManager->count() - 1; i >= 0; --i)
     {
-        CodeEditor* editor = tabManager->editorAt(i);
-        if (!editorController->maybeSave(editor))
+        CodeEditor* editor = m_tabManager->editorAt(i);
+        if (!m_editorController->maybeSave(editor))
         {
             event->ignore();
             return;
         }
     }
-    SettingsManager::instance().setShowTerminalPanel(actionManager->terminalPanelAct()->isChecked());
-    sessionManager->saveSession(tabManager, projectPanel);
+    SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
+    m_sessionManager->saveSession(m_tabManager, m_projectPanel);
     event->accept();
 }
 
@@ -1238,7 +1340,7 @@ void MainWindow::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::WindowStateChange)
     {
-        actionManager->fullScreenAct()->setChecked(isFullScreen());
+        m_actionManager->fullScreenAct()->setChecked(isFullScreen());
     }
     else if (event->type() == QEvent::ThemeChange)
     {
@@ -1246,15 +1348,15 @@ void MainWindow::changeEvent(QEvent* event)
         {
             window()->setStyleSheet(QString());
 
-            for (int i = 0; i < tabManager->count(); ++i)
+            for (int i = 0; i < m_tabManager->count(); ++i)
             {
-                CodeEditor* editor = tabManager->editorAt(i);
+                CodeEditor* editor = m_tabManager->editorAt(i);
                 if (editor) {
                     editor->applyTheme(ThemeId::System);
                 }
             }
 
-            terminalPanel->refreshTheme();
+            m_terminalPanel->refreshTheme();
         }
     }
     QMainWindow::changeEvent(event);
@@ -1293,80 +1395,106 @@ void MainWindow::showAbout()
 
 void MainWindow::updateEncodingSelector()
 {
-    encodingManager->updateEncodingSelector(actionManager->encodingComboBox(), tabManager->currentEditor());
+    m_encodingManager->updateEncodingSelector(m_actionManager->encodingComboBox(), m_tabManager->currentEditor());
 }
 
 void MainWindow::reloadCurrentFileWithEncoding(const QString& encoding)
 {
-    CodeEditor* editor = tabManager->currentEditor();
-    if (!editor)
-        return;
-
-    QString fileName = editor->fileName();
-    if (fileName.isEmpty() || fileName == Strings::untitled())
-    {
-        QMessageBox::warning(this, tr("Error"), tr("Cannot reopen an unsaved file."));
-        return;
-    }
-
-    int idx = tabManager->indexOf(editor);
-    QList<int> bookmarks = editor->bookmarkLines();
-    if (!editorController->maybeSave(editor))
-        return;
-
-    if (idx >= 0)
-        tabManager->closeEditor(idx);
-    loadFile(fileName, encoding);
-    if (auto* newEditor = tabManager->currentEditor())
-    {
-        newEditor->setBookmarks(bookmarks);
-    }
+    m_editorController->reloadWithEncoding(encoding);
+    updateEncodingSelector();
 }
 
 void MainWindow::saveCurrentFileWithEncoding(const QString& encoding)
 {
-    CodeEditor* editor = tabManager->currentEditor();
-    if (!editor)
+    m_editorController->saveWithEncoding(encoding);
+    updateEncodingSelector();
+}
+
+void MainWindow::goToDefinition()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->goToDefinition();
+}
+
+void MainWindow::formatSelection()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->formatSelection();
+}
+
+void MainWindow::goToTypeDefinition()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->goToTypeDefinition();
+}
+
+void MainWindow::goToDeclaration()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->goToDeclaration();
+}
+
+void MainWindow::renameSymbol()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->requestRename();
+}
+
+void MainWindow::findReferences()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->findReferences();
+}
+
+void MainWindow::triggerCompletion()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor)
+        editor->triggerCompletion();
+}
+
+void MainWindow::onNavigateToLocation(const QString& filePath, int line, int column)
+{
+    if (filePath.isEmpty())
         return;
 
-    QString fileName = editor->fileName();
-    if (fileName.isEmpty() || fileName == Strings::untitled())
-    {
-        bool saveAsResult = editorController->saveFileAs();
-        if (saveAsResult)
-        {
-            editor = tabManager->currentEditor();
-            if (editor)
-            {
-                editor->setEncoding(encoding);
-                if (!fileManager->saveFile(editor->fileName(), editor))
-                {
-                    QMessageBox::warning(this, tr("Error"), tr("Cannot save file: ") + editor->fileName());
-                }
-                updateEncodingSelector();
+    CodeEditor* existing = m_tabManager->findEditorByFileName(filePath);
+    if (existing) {
+        for (QTabWidget* pane : m_tabManager->panes()) {
+            int idx = pane->indexOf(existing);
+            if (idx >= 0) {
+                pane->setCurrentIndex(idx);
+                m_tabManager->setActivePane(pane);
+                break;
             }
         }
+        existing->setCursorPosition(line, column);
+        existing->setFocus();
         return;
     }
 
-    editor->setEncoding(encoding);
-    if (!fileManager->saveFile(fileName, editor))
-    {
-        QMessageBox::warning(this, tr("Error"), tr("Cannot save file: ") + fileName);
+    loadFile(filePath);
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (editor) {
+        editor->setCursorPosition(line, column);
     }
-    updateEncodingSelector();
-    Logger::instance().info(QString("Saved file with encoding: %1 -> %2").arg(fileName, encoding));
 }
 
 void MainWindow::applyAutoSaveSettings()
 {
     if (SettingsManager::instance().autoSaveEnabled())
     {
-        autoSaveTimer->start(SettingsManager::instance().autoSaveInterval() * 1000);
+        m_autoSaveTimer->start(SettingsManager::instance().autoSaveInterval() * 1000);
     }
     else
     {
-        autoSaveTimer->stop();
+        m_autoSaveTimer->stop();
     }
 }
 
@@ -1377,7 +1505,7 @@ QString MainWindow::getSyntaxForFile(const QString& displayName) const
 
 void MainWindow::onFileModifiedExternally(const QString& filePath)
 {
-    CodeEditor* editor = tabManager->findEditorByFileName(filePath);
+    QPointer<CodeEditor> editor = m_tabManager->findEditorByFileName(filePath);
     if (!editor)
         return;
 
@@ -1399,17 +1527,20 @@ void MainWindow::onFileModifiedExternally(const QString& filePath)
 
     if (result == QMessageBox::Yes)
     {
+        if (!editor)
+            return;
+
         QList<int> bookmarks = editor->bookmarkLines();
         QString encoding = editor->encoding();
 
-        int idx = tabManager->indexOf(editor);
+        int idx = m_tabManager->indexOf(editor);
         if (idx >= 0)
         {
-            tabManager->closeEditor(idx);
+            m_tabManager->closeEditor(idx);
         }
-        fileWatcherManager->unwatchFile(filePath);
+        m_fileWatcherManager->unwatchFile(filePath);
         loadFile(filePath, encoding);
-        if (auto* newEditor = tabManager->currentEditor())
+        if (auto* newEditor = m_tabManager->currentEditor())
         {
             newEditor->setBookmarks(bookmarks);
         }
@@ -1418,43 +1549,44 @@ void MainWindow::onFileModifiedExternally(const QString& filePath)
 
 void MainWindow::updateSplitViewVisibility()
 {
-    QTabWidget* primary = splitView->primaryTabWidget();
+    QTabWidget* primary = m_splitView->primaryTabWidget();
     if (primary->count() == 0)
     {
-        for (int i = 0; i < splitView->paneCount(); ++i)
+        for (int i = 0; i < m_splitView->paneCount(); ++i)
         {
-            QTabWidget* pane = splitView->paneAt(i);
+            QTabWidget* pane = m_splitView->paneAt(i);
             if (pane && pane != primary && pane->count() > 0)
             {
                 for (int j = pane->count() - 1; j >= 0; --j)
                 {
-                    splitView->moveTabToPane(j, pane, primary);
+                    m_splitView->moveTabToPane(j, pane, primary);
                 }
                 break;
             }
         }
     }
-    for (int i = splitView->paneCount() - 1; i >= 0; --i)
+    QList<QTabWidget*> emptyPanes;
+    for (int i = m_splitView->paneCount() - 1; i >= 0; --i)
     {
-        QTabWidget* pane = splitView->paneAt(i);
+        QTabWidget* pane = m_splitView->paneAt(i);
         if (pane && pane->count() == 0 && pane != primary)
-        {
-            splitView->removePane(pane);
-        }
+            emptyPanes.append(pane);
     }
-    tabManager->updateTabBarVisibility();
+    for (QTabWidget* pane : emptyPanes)
+        m_splitView->removePane(pane);
+    m_tabManager->updateTabBarVisibility();
 }
 
 void MainWindow::openTransferFile(const QString& filePath)
 {
     loadFile(filePath);
-    CodeEditor* editor = tabManager->currentEditor();
+    CodeEditor* editor = m_tabManager->currentEditor();
     if (editor && editor->fileName() == filePath)
     {
-        fileWatcherManager->unwatchFile(filePath);
+        m_fileWatcherManager->unwatchFile(filePath);
         editor->setFileName(Strings::untitled());
         editor->forceModified();
-        tabManager->updateTabTitle(editor);
+        m_tabManager->updateTabTitle(editor);
         QFile::remove(filePath);
     }
 }

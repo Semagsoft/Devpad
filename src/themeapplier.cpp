@@ -24,6 +24,7 @@
 #include <QFile>
 #include <QMainWindow>
 
+
 ThemeApplier::ThemeApplier(QObject *parent) : QObject(parent) {}
 
 void ThemeApplier::applyTheme(QMainWindow *window) {
@@ -46,7 +47,8 @@ void ThemeApplier::applyTheme(QMainWindow *window) {
         if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
             QString ss = QString::fromUtf8(qssFile.readAll());
 
-            struct { const char *key; QColor ThemeColors::*member; } const mappings[] = {
+            struct Mapping { const char* key; QColor ThemeColors::* member; };
+            static constexpr Mapping mappings[] = {
                 {"%background%",           &ThemeColors::background},
                 {"%foreground%",           &ThemeColors::foreground},
                 {"%menuBg%",               &ThemeColors::menuBg},

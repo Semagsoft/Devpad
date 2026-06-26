@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.23)
 project(Devpad VERSION 1.0.0 LANGUAGES CXX)
 
+set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
+option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -8,34 +11,105 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS
-    Core Gui Widgets PrintSupport Multimedia LinguistTools
+find_package(Qt6 6.2 REQUIRED COMPONENTS
+    Core Gui Widgets PrintSupport Multimedia Network LinguistTools
 )
-find_package(qtermwidget6 REQUIRED)
+# ── qtermwidget6 (system or build from source) ─────────────────
+find_package(qtermwidget6 QUIET)
+if(NOT qtermwidget6_FOUND)
+    message(STATUS "qtermwidget6 not found; building from source")
+    include(ExternalProject)
 
+    ExternalProject_Add(ep_lxqt_build_tools
+        GIT_REPOSITORY https://github.com/lxqt/lxqt-build-tools.git
+        GIT_TAG 2.1.0
+        PREFIX ${DEPS_PREFIX}/lxqt-build-tools
+        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
+        BUILD_COMMAND ""
+        INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+    )
+
+    ExternalProject_Add(ep_qtermwidget
+        GIT_REPOSITORY https://github.com/lxqt/qtermwidget.git
+        GIT_TAG 2.1.0
+        PREFIX ${DEPS_PREFIX}/qtermwidget
+        CMAKE_ARGS
+            -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
+            -DCMAKE_PREFIX_PATH=${DEPS_PREFIX}
+        DEPENDS ep_lxqt_build_tools
+    )
+
+    add_library(qtermwidget6 SHARED IMPORTED)
+    file(MAKE_DIRECTORY ${DEPS_PREFIX}/include ${DEPS_PREFIX}/include/qtermwidget6)
+    set_target_properties(qtermwidget6 PROPERTIES
+        IMPORTED_LOCATION ${DEPS_PREFIX}/lib/libqtermwidget6.so
+        INTERFACE_INCLUDE_DIRECTORIES "${DEPS_PREFIX}/include;${DEPS_PREFIX}/include/qtermwidget6"
+    )
+    add_dependencies(qtermwidget6 ep_qtermwidget)
+
+    list(PREPEND CMAKE_PREFIX_PATH ${DEPS_PREFIX})
+endif()
+
+# ── QScintilla (system or build from source) ──────────────────
 find_package(Qt6 COMPONENTS QScintilla QUIET)
-if(Qt6QScintilla_FOUND)
-    set(QSCINTILLA_TARGET Qt6::QScintilla)
-    message(STATUS "Found QScintilla via Qt6 config")
-else()
-    find_library(QSCINTILLA_LIBRARY qscintilla2_qt6 REQUIRED)
+
+if(NOT Qt6QScintilla_FOUND)
+    find_library(QSCINTILLA_LIBRARY qscintilla2_qt6 QUIET)
     find_path(QSCINTILLA_INCLUDE_DIR Qsci/qsciscintilla.h
         PATHS /usr/include /usr/local/include /usr/include/qt6
     )
-    if(NOT QSCINTILLA_INCLUDE_DIR)
-        message(FATAL_ERROR "QScintilla headers not found")
-    endif()
+endif()
+
+if(Qt6QScintilla_FOUND)
+    set(QSCINTILLA_TARGET Qt6::QScintilla)
+    message(STATUS "Found QScintilla via Qt6 config")
+elseif(QSCINTILLA_LIBRARY AND QSCINTILLA_INCLUDE_DIR)
+    set(QSCINTILLA_TARGET Qt6::QScintilla)
+    add_library(${QSCINTILLA_TARGET} UNKNOWN IMPORTED)
+    set_target_properties(${QSCINTILLA_TARGET} PROPERTIES
+        IMPORTED_LOCATION ${QSCINTILLA_LIBRARY}
+        INTERFACE_INCLUDE_DIRECTORIES ${QSCINTILLA_INCLUDE_DIR}
+    )
     message(STATUS "Found QScintilla via find_library")
+elseif(BUILD_QSCINTILLA)
+    message(STATUS "QScintilla not found; building from source")
+    include(ExternalProject)
+
+    find_program(QMAKE6 qmake6 REQUIRED
+        DOC "qmake6 is required to build QScintilla from source"
+    )
+
+    ExternalProject_Add(ep_qscintilla
+        URL https://www.riverbankcomputing.com/static/Downloads/QScintilla/2.14.1/QScintilla_src-2.14.1.tar.gz
+        URL_HASH SHA256=dfe13c6acc9d85dfcba76ccc8061e71a223957a6c02f3c343b30a9d43a4cdd4d
+        PREFIX ${DEPS_PREFIX}/qscintilla
+        INSTALL_DIR ${DEPS_PREFIX}
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND ${CMAKE_COMMAND}
+            -DQSCINTILLA_SRC_DIR=${DEPS_PREFIX}/qscintilla/src/ep_qscintilla
+            -DQSCINTILLA_INSTALL_DIR=${DEPS_PREFIX}
+            -P ${CMAKE_SOURCE_DIR}/cmake/build_qscintilla.cmake
+        INSTALL_COMMAND ""
+        BUILD_BYPRODUCTS ${DEPS_PREFIX}/lib/libqscintilla2_qt6.so
+    )
+
+    set(QSCINTILLA_TARGET Qt6::QScintilla)
+    add_library(${QSCINTILLA_TARGET} UNKNOWN IMPORTED)
+    file(MAKE_DIRECTORY ${DEPS_PREFIX}/include)
+    set_target_properties(${QSCINTILLA_TARGET} PROPERTIES
+        IMPORTED_LOCATION ${DEPS_PREFIX}/lib/libqscintilla2_qt6.so
+        INTERFACE_INCLUDE_DIRECTORIES ${DEPS_PREFIX}/include
+    )
+    add_dependencies(${QSCINTILLA_TARGET} ep_qscintilla)
+else()
+    message(FATAL_ERROR
+        "QScintilla not found. Install qscintilla2-qt6-dev or set -DBUILD_QSCINTILLA=ON"
+    )
 endif()
 
 # ── QScintilla helper ─────────────────────────────────────────
 function(target_link_qscintilla TARGET)
-    if(Qt6QScintilla_FOUND)
-        target_link_libraries(${TARGET} PRIVATE ${QSCINTILLA_TARGET})
-    else()
-        target_link_libraries(${TARGET} PRIVATE ${QSCINTILLA_LIBRARY})
-        target_include_directories(${TARGET} PRIVATE ${QSCINTILLA_INCLUDE_DIR})
-    endif()
+    target_link_libraries(${TARGET} PRIVATE ${QSCINTILLA_TARGET})
 endfunction()
 
 # ── Shared static library (avoids double compilation) ─────────
@@ -58,57 +132,29 @@ add_library(Devpad_lib STATIC
     src/managers/searchmanager.cpp
     src/managers/snippetmanager.cpp
     src/managers/actionmanager.cpp
+    src/managers/recentfileshelper.cpp
+    src/managers/encodingmenuhelper.cpp
     src/managers/sessionmanager.cpp
     src/managers/encodingmanager.cpp
     src/managers/printmanager.cpp
     src/managers/filewatchermanager.cpp
     src/snippet.cpp
-    src/dialogs/finddialog.cpp
-    src/dialogs/replacedialog.cpp
     src/dialogs/findinfilesdialog.cpp
+    src/dialogs/findsymbolsdialog.cpp
     src/dialogs/aboutdialog.cpp
     src/dialogs/optionsdialog.cpp
     src/dialogs/externaltoolsdialog.cpp
     src/panels/projectpanel.cpp
     src/panels/terminalpanel.cpp
     src/panels/splitview.cpp
+    src/panels/draggabletabbar.cpp
+    src/panels/errorlistpanel.cpp
     src/widgets/themepreviewwidget.cpp
-    src/codeeditor.h
-    src/snippet.h
-    src/theme.h
-    src/languageinfo.h
-    src/logger.h
-    src/encodingutils.h
-    src/keywords.h
-    src/defaultsyntax.h
-    src/appstrings.h
-    src/managers/backupmanager.h
-    src/managers/externaltoolmanager.h
-    src/managers/filemanager.h
-    src/managers/settingsmanager.h
-    src/managers/remotefileservice.h
-    src/managers/tabmanager.h
-    src/managers/searchmanager.h
-    src/mainwindow.h
-    src/editorcontroller.h
-    src/themeapplier.h
-    src/managers/actionmanager.h
-    src/managers/sessionmanager.h
-    src/managers/encodingmanager.h
-    src/managers/printmanager.h
-    src/managers/filewatchermanager.h
-    src/managers/snippetmanager.h
-    src/dialogs/finddialog.h
-    src/dialogs/dialogsettings.h
-    src/dialogs/replacedialog.h
-    src/dialogs/findinfilesdialog.h
-    src/dialogs/aboutdialog.h
-    src/dialogs/optionsdialog.h
-    src/dialogs/externaltoolsdialog.h
-    src/panels/projectpanel.h
-    src/panels/terminalpanel.h
-    src/panels/splitview.h
-    src/widgets/themepreviewwidget.h
+    src/widgets/inlinefindbar.cpp
+    src/widgets/editorcontainer.cpp
+    src/lsp/lspjsonrpc.cpp
+    src/lsp/lspclient.cpp
+    src/lsp/lspservermanager.cpp
 )
 target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -183,11 +229,21 @@ if(BUILD_TESTS)
 
     enable_testing()
 
+    # Ensure headless CI can run widget-based tests
+    if(NOT DEFINED ENV{QT_QPA_PLATFORM})
+        set(ENV{QT_QPA_PLATFORM} "offscreen")
+    endif()
+
+    include(GoogleTest)
+
     set(TEST_SOURCES
         tests/main.cpp
+        tests/test_integration.cpp
         tests/test_encodingutils.cpp
+        tests/test_encodingmanager.cpp
         tests/test_keywords.cpp
         tests/test_appstrings.cpp
+        tests/test_actionmanager.cpp
         tests/test_logger.cpp
         tests/test_backupmanager.cpp
         tests/test_filemanager.cpp
@@ -202,9 +258,15 @@ if(BUILD_TESTS)
         tests/test_mainwindow.cpp
         tests/test_languageinfo.cpp
         tests/test_sessionmanager.cpp
+        tests/test_snippet.cpp
+        tests/test_snippetmanager.cpp
+        tests/test_externaltoolmanager.cpp
+        tests/test_printmanager.cpp
+        tests/test_filewatchermanager.cpp
+        tests/test_lsptypes.cpp
     )
 
-    add_executable(Devpad_tests ${TEST_SOURCES})
+    add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)
 
     target_compile_options(Devpad_tests PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -227,5 +289,5 @@ if(BUILD_TESTS)
         src/panels
     )
 
-    add_test(NAME Devpad_tests COMMAND Devpad_tests)
+    gtest_discover_tests(Devpad_tests)
 endif()

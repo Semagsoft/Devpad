@@ -4,6 +4,8 @@
 #include <QDialog>
 #include <QTableWidget>
 #include <QPushButton>
+#include <QCloseEvent>
+#include "dialogsettings.h"
 
 class ExternalToolsDialog : public QDialog {
     Q_OBJECT
@@ -11,6 +13,9 @@ class ExternalToolsDialog : public QDialog {
 public:
     explicit ExternalToolsDialog(QWidget *parent = nullptr);
     ~ExternalToolsDialog() override;
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     void setupUI();
@@ -21,6 +26,7 @@ private:
     QPushButton *m_addButton;
     QPushButton *m_editButton;
     QPushButton *m_removeButton;
+    DialogSettings m_geometrySettings;
 };
 
 #endif

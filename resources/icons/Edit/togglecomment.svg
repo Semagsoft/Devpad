@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="48"
+   height="48"
+   id="svg1306"
+   sodipodi:version="0.32"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   sodipodi:docname="togglecomment.svg"
+   inkscape:export-filename="/home/lapo/Desktop/insert-link-16.png"
+   inkscape:export-xdpi="90.000031"
+   inkscape:export-ydpi="90.000031"
+   version="1.0"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs1308">
+    <linearGradient
+       id="linearGradient3384">
+      <stop
+         style="stop-color:white;stop-opacity:1"
+         offset="0"
+         id="stop3386" />
+      <stop
+         style="stop-color:#eeeeec;stop-opacity:1"
+         offset="1"
+         id="stop3388" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient3269">
+      <stop
+         id="stop3271"
+         offset="0"
+         style="stop-color:#fecb81;stop-opacity:1" />
+      <stop
+         id="stop3273"
+         offset="1"
+         style="stop-color:#fcaf3e;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3384"
+       id="radialGradient3390"
+       cx="24.842901"
+       cy="30.77803"
+       fx="24.842901"
+       fy="30.77803"
+       r="22.999998"
+       gradientTransform="matrix(1.48996,0,0,0.657586,-13.01493,12.294868)"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666"
+     borderopacity="1"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="5.6568544"
+     inkscape:cx="10.960155"
+     inkscape:cy="1.1490485"
+     inkscape:current-layer="layer1"
+     showgrid="true"
+     inkscape:grid-bbox="true"
+     inkscape:document-units="px"
+     fill="#fcaf3e"
+     stroke="#555753"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     inkscape:window-width="1600"
+     inkscape:window-height="900"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:showpageshadow="false"
+     showborder="true"
+     gridspacingx="0.5px"
+     gridspacingy="0.5px"
+     gridempspacing="2"
+     inkscape:grid-points="true"
+     width="48px"
+     height="48px"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata1311">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Lapo Calamandrei</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:source>http://www.gnome.org</dc:source>
+        <dc:contributor>
+          <cc:Agent>
+            <dc:title />
+          </cc:Agent>
+        </dc:contributor>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/GPL/2.0/" />
+        <dc:subject>
+          <rdf:Bag>
+            <rdf:li>insert</rdf:li>
+            <rdf:li>text</rdf:li>
+            <rdf:li>generic</rdf:li>
+          </rdf:Bag>
+        </dc:subject>
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/GPL/2.0/">
+        <cc:permits
+           rdf:resource="http://web.resource.org/cc/Reproduction" />
+        <cc:permits
+           rdf:resource="http://web.resource.org/cc/Distribution" />
+        <cc:requires
+           rdf:resource="http://web.resource.org/cc/Notice" />
+        <cc:permits
+           rdf:resource="http://web.resource.org/cc/DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://web.resource.org/cc/ShareAlike" />
+        <cc:requires
+           rdf:resource="http://web.resource.org/cc/SourceCode" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="layer1"
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer">
+    <rect
+       style="opacity:1;fill:url(#radialGradient3390);fill-opacity:1;stroke:#888a85;stroke-width:1;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:1.4;stroke-opacity:1"
+       id="rect3376"
+       width="44.999996"
+       height="24.000004"
+       x="1.5"
+       y="13.571068"
+       rx="1.03125"
+       ry="1.03125" />
+    <path
+       style="font-style:normal;font-weight:bold;font-size:17.5006px;font-family:'Bitstream Vera Sans';fill:#2e3436;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 20.061277,29.693896 h -5.02986 l -0.79375,2.377144 h -3.23348 l 4.62045,-13.048071 h 3.83506 l 4.62045,13.048071 h -3.23348 l -0.78539,-2.377144 m -4.22776,-2.639591 h 3.4173 l -1.70448,-4.972512 -1.71282,4.972512 m 14.73865,2.997911 c 0.64057,2e-6 1.12795,-0.244704 1.46217,-0.734118 0.33977,-0.489409 0.50966,-1.200221 0.50967,-2.132438 -1e-5,-0.932207 -0.1699,-1.643019 -0.50967,-2.132438 -0.33422,-0.489404 -0.8216,-0.734109 -1.46217,-0.734117 -0.64057,8e-6 -1.32103,0.247626 -1.66637,0.742857 -0.33979,0.489419 -0.50968,1.197317 -0.50967,2.123698 -10e-6,0.926391 0.16988,1.637203 0.50967,2.132438 0.34534,0.489414 1.0258,0.73412 1.66637,0.734118 m -2.17604,-6.336137 c 0.41218,-0.570971 1.05644,-0.990467 1.55776,-1.258488 0.5013,-0.273827 1.07781,-0.410746 1.72953,-0.410756 1.15302,10e-6 2.09994,0.480682 2.84079,1.442018 0.74082,0.955526 1.11123,2.187794 1.11124,3.696807 -10e-6,1.509023 -0.37042,2.744205 -1.11124,3.705547 -0.74085,0.955519 -1.68777,1.433278 -2.84079,1.433278 -0.65172,0 -1.22823,-0.134005 -1.72953,-0.402016 -0.50132,-0.273838 -1.14558,-0.696246 -1.55776,-1.267229 v 1.4158 h -2.99118 V 19.15988 h 2.99118 v 4.556199 m 17.02331,-1.127395 v 2.551933 c -0.40663,-0.291309 -0.81603,-0.506883 -1.22822,-0.646723 -0.40663,-0.139824 -0.82996,-0.209739 -1.26999,-0.209748 -0.83553,9e-6 -1.48724,0.256367 -1.95513,0.769076 -0.46233,0.506898 -0.69349,1.21771 -0.69349,2.132438 0,0.914738 0.23116,1.628463 0.69349,2.141177 0.46789,0.506893 1.1196,0.760338 1.95513,0.760336 0.46788,2e-6 0.91071,-0.07283 1.32848,-0.218487 0.42332,-0.145656 0.81324,-0.36123 1.16973,-0.646723 v 2.560673 c -0.4679,0.180616 -0.94415,0.314622 -1.42874,0.402017 -0.47904,0.09322 -0.96086,0.139832 -1.44546,0.139832 -1.68776,0 -3.00789,-0.45154 -3.96039,-1.354622 -0.95249,-0.908906 -1.42874,-2.170305 -1.42874,-3.784203 0,-1.613888 0.47625,-2.872374 1.42874,-3.775463 0.9525,-0.908898 2.27263,-1.363352 3.96039,-1.363362 0.49017,10e-6 0.97199,0.04662 1.44546,0.139832 0.47902,0.0874 0.95527,0.22141 1.42874,0.402017"
+       id="text3378"
+       sodipodi:nodetypes="ccccccccccccccsssssssccsssssssccccccccsssssssccsssssssc" />
+    <rect
+       style="opacity:1;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:1.4;stroke-opacity:1"
+       id="rect3382"
+       width="42.97773"
+       height="22.000011"
+       x="2.5"
+       y="14.571068"
+       rx="0"
+       ry="0" />
+    <text
+       xml:space="preserve"
+       style="font-size:10.6086px;font-family:'CaskaydiaMono Nerd Font';-inkscape-font-specification:'CaskaydiaMono Nerd Font';writing-mode:lr-tb;direction:ltr;fill:#000000;stroke-width:0.663039"
+       x="2.0678725"
+       y="28.995686"
+       id="text1"><tspan
+         sodipodi:role="line"
+         id="tspan1"
+         x="2.0678725"
+         y="28.995686"
+         style="stroke-width:0.663039">//</tspan></text>
+  </g>
+</svg>

@@ -53,7 +53,6 @@ signals:
 
 private slots:
     void onSessionFinished();
-    void onCurrentDirectoryChanged(const QString &dir);
 
 protected:
     void showEvent(QShowEvent *event) override;

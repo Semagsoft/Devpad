@@ -5,35 +5,32 @@
 #include <gmock/gmock.h>
 
 #include <QApplication>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 class ThemeTest : public ::testing::Test
 {
 protected:
-    SettingsManager* m_testSettings = nullptr;
+    std::unique_ptr<SettingsManager> m_testSettings;
 
     void SetUp() override
     {
         m_testSettings = SettingsManager::createForTesting();
-        SettingsManager::setTestingInstance(m_testSettings);
+        SettingsManager::setTestingInstance(m_testSettings.get());
     }
-
     void TearDown() override
     {
         SettingsManager::setTestingInstance(nullptr);
-        SettingsManager::destroyForTesting(m_testSettings);
-        m_testSettings = nullptr;
+        m_testSettings.reset();
     }
 };
 
 TEST_F(ThemeTest, AllNonSystemThemesHaveUniqueNames)
 {
     QStringList names;
-    QList<ThemeId> explicitThemes = {
-        ThemeId::Light, ThemeId::Dark, ThemeId::Nord,
-        ThemeId::SolarizedLight, ThemeId::Monokai, ThemeId::GruvboxDark
-    };
-    for (auto id : explicitThemes)
+    for (auto id : allBuiltInThemes())
     {
+        if (id == ThemeId::System) continue;
         ThemeColors c = getThemeColors(id);
         EXPECT_FALSE(c.name.isEmpty());
         EXPECT_FALSE(names.contains(c.name)) << "duplicate name: " << c.name.toStdString();
@@ -49,13 +46,22 @@ TEST_F(ThemeTest, DarkThemesAreDark)
     EXPECT_FALSE(getThemeColors(ThemeId::SolarizedLight).isDark);
     EXPECT_TRUE(getThemeColors(ThemeId::Monokai).isDark);
     EXPECT_TRUE(getThemeColors(ThemeId::GruvboxDark).isDark);
+    EXPECT_TRUE(getThemeColors(ThemeId::CatppuccinMocha).isDark);
+    EXPECT_TRUE(getThemeColors(ThemeId::CatppuccinMacchiato).isDark);
+    EXPECT_TRUE(getThemeColors(ThemeId::CatppuccinFrappe).isDark);
+    EXPECT_FALSE(getThemeColors(ThemeId::CatppuccinLatte).isDark);
+    EXPECT_TRUE(getThemeColors(ThemeId::TokyoNight).isDark);
+    EXPECT_TRUE(getThemeColors(ThemeId::TokyoNightStorm).isDark);
+    EXPECT_TRUE(getThemeColors(ThemeId::Dracula).isDark);
+    EXPECT_TRUE(getThemeColors(ThemeId::OneDark).isDark);
+    EXPECT_FALSE(getThemeColors(ThemeId::AyuLight).isDark);
+    EXPECT_TRUE(getThemeColors(ThemeId::AyuDark).isDark);
 }
 
 TEST_F(ThemeTest, AllColorFieldsAreValid)
 {
-    for (int i = 0; i <= static_cast<int>(ThemeId::GruvboxDark); ++i)
+    for (auto id : allBuiltInThemes())
     {
-        ThemeId id = static_cast<ThemeId>(i);
         ThemeColors c = getThemeColors(id);
 
         EXPECT_TRUE(c.background.isValid()) << "background invalid for " << c.name.toStdString();
@@ -72,9 +78,8 @@ TEST_F(ThemeTest, AllColorFieldsAreValid)
 
 TEST_F(ThemeTest, DerivedColorsAreValidAfterResolve)
 {
-    for (int i = 0; i <= static_cast<int>(ThemeId::GruvboxDark); ++i)
+    for (auto id : allBuiltInThemes())
     {
-        ThemeId id = static_cast<ThemeId>(i);
         ThemeColors c = getThemeColors(id);
 
         EXPECT_TRUE(c.toolbarBg.isValid());
@@ -91,9 +96,8 @@ TEST_F(ThemeTest, DerivedColorsAreValidAfterResolve)
 
 TEST_F(ThemeTest, ResolveComputesContrastingColors)
 {
-    for (int i = 0; i <= static_cast<int>(ThemeId::GruvboxDark); ++i)
+    for (auto id : allBuiltInThemes())
     {
-        ThemeId id = static_cast<ThemeId>(i);
         ThemeColors c = getThemeColors(id);
 
         EXPECT_NE(c.toolbarBg, c.toolbarFg) << "toolbar fg/bg same for " << c.name.toStdString();
@@ -104,9 +108,8 @@ TEST_F(ThemeTest, ResolveComputesContrastingColors)
 
 TEST_F(ThemeTest, AccentColorDiffersFromBackground)
 {
-    for (int i = 0; i <= static_cast<int>(ThemeId::GruvboxDark); ++i)
+    for (auto id : allBuiltInThemes())
     {
-        ThemeId id = static_cast<ThemeId>(i);
         ThemeColors c = getThemeColors(id);
 
         EXPECT_NE(c.accent, c.background) << "accent same as background for " << c.name.toStdString();
@@ -156,6 +159,13 @@ TEST_F(ThemeTest, IsThemeDarkReturnsCorrectValue)
     EXPECT_FALSE(isThemeDark(ThemeId::SolarizedLight));
     EXPECT_TRUE(isThemeDark(ThemeId::Monokai));
     EXPECT_TRUE(isThemeDark(ThemeId::GruvboxDark));
+    EXPECT_TRUE(isThemeDark(ThemeId::CatppuccinMocha));
+    EXPECT_FALSE(isThemeDark(ThemeId::CatppuccinLatte));
+    EXPECT_TRUE(isThemeDark(ThemeId::TokyoNight));
+    EXPECT_TRUE(isThemeDark(ThemeId::Dracula));
+    EXPECT_TRUE(isThemeDark(ThemeId::OneDark));
+    EXPECT_FALSE(isThemeDark(ThemeId::AyuLight));
+    EXPECT_TRUE(isThemeDark(ThemeId::AyuDark));
 }
 
 TEST_F(ThemeTest, ThemeDisplayNames)
@@ -167,6 +177,13 @@ TEST_F(ThemeTest, ThemeDisplayNames)
     EXPECT_EQ(themeDisplayName(ThemeId::Monokai), QObject::tr("Monokai"));
     EXPECT_EQ(themeDisplayName(ThemeId::GruvboxDark), QObject::tr("Gruvbox Dark"));
     EXPECT_EQ(themeDisplayName(ThemeId::SolarizedLight), QObject::tr("Solarized Light"));
+    EXPECT_EQ(themeDisplayName(ThemeId::CatppuccinMocha), QObject::tr("Catppuccin Mocha"));
+    EXPECT_EQ(themeDisplayName(ThemeId::CatppuccinLatte), QObject::tr("Catppuccin Latte"));
+    EXPECT_EQ(themeDisplayName(ThemeId::TokyoNight), QObject::tr("Tokyo Night"));
+    EXPECT_EQ(themeDisplayName(ThemeId::Dracula), QObject::tr("Dracula"));
+    EXPECT_EQ(themeDisplayName(ThemeId::OneDark), QObject::tr("One Dark"));
+    EXPECT_EQ(themeDisplayName(ThemeId::AyuLight), QObject::tr("Ayu Light"));
+    EXPECT_EQ(themeDisplayName(ThemeId::AyuDark), QObject::tr("Ayu Dark"));
 }
 
 TEST_F(ThemeTest, PrefersNativeStylingOnlyForSystem)
@@ -175,4 +192,39 @@ TEST_F(ThemeTest, PrefersNativeStylingOnlyForSystem)
     EXPECT_FALSE(prefersNativeStyling(ThemeId::Light));
     EXPECT_FALSE(prefersNativeStyling(ThemeId::Dark));
     EXPECT_FALSE(prefersNativeStyling(ThemeId::Nord));
+}
+
+TEST_F(ThemeTest, AllBuiltInThemesCount)
+{
+    int count = builtInThemeCount();
+    EXPECT_EQ(count, 17);
+    EXPECT_EQ(allBuiltInThemes().size(), count);
+}
+
+TEST_F(ThemeTest, ParseThemeJson)
+{
+    QJsonObject colors;
+    colors["background"] = "#1e1e2e";
+    colors["foreground"] = "#cdd6f4";
+    colors["accent"] = "#cba6f7";
+
+    QJsonObject root;
+    root["name"] = "Test Theme";
+    root["isDark"] = true;
+    root["colors"] = colors;
+
+    ThemeColors tc = parseThemeJson(root);
+    EXPECT_EQ(tc.name, "Test Theme");
+    EXPECT_TRUE(tc.isDark);
+    EXPECT_EQ(tc.background, QColor(30, 30, 46));
+    EXPECT_EQ(tc.foreground, QColor(205, 214, 244));
+    EXPECT_EQ(tc.accent, QColor(203, 166, 247));
+    EXPECT_TRUE(tc.toolbarBg.isValid());
+    EXPECT_TRUE(tc.tabBg.isValid());
+}
+
+TEST_F(ThemeTest, BuiltInThemeCountMatchesEnum)
+{
+    int maxEnum = static_cast<int>(ThemeId::AyuDark);
+    EXPECT_EQ(builtInThemeCount(), maxEnum + 1);
 }

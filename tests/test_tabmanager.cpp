@@ -12,27 +12,21 @@ class TabManagerTest : public ::testing::Test
 protected:
     QTabWidget* tabWidget = nullptr;
     TabManager* tabManager = nullptr;
-    SettingsManager* m_testSettings = nullptr;
+    std::unique_ptr<SettingsManager> m_testSettings;
 
     void SetUp() override
     {
         m_testSettings = SettingsManager::createForTesting();
-        SettingsManager::setTestingInstance(m_testSettings);
-
+        SettingsManager::setTestingInstance(m_testSettings.get());
         tabWidget = new QTabWidget();
         tabManager = new TabManager(tabWidget);
     }
-
     void TearDown() override
     {
         delete tabManager;
         delete tabWidget;
-
         SettingsManager::setTestingInstance(nullptr);
-        SettingsManager::destroyForTesting(m_testSettings);
-        tabManager = nullptr;
-        tabWidget = nullptr;
-        m_testSettings = nullptr;
+        m_testSettings.reset();
     }
 
     CodeEditor* addEditor(const QString& title)

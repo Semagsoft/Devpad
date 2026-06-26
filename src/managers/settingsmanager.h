@@ -23,9 +23,11 @@
 
 #include <QFont>
 #include <QHash>
-#include <QMutex>
+#include <QObject>
 #include <QSettings>
 #include <QString>
+#include <memory>
+#include <type_traits>
 
 class CodeEditor;
 
@@ -70,13 +72,14 @@ enum class ProjectPanelPosition
     Right = 1
 };
 
-class SettingsManager
+class SettingsManager : public QObject
 {
+    Q_OBJECT
+
 public:
     static SettingsManager& instance();
     static void setTestingInstance(SettingsManager* instance);
-    static SettingsManager* createForTesting();
-    static void destroyForTesting(SettingsManager* instance);
+    static std::unique_ptr<SettingsManager> createForTesting();
 
     // ── Settings cache ─────────────────────────────────────────
     struct EditorSettings
@@ -139,6 +142,28 @@ public:
         bool showHiddenFiles = false;
         ProjectPanelPosition projectPanelPosition = ProjectPanelPosition::Left;
     };
+
+    // ── LSP settings ───────────────────────────────────────────
+    struct LspSettings
+    {
+        bool enabled = true;
+        bool showErrorList = true;
+        int completionTriggerChars = 2;
+        QHash<QString, QString> serverCommands;
+        QHash<QString, QStringList> serverArgs;
+    };
+
+    LspSettings lspSettings() const;
+    bool lspEnabled() const;
+    bool lspShowErrorList() const;
+    int lspCompletionTriggerChars() const;
+    QString lspServerCommand(const QString& language) const;
+    QStringList lspServerArgs(const QString& language) const;
+    void setLspEnabled(bool enabled);
+    void setLspShowErrorList(bool visible);
+    void setLspCompletionTriggerChars(int chars);
+    void setLspServerCommand(const QString& language, const QString& command);
+    void setLspServerArgs(const QString& language, const QStringList& args);
 
     // ── Editor settings ────────────────────────────────────────
     EditorSettings editorSettings() const;
@@ -275,19 +300,27 @@ public:
     QStringList recentFolders() const;
     void clearRecentFolders();
 
+signals:
+    void settingsChanged();
+
 private:
     SettingsManager();
-    ~SettingsManager() = default;
     Q_DISABLE_COPY(SettingsManager)
+
+public:
+    ~SettingsManager() = default;
+
+private:
 
     static constexpr int CurrentSettingsVersion = 1;
     static const QHash<QString, QString>& extensionMap();
     static const QHash<QString, QString>& fileNameMap();
     static SettingsManager* s_testInstance;
 
+    friend struct std::default_delete<SettingsManager>;
     void loadCache();
     void ensureSettingsVersion();
-
+    
     struct Cache
     {
         EditorSettings editor;
@@ -295,10 +328,23 @@ private:
         TerminalSettings terminal;
         AutoSaveSettings autoSave;
         ProjectSettings project;
+        LspSettings lsp;
+        QColor accentColor;
+        bool hasAccentColor = false;
     };
 
+    template<typename T>
+    void writeCached(const char* key, T& cacheField, T value)
+    {
+        if constexpr (std::is_enum_v<T>)
+            m_settings.setValue(key, static_cast<int>(value));
+        else
+            m_settings.setValue(key, value);
+        cacheField = value;
+        settingsChanged();
+    }
+
     Cache m_cache;
-    mutable QMutex m_cacheMutex;
     QSettings m_settings;
 };
 

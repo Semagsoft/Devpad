@@ -1,8 +1,8 @@
 [Background]
-Color=30,34,42
+Color=0,0,0
 
 [BackgroundIntense]
-Color=30,34,42
+Color=0,0,0
 
 [Foreground]
 Color=220,220,220
@@ -12,10 +12,10 @@ Color=220,220,220
 Bold=true
 
 [Color0]
-Color=30,34,42
+Color=0,0,0
 
 [Color0Intense]
-Color=80,84,92
+Color=25,25,28
 
 [Color1]
 Color=224,108,117

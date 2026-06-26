@@ -6,11 +6,19 @@
 #include "theme.h"
 
 #include <QScopedPointer>
+#include <QTimer>
 
 #include <Qsci/qsciapis.h>
 #include <Qsci/qsciglobal.h>
 #include <Qsci/qscilexer.h>
 #include <Qsci/qsciscintilla.h>
+
+#include "lsp/lsptypes.h"
+
+namespace lsp {
+class LspClient;
+class LspServerManager;
+} // namespace lsp
 
 class CodeEditor : public QsciScintilla
 {
@@ -61,6 +69,7 @@ public:
     void setReadOnlyMode(bool enabled);
     bool isReadOnlyMode() const;
 
+    void toggleComment();
     void toggleBookmark();
     void toggleBookmark(int line);
     bool hasBookmark(int line) const;
@@ -76,6 +85,46 @@ public:
     void exitSnippetMode();
     void registerSnippetAutoCompletion(const QList<Snippet>& snippets);
 
+    // LSP support
+    void setLspServerManager(lsp::LspServerManager* manager);
+    void setLspLanguage(const QString& language);
+    lsp::LspServerManager* lspServerManager() const { return m_lspManager; }
+    bool lspActive() const { return m_lspActive; }
+    void goToDefinition();
+    void goToTypeDefinition();
+    void goToDeclaration();
+    void formatSelection();
+    void findReferences();
+    void triggerCompletion();
+    void requestRename();
+    void requestDocumentHighlight();
+    void applyHighlights(const QJsonArray& highlights);
+    void clearHighlights();
+    void applyDiagnostics(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
+    void clearDiagnostics();
+    void showCompletion(const lsp::CompletionList& completions);
+    void requestCodeActions();
+    void expandSelection();
+    void shrinkSelection();
+    void requestSelectionRanges();
+    void setSelectionRanges(const QJsonArray& ranges);
+    void sendDidChange();
+    void sendDidOpen();
+    int documentVersion() const { return m_docVersion; }
+    void setDocumentVersion(int v) { m_docVersion = v; }
+
+    ThemeId themeId() const { return m_themeId; }
+
+    void replaceSelectedText(const QString &text);
+    int lineFromPosition(int pos) const;
+    int cursorPosition() const;
+    void showToolTip(int pos, const QString& text);
+    void applyFormattingEdits(const QList<QJsonObject>& edits);
+    void showSignatureHelp(const QJsonObject& info);
+    void setLinkedEditingRanges(const QJsonObject& result);
+    void clearLinkedRanges();
+    void applySemanticTokens(const QString& uri, const QJsonArray& tokenData);
+
 signals:
     void fileDropped(const QString& filePath);
     void bookmarksChanged();
@@ -84,6 +133,8 @@ signals:
     void replaceRequested();
     void goToLineRequested();
     void insertSnippetRequested();
+    void navigateToLocation(const QString& filePath, int line, int column);
+    void diagnosticsChanged(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
 
 public slots:
     void forceModified();
@@ -123,6 +174,8 @@ private:
     void setupEditor();
     void applyLexerTheme();
     void updateLineNumberWidth();
+    void onCharAdded(int charadded);
+    void setupLspIndicators();
 
     // Snippet infrastructure
     static constexpr int SNIPPET_INDICATOR = 21;
@@ -147,6 +200,32 @@ private:
     void clearSnippetMarkers();
     void selectTabStopRange(int pos, int len);
     void recalculateTabStopPositions();
+
+    bool hasLineMarker(int line, int marker) const;
+
+    // LSP integration
+    lsp::LspServerManager* m_lspManager = nullptr;
+    QString m_lspLanguage;
+    bool m_lspActive = false;
+    bool m_lspCompletionActive = false;
+    int m_docVersion = 0;
+    QList<lsp::CompletionItem> m_lspCompletionItems;
+    QTimer* m_completionTimer = nullptr;
+    QTimer* m_diagnosticsTimer = nullptr;
+    QTimer* m_highlightTimer = nullptr;
+    int m_lastTriggerChar = 0;
+    bool m_lastCharWasTrigger = false;
+
+    // Linked editing ranges
+    QList<lsp::Range> m_linkedRanges;
+    bool m_isApplyingLinkedEdit = false;
+
+    // Semantic tokens
+    QString m_semanticTokensUri;
+
+    // Selection range stack for expand/shrink
+    QList<lsp::Range> m_selectionRangeStack;
+    int m_selectionRangeDepth = 0;
 };
 
 #endif // CODEEDITOR_H

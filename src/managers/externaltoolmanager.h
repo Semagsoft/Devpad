@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QKeySequence>
 #include <QList>
 #include <QDialog>
@@ -10,6 +11,7 @@
 #include <QCheckBox>
 #include <QKeySequenceEdit>
 #include <QLabel>
+#include <functional>
 
 struct ExternalTool {
     QString name;
@@ -35,15 +37,26 @@ public:
     QString workingDirForTool(const ExternalTool& tool, const QString& filePath,
                               const QString& projectDir) const;
 
-    static ExternalToolManager& instance();
+    // Parse arguments string into individual tokens, respecting shell quoting
+    static QStringList parseArguments(const QString& args);
+
+    // Escape a string for safe use in a POSIX shell (single-quote wrapping)
+    static QString shellEscape(const QString& s);
+
+    // Run external tool by index.
+    // For terminal tools, the escaped shell command is passed via terminalSender.
+    // For background tools, a QProcess + output dialog is created.
+    // Returns true if the index was valid.
+    bool runTool(int index, const QString& filePath, const QString& projectDir,
+                 const QString& selectedText, int lineNumber,
+                 const std::function<void(const QString&)>& terminalSender,
+                 QWidget* parent = nullptr);
 
 signals:
     void toolsChanged();
 
 private:
     QList<ExternalTool> m_tools;
-
-    static ExternalToolManager* s_instance;
 };
 
 class ExternalToolEditDialog : public QDialog {

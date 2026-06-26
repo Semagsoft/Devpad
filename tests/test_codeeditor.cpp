@@ -11,26 +11,21 @@ class CodeEditorTest : public ::testing::Test
 {
 protected:
     CodeEditor* editor = nullptr;
-    SettingsManager* m_testSettings = nullptr;
+    std::unique_ptr<SettingsManager> m_testSettings;
 
     void SetUp() override
     {
         m_testSettings = SettingsManager::createForTesting();
-        SettingsManager::setTestingInstance(m_testSettings);
-        SettingsManager::instance().setDefaultFontFamily("Monospace");
-        SettingsManager::instance().setDefaultFontSize(12);
-
+        SettingsManager::setTestingInstance(m_testSettings.get());
         editor = new CodeEditor();
-        editor->setText("line one\nline two\nline three\nline four\nline five\n");
+        editor->setText("line0\nline1\nline2\nline3\nline4\nline5\n");
     }
-
     void TearDown() override
     {
         delete editor;
-        SettingsManager::setTestingInstance(nullptr);
-        SettingsManager::destroyForTesting(m_testSettings);
         editor = nullptr;
-        m_testSettings = nullptr;
+        SettingsManager::setTestingInstance(nullptr);
+        m_testSettings.reset();
     }
 };
 

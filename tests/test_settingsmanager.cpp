@@ -9,17 +9,16 @@ protected:
     void SetUp() override
     {
         m_testSettings = SettingsManager::createForTesting();
-        SettingsManager::setTestingInstance(m_testSettings);
+        SettingsManager::setTestingInstance(m_testSettings.get());
     }
 
     void TearDown() override
     {
         SettingsManager::setTestingInstance(nullptr);
-        SettingsManager::destroyForTesting(m_testSettings);
-        m_testSettings = nullptr;
+        m_testSettings.reset();
     }
 
-    SettingsManager* m_testSettings = nullptr;
+    std::unique_ptr<SettingsManager> m_testSettings;
 };
 
 TEST_F(SettingsManagerTest, RecentFilesAddAndList)

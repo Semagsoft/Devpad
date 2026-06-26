@@ -1,4 +1,5 @@
 #include "externaltoolmanager.h"
+#include "settingsmanager.h"
 
 #include <QFormLayout>
 #include <QVBoxLayout>
@@ -8,20 +9,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QTextEdit>
+#include <QFontDatabase>
+#include <QPushButton>
 
-ExternalToolManager* ExternalToolManager::s_instance = nullptr;
-
-ExternalToolManager& ExternalToolManager::instance() {
-    if (!s_instance) {
-        s_instance = new ExternalToolManager();
-    }
-    return *s_instance;
-}
-
-ExternalToolManager::ExternalToolManager(QObject *parent) : QObject(parent) {
-    if (!s_instance) {
-        s_instance = this;
-    }
+ExternalToolManager::ExternalToolManager(QObject *parent) : QObject(parent)
+{
 }
 
 QList<ExternalTool> ExternalToolManager::tools() const {
@@ -69,6 +61,136 @@ QString ExternalToolManager::workingDirForTool(const ExternalTool& tool, const Q
             wd = QDir::homePath();
     }
     return wd;
+}
+
+QStringList ExternalToolManager::parseArguments(const QString& args)
+{
+    QStringList result;
+    QString current;
+    bool inSingleQuote = false;
+    bool inDoubleQuote = false;
+
+    for (int i = 0; i < args.size(); ++i) {
+        const QChar c = args[i];
+
+        if (inSingleQuote) {
+            if (c == QLatin1Char('\'')) {
+                inSingleQuote = false;
+            } else {
+                current += c;
+            }
+        } else if (inDoubleQuote) {
+            if (c == QLatin1Char('"')) {
+                inDoubleQuote = false;
+            } else if (c == QLatin1Char('\\') && i + 1 < args.size()) {
+                current += args[++i];
+            } else {
+                current += c;
+            }
+        } else {
+            if (c == QLatin1Char('\'')) {
+                inSingleQuote = true;
+            } else if (c == QLatin1Char('"')) {
+                inDoubleQuote = true;
+            } else if (c == QLatin1Char('\\') && i + 1 < args.size()) {
+                current += args[++i];
+            } else if (c.isSpace()) {
+                if (!current.isEmpty()) {
+                    result << current;
+                    current.clear();
+                }
+            } else {
+                current += c;
+            }
+        }
+    }
+
+    if (!current.isEmpty())
+        result << current;
+
+    return result;
+}
+
+QString ExternalToolManager::shellEscape(const QString& s)
+{
+    QString escaped = s;
+    escaped.replace(QLatin1Char('\''), QStringLiteral("'\\''"));
+    return QLatin1Char('\'') + escaped + QLatin1Char('\'');
+}
+
+bool ExternalToolManager::runTool(int index, const QString& filePath,
+                                   const QString& projectDir, const QString& selectedText,
+                                   int lineNumber,
+                                   const std::function<void(const QString&)>& terminalSender,
+                                   QWidget* parent)
+{
+    auto& s = SettingsManager::instance();
+    if (index < 0 || index >= s.externalToolCount())
+        return false;
+
+    ExternalTool tool;
+    tool.name = s.externalToolName(index);
+    tool.command = s.externalToolCommand(index);
+    tool.arguments = s.externalToolArguments(index);
+    tool.workingDir = s.externalToolWorkingDir(index);
+    tool.shortcut = QKeySequence(s.externalToolShortcut(index));
+    tool.runInTerminal = s.externalToolRunInTerminal(index);
+
+    // Resolve variables in command
+    QString resolvedCmd = resolveVariables(tool.command, filePath, projectDir, selectedText, lineNumber);
+
+    // Parse arguments template first, then resolve variables in each token
+    // This preserves argument boundaries when resolved values contain spaces
+    QStringList parsedArgTemplates = parseArguments(tool.arguments);
+    QStringList resolvedArgs;
+    for (const auto& argTemplate : parsedArgTemplates) {
+        resolvedArgs << resolveVariables(argTemplate, filePath, projectDir, selectedText, lineNumber);
+    }
+
+    QString resolvedWorkDir = workingDirForTool(tool, filePath, projectDir);
+
+    if (tool.runInTerminal && terminalSender) {
+        // Terminal path: build a properly shell-escaped command
+        QString cmdLine = QStringLiteral("cd %1 && exec %2")
+                              .arg(shellEscape(resolvedWorkDir), shellEscape(resolvedCmd));
+        for (const auto& arg : resolvedArgs) {
+            cmdLine += QLatin1Char(' ') + shellEscape(arg);
+        }
+        cmdLine += QLatin1Char('\n');
+        terminalSender(cmdLine);
+    } else {
+        // Background QProcess path with output dialog
+        auto* process = new QProcess(parent);
+        process->setWorkingDirectory(resolvedWorkDir);
+        process->setProcessChannelMode(QProcess::MergedChannels);
+
+        auto* outputDialog = new QDialog(parent);
+        outputDialog->setWindowTitle(tool.name + ExternalToolManager::tr(" - Output"));
+        outputDialog->setMinimumSize(500, 300);
+        auto* layout = new QVBoxLayout(outputDialog);
+        auto* outputText = new QTextEdit(outputDialog);
+        outputText->setReadOnly(true);
+        outputText->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        layout->addWidget(outputText);
+        auto* closeBtn = new QPushButton(ExternalToolManager::tr("Close"), outputDialog);
+        layout->addWidget(closeBtn);
+
+        QObject::connect(closeBtn, &QPushButton::clicked, outputDialog, &QDialog::accept);
+        QObject::connect(process, &QProcess::readyReadStandardOutput, outputDialog, [process, outputText]() {
+            outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
+        });
+        QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                outputDialog, [outputText, process](int, QProcess::ExitStatus) {
+            outputText->append(ExternalToolManager::tr("\n--- Process exited ---"));
+            outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
+        });
+        outputDialog->setAttribute(Qt::WA_DeleteOnClose);
+        outputDialog->show();
+
+        process->start(resolvedCmd, resolvedArgs);
+    }
+
+    return true;
 }
 
 ExternalToolEditDialog::ExternalToolEditDialog(QWidget *parent)

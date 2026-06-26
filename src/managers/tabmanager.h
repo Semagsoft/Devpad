@@ -21,13 +21,22 @@
 
 #include "codeeditor.h"
 #include "settingsmanager.h"
+#include "widgets/editorcontainer.h"
 
+#include <QHash>
 #include <QList>
 #include <QObject>
+#include <QPointer>
 #include <QSet>
 #include <QString>
 #include <QTabWidget>
 #include <QToolButton>
+
+// qHash overload for QPointer to enable QSet<QPointer<CodeEditor>>
+inline size_t qHash(const QPointer<CodeEditor>& ptr, size_t seed = 0) noexcept
+{
+    return qHash(ptr.data(), seed);
+}
 
 class TabManager : public QObject
 {
@@ -72,6 +81,8 @@ public:
     QStringList pinnedFiles() const;
     void setPinnedFiles(const QStringList& files);
 
+    EditorContainer* containerFor(CodeEditor* editor) const;
+
 signals:
     void editorCreated(CodeEditor* editor);
     void editorClosed(CodeEditor* editor);
@@ -82,10 +93,13 @@ private:
     QList<QTabWidget*> m_panes;
     QTabWidget* m_primaryWidget;
     QTabWidget* m_activePane;
-    QSet<CodeEditor*> m_pinnedEditors;
+    // QPointer auto-nulls if an editor is deleted outside normal close path
+    QSet<QPointer<CodeEditor>> m_pinnedEditors;
+    int localToGlobalIndex(int localIdx, QTabWidget* pane) const;
     QString getFileBaseName(const QString& fullPath) const;
     void removeCloseButtons(int tabIndex, QTabWidget* pane);
     QTabWidget* paneForEditor(CodeEditor* editor) const;
+    QHash<CodeEditor*, QPointer<EditorContainer>> m_containers;
 };
 
 #endif

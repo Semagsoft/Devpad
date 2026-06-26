@@ -5,31 +5,31 @@
     <name>AboutDialog</name>
     <message>
         <source>About Devpad</source>
-        <translation type="unfinished"></translation>
+        <translation>Über Devpad</translation>
     </message>
     <message>
         <source>Version 1.0 (C++/Qt6)</source>
-        <translation type="unfinished"></translation>
+        <translation>Version 1.0 (C++/Qt6)</translation>
     </message>
     <message>
         <source>Copyright %1 - A C++/Qt text editor</source>
-        <translation type="unfinished"></translation>
+        <translation>Urheberrecht %1 - Ein C++/Qt-Texteditor</translation>
     </message>
     <message>
         <source>Show License</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz anzeigen</translation>
     </message>
     <message>
         <source>Hide License</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz ausblenden</translation>
     </message>
     <message>
         <source>Visit Website</source>
-        <translation type="unfinished"></translation>
+        <translation>Webseite besuchen</translation>
     </message>
     <message>
         <source>Close Editor</source>
-        <translation type="unfinished"></translation>
+        <translation>Editor schließen</translation>
     </message>
 </context>
 </TS>

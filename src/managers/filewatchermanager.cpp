@@ -28,7 +28,6 @@ FileWatcherManager::FileWatcherManager(QObject *parent) : QObject(parent) {
 void FileWatcherManager::watchFile(const QString &filePath) {
     if (!m_watcher.addPath(filePath)) {
         Logger::instance().warning(QString("Failed to watch file: %1").arg(filePath));
-        return;
     }
 
     QFileInfo info(filePath);

@@ -17,6 +17,12 @@ SnippetManager::SnippetManager(QObject* parent)
     loadUserSnippets();
 }
 
+SnippetManager::~SnippetManager()
+{
+    if (s_instance == this)
+        s_instance = nullptr;
+}
+
 SnippetManager* SnippetManager::instance()
 {
     return s_instance;
