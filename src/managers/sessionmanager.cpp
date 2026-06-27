@@ -63,11 +63,14 @@ SessionManager::SessionData SessionManager::loadSessionData() {
         QStringList files = m_sessionSettings.value(QStringLiteral("Files")).toStringList();
         int activeIndex = m_sessionSettings.value(QStringLiteral("ActiveIndex"), 0).toInt();
         QString projectPath = m_sessionSettings.value(QStringLiteral("ProjectPath")).toString();
+        QString terminalWorkingDir = m_sessionSettings.value(QStringLiteral("TerminalWorkingDir")).toString();
         QVariantMap bookmarkMap = m_sessionSettings.value(QStringLiteral("Bookmarks")).toMap();
         m_sessionSettings.endGroup();
 
         if (data.projectPath.isEmpty() && !projectPath.isEmpty())
             data.projectPath = projectPath;
+        if (data.terminalWorkingDir.isEmpty() && !terminalWorkingDir.isEmpty())
+            data.terminalWorkingDir = terminalWorkingDir;
 
         for (auto it = bookmarkMap.constBegin(); it != bookmarkMap.constEnd(); ++it) {
             QList<int> lines;
@@ -90,20 +93,20 @@ SessionManager::SessionData SessionManager::loadSessionData() {
     return data;
 }
 
-void SessionManager::restoreSession(
+SessionManager::SessionData SessionManager::restoreSession(
     std::function<void(const QString &filePath)> loadFileFn,
     SplitView *splitView,
     ProjectPanel *projectPanel
 ) {
     SessionData data = loadSessionData();
 
-    if (!data.projectPath.isEmpty() && QDir::cleanPath(data.projectPath) != QDir::currentPath() && QDir(data.projectPath).exists()) {
+    if (!data.projectPath.isEmpty() && QDir(data.projectPath).exists()) {
         projectPanel->setRootPath(data.projectPath);
         projectPanel->show();
     }
 
     if (data.files.isEmpty()) {
-        return;
+        return data;
     }
 
     int targetIndex = 0;
@@ -138,9 +141,10 @@ void SessionManager::restoreSession(
     }
 
     emit sessionRestored();
+    return data;
 }
 
-void SessionManager::saveSessionData(const QStringList &files, int activeIndex, const QString &projectPath)
+void SessionManager::saveSessionData(const QStringList &files, int activeIndex, const QString &projectPath, const QString &terminalWorkingDir)
 {
     if (!m_sessionLock.tryLock(5000)) {
         Logger::instance().error("Failed to acquire session lock for saveSessionData");
@@ -151,6 +155,7 @@ void SessionManager::saveSessionData(const QStringList &files, int activeIndex, 
     m_sessionSettings.setValue(QStringLiteral("Files"), files);
     m_sessionSettings.setValue(QStringLiteral("ActiveIndex"), activeIndex);
     m_sessionSettings.setValue(QStringLiteral("ProjectPath"), projectPath);
+    m_sessionSettings.setValue(QStringLiteral("TerminalWorkingDir"), terminalWorkingDir);
     m_sessionSettings.setValue(QStringLiteral("HasSession"), true);
     m_sessionSettings.endGroup();
 
@@ -220,6 +225,25 @@ QString SessionManager::sessionProjectPath()
         path = m_sessionSettings.value(QStringLiteral("Session_ProjectPath")).toString();
     m_sessionLock.unlock();
     return path;
+}
+
+QString SessionManager::sessionTerminalWorkingDir()
+{
+    if (!m_sessionLock.tryLock(5000)) {
+        Logger::instance().error("SessionManager: failed to acquire lock in sessionTerminalWorkingDir");
+        return {};
+    }
+    QString group = sessionGroupPrefix();
+    QString dir;
+    if (m_sessionSettings.childGroups().contains(group)) {
+        m_sessionSettings.beginGroup(group);
+        dir = m_sessionSettings.value(QStringLiteral("TerminalWorkingDir")).toString();
+        m_sessionSettings.endGroup();
+    }
+    if (dir.isEmpty())
+        dir = m_sessionSettings.value(QStringLiteral("Session_TerminalWorkingDir")).toString();
+    m_sessionLock.unlock();
+    return dir;
 }
 
 void SessionManager::saveSessionBookmarks(const QHash<QString, QList<int>> &bookmarks)
@@ -333,6 +357,7 @@ void SessionManager::clearSession()
     m_sessionSettings.remove(QStringLiteral("Session_ProjectPath"));
     m_sessionSettings.remove(QStringLiteral("Session_Bookmarks"));
     m_sessionSettings.remove(QStringLiteral("Session_PinnedFiles"));
+    m_sessionSettings.remove(QStringLiteral("Session_TerminalWorkingDir"));
     m_sessionSettings.remove(QStringLiteral("HasSession"));
     m_sessionSettings.sync();
 
@@ -341,7 +366,8 @@ void SessionManager::clearSession()
 
 void SessionManager::saveSession(
     TabManager *tabManager,
-    ProjectPanel *projectPanel
+    ProjectPanel *projectPanel,
+    const QString &terminalWorkingDir
 ) {
     QStringList files;
     int activeIndex = 0;
@@ -377,7 +403,7 @@ void SessionManager::saveSession(
     }
 
     QString projectPath = projectPanel->isVisible() ? projectPanel->rootPath() : QString();
-    saveSessionData(files, activeIndex, projectPath);
+    saveSessionData(files, activeIndex, projectPath, terminalWorkingDir);
     saveSessionBookmarks(bookmarks);
     saveSessionPinnedFiles(tabManager->pinnedFiles());
 }

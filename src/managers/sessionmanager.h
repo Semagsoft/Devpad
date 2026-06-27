@@ -38,7 +38,15 @@ class SessionManager : public QObject {
 public:
     explicit SessionManager(QObject *parent = nullptr);
 
-    void restoreSession(
+    struct SessionData {
+        QStringList files;
+        int activeIndex = 0;
+        QString projectPath;
+        QString terminalWorkingDir;
+        QHash<QString, QList<int>> bookmarks;
+    };
+
+    SessionData restoreSession(
         std::function<void(const QString &filePath)> loadFileFn,
         SplitView *splitView,
         ProjectPanel *projectPanel
@@ -46,14 +54,16 @@ public:
 
     void saveSession(
         TabManager *tabManager,
-        ProjectPanel *projectPanel
+        ProjectPanel *projectPanel,
+        const QString &terminalWorkingDir
     );
 
     // ── Persistence ────────────────────────────────────────────
-    void saveSessionData(const QStringList &files, int activeIndex, const QString &projectPath);
+    void saveSessionData(const QStringList &files, int activeIndex, const QString &projectPath, const QString &terminalWorkingDir = {});
     QStringList sessionFiles();
     int sessionActiveIndex();
     QString sessionProjectPath();
+    QString sessionTerminalWorkingDir();
     void saveSessionBookmarks(const QHash<QString, QList<int>> &bookmarks);
     QHash<QString, QList<int>> loadSessionBookmarks();
     void saveSessionPinnedFiles(const QStringList &pinnedFiles);
@@ -64,13 +74,6 @@ signals:
     void sessionRestored();
 
 private:
-    struct SessionData {
-        QStringList files;
-        int activeIndex;
-        QString projectPath;
-        QHash<QString, QList<int>> bookmarks;
-    };
-
     SessionData loadSessionData();
     QString sessionGroupPrefix() const;
 

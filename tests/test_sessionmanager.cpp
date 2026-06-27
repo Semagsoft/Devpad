@@ -43,7 +43,7 @@ TEST_F(SessionManagerTest, SaveAndLoadSessionFiles)
     SessionManager mgr;
     QStringList files = {"/path/to/file1.cpp", "/path/to/file2.py", "/path/to/file3.html"};
 
-    mgr.saveSessionData(files, 1, "/path/to/project");
+    mgr.saveSessionData(files, 1, "/path/to/project", "/path/to/project");
 
     QStringList loaded = mgr.sessionFiles();
     EXPECT_EQ(loaded, files);
@@ -134,7 +134,7 @@ TEST_F(SessionManagerTest, SaveSessionWithTabManager)
     editor->setText("test content");
     tabManager.addEditor(editor, "test.cpp");
 
-    mgr.saveSession(&tabManager, &projectPanel);
+    mgr.saveSession(&tabManager, &projectPanel, "/path/to");
 
     QStringList files = mgr.sessionFiles();
     EXPECT_EQ(files.size(), 1);
@@ -157,7 +157,7 @@ TEST_F(SessionManagerTest, SaveSessionSkipsUntitledFiles)
     saved->setText("real");
     tabManager.addEditor(saved, "real.cpp");
 
-    mgr.saveSession(&tabManager, &projectPanel);
+    mgr.saveSession(&tabManager, &projectPanel, "");
 
     QStringList files = mgr.sessionFiles();
     EXPECT_EQ(files.size(), 1);
@@ -179,7 +179,7 @@ TEST_F(SessionManagerTest, SaveAndLoadWithBookmarksInSession)
     editor->toggleBookmark(3);
     tabManager.addEditor(editor, "bookmarked.cpp");
 
-    mgr.saveSession(&tabManager, &projectPanel);
+    mgr.saveSession(&tabManager, &projectPanel, "");
 
     EXPECT_EQ(mgr.sessionFiles().size(), 1);
     EXPECT_TRUE(mgr.sessionFiles().contains("/path/to/bookmarked.cpp"));
@@ -187,4 +187,20 @@ TEST_F(SessionManagerTest, SaveAndLoadWithBookmarksInSession)
     QHash<QString, QList<int>> bookmarks = mgr.loadSessionBookmarks();
     EXPECT_TRUE(bookmarks.contains("/path/to/bookmarked.cpp"));
     EXPECT_EQ(bookmarks["/path/to/bookmarked.cpp"], QList<int>({1, 3}));
+}
+
+TEST_F(SessionManagerTest, SaveAndLoadTerminalWorkingDir)
+{
+    SessionManager mgr;
+    mgr.saveSessionData({"a.txt"}, 0, "/project", "/project/subdir");
+
+    EXPECT_EQ(mgr.sessionTerminalWorkingDir(), "/project/subdir");
+}
+
+TEST_F(SessionManagerTest, SaveAndLoadEmptyTerminalWorkingDir)
+{
+    SessionManager mgr;
+    mgr.saveSessionData({"a.txt"}, 0, "/project");
+
+    EXPECT_TRUE(mgr.sessionTerminalWorkingDir().isEmpty());
 }

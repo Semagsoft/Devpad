@@ -82,7 +82,7 @@ message(STATUS "qmake configuration OK")
 # ── Build ─────────────────────────────────────────────────────
 message(STATUS "Building QScintilla...")
 execute_process(
-    COMMAND "${CMAKE_MAKE_PROGRAM}" -j${NPROC}
+    COMMAND make -j${NPROC}
     WORKING_DIRECTORY ${QSCI_BUILD_DIR}
     RESULT_VARIABLE result
     ERROR_VARIABLE error
@@ -96,7 +96,7 @@ message(STATUS "QScintilla build OK")
 # ── Install ───────────────────────────────────────────────────
 message(STATUS "Installing QScintilla to ${QSCINTILLA_INSTALL_DIR}...")
 execute_process(
-    COMMAND "${CMAKE_MAKE_PROGRAM}" install
+    COMMAND make install
     WORKING_DIRECTORY ${QSCI_BUILD_DIR}
     RESULT_VARIABLE result
     ERROR_VARIABLE error

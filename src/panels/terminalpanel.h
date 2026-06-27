@@ -29,7 +29,7 @@ class QTabWidget;
 enum class ThemeId : int;
 enum class TerminalPanelPosition : int;
 
-class QTermWidget;
+class TerminalBackend;
 
 class TerminalPanel : public QDockWidget {
     Q_OBJECT
@@ -68,7 +68,7 @@ private:
 
     QWidget *panelWidget;
     QVBoxLayout *mainLayout;
-    QTermWidget *terminalWidget;
+    TerminalBackend *m_backend;
 
     QString m_workingDirectory;
     bool m_isRunning;
