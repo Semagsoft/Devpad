@@ -204,7 +204,15 @@ void TerminalPanel::setWorkingDirectory(const QString &path) {
     m_workingDirectory = path;
     if (m_backend && m_isRunning) {
         m_backend->setWorkingDirectory(path);
+<<<<<<< Updated upstream
         m_backend->sendText(QString("cd \"%1\" && clear\n").arg(path));
+=======
+    #ifdef Q_OS_WIN
+        m_backend->sendText(QString("cd \"%1\" && cls\n").arg(path));
+    #else
+        m_backend->sendText(QString("cd \"%1\" && clear\n").arg(path));
+    #endif
+>>>>>>> Stashed changes
     }
 }
 
