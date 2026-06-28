@@ -19,6 +19,7 @@
 #ifndef ENCODINGUTILS_H
 #define ENCODINGUTILS_H
 
+#include <QByteArray>
 #include <QString>
 #include <QStringConverter>
 #include <QVector>
@@ -28,7 +29,14 @@ struct EncodingInfo {
     QStringConverter::Encoding encoding;
 };
 
-QVector<EncodingInfo> supportedEncodings();
+struct BomResult {
+    int size = 0;
+    QString encodingName;
+};
+
+BomResult detectBom(const QByteArray &data);
+
+const QVector<EncodingInfo>& supportedEncodings();
 QStringConverter::Encoding encodingFromName(const QString &name);
 QString encodingToDisplayName(QStringConverter::Encoding enc);
 

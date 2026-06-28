@@ -29,31 +29,8 @@
 
 namespace {
 
-struct BomResult {
-    int size = 0;
-    QString encodingName;
-};
-
-BomResult detectBom(const QByteArray &data) {
-    if (data.size() >= 3 && data.first(3) == QByteArray("\xEF\xBB\xBF", 3)) {
-        return {3, "UTF-8"};
-    }
-    if (data.size() >= 4 && data.first(4) == QByteArray("\x00\x00\xFE\xFF", 4)) {
-        return {4, "UTF-32BE"};
-    }
-    if (data.size() >= 4 && data.first(4) == QByteArray("\xFF\xFE\x00\x00", 4)) {
-        return {4, "UTF-32LE"};
-    }
-    if (data.size() >= 2 && data.first(2) == QByteArray("\xFE\xFF", 2)) {
-        return {2, "UTF-16BE"};
-    }
-    if (data.size() >= 2 && data.first(2) == QByteArray("\xFF\xFE", 2)) {
-        return {2, "UTF-16LE"};
-    }
-    return {0, QString()};
-}
-
-constexpr qint64 MaxFileSize = 100 * 1024 * 1024; // 100 MB
+constexpr qint64 MaxFileSize = 100 * 1024 * 1024;
+constexpr qint64 WarningFileSize = 50 * 1024 * 1024;
 }
 
 FileManager::FileManager(QObject *parent)
@@ -85,6 +62,12 @@ bool FileManager::loadFile(const QString &fileName, CodeEditor *editor, const QS
         emit error(m_lastError);
         file.close();
         return false;
+    }
+
+    if (fileSize > WarningFileSize) {
+        QString warnMsg = tr("File is large (%1 MB). Opening may take a moment.")
+            .arg(fileSize / (1024 * 1024));
+        Logger::instance().warning(warnMsg);
     }
 
     QByteArray rawData = file.readAll();

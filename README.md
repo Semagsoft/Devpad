@@ -1,22 +1,29 @@
-# Devpad
+﻿# Devpad
 
 A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 
 ## Features
 
 - Multi-tab editor with QScintilla (syntax highlighting, code folding, brace matching, auto-indentation)
-- Syntax highlighting for: C/C++, C#, Java, Python, JavaScript, HTML, CSS, XML, SQL, Bash
+- Syntax highlighting for: C/C++, C#, Java, Python, JavaScript, HTML, CSS, XML, SQL, Bash, CMake, Markdown
 - Auto-completion with language keywords
 - Auto-close brackets and quotes
 - Find, Replace, Go To Line, Find Next/Previous
-- Embedded terminal panel (QTermWidget) — docked or as a tab
+- Find in Files with regex, whole word, and case-sensitive search
+- Snippet expansion with tab-stop navigation and predictive auto-completion
+- Bookmark lines per tab
+- Toggle line/block comments
+- Embedded terminal panel (QTermWidget/KodoTerm) — docked or as a tab
 - Project panel with file tree, file type icons, filter/search, recent folders
+- Split view with drag-and-drop tab reordering across panes
 - Drag-and-drop file opening
 - External file change detection with reload prompt
 - Auto-save with backup and recovery prompt
 - Session management (restore tabs and project folder on next launch)
 - Encoding support (UTF-8/16/32, ISO-8859-1, System) with BOM detection and reopen/save with encoding
 - Print and Print Preview with full syntax highlighting
+- Remote file download via HTTP/HTTPS/SSH
+- External tools integration with configurable commands and shortcuts
 - 7 themes: Light, Dark, Nord, Solarized Light, Monokai, Gruvbox Dark, System
 - Zoom in/out/reset, fullscreen mode (F11)
 - Read-only mode toggle per tab
@@ -25,11 +32,13 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 - Status bar with line/column, file type, encoding selector
 - Recent files list, recent folders list
 - Command-line: open files and folders by passing paths as arguments
+- Internationalization: German, Spanish, French translations
+- Easter egg: click the Devpad icon in the About dialog
 
 ## Requirements
 
-- Qt6 (Core, Gui, Widgets, PrintSupport)
-- qtermwidget6
+- Qt6 (Core, Gui, Widgets, PrintSupport, Network, Multimedia, Svg)
+- qtermwidget6 (not needed on Windows — KodoTerm is fetched automatically)
 - QScintilla (qt6 variant, e.g. `qscintilla2-qt6`)
 - CMake 3.23 or higher
 - C++17 compatible compiler
@@ -51,18 +60,42 @@ sudo pacman -S qt6-base qtermwidget qscintilla cmake gcc
 sudo dnf install qt6-qtbase-devel qtermwidget-devel qscintilla-qt6-devel cmake gcc-c++
 ```
 
+**Windows (vcpkg):**
+```powershell
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg && .\bootstrap-vcpkg.bat
+.\vcpkg install qt6 qscintilla
+cd ..
+cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake"
+cmake --build build -j
+```
+
+**Windows (MSYS2 UCRT64):**
+```bash
+pacman -S mingw-w64-ucrt-x86_64-qt6 mingw-w64-ucrt-x86_64-qscintilla \
+          mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-gcc
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+```
+
 ## Building
 
 ```bash
-mkdir build
-cd build
-cmake ..
-make
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
 ```
 
 Install system-wide (requires root):
 ```bash
-cmake --install .
+cmake --install build
+```
+
+### Building with tests
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
+cmake --build build -j$(nproc)
+ctest --test-dir build --output-on-failure
 ```
 
 ## Usage
@@ -86,6 +119,6 @@ Backups and logs are stored in `~/.local/share/devpad/`.
 
 ## License
 
-GNU General Public License v2.0 only.
+GNU General Public License v2.0 or later.
 
-SPDX-License-Identifier: GPL-2.0-only
+SPDX-License-Identifier: GPL-2.0-or-later

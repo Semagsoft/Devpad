@@ -15,6 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ * ── OpenSSL Requirement ──────────────────────────────────────────
+ *
+ * HTTPS downloads use QNetworkAccessManager which depends on OpenSSL
+ * at runtime. On Linux, install openssl (or libssl-dev / openssl-devel).
+ * Without it, HTTPS requests will fail silently with an SSL handshake
+ * error. HTTP (non-TLS) and SSH (SCP) transports do not require OpenSSL.
  */
 #ifndef REMOTEFILESERVICE_H
 #define REMOTEFILESERVICE_H

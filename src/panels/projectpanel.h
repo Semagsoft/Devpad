@@ -43,6 +43,7 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
 
     void setFolderIcons(const QIcon &closed, const QIcon &open);
+    void setHiddenFolderIcon(const QIcon &icon);
     void setExpandedFolders(const QSet<QString> &paths);
     const QSet<QString>& expandedFolders() const { return m_expandedFolders; }
     void notifyDataChanged(const QModelIndex &index);
@@ -55,6 +56,7 @@ private:
     QString m_filterText;
     QIcon m_closedFolderIcon;
     QIcon m_openFolderIcon;
+    QIcon m_hiddenFolderIcon;
     QSet<QString> m_expandedFolders;
     QFileIconProvider m_fileIconProvider;
 };
@@ -88,6 +90,7 @@ private slots:
 private:
     void setupUI();
     void applyFilter();
+    void reloadFilter();
     void buildRecentFoldersMenu(QMenu *menu);
     QString filePathFromIndex(const QModelIndex &index) const;
     bool isWithinRoot(const QString &path) const;

@@ -29,7 +29,7 @@ class QTabWidget;
 enum class ThemeId : int;
 enum class TerminalPanelPosition : int;
 
-class QTermWidget;
+class TerminalBackend;
 
 class TerminalPanel : public QDockWidget {
     Q_OBJECT
@@ -41,19 +41,22 @@ public:
     void setWorkingDirectory(const QString &path);
     QString workingDirectory() const;
 
+    void sendCommand(const QString &command);
+    void refreshTheme();
     void toggle(QTabWidget *tabWidget, QMainWindow *mainWindow);
     void applyPosition(TerminalPanelPosition pos, QTabWidget *tabWidget, QMainWindow *mainWindow);
 
 signals:
     void terminalStarted();
     void terminalStopped();
+    void sessionExited();
 
 private slots:
     void onSessionFinished();
-    void onCurrentDirectoryChanged(const QString &dir);
 
 protected:
     void showEvent(QShowEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:
     void extractColorSchemes();
@@ -65,7 +68,7 @@ private:
 
     QWidget *panelWidget;
     QVBoxLayout *mainLayout;
-    QTermWidget *terminalWidget;
+    TerminalBackend *m_backend;
 
     QString m_workingDirectory;
     bool m_isRunning;

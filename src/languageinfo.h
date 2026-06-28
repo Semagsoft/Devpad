@@ -32,6 +32,15 @@ using LexerFactory = std::function<QsciLexer*(QObject* parent)>;
 using KeywordProvider = std::function<const QStringList&()>;
 using ThemeApplicator = std::function<void(QsciLexer*, const ThemeColors&)>;
 
+struct CommentSyntax
+{
+    QString lineComment;
+    QString blockCommentStart;
+    QString blockCommentEnd;
+};
+
+const CommentSyntax* commentSyntaxForLanguage(const QString& language);
+
 struct LanguageInfo
 {
     QString name;
@@ -39,6 +48,7 @@ struct LanguageInfo
     LexerFactory factory;
     KeywordProvider keywords;
     ThemeApplicator themeApplicator;
+    CommentSyntax commentSyntax;
 };
 
 const ThemeApplicator& cppThemeApplicator();

@@ -1,5 +1,8 @@
 build/
+build-asan/
 *.user
+compile_commands.json
+.cache/
 *.cbp
 *.layout
 CMakeFiles/

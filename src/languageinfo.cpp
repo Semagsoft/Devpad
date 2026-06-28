@@ -258,49 +258,51 @@ const std::vector<LanguageInfo>& languageTable()
 {
     static const std::vector<LanguageInfo> table = {
         {"cpp", "QsciLexerCPP", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); }, cppKeywords,
-         cppThemeApplicator()},
+         cppThemeApplicator(), {"//", "/*", "*/"}},
         {"c", "QsciLexerCPP", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); }, cppKeywords,
-         cppThemeApplicator()},
+         cppThemeApplicator(), {"//", "/*", "*/"}},
         {"h", "QsciLexerCPP", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); }, cppKeywords,
-         cppThemeApplicator()},
+         cppThemeApplicator(), {"//", "/*", "*/"}},
         {"hpp", "QsciLexerCPP", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); }, cppKeywords,
-         cppThemeApplicator()},
+         cppThemeApplicator(), {"//", "/*", "*/"}},
         {"csharp", "QsciLexerCSharp", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCSharp(parent); }, csharpKeywords,
-         csharpThemeApplicator()},
+         csharpThemeApplicator(), {"//", "/*", "*/"}},
         {"java", "QsciLexerJava", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJava(parent); }, javaKeywords,
-         javaThemeApplicator()},
+         javaThemeApplicator(), {"//", "/*", "*/"}},
         {"python", "QsciLexerPython", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerPython(parent); }, pythonKeywords,
-         pythonThemeApplicator()},
+         pythonThemeApplicator(), {"#",  "",   ""}},
         {"javascript", "QsciLexerJavaScript", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
-         javascriptKeywords, javascriptThemeApplicator()},
+         javascriptKeywords, javascriptThemeApplicator(), {"//", "/*", "*/"}},
         {"html", "QsciLexerHTML", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerHTML(parent); }, htmlKeywords,
-         htmlThemeApplicator()},
+         htmlThemeApplicator(), {"",   "<!--", "-->"}},
         {"htm", "QsciLexerHTML", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerHTML(parent); }, htmlKeywords,
-         htmlThemeApplicator()},
+         htmlThemeApplicator(), {"",   "<!--", "-->"}},
         {"css", "QsciLexerCSS", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCSS(parent); }, cssKeywords,
-         cssThemeApplicator()},
+         cssThemeApplicator(), {"//", "/*", "*/"}},
         {"xml", "QsciLexerXML", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerXML(parent); }, xmlKeywords,
-         xmlThemeApplicator()},
+         xmlThemeApplicator(), {"",   "<!--", "-->"}},
         {"sql", "QsciLexerSQL", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerSQL(parent); }, sqlKeywords,
-         sqlThemeApplicator()},
+         sqlThemeApplicator(), {"--", "/*", "*/"}},
         {"typescript", "QsciLexerJavaScript", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
-         typescriptKeywords, javascriptThemeApplicator()},
+         typescriptKeywords, javascriptThemeApplicator(), {"//", "/*", "*/"}},
         {"ts", "QsciLexerJavaScript", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
-         typescriptKeywords, javascriptThemeApplicator()},
+         typescriptKeywords, javascriptThemeApplicator(), {"//", "/*", "*/"}},
         {"tsx", "QsciLexerJavaScript", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
-         typescriptKeywords, javascriptThemeApplicator()},
+         typescriptKeywords, javascriptThemeApplicator(), {"//", "/*", "*/"}},
         {"rust", "QsciLexerCPP", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); }, rustKeywords,
-         cppThemeApplicator()},
+         cppThemeApplicator(), {"//", "/*", "*/"}},
         {"rs", "QsciLexerCPP", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); }, rustKeywords,
-         cppThemeApplicator()},
+         cppThemeApplicator(), {"//", "/*", "*/"}},
         {"go", "QsciLexerCPP", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); }, goKeywords,
-         cppThemeApplicator()},
+         cppThemeApplicator(), {"//", "/*", "*/"}},
         {"markdown", "QsciLexerMarkdown", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerMarkdown(parent); },
-         markdownKeywords, markdownThemeApplicator()},
+         markdownKeywords, markdownThemeApplicator(), {"",   "",   ""}},
         {"md", "QsciLexerMarkdown", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerMarkdown(parent); }, markdownKeywords,
-         markdownThemeApplicator()},
+         markdownThemeApplicator(), {"",   "",   ""}},
         {"cmake", "QsciLexerCMake", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCMake(parent); }, cmakeKeywords,
-         cmakeThemeApplicator()},
+         cmakeThemeApplicator(), {"#",  "#[[", "]]"}},
+        {"bash", "QsciLexerBash", []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerBash(parent); }, bashKeywords,
+         bashThemeApplicator(), {"#",  "",   ""}},
     };
     return table;
 }
@@ -314,6 +316,17 @@ const LanguageInfo* findLanguage(const QString& name)
         {
             return &lang;
         }
+    }
+    return nullptr;
+}
+
+const CommentSyntax* commentSyntaxForLanguage(const QString& language)
+{
+    const auto& table = languageTable();
+    for (const auto& lang : table)
+    {
+        if (lang.name == language)
+            return &lang.commentSyntax;
     }
     return nullptr;
 }

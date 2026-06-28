@@ -1,3 +1,4 @@
+#include "codeeditor.h"
 #include "filemanager.h"
 
 #include <QByteArray>
@@ -123,4 +124,106 @@ TEST_F(FileManagerTest, LastErrorIsEmptyByDefault)
 {
     FileManager mgr;
     EXPECT_TRUE(mgr.lastError().isEmpty());
+}
+
+TEST_F(FileManagerTest, SaveAndLoadRoundTrip)
+{
+    CodeEditor editor;
+    editor.setText("Hello, World!\nSecond line");
+    editor.setFileName(testFilePath("roundtrip.txt"));
+
+    FileManager mgr;
+    EXPECT_TRUE(mgr.saveFile(testFilePath("roundtrip.txt"), &editor));
+
+    CodeEditor editor2;
+    EXPECT_TRUE(mgr.loadFile(testFilePath("roundtrip.txt"), &editor2));
+    EXPECT_EQ(editor2.text(), "Hello, World!\nSecond line");
+    EXPECT_EQ(editor2.fileName(), testFilePath("roundtrip.txt"));
+    EXPECT_FALSE(editor2.isModified());
+}
+
+TEST_F(FileManagerTest, SaveFileWithEncoding)
+{
+    CodeEditor editor;
+    editor.setText("Test content");
+    editor.setEncoding("UTF-8");
+
+    FileManager mgr;
+    EXPECT_TRUE(mgr.saveFile(testFilePath("utf8.txt"), &editor, "UTF-8"));
+
+    QFile file(testFilePath("utf8.txt"));
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    QByteArray content = file.readAll();
+    file.close();
+    // FileManager writes UTF-8 BOM prefix for UTF-8 encoding
+    EXPECT_TRUE(content.contains(QByteArray("Test content")));
+    EXPECT_TRUE(content.startsWith(QByteArray("\xEF\xBB\xBF", 3)));
+    EXPECT_EQ(FileManager::detectEncoding(content), "UTF-8");
+}
+
+TEST_F(FileManagerTest, SaveWithBom)
+{
+    CodeEditor editor;
+    editor.setText("BOM test");
+    editor.setEncoding("UTF-8");
+
+    FileManager mgr;
+    EXPECT_TRUE(mgr.saveFile(testFilePath("bom_test.txt"), &editor, "UTF-8"));
+
+    QFile file(testFilePath("bom_test.txt"));
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    QByteArray content = file.readAll();
+    file.close();
+
+    // UTF-8 BOM is EF BB BF
+    ASSERT_GE(content.size(), 3);
+    EXPECT_EQ(content.mid(0, 3), QByteArray("\xEF\xBB\xBF", 3));
+    EXPECT_EQ(content.mid(3), QByteArray("BOM test"));
+}
+
+TEST_F(FileManagerTest, LoadNonExistentFile)
+{
+    CodeEditor editor;
+    FileManager mgr;
+    EXPECT_FALSE(mgr.loadFile(testFilePath("nonexistent.txt"), &editor));
+    EXPECT_FALSE(mgr.lastError().isEmpty());
+}
+
+TEST_F(FileManagerTest, SaveToNonWritableLocation)
+{
+    CodeEditor editor;
+    editor.setText("test");
+    editor.setFileName("/nonexistent_dir/file.txt");
+
+    FileManager mgr;
+    EXPECT_FALSE(mgr.saveFile("/nonexistent_dir/file.txt", &editor));
+    EXPECT_FALSE(mgr.lastError().isEmpty());
+}
+
+TEST_F(FileManagerTest, SaveAndReloadPreservesUtf8Content)
+{
+    CodeEditor editor;
+    QString unicodeText = QString::fromUtf8("Hello \u00E9\u00E0\u00FC World! \u2603"); // éàü ☃
+    editor.setText(unicodeText);
+
+    FileManager mgr;
+    EXPECT_TRUE(mgr.saveFile(testFilePath("unicode.txt"), &editor, "UTF-8"));
+
+    CodeEditor editor2;
+    EXPECT_TRUE(mgr.loadFile(testFilePath("unicode.txt"), &editor2));
+    EXPECT_EQ(editor2.text(), unicodeText);
+}
+
+TEST_F(FileManagerTest, SaveAndReloadRoundTripEncodingPreserved)
+{
+    CodeEditor editor;
+    editor.setText("Encoding test");
+    editor.setEncoding("UTF-16LE");
+
+    FileManager mgr;
+    EXPECT_TRUE(mgr.saveFile(testFilePath("utf16le.txt"), &editor, "UTF-16LE"));
+
+    CodeEditor editor2;
+    EXPECT_TRUE(mgr.loadFile(testFilePath("utf16le.txt"), &editor2, "UTF-16LE"));
+    EXPECT_EQ(editor2.text(), "Encoding test");
 }

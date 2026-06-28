@@ -35,7 +35,7 @@ public:
     void unwatchFile(const QString &filePath);
     void unwatchAll();
 
-    QDateTime lastKnownModification(const QString &filePath) const;
+    void updateModificationTime(const QString &filePath);
 
 signals:
     void fileModifiedExternally(const QString &filePath);

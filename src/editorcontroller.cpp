@@ -27,6 +27,7 @@
 #include "filewatchermanager.h"
 #include "logger.h"
 #include "settingsmanager.h"
+#include "snippetmanager.h"
 #include "tabmanager.h"
 
 #include <QApplication>
@@ -34,6 +35,7 @@
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QPointer>
 #include <QTabWidget>
 
 #include <Qsci/qsciscintilla.h>
@@ -70,8 +72,9 @@ void EditorController::newFile()
 bool EditorController::saveFile()
 {
     CodeEditor* editor = currentEditor();
-    if (!editor)
+    if (!editor) {
         return false;
+    }
 
     if (editor->isReadOnlyMode())
     {
@@ -91,12 +94,15 @@ bool EditorController::saveFile()
 
 bool EditorController::saveFileAs()
 {
-    CodeEditor* editor = currentEditor();
+    QPointer<CodeEditor> editor = currentEditor();
     if (!editor)
         return false;
 
     QString fileName = QFileDialog::getSaveFileName(qobject_cast<QWidget*>(parent()), tr("Save File As"), QString(), Strings::fileFilter());
     if (fileName.isEmpty())
+        return false;
+
+    if (!editor)
         return false;
 
     editor->setFileName(fileName);
@@ -107,12 +113,16 @@ bool EditorController::saveFileAs()
 
 void EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
 {
-    if (!m_fileManager->saveFile(fileName, editor))
+    m_fileWatcherManager->unwatchFile(fileName);
+    bool saved = m_fileManager->saveFile(fileName, editor);
+    if (!saved)
     {
+        m_fileWatcherManager->watchFile(fileName);
         QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot save file: ") + fileName);
         return;
     }
     m_tabManager->updateTabTitle(editor);
+    m_fileWatcherManager->watchFile(fileName);
     emit fileSaved(fileName);
 }
 
@@ -121,7 +131,7 @@ void EditorController::saveAll()
     int skippedCount = 0;
     for (int i = 0; i < m_tabManager->count(); ++i)
     {
-        CodeEditor* editor = m_tabManager->editorAt(i);
+        QPointer<CodeEditor> editor = m_tabManager->editorAt(i);
         if (editor && editor->isModified())
         {
             if (editor->fileName() == Strings::untitled() || editor->fileName().isEmpty())
@@ -133,9 +143,17 @@ void EditorController::saveAll()
                     skippedCount++;
                     continue;
                 }
+
+                if (!editor)
+                {
+                    skippedCount++;
+                    continue;
+                }
+
                 editor->setFileName(fileName);
                 saveEditor(editor, fileName);
-                m_tabManager->updateTabTitle(editor);
+                if (editor)
+                    m_tabManager->updateTabTitle(editor);
             }
             else
             {
@@ -376,6 +394,45 @@ void EditorController::clearBookmarks()
     }
 }
 
+void EditorController::insertSnippet()
+{
+    CodeEditor* editor = currentEditor();
+    if (!editor || editor->isReadOnly())
+        return;
+
+    if (SnippetManager* sm = SnippetManager::instance())
+    {
+        QList<Snippet> snippets = sm->snippetsForLanguage(editor->syntax());
+        if (snippets.isEmpty())
+            return;
+
+        QStringList names;
+        for (const auto& s : snippets)
+            names << s.name;
+
+        bool ok;
+        QString chosen = QInputDialog::getItem(
+            qobject_cast<QWidget*>(parent()), tr("Insert Snippet"),
+            tr("Select a snippet:"), names, 0, false, &ok);
+
+        if (ok && !chosen.isEmpty())
+        {
+            Snippet snip = sm->snippetByName(chosen);
+            if (!snip.prefix.isEmpty())
+            {
+                editor->insertSnippet(snip);
+            }
+        }
+    }
+}
+
+void EditorController::toggleComment()
+{
+    CodeEditor* editor = currentEditor();
+    if (editor && !editor->isReadOnly())
+        editor->toggleComment();
+}
+
 void EditorController::updateUndoRedoState()
 {
     CodeEditor* editor = currentEditor();
@@ -426,6 +483,7 @@ void EditorController::autoSave()
                 {
                     if (m_fileManager->saveFile(fileName, editor))
                     {
+                        m_fileWatcherManager->updateModificationTime(fileName);
                         m_tabManager->updateTabTitle(editor);
                         emit fileSaved(fileName);
                         Logger::instance().debug(QString("Auto-saved file: %1").arg(fileName));
@@ -437,6 +495,13 @@ void EditorController::autoSave()
                     {
                         Logger::instance().debug(QString("Auto-saved backup: %1").arg(fileName));
                     }
+                }
+            }
+            else
+            {
+                if (BackupManager::saveBackup(fileName, editor->text()))
+                {
+                    Logger::instance().debug(QString("Auto-saved backup: %1").arg(fileName));
                 }
             }
         }
@@ -496,6 +561,92 @@ void EditorController::connectEditorSignals(CodeEditor* editor)
                 }
             });
     emit editorConnected(editor);
+}
+
+CodeEditor* EditorController::openFile(const QString& fileName, const QString& encoding)
+{
+    CodeEditor* editor = m_tabManager->createEditor();
+
+    if (!m_fileManager->loadFile(fileName, editor, encoding))
+    {
+        editor->setParent(nullptr);
+        editor->deleteLater();
+        return nullptr;
+    }
+
+    SettingsManager::instance().applyToEditor(editor);
+
+    QString syntax = SettingsManager::instance().syntaxForFile(fileName);
+    if (!syntax.isEmpty())
+        editor->setSyntax(syntax);
+
+    connectEditorSignals(editor);
+
+    QFileInfo fileInfo(fileName);
+    if (!fileInfo.isWritable())
+        editor->setReadOnlyMode(true);
+
+    m_tabManager->addEditor(editor, fileInfo.fileName());
+    m_fileWatcherManager->watchFile(fileName);
+
+    return editor;
+}
+
+void EditorController::reloadWithEncoding(const QString& encoding)
+{
+    CodeEditor* editor = currentEditor();
+    if (!editor)
+        return;
+
+    QString fileName = editor->fileName();
+    if (fileName.isEmpty() || fileName == Strings::untitled())
+    {
+        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"),
+                             tr("Cannot reopen an unsaved file."));
+        return;
+    }
+
+    QList<int> bookmarks = editor->bookmarkLines();
+    QString syntax = editor->syntax();
+    if (!maybeSave(editor))
+        return;
+
+    int idx = m_tabManager->indexOf(editor);
+    if (idx >= 0)
+        m_tabManager->closeEditor(idx);
+
+    CodeEditor* newEditor = openFile(fileName, encoding);
+    if (newEditor)
+    {
+        if (!syntax.isEmpty())
+            newEditor->setSyntax(syntax);
+        newEditor->setBookmarks(bookmarks);
+    }
+}
+
+void EditorController::saveWithEncoding(const QString& encoding)
+{
+    CodeEditor* editor = currentEditor();
+    if (!editor)
+        return;
+
+    QString fileName = editor->fileName();
+    if (fileName.isEmpty() || fileName == Strings::untitled())
+    {
+        if (saveFileAs())
+        {
+            editor = currentEditor();
+            if (editor)
+            {
+                editor->setEncoding(encoding);
+                saveEditor(editor, editor->fileName());
+            }
+        }
+        return;
+    }
+
+    editor->setEncoding(encoding);
+    saveEditor(editor, fileName);
 }
 
 void EditorController::applyDefaultSyntax(CodeEditor* editor) const

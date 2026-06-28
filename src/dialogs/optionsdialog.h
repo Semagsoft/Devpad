@@ -28,6 +28,10 @@
 #include <QTabWidget>
 #include <QScrollArea>
 #include <QGroupBox>
+#include <QTableWidget>
+#include "dialogsettings.h"
+
+class ThemePreviewWidget;
 
 class OptionsDialog : public QDialog {
     Q_OBJECT
@@ -36,14 +40,24 @@ public:
     explicit OptionsDialog(QWidget *parent = nullptr);
     ~OptionsDialog() override;
 
+signals:
+    void themeChanged();
+
 private slots:
     void accept() override;
+    void reject() override;
 
 private:
     void setupUI();
     QWidget* createScrollContainer(QWidget *content);
+    void setupGeneralTab();
+    void setupAppearanceTab();
+    void setupEditorTab();
+    void setupPanelsTab();
+    void setupLspTab();
     void loadSettings();
     void saveSettings();
+    void updateThemePreview();
 
     QTabWidget *tabWidget;
 
@@ -77,10 +91,22 @@ private:
     QSpinBox *autoCompletionThresholdSpin;
     QCheckBox *autoCompletionCaseSensitiveCheckBox;
     QCheckBox *autoCloseBracketsCheckBox;
+    QCheckBox *snippetsCheckBox;
+    QCheckBox *predictiveSnippetsCheckBox;
     QCheckBox *autoSaveCheckBox;
     QSpinBox *autoSaveIntervalSpin;
     QCheckBox *showHiddenFilesCheckBox;
     QComboBox *projectPanelPositionComboBox;
+    ThemePreviewWidget *themePreview;
+    QPushButton *accentColorButton;
+    QColor m_accentColor;
+    DialogSettings m_geometrySettings;
+
+    // LSP settings
+    QCheckBox *lspEnabledCheckBox;
+    QCheckBox *lspShowErrorListCheckBox;
+    QSpinBox *lspCompletionTriggerSpin;
+    QTableWidget *lspServerTable;
 };
 
 #endif // OPTIONSDIALOG_H

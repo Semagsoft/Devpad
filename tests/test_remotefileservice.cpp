@@ -114,12 +114,36 @@ TEST_F(RemoteFileServiceTest, SshUrlWithPortPassesValidation)
     ASSERT_EQ(statusSpy.count(), 1);
 }
 
-TEST_F(RemoteFileServiceTest, HttpUrlTriggersDownload)
+TEST_F(RemoteFileServiceTest, HttpUrlEmitsStatusSyncBeforeNetwork)
 {
+    // The status message is emitted synchronously before any async network I/O.
+    // This test validates URL parsing and the synchronous preamble, not the actual download.
     QSignalSpy statusSpy(&m_service, &RemoteFileService::statusMessage);
     ASSERT_TRUE(statusSpy.isValid());
 
     m_service.openRemote("http://example.com/file.txt");
+
+    ASSERT_EQ(statusSpy.count(), 1);
+    EXPECT_TRUE(statusSpy.at(0).at(0).toString().contains("Downloading"));
+    // No assertion on downloadFailed/fileDownloaded — those depend on network availability.
+}
+
+TEST_F(RemoteFileServiceTest, HttpUrlInvalidFails)
+{
+    QSignalSpy failSpy(&m_service, &RemoteFileService::downloadFailed);
+    ASSERT_TRUE(failSpy.isValid());
+
+    m_service.openRemote("");
+
+    ASSERT_EQ(failSpy.count(), 1);
+}
+
+TEST_F(RemoteFileServiceTest, HttpsUrlEmitsStatusSyncBeforeNetwork)
+{
+    QSignalSpy statusSpy(&m_service, &RemoteFileService::statusMessage);
+    ASSERT_TRUE(statusSpy.isValid());
+
+    m_service.openRemote("https://example.com/file.txt");
 
     ASSERT_EQ(statusSpy.count(), 1);
     EXPECT_TRUE(statusSpy.at(0).at(0).toString().contains("Downloading"));

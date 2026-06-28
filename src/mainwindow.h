@@ -1,49 +1,36 @@
-/*
- * Devpad - A C++/Qt6 code editor
- * Copyright (C) 2026 Semagsoft
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include "appstrings.h"
 
+#include <QLocalServer>
 #include <QMainWindow>
 #include <QPointer>
-#include <QTabWidget>
-#include <QTimer>
 
-class CodeEditor;
-class EditorController;
-class FindInFilesDialog;
-class AboutDialog;
-class OptionsDialog;
-class FileManager;
-class TabManager;
-class SearchManager;
-class ProjectPanel;
-class TerminalPanel;
 class ActionManager;
-class SessionManager;
+class CodeEditor;
+class ErrorListPanel;
+class FindSymbolsDialog;
+class EditorController;
 class EncodingManager;
-class ThemeApplier;
-class PrintManager;
+class ExternalToolManager;
+class FileManager;
 class FileWatcherManager;
-class SplitView;
+class FindInFilesDialog;
+class PrintManager;
+class ProjectPanel;
 class RemoteFileService;
+class SearchManager;
+class SessionManager;
+class SnippetManager;
+class SplitView;
+class TabManager;
+class TerminalPanel;
+class ThemeApplier;
+
+namespace lsp {
+class LspServerManager;
+} // namespace lsp
 
 class MainWindow : public QMainWindow
 {
@@ -58,35 +45,49 @@ public:
     void openFolderFromPath(const QString& folderPath);
     void openRemoteFileFromData(const QString& urlStr, const QString& fileName, const QByteArray& data);
 
-private slots:
+public slots:
     void newWindow();
     void openFile();
     void openRemote();
     void openFolder();
+    void closeProject();
     void revertFile();
-
     void find();
     void replace();
     void findInFiles();
     void goToLine();
     void findNext();
     void findPrevious();
-
     void toggleFullScreen();
     void toggleProjectPanel();
     void toggleTerminalPanel();
+    void toggleErrorListPanel();
+    void findSymbols();
+    void expandSelection();
+    void shrinkSelection();
     void showAbout();
-
     void showOptions();
+    void runExternalTool(int index);
+    void goToDefinition();
+    void goToTypeDefinition();
+    void goToDeclaration();
+    void formatSelection();
+    void findReferences();
+    void triggerCompletion();
+    void renameSymbol();
     void printFile();
     void printPreview();
+    void pageSetup();
+    void quitDevpad();
 
+private slots:
     void updateStatusBar();
     void updateFileTypeLabel();
     void onTabChanged(int index);
     void onEditorCreated(CodeEditor* editor);
     void openFileFromProject(const QString& filePath);
     void onFileModifiedExternally(const QString& filePath);
+    void onNavigateToLocation(const QString& filePath, int line, int column);
 
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
@@ -96,11 +97,14 @@ protected:
 
 private:
     void setupUI();
-    void connectActions();
+    void wireActions();
     void connectPanelSignals();
     void applyCloseButtonPosition();
     void applyTabBarPosition();
     void applyTerminalPanelPosition();
+    void handleQuitRequest();
+    bool signalOtherInstancesToQuit();
+    bool saveAllModifiedTabs();
     void applySettings();
     void applyStartupMode();
     void applyAutoSaveSettings();
@@ -114,26 +118,40 @@ private:
     void reloadCurrentFileWithEncoding(const QString& encoding);
     void saveCurrentFileWithEncoding(const QString& encoding);
 
-    QTabWidget* tabWidget;
-    SplitView* splitView;
-    ProjectPanel* projectPanel;
-    TerminalPanel* terminalPanel;
+    // Owned: child widgets (parent=this), destroyed by Qt parent mechanism
+    QTabWidget* m_tabWidget;
+    SplitView* m_splitView;
+    ProjectPanel* m_projectPanel;
+    TerminalPanel* m_terminalPanel;
 
-    EditorController* editorController;
-    ActionManager* actionManager;
-    SessionManager* sessionManager;
-    EncodingManager* encodingManager;
-    ThemeApplier* themeApplier;
-    PrintManager* printManager;
+    // Owned: QObject children (parent=this), destroyed automatically
+    EditorController* m_editorController;
+    ActionManager* m_actionManager;
+    SessionManager* m_sessionManager;
+    EncodingManager* m_encodingManager;
+    ThemeApplier* m_themeApplier;
+    PrintManager* m_printManager;
 
-    FileManager* fileManager;
-    TabManager* tabManager;
-    SearchManager* searchManager;
-    FileWatcherManager* fileWatcherManager;
-    QTimer* autoSaveTimer;
+    // Owned: QObject children (parent=this), destroyed automatically
+    FileManager* m_fileManager;
+    TabManager* m_tabManager;
+    SearchManager* m_searchManager;
+    FileWatcherManager* m_fileWatcherManager;
+    QTimer* m_autoSaveTimer;
 
-    QPointer<FindInFilesDialog> findInFilesDialog;
+    // QPointer: auto-nulls when dialog is destroyed externally
+    QPointer<FindInFilesDialog> m_findInFilesDialog;
+
+    // Owned: QObject children (parent=this), destroyed automatically
+    ExternalToolManager* m_externalToolManager;
     RemoteFileService* m_remoteFileService;
+    SnippetManager* m_snippetManager;
+    lsp::LspServerManager* m_lspServerManager;
+    ErrorListPanel* m_errorListPanel;
+    QPointer<FindSymbolsDialog> m_findSymbolsDialog;
+
+    QLocalServer* m_localServer = nullptr;
+    bool m_quitRequested = false;
 };
 
-#endif
+#endif // MAINWINDOW_H

@@ -1,0 +1,224 @@
+{
+  "For Loop": {
+    "prefix": "for",
+    "body": ["for (${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {", "\t${3}", "}"],
+    "description": "For loop",
+    "scope": "cpp,java,javascript,typescript,csharp,c"
+  },
+  "For Each Loop": {
+    "prefix": "foreach",
+    "body": ["for (${1:type} ${2:item} : ${3:container}) {", "\t${4}", "}"],
+    "description": "For each loop",
+    "scope": "cpp,java,javascript,typescript,csharp"
+  },
+  "While Loop": {
+    "prefix": "while",
+    "body": ["while (${1:condition}) {", "\t${2}", "}"],
+    "description": "While loop",
+    "scope": "cpp,java,javascript,typescript,csharp,c"
+  },
+  "If Statement": {
+    "prefix": "if",
+    "body": ["if (${1:condition}) {", "\t${2}", "}"],
+    "description": "If statement",
+    "scope": "cpp,java,javascript,typescript,csharp,c"
+  },
+  "If Else": {
+    "prefix": "ifelse",
+    "body": ["if (${1:condition}) {", "\t${2}", "} else {", "\t${3}", "}"],
+    "description": "If else statement",
+    "scope": "cpp,java,javascript,typescript,csharp,c"
+  },
+  "Function Definition": {
+    "prefix": "fun",
+    "body": ["${1:return_type} ${2:name}(${3:params}) {", "\t${4}", "}"],
+    "description": "Function definition",
+    "scope": "cpp,java,javascript,typescript,csharp,c"
+  },
+  "Class Definition": {
+    "prefix": "class",
+    "body": ["class ${1:Name} {", "public:", "\t${2:Name}() = default;", "private:", "\t${3}", "};"],
+    "description": "Class definition",
+    "scope": "cpp"
+  },
+  "Struct Definition": {
+    "prefix": "struct",
+    "body": ["struct ${1:Name} {", "\t${2}", "};"],
+    "description": "Struct definition",
+    "scope": "cpp,c"
+  },
+  "Include Guard": {
+    "prefix": "guard",
+    "body": ["#ifndef ${1:HEADER_H}", "#define ${1:HEADER_H}", "", "${2}", "", "#endif // ${1:HEADER_H}"],
+    "description": "Include guard",
+    "scope": "cpp,c"
+  },
+  "Namespace": {
+    "prefix": "namespace",
+    "body": ["namespace ${1:name} {", "${2}", "} // namespace ${1:name}"],
+    "description": "Namespace definition",
+    "scope": "cpp"
+  },
+  "Main Function": {
+    "prefix": "main",
+    "body": ["int main(int argc, char* argv[]) {", "\t${1}", "\treturn 0;", "}"],
+    "description": "Main function",
+    "scope": "cpp,c"
+  },
+  "Print to Console": {
+    "prefix": "print",
+    "body": ["std::cout << ${1} << std::endl;"],
+    "description": "Print to console (C++)",
+    "scope": "cpp"
+  },
+  "C Out": {
+    "prefix": "cout",
+    "body": ["std::cout << ${1} << std::endl;"],
+    "description": "std::cout statement",
+    "scope": "cpp"
+  },
+  "Include": {
+    "prefix": "include",
+    "body": ["#include <${1}>"],
+    "description": "Include directive",
+    "scope": "cpp,c"
+  },
+  "Switch Case": {
+    "prefix": "switch",
+    "body": ["switch (${1:expr}) {", "case ${2:value}:", "\t${3}", "\tbreak;", "default:", "\t${4}", "\tbreak;", "}"],
+    "description": "Switch statement",
+    "scope": "cpp,java,javascript,typescript,csharp,c"
+  },
+  "Lambda": {
+    "prefix": "lambda",
+    "body": ["[${1:capture}](${2:params}) {", "\t${3}", "}"],
+    "description": "Lambda expression",
+    "scope": "cpp,javascript,typescript,csharp"
+  },
+  "Python For Loop": {
+    "prefix": "for",
+    "body": ["for ${1:item} in ${2:iterable}:", "\t${3}"],
+    "description": "For loop",
+    "scope": "python"
+  },
+  "Python While Loop": {
+    "prefix": "while",
+    "body": ["while ${1:condition}:", "\t${2}"],
+    "description": "While loop",
+    "scope": "python"
+  },
+  "Python If": {
+    "prefix": "if",
+    "body": ["if ${1:condition}:", "\t${2}"],
+    "description": "If statement",
+    "scope": "python"
+  },
+  "Python If Else": {
+    "prefix": "ifelse",
+    "body": ["if ${1:condition}:", "\t${2}", "else:", "\t${3}"],
+    "description": "If else statement",
+    "scope": "python"
+  },
+  "Python Function": {
+    "prefix": "def",
+    "body": ["def ${1:name}(${2:params}):", "\t\"\"\"${3:Docstring}\"\"\"", "\t${4}"],
+    "description": "Function definition",
+    "scope": "python"
+  },
+  "Python Class": {
+    "prefix": "class",
+    "body": ["class ${1:Name}:", "\t\"\"\"${2:Docstring}\"\"\"", "", "\tdef __init__(self${3:params}):", "\t\t${4}"],
+    "description": "Class definition",
+    "scope": "python"
+  },
+  "Python Main": {
+    "prefix": "main",
+    "body": ["if __name__ == \"__main__\":", "\t${1}"],
+    "description": "Main guard",
+    "scope": "python"
+  },
+  "JavaScript Function": {
+    "prefix": "fun",
+    "body": ["function ${1:name}(${2:params}) {", "\t${3}", "}"],
+    "description": "Function definition",
+    "scope": "javascript,typescript"
+  },
+  "JavaScript Arrow Function": {
+    "prefix": "arrow",
+    "body": ["const ${1:name} = (${2:params}) => {", "\t${3}", "};"],
+    "description": "Arrow function",
+    "scope": "javascript,typescript"
+  },
+  "Console Log": {
+    "prefix": "log",
+    "body": ["console.log(${1});"],
+    "description": "Console log",
+    "scope": "javascript,typescript"
+  },
+  "TypeScript Interface": {
+    "prefix": "interface",
+    "body": ["interface ${1:Name} {", "\t${2}", "}"],
+    "description": "Interface definition",
+    "scope": "typescript"
+  },
+  "TypeScript Type": {
+    "prefix": "type",
+    "body": ["type ${1:Name} = ${2};"],
+    "description": "Type alias",
+    "scope": "typescript"
+  },
+  "HTML Template": {
+    "prefix": "html",
+    "body": ["<!DOCTYPE html>", "<html lang=\"${1:en}\">", "<head>", "\t<meta charset=\"${2:UTF-8}\">", "\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">", "\t<title>${3:Document}</title>", "</head>", "<body>", "\t${4}", "</body>", "</html>"],
+    "description": "HTML document template",
+    "scope": "html"
+  },
+  "HTML Link": {
+    "prefix": "link",
+    "body": ["<link rel=\"stylesheet\" href=\"${1:style.css}\">"],
+    "description": "Link stylesheet",
+    "scope": "html"
+  },
+  "HTML Script": {
+    "prefix": "script",
+    "body": ["<script src=\"${1:script.js}\"></script>"],
+    "description": "Script tag",
+    "scope": "html"
+  },
+  "SQL Select": {
+    "prefix": "select",
+    "body": ["SELECT ${1:*} FROM ${2:table}${3: WHERE ${4:condition}};"],
+    "description": "SELECT query",
+    "scope": "sql"
+  },
+  "SQL Insert": {
+    "prefix": "insert",
+    "body": ["INSERT INTO ${1:table} (${2:columns}) VALUES (${3:values});"],
+    "description": "INSERT statement",
+    "scope": "sql"
+  },
+  "SQL Create Table": {
+    "prefix": "createtable",
+    "body": ["CREATE TABLE ${1:table_name} (", "\t${2:column} ${3:type},", ");"],
+    "description": "CREATE TABLE statement",
+    "scope": "sql"
+  },
+  "Bash Function": {
+    "prefix": "fun",
+    "body": ["${1:name}() {", "\t${2}", "}"],
+    "description": "Bash function",
+    "scope": "bash"
+  },
+  "Bash If": {
+    "prefix": "if",
+    "body": ["if [[ ${1:condition} ]]; then", "\t${2}", "fi"],
+    "description": "If statement",
+    "scope": "bash"
+  },
+  "Bash For Loop": {
+    "prefix": "for",
+    "body": ["for ${1:item} in ${2:list}; do", "\t${3}", "done"],
+    "description": "For loop",
+    "scope": "bash"
+  }
+}

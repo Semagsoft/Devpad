@@ -71,7 +71,8 @@ void FindInFilesWorker::run() {
 
         bool excluded = false;
         for (const QString &exDir : m_excludeDirs) {
-            if (filePath.contains(exDir)) {
+            if (filePath.startsWith(exDir + '/') || filePath.contains('/' + exDir + '/')
+                || filePath.endsWith('/' + exDir) || filePath == exDir) {
                 excluded = true;
                 break;
             }
@@ -177,6 +178,8 @@ FindInFilesDialog::FindInFilesDialog(const QString &defaultDir, QWidget *parent)
         dirLineEdit->setText(defaultDir);
 
     connect(searchLineEdit, &QLineEdit::returnPressed, this, &FindInFilesDialog::onSearch);
+
+    m_settings.restoreGeometry(this);
 }
 
 FindInFilesDialog::~FindInFilesDialog() {
@@ -394,6 +397,7 @@ void FindInFilesDialog::onResultDoubleClicked(QTreeWidgetItem *item, int column)
 void FindInFilesDialog::closeEvent(QCloseEvent *event) {
     onStop();
     saveSettings();
+    m_settings.saveGeometry(this);
     QDialog::closeEvent(event);
 }
 

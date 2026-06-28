@@ -101,14 +101,9 @@ void SettingsManager::setTestingInstance(SettingsManager* instance)
     s_testInstance = instance;
 }
 
-SettingsManager* SettingsManager::createForTesting()
+std::unique_ptr<SettingsManager> SettingsManager::createForTesting()
 {
-    return new SettingsManager();
-}
-
-void SettingsManager::destroyForTesting(SettingsManager* instance)
-{
-    delete instance;
+    return std::unique_ptr<SettingsManager>(new SettingsManager());
 }
 
 SettingsManager& SettingsManager::instance()
@@ -121,7 +116,7 @@ SettingsManager& SettingsManager::instance()
     return instance;
 }
 
-SettingsManager::SettingsManager()
+SettingsManager::SettingsManager() : QObject(nullptr)
 {
     ensureSettingsVersion();
     loadCache();
@@ -139,7 +134,6 @@ void SettingsManager::ensureSettingsVersion()
 
 void SettingsManager::loadCache()
 {
-    QMutexLocker locker(&m_cacheMutex);
     m_cache.editor.defaultFontFamily = m_settings.value("Options_DefaultFont", "Monospace").toString();
     m_cache.editor.defaultFontSize = m_settings.value("Options_DefaultFontSize", 12).toInt();
     m_cache.editor.showLineNumbers = m_settings.value("Options_ShowLineNumbers", true).toBool();
@@ -160,6 +154,8 @@ void SettingsManager::loadCache()
     m_cache.editor.highlightCurrentLine = m_settings.value("Options_HighlightCurrentLine", true).toBool();
     m_cache.editor.verticalEdgeEnabled = m_settings.value("Options_VerticalEdgeEnabled", false).toBool();
     m_cache.editor.verticalEdgeColumn = m_settings.value("Options_VerticalEdgeColumn", 80).toInt();
+    m_cache.editor.snippetsEnabled = m_settings.value("Options_SnippetsEnabled", true).toBool();
+    m_cache.editor.predictiveSnippets = m_settings.value("Options_PredictiveSnippets", true).toBool();
 
     m_cache.ui.startupMode = static_cast<StartupMode>(m_settings.value("Options_StartupMode", static_cast<int>(StartupMode::NewFile)).toInt());
     m_cache.ui.closeButtonMode =
@@ -168,6 +164,7 @@ void SettingsManager::loadCache()
         static_cast<TabDisplayMode>(m_settings.value("Options_TabDisplayMode", static_cast<int>(TabDisplayMode::ShowTwoPlus)).toInt());
     m_cache.ui.tabBarPosition =
         static_cast<TabBarPosition>(m_settings.value("Options_TabBarPosition", static_cast<int>(TabBarPosition::Top)).toInt());
+    m_cache.ui.showMenuBar = m_settings.value("Options_ShowMenuBar", true).toBool();
     m_cache.ui.showToolbar = m_settings.value("Options_ShowToolbar", true).toBool();
     m_cache.ui.showStatusbar = m_settings.value("Options_ShowStatusbar", true).toBool();
     m_cache.ui.uiFontFamily = m_settings.value("Options_UIFont", "Sans Serif").toString();
@@ -187,272 +184,80 @@ void SettingsManager::loadCache()
     m_cache.project.showHiddenFiles = m_settings.value("Options_ShowHiddenFiles", false).toBool();
     m_cache.project.projectPanelPosition = static_cast<ProjectPanelPosition>(
         m_settings.value("Options_ProjectPanelPosition", static_cast<int>(ProjectPanelPosition::Left)).toInt());
+
+    m_cache.lsp.enabled = m_settings.value("LSP/Enabled", true).toBool();
+    m_cache.lsp.showErrorList = m_settings.value("LSP/ShowErrorList", true).toBool();
+    m_cache.lsp.completionTriggerChars = m_settings.value("LSP/CompletionTriggerChars", 2).toInt();
+
+    QVariant accentVar = m_settings.value("Options_AccentColor");
+    m_cache.hasAccentColor = accentVar.isValid() && accentVar.value<QColor>().isValid();
+    if (m_cache.hasAccentColor)
+        m_cache.accentColor = accentVar.value<QColor>();
 }
 
 SettingsManager::EditorSettings SettingsManager::editorSettings() const
 {
-    QMutexLocker locker(&m_cacheMutex);
     return m_cache.editor;
 }
 
 SettingsManager::UISettings SettingsManager::uiSettings() const
 {
-    QMutexLocker locker(&m_cacheMutex);
     return m_cache.ui;
 }
 
 SettingsManager::TerminalSettings SettingsManager::terminalSettings() const
 {
-    QMutexLocker locker(&m_cacheMutex);
     return m_cache.terminal;
 }
 
 SettingsManager::AutoSaveSettings SettingsManager::autoSaveSettings() const
 {
-    QMutexLocker locker(&m_cacheMutex);
     return m_cache.autoSave;
 }
 
-QString SettingsManager::defaultFontFamily() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.defaultFontFamily;
-}
+QString SettingsManager::defaultFontFamily() const { return m_cache.editor.defaultFontFamily; }
+int SettingsManager::defaultFontSize() const { return m_cache.editor.defaultFontSize; }
+QFont SettingsManager::defaultFont() const { return QFont(defaultFontFamily(), defaultFontSize()); }
+bool SettingsManager::showLineNumbers() const { return m_cache.editor.showLineNumbers; }
+bool SettingsManager::scrollPastContent() const { return m_cache.editor.scrollPastContent; }
+bool SettingsManager::codeCollapsing() const { return m_cache.editor.codeCollapsing; }
+bool SettingsManager::wordWrap() const { return m_cache.editor.wordWrap; }
+ThemeId SettingsManager::theme() const { return m_cache.editor.theme; }
+bool SettingsManager::isDarkTheme() const { return isThemeDark(theme()); }
+ThemeColors SettingsManager::currentThemeColors() const { return getThemeColors(theme()); }
+int SettingsManager::defaultEncoding() const { return m_cache.editor.defaultEncoding; }
+int SettingsManager::defaultFormat() const { return m_cache.editor.defaultFormat; }
+bool SettingsManager::showWhitespace() const { return m_cache.editor.showWhitespace; }
+bool SettingsManager::autoCompletionEnabled() const { return m_cache.editor.autoCompletionEnabled; }
+int SettingsManager::autoCompletionThreshold() const { return m_cache.editor.autoCompletionThreshold; }
+bool SettingsManager::autoCompletionCaseSensitive() const { return m_cache.editor.autoCompletionCaseSensitive; }
+bool SettingsManager::autoCloseBrackets() const { return m_cache.editor.autoCloseBrackets; }
+int SettingsManager::tabWidth() const { return m_cache.editor.tabWidth; }
+CursorStyle SettingsManager::cursorStyle() const { return m_cache.editor.cursorStyle; }
+bool SettingsManager::cursorBlinking() const { return m_cache.editor.cursorBlinking; }
+bool SettingsManager::highlightCurrentLine() const { return m_cache.editor.highlightCurrentLine; }
+bool SettingsManager::verticalEdgeEnabled() const { return m_cache.editor.verticalEdgeEnabled; }
+int SettingsManager::verticalEdgeColumn() const { return m_cache.editor.verticalEdgeColumn; }
 
-int SettingsManager::defaultFontSize() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.defaultFontSize;
-}
-
-QFont SettingsManager::defaultFont() const
-{
-    return QFont(defaultFontFamily(), defaultFontSize());
-}
-
-bool SettingsManager::showLineNumbers() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.showLineNumbers;
-}
-
-bool SettingsManager::scrollPastContent() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.scrollPastContent;
-}
-
-bool SettingsManager::codeCollapsing() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.codeCollapsing;
-}
-
-bool SettingsManager::wordWrap() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.wordWrap;
-}
-
-ThemeId SettingsManager::theme() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.theme;
-}
-
-bool SettingsManager::isDarkTheme() const
-{
-    return isThemeDark(theme());
-}
-
-ThemeColors SettingsManager::currentThemeColors() const
-{
-    return getThemeColors(theme());
-}
-
-int SettingsManager::defaultEncoding() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.defaultEncoding;
-}
-
-int SettingsManager::defaultFormat() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.defaultFormat;
-}
-
-bool SettingsManager::showWhitespace() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.showWhitespace;
-}
-
-bool SettingsManager::autoCompletionEnabled() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.autoCompletionEnabled;
-}
-
-int SettingsManager::autoCompletionThreshold() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.autoCompletionThreshold;
-}
-
-bool SettingsManager::autoCompletionCaseSensitive() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.autoCompletionCaseSensitive;
-}
-
-bool SettingsManager::autoCloseBrackets() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.autoCloseBrackets;
-}
-
-int SettingsManager::tabWidth() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.tabWidth;
-}
-
-CursorStyle SettingsManager::cursorStyle() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.cursorStyle;
-}
-
-bool SettingsManager::cursorBlinking() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.cursorBlinking;
-}
-
-bool SettingsManager::highlightCurrentLine() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.highlightCurrentLine;
-}
-
-bool SettingsManager::verticalEdgeEnabled() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.verticalEdgeEnabled;
-}
-
-int SettingsManager::verticalEdgeColumn() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.editor.verticalEdgeColumn;
-}
-
-CloseButtonMode SettingsManager::closeButtonMode() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.ui.closeButtonMode;
-}
-
-bool SettingsManager::showToolbar() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.ui.showToolbar;
-}
-
-bool SettingsManager::showStatusbar() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.ui.showStatusbar;
-}
-
-TabDisplayMode SettingsManager::tabDisplayMode() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.ui.tabDisplayMode;
-}
-
-TabBarPosition SettingsManager::tabBarPosition() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.ui.tabBarPosition;
-}
-
-QString SettingsManager::uiFontFamily() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.ui.uiFontFamily;
-}
-
-int SettingsManager::uiFontSize() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.ui.uiFontSize;
-}
-
-QFont SettingsManager::uiFont() const
-{
-    return QFont(uiFontFamily(), uiFontSize());
-}
-
-StartupMode SettingsManager::startupMode() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.ui.startupMode;
-}
-
-TerminalPanelPosition SettingsManager::terminalPanelPosition() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.terminal.terminalPanelPosition;
-}
-
-int SettingsManager::terminalPanelMinWidth() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.terminal.terminalPanelMinWidth;
-}
-
-QString SettingsManager::terminalFontFamily() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.terminal.terminalFontFamily;
-}
-
-int SettingsManager::terminalFontSize() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.terminal.terminalFontSize;
-}
-
-QFont SettingsManager::terminalFont() const
-{
-    return QFont(terminalFontFamily(), terminalFontSize());
-}
-
-bool SettingsManager::showTerminalPanel() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.terminal.showTerminalPanel;
-}
-
-bool SettingsManager::autoSaveEnabled() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.autoSave.autoSaveEnabled;
-}
-
-int SettingsManager::autoSaveInterval() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.autoSave.autoSaveInterval;
-}
-
-bool SettingsManager::autoSaveToOriginalFile() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.autoSave.autoSaveToOriginalFile;
-}
+CloseButtonMode SettingsManager::closeButtonMode() const { return m_cache.ui.closeButtonMode; }
+bool SettingsManager::showMenuBar() const { return m_cache.ui.showMenuBar; }
+bool SettingsManager::showToolbar() const { return m_cache.ui.showToolbar; }
+bool SettingsManager::showStatusbar() const { return m_cache.ui.showStatusbar; }
+TabDisplayMode SettingsManager::tabDisplayMode() const { return m_cache.ui.tabDisplayMode; }
+TabBarPosition SettingsManager::tabBarPosition() const { return m_cache.ui.tabBarPosition; }
+QString SettingsManager::uiFontFamily() const { return m_cache.ui.uiFontFamily; }
+int SettingsManager::uiFontSize() const { return m_cache.ui.uiFontSize; }
+QFont SettingsManager::uiFont() const { return QFont(uiFontFamily(), uiFontSize()); }
+StartupMode SettingsManager::startupMode() const { return m_cache.ui.startupMode; }
+TerminalPanelPosition SettingsManager::terminalPanelPosition() const { return m_cache.terminal.terminalPanelPosition; }
+int SettingsManager::terminalPanelMinWidth() const { return m_cache.terminal.terminalPanelMinWidth; }
+QString SettingsManager::terminalFontFamily() const { return m_cache.terminal.terminalFontFamily; }
+int SettingsManager::terminalFontSize() const { return m_cache.terminal.terminalFontSize; }
+QFont SettingsManager::terminalFont() const { return QFont(terminalFontFamily(), terminalFontSize()); }
+bool SettingsManager::showTerminalPanel() const { return m_cache.terminal.showTerminalPanel; }
+bool SettingsManager::autoSaveEnabled() const { return m_cache.autoSave.autoSaveEnabled; }
+int SettingsManager::autoSaveInterval() const { return m_cache.autoSave.autoSaveInterval; }
+bool SettingsManager::autoSaveToOriginalFile() const { return m_cache.autoSave.autoSaveToOriginalFile; }
 
 void SettingsManager::applyToEditor(CodeEditor* editor) const
 {
@@ -475,289 +280,78 @@ void SettingsManager::applyToEditor(CodeEditor* editor) const
     editor->setVerticalEdge(verticalEdgeEnabled(), verticalEdgeColumn());
 }
 
-void SettingsManager::setDefaultFontFamily(const QString& family)
+void SettingsManager::setDefaultFontFamily(const QString& family) { writeCached("Options_DefaultFont", m_cache.editor.defaultFontFamily, family); }
+void SettingsManager::setDefaultFontSize(int size) { writeCached("Options_DefaultFontSize", m_cache.editor.defaultFontSize, size); }
+void SettingsManager::setShowLineNumbers(bool visible) { writeCached("Options_ShowLineNumbers", m_cache.editor.showLineNumbers, visible); }
+void SettingsManager::setScrollPastContent(bool enabled) { writeCached("Options_ScrollPastContent", m_cache.editor.scrollPastContent, enabled); }
+void SettingsManager::setCodeCollapsing(bool enabled) { writeCached("Options_CodeCollapsing", m_cache.editor.codeCollapsing, enabled); }
+void SettingsManager::setWordWrap(bool enabled) { writeCached("Options_WordWrap", m_cache.editor.wordWrap, enabled); }
+void SettingsManager::setTheme(ThemeId theme) { writeCached("Options_Theme", m_cache.editor.theme, theme); }
+QColor SettingsManager::accentColor() const
 {
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_DefaultFont", family);
-    m_cache.editor.defaultFontFamily = family;
+    return m_cache.accentColor;
 }
 
-void SettingsManager::setDefaultFontSize(int size)
+bool SettingsManager::hasAccentColor() const
 {
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_DefaultFontSize", size);
-    m_cache.editor.defaultFontSize = size;
+    return m_cache.hasAccentColor;
 }
 
-void SettingsManager::setShowLineNumbers(bool visible)
+void SettingsManager::setAccentColor(const QColor &color)
 {
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_ShowLineNumbers", visible);
-    m_cache.editor.showLineNumbers = visible;
+    m_cache.accentColor = color;
+    m_cache.hasAccentColor = color.isValid();
+    m_settings.setValue("Options_AccentColor", color);
+    settingsChanged();
 }
 
-void SettingsManager::setScrollPastContent(bool enabled)
+void SettingsManager::clearAccentColor()
 {
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_ScrollPastContent", enabled);
-    m_cache.editor.scrollPastContent = enabled;
+    m_cache.accentColor = QColor();
+    m_cache.hasAccentColor = false;
+    m_settings.remove("Options_AccentColor");
 }
+void SettingsManager::setDefaultEncoding(int encoding) { writeCached("Options_DefaultEncoding", m_cache.editor.defaultEncoding, encoding); }
+void SettingsManager::setDefaultFormat(int format) { writeCached("Options_DefaultFormat", m_cache.editor.defaultFormat, format); }
 
-void SettingsManager::setCodeCollapsing(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_CodeCollapsing", enabled);
-    m_cache.editor.codeCollapsing = enabled;
-}
+void SettingsManager::setShowWhitespace(bool visible) { writeCached("Options_ShowWhitespace", m_cache.editor.showWhitespace, visible); }
+void SettingsManager::setAutoCompletionEnabled(bool enabled) { writeCached("Options_AutoCompletion", m_cache.editor.autoCompletionEnabled, enabled); }
+void SettingsManager::setAutoCompletionThreshold(int threshold) { writeCached("Options_AutoCompletionThreshold", m_cache.editor.autoCompletionThreshold, threshold); }
+void SettingsManager::setAutoCompletionCaseSensitive(bool sensitive) { writeCached("Options_AutoCompletionCaseSensitive", m_cache.editor.autoCompletionCaseSensitive, sensitive); }
+void SettingsManager::setAutoCloseBrackets(bool enabled) { writeCached("Options_AutoCloseBrackets", m_cache.editor.autoCloseBrackets, enabled); }
+void SettingsManager::setTabWidth(int width) { writeCached("Options_TabWidth", m_cache.editor.tabWidth, width); }
+void SettingsManager::setCursorStyle(CursorStyle style) { writeCached("Options_CursorStyle", m_cache.editor.cursorStyle, style); }
+void SettingsManager::setCursorBlinking(bool enabled) { writeCached("Options_CursorBlinking", m_cache.editor.cursorBlinking, enabled); }
+void SettingsManager::setHighlightCurrentLine(bool enabled) { writeCached("Options_HighlightCurrentLine", m_cache.editor.highlightCurrentLine, enabled); }
+void SettingsManager::setVerticalEdgeEnabled(bool enabled) { writeCached("Options_VerticalEdgeEnabled", m_cache.editor.verticalEdgeEnabled, enabled); }
+void SettingsManager::setVerticalEdgeColumn(int column) { writeCached("Options_VerticalEdgeColumn", m_cache.editor.verticalEdgeColumn, column); }
+bool SettingsManager::snippetsEnabled() const { return m_cache.editor.snippetsEnabled; }
+bool SettingsManager::predictiveSnippets() const { return m_cache.editor.predictiveSnippets; }
+void SettingsManager::setSnippetsEnabled(bool enabled) { writeCached("Options_SnippetsEnabled", m_cache.editor.snippetsEnabled, enabled); }
+void SettingsManager::setPredictiveSnippets(bool enabled) { writeCached("Options_PredictiveSnippets", m_cache.editor.predictiveSnippets, enabled); }
+void SettingsManager::setStartupMode(StartupMode mode) { writeCached("Options_StartupMode", m_cache.ui.startupMode, mode); }
+void SettingsManager::setCloseButtonMode(CloseButtonMode mode) { writeCached("Options_CloseButtonMode", m_cache.ui.closeButtonMode, mode); }
+void SettingsManager::setTabDisplayMode(TabDisplayMode mode) { writeCached("Options_TabDisplayMode", m_cache.ui.tabDisplayMode, mode); }
+void SettingsManager::setTabBarPosition(TabBarPosition position) { writeCached("Options_TabBarPosition", m_cache.ui.tabBarPosition, position); }
+void SettingsManager::setShowMenuBar(bool visible) { writeCached("Options_ShowMenuBar", m_cache.ui.showMenuBar, visible); }
+void SettingsManager::setShowToolbar(bool visible) { writeCached("Options_ShowToolbar", m_cache.ui.showToolbar, visible); }
+void SettingsManager::setShowStatusbar(bool visible) { writeCached("Options_ShowStatusbar", m_cache.ui.showStatusbar, visible); }
+void SettingsManager::setUiFontFamily(const QString& family) { writeCached("Options_UIFont", m_cache.ui.uiFontFamily, family); }
+void SettingsManager::setUiFontSize(int size) { writeCached("Options_UIFontSize", m_cache.ui.uiFontSize, size); }
+void SettingsManager::setTerminalPanelPosition(TerminalPanelPosition position) { writeCached("Options_TerminalPanelPosition", m_cache.terminal.terminalPanelPosition, position); }
+void SettingsManager::setTerminalPanelMinWidth(int width) { writeCached("Options_TerminalPanelMinWidth", m_cache.terminal.terminalPanelMinWidth, width); }
+void SettingsManager::setTerminalFontFamily(const QString& family) { writeCached("Options_TerminalFont", m_cache.terminal.terminalFontFamily, family); }
+void SettingsManager::setTerminalFontSize(int size) { writeCached("Options_TerminalFontSize", m_cache.terminal.terminalFontSize, size); }
+void SettingsManager::setShowTerminalPanel(bool visible) { writeCached("Options_ShowTerminalPanel", m_cache.terminal.showTerminalPanel, visible); }
 
-void SettingsManager::setWordWrap(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_WordWrap", enabled);
-    m_cache.editor.wordWrap = enabled;
-}
-
-void SettingsManager::setTheme(ThemeId theme)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_Theme", static_cast<int>(theme));
-    m_cache.editor.theme = theme;
-}
-
-void SettingsManager::setDefaultEncoding(int encoding)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_DefaultEncoding", encoding);
-    m_cache.editor.defaultEncoding = encoding;
-}
-
-void SettingsManager::setDefaultFormat(int format)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_DefaultFormat", format);
-    m_cache.editor.defaultFormat = format;
-}
-
-void SettingsManager::setShowWhitespace(bool visible)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_ShowWhitespace", visible);
-    m_cache.editor.showWhitespace = visible;
-}
-
-void SettingsManager::setAutoCompletionEnabled(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_AutoCompletion", enabled);
-    m_cache.editor.autoCompletionEnabled = enabled;
-}
-
-void SettingsManager::setAutoCompletionThreshold(int threshold)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_AutoCompletionThreshold", threshold);
-    m_cache.editor.autoCompletionThreshold = threshold;
-}
-
-void SettingsManager::setAutoCompletionCaseSensitive(bool sensitive)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_AutoCompletionCaseSensitive", sensitive);
-    m_cache.editor.autoCompletionCaseSensitive = sensitive;
-}
-
-void SettingsManager::setAutoCloseBrackets(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_AutoCloseBrackets", enabled);
-    m_cache.editor.autoCloseBrackets = enabled;
-}
-
-void SettingsManager::setTabWidth(int width)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_TabWidth", width);
-    m_cache.editor.tabWidth = width;
-}
-
-void SettingsManager::setCursorStyle(CursorStyle style)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_CursorStyle", static_cast<int>(style));
-    m_cache.editor.cursorStyle = style;
-}
-
-void SettingsManager::setCursorBlinking(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_CursorBlinking", enabled);
-    m_cache.editor.cursorBlinking = enabled;
-}
-
-void SettingsManager::setHighlightCurrentLine(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_HighlightCurrentLine", enabled);
-    m_cache.editor.highlightCurrentLine = enabled;
-}
-
-void SettingsManager::setVerticalEdgeEnabled(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_VerticalEdgeEnabled", enabled);
-    m_cache.editor.verticalEdgeEnabled = enabled;
-}
-
-void SettingsManager::setVerticalEdgeColumn(int column)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_VerticalEdgeColumn", column);
-    m_cache.editor.verticalEdgeColumn = column;
-}
-
-void SettingsManager::setStartupMode(StartupMode mode)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_StartupMode", static_cast<int>(mode));
-    m_cache.ui.startupMode = mode;
-}
-
-void SettingsManager::setCloseButtonMode(CloseButtonMode mode)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_CloseButtonMode", static_cast<int>(mode));
-    m_cache.ui.closeButtonMode = mode;
-}
-
-void SettingsManager::setTabDisplayMode(TabDisplayMode mode)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_TabDisplayMode", static_cast<int>(mode));
-    m_cache.ui.tabDisplayMode = mode;
-}
-
-void SettingsManager::setTabBarPosition(TabBarPosition position)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_TabBarPosition", static_cast<int>(position));
-    m_cache.ui.tabBarPosition = position;
-}
-
-void SettingsManager::setShowToolbar(bool visible)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_ShowToolbar", visible);
-    m_cache.ui.showToolbar = visible;
-}
-
-void SettingsManager::setShowStatusbar(bool visible)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_ShowStatusbar", visible);
-    m_cache.ui.showStatusbar = visible;
-}
-
-void SettingsManager::setUiFontFamily(const QString& family)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_UIFont", family);
-    m_cache.ui.uiFontFamily = family;
-}
-
-void SettingsManager::setUiFontSize(int size)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_UIFontSize", size);
-    m_cache.ui.uiFontSize = size;
-}
-
-void SettingsManager::setTerminalPanelPosition(TerminalPanelPosition position)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_TerminalPanelPosition", static_cast<int>(position));
-    m_cache.terminal.terminalPanelPosition = position;
-}
-
-void SettingsManager::setTerminalPanelMinWidth(int width)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_TerminalPanelMinWidth", width);
-    m_cache.terminal.terminalPanelMinWidth = width;
-}
-
-void SettingsManager::setTerminalFontFamily(const QString& family)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_TerminalFont", family);
-    m_cache.terminal.terminalFontFamily = family;
-}
-
-void SettingsManager::setTerminalFontSize(int size)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_TerminalFontSize", size);
-    m_cache.terminal.terminalFontSize = size;
-}
-
-void SettingsManager::setShowTerminalPanel(bool visible)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_ShowTerminalPanel", visible);
-    m_cache.terminal.showTerminalPanel = visible;
-}
-
-void SettingsManager::setAutoSaveEnabled(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_AutoSaveEnabled", enabled);
-    m_cache.autoSave.autoSaveEnabled = enabled;
-}
-
-void SettingsManager::setAutoSaveInterval(int seconds)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_AutoSaveInterval", seconds);
-    m_cache.autoSave.autoSaveInterval = seconds;
-}
-
-void SettingsManager::setAutoSaveToOriginalFile(bool enabled)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_AutoSaveToOriginalFile", enabled);
-    m_cache.autoSave.autoSaveToOriginalFile = enabled;
-}
-
-SettingsManager::ProjectSettings SettingsManager::projectSettings() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.project;
-}
-
-bool SettingsManager::showHiddenFiles() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.project.showHiddenFiles;
-}
-
-ProjectPanelPosition SettingsManager::projectPanelPosition() const
-{
-    QMutexLocker locker(&m_cacheMutex);
-    return m_cache.project.projectPanelPosition;
-}
-
-void SettingsManager::setShowHiddenFiles(bool visible)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_ShowHiddenFiles", visible);
-    m_cache.project.showHiddenFiles = visible;
-}
-
-void SettingsManager::setProjectPanelPosition(ProjectPanelPosition position)
-{
-    QMutexLocker locker(&m_cacheMutex);
-    m_settings.setValue("Options_ProjectPanelPosition", static_cast<int>(position));
-    m_cache.project.projectPanelPosition = position;
-}
+void SettingsManager::setAutoSaveEnabled(bool enabled) { writeCached("Options_AutoSaveEnabled", m_cache.autoSave.autoSaveEnabled, enabled); }
+void SettingsManager::setAutoSaveInterval(int seconds) { writeCached("Options_AutoSaveInterval", m_cache.autoSave.autoSaveInterval, seconds); }
+void SettingsManager::setAutoSaveToOriginalFile(bool enabled) { writeCached("Options_AutoSaveToOriginalFile", m_cache.autoSave.autoSaveToOriginalFile, enabled); }
+SettingsManager::ProjectSettings SettingsManager::projectSettings() const { return m_cache.project; }
+bool SettingsManager::showHiddenFiles() const { return m_cache.project.showHiddenFiles; }
+ProjectPanelPosition SettingsManager::projectPanelPosition() const { return m_cache.project.projectPanelPosition; }
+void SettingsManager::setShowHiddenFiles(bool visible) { writeCached("Options_ShowHiddenFiles", m_cache.project.showHiddenFiles, visible); }
+void SettingsManager::setProjectPanelPosition(ProjectPanelPosition position) { writeCached("Options_ProjectPanelPosition", m_cache.project.projectPanelPosition, position); }
 
 QString SettingsManager::syntaxForExtension(const QString& ext) const
 {
@@ -773,9 +367,150 @@ QString SettingsManager::syntaxForFile(const QString& filePath) const
     return syntaxForExtension(QFileInfo(filePath).suffix());
 }
 
+int SettingsManager::externalToolCount() const {
+    return m_settings.value("ExternalTools/Count", 0).toInt();
+}
+
+QString SettingsManager::externalToolName(int index) const {
+    return m_settings.value(QString("ExternalTools/%1/Name").arg(index)).toString();
+}
+
+QString SettingsManager::externalToolCommand(int index) const {
+    return m_settings.value(QString("ExternalTools/%1/Command").arg(index)).toString();
+}
+
+QString SettingsManager::externalToolArguments(int index) const {
+    return m_settings.value(QString("ExternalTools/%1/Arguments").arg(index)).toString();
+}
+
+QString SettingsManager::externalToolWorkingDir(int index) const {
+    return m_settings.value(QString("ExternalTools/%1/WorkingDir").arg(index)).toString();
+}
+
+QString SettingsManager::externalToolShortcut(int index) const {
+    return m_settings.value(QString("ExternalTools/%1/Shortcut").arg(index)).toString();
+}
+
+bool SettingsManager::externalToolRunInTerminal(int index) const {
+    return m_settings.value(QString("ExternalTools/%1/RunInTerminal").arg(index), true).toBool();
+}
+
+void SettingsManager::setExternalTool(int index, const QString& name, const QString& command,
+                                       const QString& arguments, const QString& workingDir,
+                                       const QString& shortcut, bool runInTerminal) {
+    QString prefix = QString("ExternalTools/%1/").arg(index);
+    m_settings.setValue(prefix + "Name", name);
+    m_settings.setValue(prefix + "Command", command);
+    m_settings.setValue(prefix + "Arguments", arguments);
+    m_settings.setValue(prefix + "WorkingDir", workingDir);
+    m_settings.setValue(prefix + "Shortcut", shortcut);
+    m_settings.setValue(prefix + "RunInTerminal", runInTerminal);
+}
+
+void SettingsManager::addExternalTool(const QString& name, const QString& command,
+                                       const QString& arguments, const QString& workingDir,
+                                       const QString& shortcut, bool runInTerminal) {
+    int count = m_settings.value("ExternalTools/Count", 0).toInt();
+    m_settings.setValue("ExternalTools/Count", count + 1);
+    QString prefix = QString("ExternalTools/%1/").arg(count);
+    m_settings.setValue(prefix + "Name", name);
+    m_settings.setValue(prefix + "Command", command);
+    m_settings.setValue(prefix + "Arguments", arguments);
+    m_settings.setValue(prefix + "WorkingDir", workingDir);
+    m_settings.setValue(prefix + "Shortcut", shortcut);
+    m_settings.setValue(prefix + "RunInTerminal", runInTerminal);
+}
+
+void SettingsManager::removeExternalTool(int index) {
+    int count = m_settings.value("ExternalTools/Count", 0).toInt();
+    if (index < 0 || index >= count) return;
+
+    QString prefix = QString("ExternalTools/%1/").arg(index);
+    m_settings.remove(prefix + "Name");
+    m_settings.remove(prefix + "Command");
+    m_settings.remove(prefix + "Arguments");
+    m_settings.remove(prefix + "WorkingDir");
+    m_settings.remove(prefix + "Shortcut");
+    m_settings.remove(prefix + "RunInTerminal");
+
+    for (int i = index + 1; i < count; ++i) {
+        QString oldPrefix = QString("ExternalTools/%1/").arg(i);
+        QString newPrefix = QString("ExternalTools/%1/").arg(i - 1);
+        m_settings.setValue(newPrefix + "Name", m_settings.value(oldPrefix + "Name"));
+        m_settings.setValue(newPrefix + "Command", m_settings.value(oldPrefix + "Command"));
+        m_settings.setValue(newPrefix + "Arguments", m_settings.value(oldPrefix + "Arguments"));
+        m_settings.setValue(newPrefix + "WorkingDir", m_settings.value(oldPrefix + "WorkingDir"));
+        m_settings.setValue(newPrefix + "Shortcut", m_settings.value(oldPrefix + "Shortcut"));
+        m_settings.setValue(newPrefix + "RunInTerminal", m_settings.value(oldPrefix + "RunInTerminal"));
+
+        m_settings.remove(oldPrefix + "Name");
+        m_settings.remove(oldPrefix + "Command");
+        m_settings.remove(oldPrefix + "Arguments");
+        m_settings.remove(oldPrefix + "WorkingDir");
+        m_settings.remove(oldPrefix + "Shortcut");
+        m_settings.remove(oldPrefix + "RunInTerminal");
+    }
+    m_settings.setValue("ExternalTools/Count", count - 1);
+}
+
+// ── LSP settings ───────────────────────────────────────────────
+
+SettingsManager::LspSettings SettingsManager::lspSettings() const
+{
+    return m_cache.lsp;
+}
+
+bool SettingsManager::lspEnabled() const { return m_cache.lsp.enabled; }
+bool SettingsManager::lspShowErrorList() const { return m_cache.lsp.showErrorList; }
+int SettingsManager::lspCompletionTriggerChars() const { return m_cache.lsp.completionTriggerChars; }
+
+QString SettingsManager::lspServerCommand(const QString& language) const
+{
+    auto it = m_cache.lsp.serverCommands.find(language);
+    if (it != m_cache.lsp.serverCommands.end() && !it->isEmpty())
+        return *it;
+    return m_settings.value(QString("LSP/Server/%1/Command").arg(language)).toString();
+}
+
+QStringList SettingsManager::lspServerArgs(const QString& language) const
+{
+    auto it = m_cache.lsp.serverArgs.find(language);
+    if (it != m_cache.lsp.serverArgs.end())
+        return *it;
+    return m_settings.value(QString("LSP/Server/%1/Args").arg(language)).toStringList();
+}
+
+void SettingsManager::setLspEnabled(bool enabled)
+{
+    writeCached("LSP/Enabled", m_cache.lsp.enabled, enabled);
+}
+
+void SettingsManager::setLspShowErrorList(bool visible)
+{
+    writeCached("LSP/ShowErrorList", m_cache.lsp.showErrorList, visible);
+}
+
+void SettingsManager::setLspCompletionTriggerChars(int chars)
+{
+    writeCached("LSP/CompletionTriggerChars", m_cache.lsp.completionTriggerChars, chars);
+}
+
+void SettingsManager::setLspServerCommand(const QString& language, const QString& command)
+{
+    m_cache.lsp.serverCommands[language] = command;
+    m_settings.setValue(QString("LSP/Server/%1/Command").arg(language), command);
+    settingsChanged();
+}
+
+void SettingsManager::setLspServerArgs(const QString& language, const QStringList& args)
+{
+    m_cache.lsp.serverArgs[language] = args;
+    m_settings.setValue(QString("LSP/Server/%1/Args").arg(language), args);
+    settingsChanged();
+}
+
 void SettingsManager::addRecentFile(const QString& filePath)
 {
-    QMutexLocker locker(&m_cacheMutex);
     QStringList recentFiles = m_settings.value("recentFiles").toStringList();
     recentFiles.removeAll(filePath);
     recentFiles.prepend(filePath);
@@ -788,19 +523,16 @@ void SettingsManager::addRecentFile(const QString& filePath)
 
 QStringList SettingsManager::recentFiles() const
 {
-    QMutexLocker locker(&m_cacheMutex);
     return m_settings.value("recentFiles").toStringList();
 }
 
 void SettingsManager::clearRecentFiles()
 {
-    QMutexLocker locker(&m_cacheMutex);
     m_settings.remove("recentFiles");
 }
 
 void SettingsManager::addRecentFolder(const QString& folderPath)
 {
-    QMutexLocker locker(&m_cacheMutex);
     QStringList recentFolders = m_settings.value("recentFolders").toStringList();
     recentFolders.removeAll(folderPath);
     recentFolders.prepend(folderPath);
@@ -813,13 +545,11 @@ void SettingsManager::addRecentFolder(const QString& folderPath)
 
 QStringList SettingsManager::recentFolders() const
 {
-    QMutexLocker locker(&m_cacheMutex);
     return m_settings.value("recentFolders").toStringList();
 }
 
 void SettingsManager::clearRecentFolders()
 {
-    QMutexLocker locker(&m_cacheMutex);
     m_settings.remove("recentFolders");
 }
 

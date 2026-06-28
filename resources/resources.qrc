@@ -7,33 +7,56 @@
         <file>color-schemes/DevpadSolarizedLight.colorscheme</file>
         <file>color-schemes/DevpadMonokai.colorscheme</file>
         <file>color-schemes/DevpadGruvboxDark.colorscheme</file>
+        <file>color-schemes/DevpadCatppuccinMocha.colorscheme</file>
+        <file>color-schemes/DevpadCatppuccinMacchiato.colorscheme</file>
+        <file>color-schemes/DevpadCatppuccinFrappe.colorscheme</file>
+        <file>color-schemes/DevpadCatppuccinLatte.colorscheme</file>
+        <file>color-schemes/DevpadTokyoNight.colorscheme</file>
+        <file>color-schemes/DevpadTokyoNightStorm.colorscheme</file>
+        <file>color-schemes/DevpadDracula.colorscheme</file>
+        <file>color-schemes/DevpadOneDark.colorscheme</file>
+        <file>color-schemes/DevpadAyuLight.colorscheme</file>
+        <file>color-schemes/DevpadAyuDark.colorscheme</file>
         <file>icons/Common/clear.svg</file>
         <file>icons/Common/filetypes/cppfile.svg</file>
         <file>icons/Common/folder.svg</file>
+        <file>icons/Common/hiddenfolder.svg</file>
         <file>icons/devpad.svg</file>
+        <file>icons/Edit/bookmarks.svg</file>
+        <file>icons/Edit/togglebookmark.svg</file>
+        <file>icons/Edit/bookmarknext.svg</file>
+        <file>icons/Edit/bookmarkprevious.svg</file>
         <file>icons/Edit/copy.svg</file>
         <file>icons/Edit/cut.svg</file>
         <file>icons/Edit/delete.svg</file>
         <file>icons/Edit/findinfiles.svg</file>
+        <file>icons/Edit/insertsnippet.svg</file>
+        <file>icons/Edit/findnext.svg</file>
+        <file>icons/Edit/findprevious.svg</file>
         <file>icons/Edit/find.svg</file>
+
         <file>icons/Edit/goto.svg</file>
         <file>icons/Edit/paste.svg</file>
         <file>icons/Edit/redo.svg</file>
         <file>icons/Edit/replace.svg</file>
         <file>icons/Edit/selectall.svg</file>
         <file>icons/Edit/undo.svg</file>
+        <file>icons/Edit/togglecomment.svg</file>
         <file>icons/Common/filetypes/archive.svg</file>
         <file>icons/File/close.svg</file>
         <file>icons/File/closeall.svg</file>
-
+        <file>icons/File/closewindow.svg</file>
         <file>icons/Common/filetypes/htmlfile.svg</file>
         <file>icons/Common/filetypes/misccode.svg</file>
         <file>icons/File/exit.svg</file>
         <file>icons/Common/filetypes/imagefile.svg</file>
         <file>icons/File/new.svg</file>
+        <file>icons/File/newfile.svg</file>
         <file>icons/File/newwindow.svg</file>
         <file>icons/File/open.svg</file>
         <file>icons/File/openfolder.svg</file>
+        <file>icons/File/closefolder.svg</file>
+        <file>icons/File/pagesetup.svg</file>
         <file>icons/File/print.svg</file>
         <file>icons/File/printpreview.svg</file>
         <file>icons/File/properties.svg</file>
@@ -45,14 +68,20 @@
         <file>icons/File/saveall.svg</file>
         <file>icons/File/saveas.svg</file>
         <file>icons/Help/about.svg</file>
+        <file>icons/Help/donate.svg</file>
+        <file>icons/Help/website.svg</file>
         <file>icons/Tools/options.svg</file>
+        <file>icons/Tools/externaltools.svg</file>
         <file>icons/View/fullscreen.svg</file>
         <file>icons/View/ui.svg</file>
         <file>icons/View/terminal.svg</file>
+        <file>icons/View/diagnostics.svg</file>
+        <file>icons/View/error.svg</file>
         <file>icons/View/zoomin.svg</file>
         <file>icons/View/zoomout.svg</file>
         <file>icons/View/zoomreset.svg</file>
         <file>sounds/powerup.wav</file>
+        <file>snippets/default.json</file>
         <file>icons/Common/newfolder.svg</file>
         <file>icons/Common/rename.svg</file>
         <file>icons/Common/openinfolder.svg</file>
@@ -60,5 +89,6 @@
         <file>icons/Common/filetypes/svgfile.svg</file>
         <file>icons/Common/filetypes/executable.svg</file>
         <file>icons/Common/filetypes/shellscript.svg</file>
+        <file>fileicons.json</file>
     </qresource>
 </RCC>
