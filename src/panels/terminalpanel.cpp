@@ -19,7 +19,12 @@
 #include "terminalpanel.h"
 #include "settingsmanager.h"
 #include "theme.h"
-#include <qtermwidget.h>
+#include "terminalbackend.h"
+#ifdef Q_OS_WIN
+#include "terminalbackend_kodoterm.h"
+#else
+#include "terminalbackend_qtermwidget.h"
+#endif
 #include <QApplication>
 #include <QClipboard>
 #include <QContextMenuEvent>
@@ -32,11 +37,10 @@
 #include <QStandardPaths>
 #include <QShortcut>
 #include <QFile>
-#include <QResource>
 
 TerminalPanel::TerminalPanel(QWidget *parent)
     : QDockWidget(tr("Terminal"), parent),
-      terminalWidget(nullptr),
+      m_backend(nullptr),
       m_isRunning(false) {
     setObjectName("TerminalPanel");
     setFeatures(QDockWidget::DockWidgetFeature::DockWidgetMovable |
@@ -46,13 +50,16 @@ TerminalPanel::TerminalPanel(QWidget *parent)
 
     setTitleBarWidget(new QWidget(this));
 
+#ifndef Q_OS_WIN
     extractColorSchemes();
+#endif
 
     setupUI();
 }
 
 TerminalPanel::~TerminalPanel() = default;
 
+#ifndef Q_OS_WIN
 void TerminalPanel::extractColorSchemes() {
     QString schemeDirPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/devpad/color-schemes";
     QDir colorSchemeDir(schemeDirPath);
@@ -89,9 +96,8 @@ void TerminalPanel::extractColorSchemes() {
             }
         }
     }
-
-    QTermWidget::addCustomColorSchemeDir(colorSchemeDir.absolutePath());
 }
+#endif
 
 void TerminalPanel::setupUI() {
     panelWidget = new QWidget(this);
@@ -104,9 +110,9 @@ void TerminalPanel::setupUI() {
 
 void TerminalPanel::showEvent(QShowEvent *event) {
     QDockWidget::showEvent(event);
-    if (terminalWidget && !m_isRunning) {
+    if (m_backend && !m_isRunning) {
         startTerminal();
-    } else if (!terminalWidget) {
+    } else if (!m_backend) {
         startTerminal();
     }
 }
@@ -136,40 +142,38 @@ QString TerminalPanel::themeToColorScheme(ThemeId themeId) const {
 }
 
 void TerminalPanel::ensureTerminalWidget() {
-    if (terminalWidget) return;
+    if (m_backend) return;
 
-    terminalWidget = new QTermWidget(0, panelWidget);
+#ifdef Q_OS_WIN
+    m_backend = new TerminalBackendKodoTerm(panelWidget);
+#else
+    m_backend = new TerminalBackendQTermWidget(panelWidget);
+#endif
 
-    terminalWidget->setHistorySize(-1);
-    terminalWidget->setScrollBarPosition(QTermWidgetInterface::ScrollBarRight);
-    terminalWidget->setTerminalFont(SettingsManager::instance().terminalFont());
+    m_backend->setTerminalFont(SettingsManager::instance().terminalFont());
     
     if (!m_workingDirectory.isEmpty() && QDir(m_workingDirectory).exists()) {
-        terminalWidget->setWorkingDirectory(m_workingDirectory);
+        m_backend->setWorkingDirectory(m_workingDirectory);
     }
     
-    QString colorScheme = themeToColorScheme(SettingsManager::instance().theme());
-    terminalWidget->setColorScheme(colorScheme);
+    connect(m_backend, &TerminalBackend::finished, this, &TerminalPanel::onSessionFinished);
     
-    connect(terminalWidget, &QTermWidget::finished, this, &TerminalPanel::onSessionFinished);
-    
-    mainLayout->addWidget(terminalWidget);
+    mainLayout->addWidget(m_backend, 1);
 
-    // Clipboard support
+
     auto copyAction = new QShortcut(QKeySequence::Copy, this);
     connect(copyAction, &QShortcut::activated, [this]() {
-        if (terminalWidget && terminalWidget->hasFocus()) {
-            terminalWidget->copyClipboard();
+        if (m_backend && m_backend->hasFocus()) {
+            m_backend->copyClipboard();
         }
     });
 
     auto pasteAction = new QShortcut(QKeySequence::Paste, this);
     connect(pasteAction, &QShortcut::activated, [this]() {
-        if (terminalWidget && terminalWidget->hasFocus()) {
-            terminalWidget->pasteClipboard();
+        if (m_backend && m_backend->hasFocus()) {
+            m_backend->pasteClipboard();
         }
     });
-
 }
 
 void TerminalPanel::startTerminal() {
@@ -177,27 +181,34 @@ void TerminalPanel::startTerminal() {
 
     ensureTerminalWidget();
 
-    terminalWidget->startShellProgram();
+    m_backend->start();
     m_isRunning = true;
     emit terminalStarted();
-    terminalWidget->setFocus();
+    m_backend->setFocus();
+
+    QString colorScheme = themeToColorScheme(SettingsManager::instance().theme());
+    m_backend->applyTheme(colorScheme);
 }
 
 void TerminalPanel::stopTerminal() {
-    if (!terminalWidget) return;
+    if (!m_backend) return;
 
-    mainLayout->removeWidget(terminalWidget);
-    delete terminalWidget;
-    terminalWidget = nullptr;
+    mainLayout->removeWidget(m_backend);
+    delete m_backend;
+    m_backend = nullptr;
     m_isRunning = false;
     emit terminalStopped();
 }
 
 void TerminalPanel::setWorkingDirectory(const QString &path) {
     m_workingDirectory = path;
-    if (terminalWidget && m_isRunning) {
-        terminalWidget->setWorkingDirectory(path);
-        terminalWidget->sendText(QString("cd %1 && clear\n").arg(path));
+    if (m_backend && m_isRunning) {
+        m_backend->setWorkingDirectory(path);
+    #ifdef Q_OS_WIN
+        m_backend->sendText(QString("cd \"%1\" && cls\n").arg(path));
+    #else
+        m_backend->sendText(QString("cd \"%1\" && clear\n").arg(path));
+    #endif
     }
 }
 
@@ -206,25 +217,23 @@ QString TerminalPanel::workingDirectory() const {
 }
 
 void TerminalPanel::refreshTheme() {
-    if (!terminalWidget) return;
+    if (!m_backend) return;
 
     ThemeId tid = SettingsManager::instance().theme();
-    ThemeColors colors = getThemeColors(tid);
-
     QString scheme = themeToColorScheme(tid);
-    terminalWidget->setColorScheme(scheme);
+    m_backend->applyTheme(scheme);
 }
 
 void TerminalPanel::sendCommand(const QString &command) {
     ensureTerminalWidget();
     if (m_isRunning) {
-        terminalWidget->sendText(command);
+        m_backend->sendText(command);
     } else {
         startTerminal();
         QPointer<TerminalPanel> guard(this);
         QMetaObject::invokeMethod(this, [guard, command]() {
-            if (guard && guard->terminalWidget) {
-                guard->terminalWidget->sendText(command);
+            if (guard && guard->m_backend) {
+                guard->m_backend->sendText(command);
             }
         }, Qt::QueuedConnection);
     }
@@ -257,11 +266,11 @@ void TerminalPanel::contextMenuEvent(QContextMenuEvent *event) {
     if (!chosen) return;
 
     if (chosen == copyAct)
-        terminalWidget->copyClipboard();
+        m_backend->copyClipboard();
     else if (chosen == pasteAct)
-        terminalWidget->pasteClipboard();
+        m_backend->pasteClipboard();
     else if (chosen == clearAct)
-        terminalWidget->sendText("clear\n");
+        m_backend->sendText("clear\n");
     else if (chosen == copyPathAct)
         QApplication::clipboard()->setText(m_workingDirectory);
     else if (chosen == showInFmAct)

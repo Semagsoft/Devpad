@@ -13,7 +13,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 - Snippet expansion with tab-stop navigation and predictive auto-completion
 - Bookmark lines per tab
 - Toggle line/block comments
-- Embedded terminal panel (QTermWidget) — docked or as a tab
+- Embedded terminal panel (QTermWidget/KodoTerm) — docked or as a tab
 - Project panel with file tree, file type icons, filter/search, recent folders
 - Split view with drag-and-drop tab reordering across panes
 - Drag-and-drop file opening
@@ -37,8 +37,8 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 
 ## Requirements
 
-- Qt6 (Core, Gui, Widgets, PrintSupport, Network, Multimedia)
-- qtermwidget6
+- Qt6 (Core, Gui, Widgets, PrintSupport, Network, Multimedia, Svg)
+- qtermwidget6 (not needed on Windows — KodoTerm is fetched automatically)
 - QScintilla (qt6 variant, e.g. `qscintilla2-qt6`)
 - CMake 3.23 or higher
 - C++17 compatible compiler
@@ -58,6 +58,24 @@ sudo pacman -S qt6-base qtermwidget qscintilla cmake gcc
 **Fedora:**
 ```bash
 sudo dnf install qt6-qtbase-devel qtermwidget-devel qscintilla-qt6-devel cmake gcc-c++
+```
+
+**Windows (vcpkg):**
+```powershell
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg && .\bootstrap-vcpkg.bat
+.\vcpkg install qt6 qscintilla
+cd ..
+cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake"
+cmake --build build -j
+```
+
+**Windows (MSYS2 UCRT64):**
+```bash
+pacman -S mingw-w64-ucrt-x86_64-qt6 mingw-w64-ucrt-x86_64-qscintilla \
+          mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-gcc
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
 ```
 
 ## Building

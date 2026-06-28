@@ -1757,7 +1757,7 @@ void CodeEditor::showCompletion(const lsp::CompletionList& completions)
     constexpr char sep = '\n';
     QString joined = entries.join(QLatin1Char(sep));
     QByteArray data = joined.toUtf8();
-    SendScintilla(SCI_AUTOCSHOW, static_cast<unsigned long>(currentWord.length()), data.constData());
+    SendScintilla(SCI_AUTOCSHOW, static_cast<uintptr_t>(currentWord.length()), data.constData());
 }
 
 void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnostic>& diagnostics)
@@ -1914,7 +1914,7 @@ void CodeEditor::applyFormattingEdits(const QList<QJsonObject>& edits)
         int endPos = static_cast<int>(SendScintilla(SCI_POSITIONFROMLINE, range.end.line)) + range.end.character;
 
         SendScintilla(SCI_SETSEL, startPos, endPos);
-        SendScintilla(SCI_REPLACESEL, 0, reinterpret_cast<long>(newText.toUtf8().constData()));
+        SendScintilla(SCI_REPLACESEL, static_cast<uintptr_t>(0), newText.toUtf8().constData());
     }
     endUndoAction();
 }

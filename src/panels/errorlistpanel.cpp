@@ -23,6 +23,7 @@ ErrorListPanel::~ErrorListPanel() = default;
 
 void ErrorListPanel::setupUI()
 {
+    setTitleBarWidget(new QWidget(this));
     QWidget* content = new QWidget(this);
     QVBoxLayout* layout = new QVBoxLayout(content);
     layout->setContentsMargins(4, 4, 4, 4);

@@ -77,7 +77,9 @@
 #include <QTabBar>
 #include <QTextDocument>
 #include <QToolButton>
+#ifndef Q_OS_WIN
 #include <qtermwidget.h>
+#endif
 
 MainWindow::~MainWindow()
 {
@@ -963,13 +965,16 @@ void MainWindow::applyStartupMode()
     }
     else if (mode == StartupMode::RestoreSession)
     {
-        m_sessionManager->restoreSession([this](const QString& filePath) { loadFile(filePath); }, m_splitView, m_projectPanel);
+        auto sessionData = m_sessionManager->restoreSession([this](const QString& filePath) { loadFile(filePath); }, m_splitView, m_projectPanel);
         m_tabManager->setPinnedFiles(m_sessionManager->loadSessionPinnedFiles());
-        QString projectPath = m_projectPanel->rootPath();
-        if (!projectPath.isEmpty())
-        {
-            m_terminalPanel->setWorkingDirectory(projectPath);
-        }
+
+        QString terminalDir = sessionData.terminalWorkingDir;
+        if (terminalDir.isEmpty())
+            terminalDir = m_projectPanel->rootPath();
+        if (terminalDir.isEmpty() && !sessionData.files.isEmpty())
+            terminalDir = QFileInfo(sessionData.files.first()).absolutePath();
+        if (!terminalDir.isEmpty())
+            m_terminalPanel->setWorkingDirectory(terminalDir);
     }
 }
 
@@ -1230,7 +1235,7 @@ void MainWindow::quitDevpad()
         return;
 
     SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
-    m_sessionManager->saveSession(m_tabManager, m_projectPanel);
+    m_sessionManager->saveSession(m_tabManager, m_projectPanel, m_terminalPanel->workingDirectory());
     QApplication::quit();
 }
 
@@ -1308,7 +1313,7 @@ void MainWindow::handleQuitRequest()
         }
 
         SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
-        m_sessionManager->saveSession(m_tabManager, m_projectPanel);
+        m_sessionManager->saveSession(m_tabManager, m_projectPanel, m_terminalPanel->workingDirectory());
         client->disconnectFromServer();
         QApplication::quit();
     });
@@ -1332,7 +1337,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
         }
     }
     SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
-    m_sessionManager->saveSession(m_tabManager, m_projectPanel);
+    m_sessionManager->saveSession(m_tabManager, m_projectPanel, m_terminalPanel->workingDirectory());
     event->accept();
 }
 

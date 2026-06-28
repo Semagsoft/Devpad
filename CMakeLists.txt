@@ -12,51 +12,69 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 6.2 REQUIRED COMPONENTS
-    Core Gui Widgets PrintSupport Multimedia Network LinguistTools
+    Core Gui Widgets PrintSupport Multimedia Network Svg LinguistTools
 )
-# ── qtermwidget6 (system or build from source) ─────────────────
-find_package(qtermwidget6 QUIET)
-if(NOT qtermwidget6_FOUND)
-    message(STATUS "qtermwidget6 not found; building from source")
-    include(ExternalProject)
-
-    ExternalProject_Add(ep_lxqt_build_tools
-        GIT_REPOSITORY https://github.com/lxqt/lxqt-build-tools.git
-        GIT_TAG 2.1.0
-        PREFIX ${DEPS_PREFIX}/lxqt-build-tools
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
-        BUILD_COMMAND ""
-        INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+# ── Terminal widget ──────────────────────────────────────────
+if(WIN32)
+    include(FetchContent)
+    message(STATUS "Fetching KodoTerm terminal widget (Windows)...")
+    FetchContent_Declare(KodoTerm
+        GIT_REPOSITORY https://github.com/diegoiast/KodoTerm.git
+        GIT_TAG main
     )
+    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(KodoTerm)
+    set(TERMINAL_TARGET KodoTerm::KodoTerm)
+    set(TERMINAL_HAS_KODOTERM TRUE)
+else()
+    find_package(qtermwidget6 QUIET)
+    if(NOT qtermwidget6_FOUND)
+        message(STATUS "qtermwidget6 not found; building from source")
+        include(ExternalProject)
 
-    ExternalProject_Add(ep_qtermwidget
-        GIT_REPOSITORY https://github.com/lxqt/qtermwidget.git
-        GIT_TAG 2.1.0
-        PREFIX ${DEPS_PREFIX}/qtermwidget
-        CMAKE_ARGS
-            -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
-            -DCMAKE_PREFIX_PATH=${DEPS_PREFIX}
-        DEPENDS ep_lxqt_build_tools
-    )
+        ExternalProject_Add(ep_lxqt_build_tools
+            GIT_REPOSITORY https://github.com/lxqt/lxqt-build-tools.git
+            GIT_TAG 2.1.0
+            PREFIX ${DEPS_PREFIX}/lxqt-build-tools
+            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
+        )
 
-    add_library(qtermwidget6 SHARED IMPORTED)
-    file(MAKE_DIRECTORY ${DEPS_PREFIX}/include ${DEPS_PREFIX}/include/qtermwidget6)
-    set_target_properties(qtermwidget6 PROPERTIES
-        IMPORTED_LOCATION ${DEPS_PREFIX}/lib/libqtermwidget6.so
-        INTERFACE_INCLUDE_DIRECTORIES "${DEPS_PREFIX}/include;${DEPS_PREFIX}/include/qtermwidget6"
-    )
-    add_dependencies(qtermwidget6 ep_qtermwidget)
+        ExternalProject_Add(ep_qtermwidget
+            GIT_REPOSITORY https://github.com/lxqt/qtermwidget.git
+            GIT_TAG 2.1.0
+            PREFIX ${DEPS_PREFIX}/qtermwidget
+            CMAKE_ARGS
+                -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
+                -DCMAKE_PREFIX_PATH=${DEPS_PREFIX}
+            DEPENDS ep_lxqt_build_tools
+        )
 
-    list(PREPEND CMAKE_PREFIX_PATH ${DEPS_PREFIX})
+        add_library(qtermwidget6 SHARED IMPORTED)
+        file(MAKE_DIRECTORY ${DEPS_PREFIX}/include ${DEPS_PREFIX}/include/qtermwidget6)
+        set_target_properties(qtermwidget6 PROPERTIES
+            IMPORTED_LOCATION ${DEPS_PREFIX}/lib/libqtermwidget6.so
+            INTERFACE_INCLUDE_DIRECTORIES "${DEPS_PREFIX}/include;${DEPS_PREFIX}/include/qtermwidget6"
+        )
+        add_dependencies(qtermwidget6 ep_qtermwidget)
+
+        list(PREPEND CMAKE_PREFIX_PATH ${DEPS_PREFIX})
+    endif()
+    set(TERMINAL_TARGET qtermwidget6)
 endif()
 
 # ── QScintilla (system or build from source) ──────────────────
 find_package(Qt6 COMPONENTS QScintilla QUIET)
 
 if(NOT Qt6QScintilla_FOUND)
-    find_library(QSCINTILLA_LIBRARY qscintilla2_qt6 QUIET)
+    find_library(QSCINTILLA_LIBRARY qscintilla2_qt6 QUIET
+        PATHS ${CMAKE_PREFIX_PATH}/lib
+    )
     find_path(QSCINTILLA_INCLUDE_DIR Qsci/qsciscintilla.h
         PATHS /usr/include /usr/local/include /usr/include/qt6
+              ${CMAKE_PREFIX_PATH}/include/qt6
+              ${CMAKE_PREFIX_PATH}/include
     )
 endif()
 
@@ -146,7 +164,10 @@ add_library(Devpad_lib STATIC
     src/dialogs/externaltoolsdialog.cpp
     src/panels/projectpanel.cpp
     src/panels/terminalpanel.cpp
+    src/panels/terminalbackend.cpp
     src/panels/splitview.cpp
+    $<$<NOT:$<BOOL:${TERMINAL_HAS_KODOTERM}>>:src/panels/terminalbackend_qtermwidget.cpp>
+    $<$<BOOL:${TERMINAL_HAS_KODOTERM}>:src/panels/terminalbackend_kodoterm.cpp>
     src/panels/draggabletabbar.cpp
     src/panels/errorlistpanel.cpp
     src/widgets/themepreviewwidget.cpp
@@ -165,7 +186,8 @@ target_link_libraries(Devpad_lib PUBLIC
     Qt6::PrintSupport
     Qt6::Multimedia
     Qt6::Network
-    qtermwidget6
+    Qt6::Svg
+    ${TERMINAL_TARGET}
 )
 target_include_directories(Devpad_lib PUBLIC
     src
