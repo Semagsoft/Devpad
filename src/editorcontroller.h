@@ -75,7 +75,7 @@ public:
     void autoSave();
     void promptBackupRestore(const QString& filePath);
     void connectEditorSignals(CodeEditor* editor);
-    void saveEditor(CodeEditor* editor, const QString& fileName);
+    bool saveEditor(CodeEditor* editor, const QString& fileName);
 
     // Load a file from disk into a new editor tab.
     // Returns the editor on success, nullptr on failure.

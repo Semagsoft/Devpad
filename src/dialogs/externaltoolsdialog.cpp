@@ -144,6 +144,7 @@ void ExternalToolsDialog::loadTools()
 
 void ExternalToolsDialog::closeEvent(QCloseEvent *event)
 {
+    saveTools();
     m_geometrySettings.saveGeometry(this);
     QDialog::closeEvent(event);
 }

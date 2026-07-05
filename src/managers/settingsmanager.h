@@ -307,10 +307,7 @@ private:
     SettingsManager();
     Q_DISABLE_COPY(SettingsManager)
 
-public:
     ~SettingsManager() = default;
-
-private:
 
     static constexpr int CurrentSettingsVersion = 1;
     static const QHash<QString, QString>& extensionMap();

@@ -251,11 +251,6 @@ if(BUILD_TESTS)
 
     enable_testing()
 
-    # Ensure headless CI can run widget-based tests
-    if(NOT DEFINED ENV{QT_QPA_PLATFORM})
-        set(ENV{QT_QPA_PLATFORM} "offscreen")
-    endif()
-
     include(GoogleTest)
 
     set(TEST_SOURCES
@@ -311,5 +306,5 @@ if(BUILD_TESTS)
         src/panels
     )
 
-    gtest_discover_tests(Devpad_tests)
+    gtest_discover_tests(Devpad_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

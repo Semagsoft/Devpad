@@ -1,10 +1,12 @@
 #include "terminalbackend_qtermwidget.h"
+#include "settingsmanager.h"
 #include <QVBoxLayout>
 #include <qtermwidget.h>
 #include <QStandardPaths>
 
 TerminalBackendQTermWidget::TerminalBackendQTermWidget(QWidget *parent)
     : TerminalBackend(parent), m_term(nullptr), m_running(false)
+    , m_cachedFont(SettingsManager::instance().terminalFont())
 {
 }
 
@@ -20,6 +22,7 @@ void TerminalBackendQTermWidget::start()
         m_term = new QTermWidget(0, this);
         if (!m_workingDir.isEmpty())
             m_term->setWorkingDirectory(m_workingDir);
+        m_term->setTerminalFont(m_cachedFont);
         m_term->setHistorySize(-1);
         m_term->setScrollBarPosition(QTermWidgetInterface::ScrollBarRight);
         connect(m_term, &QTermWidget::finished, this, [this]() {
@@ -56,6 +59,7 @@ void TerminalBackendQTermWidget::setWorkingDirectory(const QString &path)
 
 void TerminalBackendQTermWidget::setTerminalFont(const QFont &font)
 {
+    m_cachedFont = font;
     if (m_term)
         m_term->setTerminalFont(font);
 }

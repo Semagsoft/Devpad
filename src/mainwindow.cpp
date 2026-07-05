@@ -881,6 +881,8 @@ void MainWindow::showOptions()
     OptionsDialog dlg(this);
     ThemeId originalTheme = SettingsManager::instance().theme();
     QColor originalAccent = SettingsManager::instance().accentColor();
+    QString originalTermFontFamily = SettingsManager::instance().terminalFontFamily();
+    int originalTermFontSize = SettingsManager::instance().terminalFontSize();
 
     connect(&dlg, &OptionsDialog::themeChanged, this, [this]() {
         applySettings();
@@ -893,6 +895,7 @@ void MainWindow::showOptions()
         applyCloseButtonPosition();
         applyTabBarPosition();
         applyTerminalPanelPosition();
+        m_terminalPanel->refreshTheme();
     m_errorListPanel->setVisible(SettingsManager::instance().lspShowErrorList());
         m_tabManager->updateTabBarVisibility();
         updateRecentFileActions();
@@ -902,6 +905,8 @@ void MainWindow::showOptions()
     {
         SettingsManager::instance().setTheme(originalTheme);
         SettingsManager::instance().setAccentColor(originalAccent);
+        SettingsManager::instance().setTerminalFontFamily(originalTermFontFamily);
+        SettingsManager::instance().setTerminalFontSize(originalTermFontSize);
         applySettings();
         m_terminalPanel->refreshTheme();
     }

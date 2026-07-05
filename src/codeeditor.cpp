@@ -37,6 +37,7 @@ constexpr int SCI_INDICATORSTART = 2102;
 constexpr int SCI_INDICATOREND = 2103;
 constexpr int SCI_SETMOUSEDWELLTIME = 2264;
 constexpr int SCI_SETSAVEPOINT = 2172;
+constexpr int SCI_COLUMNTOBYPOS = 2616;
 
 constexpr int INDIC_HIDDEN = 8;
 
@@ -330,6 +331,7 @@ void CodeEditor::setSyntax(const QString& language)
     m_syntax = language;
 
     m_apis.reset();
+    setLexer(nullptr);
     m_lexer.reset();
 
     const LanguageInfo* lang = findLanguage(language);
@@ -693,7 +695,7 @@ QList<int> CodeEditor::bookmarkLines() const
     int lineCount = this->lines();
     for (int i = 0; i < lineCount; ++i)
     {
-        if (markersAtLine(i) != 0)
+        if ((markersAtLine(i) & (1 << MARKER_BOOKMARK)) != 0)
         {
             lines.append(i);
         }
@@ -1797,6 +1799,8 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
 
 void CodeEditor::clearDiagnostics()
 {
+    if (lines() == 0)
+        return;
     clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_ERROR);
     clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_WARNING);
     clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_INFO);
@@ -1910,8 +1914,8 @@ void CodeEditor::applyFormattingEdits(const QList<QJsonObject>& edits)
         auto range = lsp::Range::fromJson(edit["range"].toObject());
         QString newText = edit["newText"].toString();
 
-        int startPos = static_cast<int>(SendScintilla(SCI_POSITIONFROMLINE, range.start.line)) + range.start.character;
-        int endPos = static_cast<int>(SendScintilla(SCI_POSITIONFROMLINE, range.end.line)) + range.end.character;
+        int startPos = static_cast<int>(SendScintilla(SCI_COLUMNTOBYPOS, range.start.line, range.start.character));
+        int endPos = static_cast<int>(SendScintilla(SCI_COLUMNTOBYPOS, range.end.line, range.end.character));
 
         SendScintilla(SCI_SETSEL, startPos, endPos);
         SendScintilla(SCI_REPLACESEL, static_cast<uintptr_t>(0), newText.toUtf8().constData());
