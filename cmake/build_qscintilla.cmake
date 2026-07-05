@@ -62,7 +62,7 @@ file(MAKE_DIRECTORY ${QSCI_BUILD_DIR})
 # ── Configure (qmake) ────────────────────────────────────────
 message(STATUS "Configuring QScintilla with qmake...")
 execute_process(
-    COMMAND ${QMAKE6} ${QSCI_ROOT}/src/qscintilla.pro
+    COMMAND ${QMAKE6} CONFIG+=staticlib ${QSCI_ROOT}/src/qscintilla.pro
         -after
         "target.path=${QSCINTILLA_INSTALL_DIR}/lib"
         "header.path=${QSCINTILLA_INSTALL_DIR}/include"
