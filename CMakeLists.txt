@@ -133,6 +133,12 @@ function(target_link_qscintilla TARGET)
     target_link_libraries(${TARGET} PRIVATE ${QSCINTILLA_TARGET})
 endfunction()
 
+# ── Version header from CMake ────────────────────────────────
+configure_file(
+    src/devpad_version.h.in
+    ${CMAKE_BINARY_DIR}/generated/devpad_version.h
+)
+
 # ── Shared static library (avoids double compilation) ─────────
 add_library(Devpad_lib STATIC
     src/codeeditor.cpp
@@ -160,6 +166,7 @@ add_library(Devpad_lib STATIC
     src/managers/printmanager.cpp
     src/managers/filewatchermanager.cpp
     src/snippet.cpp
+    src/snippetengine.cpp
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/findsymbolsdialog.cpp
     src/dialogs/aboutdialog.cpp
@@ -179,6 +186,8 @@ add_library(Devpad_lib STATIC
     src/lsp/lspjsonrpc.cpp
     src/lsp/lspclient.cpp
     src/lsp/lspservermanager.cpp
+    src/lsp/lsptypes.cpp
+    src/lsp/lspeditorintegration.cpp
 )
 target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -197,6 +206,7 @@ target_include_directories(Devpad_lib PUBLIC
     src/managers
     src/dialogs
     src/panels
+    ${CMAKE_BINARY_DIR}/generated
 )
 target_link_qscintilla(Devpad_lib)
 

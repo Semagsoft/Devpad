@@ -23,6 +23,7 @@
 
 #include <QFileInfo>
 #include <QFont>
+#include <QTabWidget>
 #include <QIcon>
 #include <QPointer>
 #include <QTabBar>

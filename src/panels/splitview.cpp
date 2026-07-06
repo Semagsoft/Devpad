@@ -24,6 +24,8 @@
 #include <QLayout>
 #include <QDrag>
 #include <QMimeData>
+#include <QSplitter>
+#include <QTabWidget>
 #include <QApplication>
 #include <QClipboard>
 #include <QProcess>

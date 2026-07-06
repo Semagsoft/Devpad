@@ -72,6 +72,10 @@ enum class ProjectPanelPosition
     Right = 1
 };
 
+// SettingsManager is intentionally a true singleton (not parented to MainWindow)
+// because it is accessed from many contexts (CodeEditor, dialogs, panels, etc.)
+// that do not have a reference to the main window. The testing overrides
+// (setTestingInstance / createForTesting) allow unit tests to isolate state.
 class SettingsManager : public QObject
 {
     Q_OBJECT

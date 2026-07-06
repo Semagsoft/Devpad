@@ -20,14 +20,14 @@
 #define FINDDIALOG_H
 
 #include <QDialog>
-#include <QCloseEvent>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QCheckBox>
-#include <QGroupBox>
 #include <QPointer>
 #include <Qsci/qsciscintilla.h>
 #include "dialogsettings.h"
+
+class QCloseEvent;
+class QLineEdit;
+class QPushButton;
+class QCheckBox;
 
 class FindDialog : public QDialog {
     Q_OBJECT

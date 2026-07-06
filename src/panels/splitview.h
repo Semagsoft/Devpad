@@ -20,10 +20,6 @@
 #define SPLITVIEW_H
 
 #include <QWidget>
-#include <QTabWidget>
-#include <QSplitter>
-#include <QDrag>
-#include <QMimeData>
 #include <QPointer>
 #include <QMap>
 #include <functional>
@@ -31,6 +27,8 @@
 #include "draggabletabbar.h"
 
 class DropZoneOverlay;
+class QSplitter;
+class QTabWidget;
 
 class SplitView : public QWidget {
     Q_OBJECT

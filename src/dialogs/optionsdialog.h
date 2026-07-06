@@ -20,16 +20,15 @@
 #define OPTIONSDIALOG_H
 
 #include <QDialog>
-#include <QComboBox>
-#include <QCheckBox>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QSpinBox>
-#include <QTabWidget>
-#include <QScrollArea>
-#include <QGroupBox>
-#include <QTableWidget>
 #include "dialogsettings.h"
+
+class QComboBox;
+class QCheckBox;
+class QLineEdit;
+class QPushButton;
+class QSpinBox;
+class QTabWidget;
+class QTableWidget;
 
 class ThemePreviewWidget;
 

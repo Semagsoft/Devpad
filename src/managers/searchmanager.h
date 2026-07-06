@@ -4,7 +4,8 @@
 #include <QObject>
 #include <QString>
 #include <QPointer>
-#include <QMainWindow>
+
+class QMainWindow;
 
 class CodeEditor;
 class QsciScintilla;

@@ -20,11 +20,11 @@
 #define ABOUTDIALOG_H
 
 #include <QDialog>
-#include <QLabel>
-#include <QPushButton>
-#include <QScrollArea>
-#include <QDate>
 #include <QPixmap>
+
+class QLabel;
+class QPushButton;
+class QScrollArea;
 
 class QTimer;
 class QSoundEffect;

@@ -24,8 +24,6 @@
 #include <QMutex>
 #include <QString>
 #include <QDateTime>
-#include <QDir>
-#include <QFileInfo>
 
 class Logger {
 public:

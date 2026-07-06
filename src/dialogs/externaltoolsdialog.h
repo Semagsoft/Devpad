@@ -2,10 +2,11 @@
 #define EXTERNALTOOLSDIALOG_H
 
 #include <QDialog>
-#include <QTableWidget>
-#include <QPushButton>
-#include <QCloseEvent>
 #include "dialogsettings.h"
+
+class QTableWidget;
+class QPushButton;
+class QCloseEvent;
 
 class ExternalToolsDialog : public QDialog {
     Q_OBJECT

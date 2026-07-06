@@ -18,7 +18,14 @@
  */
 #include "projectpanel.h"
 #include "settingsmanager.h"
+#include <QFileSystemModel>
 #include <QFileInfo>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMenu>
+#include <QToolButton>
+#include <QTreeView>
+#include <QVBoxLayout>
 #include <QDir>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -32,6 +39,7 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <QFile>
+#include <QClipboard>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>

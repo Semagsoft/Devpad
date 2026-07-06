@@ -20,14 +20,6 @@
 #define ACTIONMANAGER_H
 
 #include <QObject>
-#include <QAction>
-#include <QMenu>
-#include <QMenuBar>
-#include <QToolBar>
-#include <QStatusBar>
-#include <QLabel>
-#include <QComboBox>
-#include <QToolButton>
 #include "encodingmenuhelper.h"
 #include "recentfileshelper.h"
 #include <functional>
@@ -39,6 +31,16 @@ class MainWindow;
 class ProjectPanel;
 class SplitView;
 class TerminalPanel;
+
+class QAction;
+class QComboBox;
+class QLabel;
+class QMenu;
+class QMenuBar;
+class QStatusBar;
+class QTabWidget;
+class QToolBar;
+class QToolButton;
 
 struct ActionTargets {
     EditorController *editorController = nullptr;

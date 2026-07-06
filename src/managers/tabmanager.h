@@ -29,8 +29,7 @@
 #include <QPointer>
 #include <QSet>
 #include <QString>
-#include <QTabWidget>
-#include <QToolButton>
+class QTabWidget;
 
 // qHash overload for QPointer to enable QSet<QPointer<CodeEditor>>
 inline size_t qHash(const QPointer<CodeEditor>& ptr, size_t seed = 0) noexcept

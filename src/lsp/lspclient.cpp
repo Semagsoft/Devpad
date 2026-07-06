@@ -2,6 +2,7 @@
 #include "settingsmanager.h"
 
 #include <QCoreApplication>
+#include <QProcess>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QDir>

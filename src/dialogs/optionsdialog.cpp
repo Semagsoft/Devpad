@@ -25,6 +25,18 @@
 #include "settingsmanager.h"
 #include "theme.h"
 
+#include <QComboBox>
+#include <QCheckBox>
+#include <QGroupBox>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QSpinBox>
+#include <QTabWidget>
+#include <QTableWidget>
+#include <QPushButton>
+#include <QSpinBox>
+#include <QTabWidget>
+#include <QTableWidget>
 #include <QColorDialog>
 #include <QFontDatabase>
 #include <QHeaderView>

@@ -1,5 +1,8 @@
 #include "externaltoolsdialog.h"
 
+#include <QTableWidget>
+#include <QPushButton>
+#include <QCloseEvent>
 #include "externaltoolmanager.h"
 #include "settingsmanager.h"
 

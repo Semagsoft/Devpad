@@ -140,7 +140,12 @@ void SettingsManager::loadCache()
     m_cache.editor.scrollPastContent = m_settings.value("Options_ScrollPastContent", false).toBool();
     m_cache.editor.codeCollapsing = m_settings.value("Options_CodeCollapsing", false).toBool();
     m_cache.editor.wordWrap = m_settings.value("Options_WordWrap", false).toBool();
-    m_cache.editor.theme = static_cast<ThemeId>(m_settings.value("Options_Theme", static_cast<int>(ThemeId::Light)).toInt());
+    {
+        int themeVal = m_settings.value("Options_Theme", static_cast<int>(ThemeId::Light)).toInt();
+        if (themeVal < 0 || themeVal >= static_cast<int>(ThemeId::Count))
+            themeVal = static_cast<int>(ThemeId::Light);
+        m_cache.editor.theme = static_cast<ThemeId>(themeVal);
+    }
     m_cache.editor.defaultEncoding = m_settings.value("Options_DefaultEncoding", 0).toInt();
     m_cache.editor.defaultFormat = m_settings.value("Options_DefaultFormat", 0).toInt();
     m_cache.editor.showWhitespace = m_settings.value("Options_ShowWhitespace", false).toBool();

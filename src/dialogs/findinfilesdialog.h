@@ -20,14 +20,16 @@
 #define FINDINFILESDIALOG_H
 
 #include <QDialog>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QCheckBox>
-#include <QTreeWidget>
-#include <QLabel>
-#include <QThread>
-#include <QKeyEvent>
 #include "dialogsettings.h"
+
+class QLineEdit;
+class QPushButton;
+class QCheckBox;
+class QTreeWidget;
+class QTreeWidgetItem;
+class QLabel;
+class QThread;
+class QKeyEvent;
 
 class FindInFilesWorker : public QObject {
     Q_OBJECT

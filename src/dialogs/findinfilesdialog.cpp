@@ -17,6 +17,12 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "findinfilesdialog.h"
+#include <QLineEdit>
+#include <QPushButton>
+#include <QCheckBox>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <QThread>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
