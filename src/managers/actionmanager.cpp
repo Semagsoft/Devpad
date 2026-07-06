@@ -25,11 +25,18 @@
 #include "settingsmanager.h"
 #include "splitview.h"
 #include "terminalpanel.h"
+#include <QAction>
+#include <QComboBox>
 #include <QDesktopServices>
 #include <QDockWidget>
 #include <QFile>
+#include <QLabel>
+#include <QMenu>
 #include <QMenuBar>
+#include <QStatusBar>
 #include <QTabWidget>
+#include <QToolBar>
+#include <QToolButton>
 #include <QUrl>
 
 ActionManager::ActionManager(QObject *parent)

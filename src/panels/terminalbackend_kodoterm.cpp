@@ -41,6 +41,9 @@ void TerminalBackendKodoTerm::start()
         m_term = new KodoTerm(this);
         if (!m_workingDir.isEmpty())
             m_term->setWorkingDirectory(m_workingDir);
+        KodoTermConfig cfg = m_term->getConfig();
+        cfg.font = m_cachedFont;
+        m_term->setConfig(cfg);
         connect(m_term, &KodoTerm::finished, this, [this](int code, int status) {
             m_running = false;
             emit finished(code, status);
@@ -77,6 +80,7 @@ void TerminalBackendKodoTerm::setWorkingDirectory(const QString &path)
 
 void TerminalBackendKodoTerm::setTerminalFont(const QFont &font)
 {
+    m_cachedFont = font;
     if (!m_term) return;
     KodoTermConfig cfg = m_term->getConfig();
     cfg.font = font;

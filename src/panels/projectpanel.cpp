@@ -18,7 +18,14 @@
  */
 #include "projectpanel.h"
 #include "settingsmanager.h"
+#include <QFileSystemModel>
 #include <QFileInfo>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMenu>
+#include <QToolButton>
+#include <QTreeView>
+#include <QVBoxLayout>
 #include <QDir>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -32,6 +39,7 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <QFile>
+#include <QClipboard>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -581,7 +589,9 @@ void ProjectPanel::openInTerminal(const QString &dirPath) {
     } else if (terminalBase == "alacritty" || terminalBase == "kitty" || terminalBase == "ghostty") {
         termArgs << "--working-directory" << dirPath;
     } else if (terminalBase == "urxvt" || terminalBase == "xterm") {
-        termArgs << "-e" << QString("cd %1 && exec $SHELL").arg(dirPath);
+        QString escapedDir = dirPath;
+        escapedDir.replace('\'', "'\\''");
+        termArgs << "-e" << QString("cd '%1' && exec $SHELL").arg(escapedDir);
     } else if (terminalBase == "lxterminal") {
         termArgs << "--working-directory" << dirPath;
     } else if (terminalBase == "foot") {

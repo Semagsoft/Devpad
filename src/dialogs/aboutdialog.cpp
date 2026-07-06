@@ -18,6 +18,7 @@
  */
 #include "aboutdialog.h"
 #include <QGroupBox>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QDesktopServices>
 #include <QUrl>

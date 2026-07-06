@@ -4,6 +4,7 @@
 #include "widgets/editorcontainer.h"
 #include "widgets/inlinefindbar.h"
 #include <Qsci/qsciscintilla.h>
+#include <QMainWindow>
 #include <QStatusBar>
 
 SearchManager::SearchManager(QMainWindow *parent, TabManager *tabManager)

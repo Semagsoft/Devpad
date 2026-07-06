@@ -23,7 +23,6 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QDateTime>
-#include <QFileInfo>
 
 class FileWatcherManager : public QObject {
     Q_OBJECT

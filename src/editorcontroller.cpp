@@ -88,8 +88,7 @@ bool EditorController::saveFile()
         return saveFileAs();
     }
 
-    saveEditor(editor, editor->fileName());
-    return true;
+    return saveEditor(editor, editor->fileName());
 }
 
 bool EditorController::saveFileAs()
@@ -111,7 +110,7 @@ bool EditorController::saveFileAs()
     return true;
 }
 
-void EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
+bool EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
 {
     m_fileWatcherManager->unwatchFile(fileName);
     bool saved = m_fileManager->saveFile(fileName, editor);
@@ -119,11 +118,12 @@ void EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
     {
         m_fileWatcherManager->watchFile(fileName);
         QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot save file: ") + fileName);
-        return;
+        return false;
     }
     m_tabManager->updateTabTitle(editor);
     m_fileWatcherManager->watchFile(fileName);
     emit fileSaved(fileName);
+    return true;
 }
 
 void EditorController::saveAll()

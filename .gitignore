@@ -1,5 +1,7 @@
 build/
 build-asan/
+qscintilla-build/
+
 *.user
 compile_commands.json
 .cache/
@@ -10,6 +12,15 @@ CMakeCache.txt
 cmake_install.cmake
 install_manifest.txt
 Makefile
+
+# Build artifacts
+*.o
+*.so
+*.so.*
+*.a
+*.la
+moc_*.cpp
+.qmake.stash
 
 # Generated translation files
 *.qm

@@ -1,5 +1,8 @@
 #include "externaltoolsdialog.h"
 
+#include <QTableWidget>
+#include <QPushButton>
+#include <QCloseEvent>
 #include "externaltoolmanager.h"
 #include "settingsmanager.h"
 
@@ -144,6 +147,7 @@ void ExternalToolsDialog::loadTools()
 
 void ExternalToolsDialog::closeEvent(QCloseEvent *event)
 {
+    saveTools();
     m_geometrySettings.saveGeometry(this);
     QDialog::closeEvent(event);
 }

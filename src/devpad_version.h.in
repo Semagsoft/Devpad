@@ -1,0 +1,6 @@
+#ifndef DEVPAD_VERSION_H
+#define DEVPAD_VERSION_H
+
+#define DEVPAD_VERSION "@Devpad_VERSION@"
+
+#endif

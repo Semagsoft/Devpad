@@ -20,19 +20,17 @@
 #define PROJECTPANEL_H
 
 #include <QDockWidget>
-#include <QFileSystemModel>
 #include <QSortFilterProxyModel>
-#include <QTreeView>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QLineEdit>
-#include <QToolBar>
-#include <QToolButton>
-#include <QSplitter>
-#include <QMenu>
 #include <QSet>
 #include <QFileIconProvider>
-#include <QClipboard>
+
+class QFileSystemModel;
+class QLabel;
+class QLineEdit;
+class QMenu;
+class QToolButton;
+class QTreeView;
+class QVBoxLayout;
 
 class FileFilterProxyModel : public QSortFilterProxyModel {
     Q_OBJECT

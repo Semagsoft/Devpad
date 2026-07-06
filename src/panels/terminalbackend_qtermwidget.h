@@ -28,6 +28,7 @@ private:
     QTermWidget *m_term;
     bool m_running;
     QString m_workingDir;
+    QFont m_cachedFont;
 };
 
 #endif

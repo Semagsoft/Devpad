@@ -45,17 +45,20 @@ else()
             GIT_REPOSITORY https://github.com/lxqt/qtermwidget.git
             GIT_TAG 2.1.0
             PREFIX ${DEPS_PREFIX}/qtermwidget
+            PATCH_COMMAND sed -i "s/ SHARED / STATIC /" CMakeLists.txt
             CMAKE_ARGS
                 -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
                 -DCMAKE_PREFIX_PATH=${DEPS_PREFIX}
+                -DBUILD_SHARED_LIBS=OFF
             DEPENDS ep_lxqt_build_tools
         )
 
-        add_library(qtermwidget6 SHARED IMPORTED)
+        add_library(qtermwidget6 STATIC IMPORTED)
         file(MAKE_DIRECTORY ${DEPS_PREFIX}/include ${DEPS_PREFIX}/include/qtermwidget6)
         set_target_properties(qtermwidget6 PROPERTIES
-            IMPORTED_LOCATION ${DEPS_PREFIX}/lib/libqtermwidget6.so
+            IMPORTED_LOCATION ${DEPS_PREFIX}/lib/libqtermwidget6.a
             INTERFACE_INCLUDE_DIRECTORIES "${DEPS_PREFIX}/include;${DEPS_PREFIX}/include/qtermwidget6"
+            INTERFACE_LINK_LIBRARIES "Qt6::Core;Qt6::Gui;Qt6::Widgets"
         )
         add_dependencies(qtermwidget6 ep_qtermwidget)
 
@@ -108,14 +111,14 @@ elseif(BUILD_QSCINTILLA)
             -DQSCINTILLA_INSTALL_DIR=${DEPS_PREFIX}
             -P ${CMAKE_SOURCE_DIR}/cmake/build_qscintilla.cmake
         INSTALL_COMMAND ""
-        BUILD_BYPRODUCTS ${DEPS_PREFIX}/lib/libqscintilla2_qt6.so
+        BUILD_BYPRODUCTS ${DEPS_PREFIX}/lib/libqscintilla2_qt6.a
     )
 
     set(QSCINTILLA_TARGET Qt6::QScintilla)
     add_library(${QSCINTILLA_TARGET} UNKNOWN IMPORTED)
     file(MAKE_DIRECTORY ${DEPS_PREFIX}/include)
     set_target_properties(${QSCINTILLA_TARGET} PROPERTIES
-        IMPORTED_LOCATION ${DEPS_PREFIX}/lib/libqscintilla2_qt6.so
+        IMPORTED_LOCATION ${DEPS_PREFIX}/lib/libqscintilla2_qt6.a
         INTERFACE_INCLUDE_DIRECTORIES ${DEPS_PREFIX}/include
     )
     add_dependencies(${QSCINTILLA_TARGET} ep_qscintilla)
@@ -129,6 +132,12 @@ endif()
 function(target_link_qscintilla TARGET)
     target_link_libraries(${TARGET} PRIVATE ${QSCINTILLA_TARGET})
 endfunction()
+
+# ── Version header from CMake ────────────────────────────────
+configure_file(
+    src/devpad_version.h.in
+    ${CMAKE_BINARY_DIR}/generated/devpad_version.h
+)
 
 # ── Shared static library (avoids double compilation) ─────────
 add_library(Devpad_lib STATIC
@@ -157,6 +166,7 @@ add_library(Devpad_lib STATIC
     src/managers/printmanager.cpp
     src/managers/filewatchermanager.cpp
     src/snippet.cpp
+    src/snippetengine.cpp
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/findsymbolsdialog.cpp
     src/dialogs/aboutdialog.cpp
@@ -176,6 +186,8 @@ add_library(Devpad_lib STATIC
     src/lsp/lspjsonrpc.cpp
     src/lsp/lspclient.cpp
     src/lsp/lspservermanager.cpp
+    src/lsp/lsptypes.cpp
+    src/lsp/lspeditorintegration.cpp
 )
 target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -194,6 +206,7 @@ target_include_directories(Devpad_lib PUBLIC
     src/managers
     src/dialogs
     src/panels
+    ${CMAKE_BINARY_DIR}/generated
 )
 target_link_qscintilla(Devpad_lib)
 
@@ -251,11 +264,6 @@ if(BUILD_TESTS)
 
     enable_testing()
 
-    # Ensure headless CI can run widget-based tests
-    if(NOT DEFINED ENV{QT_QPA_PLATFORM})
-        set(ENV{QT_QPA_PLATFORM} "offscreen")
-    endif()
-
     include(GoogleTest)
 
     set(TEST_SOURCES
@@ -311,5 +319,5 @@ if(BUILD_TESTS)
         src/panels
     )
 
-    gtest_discover_tests(Devpad_tests)
+    gtest_discover_tests(Devpad_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

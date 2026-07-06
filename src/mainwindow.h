@@ -99,6 +99,8 @@ private:
     void setupUI();
     void wireActions();
     void connectPanelSignals();
+    void setupEditorConnections();
+    void setupLspConnections();
     void applyCloseButtonPosition();
     void applyTabBarPosition();
     void applyTerminalPanelPosition();

@@ -150,8 +150,6 @@ void TerminalPanel::ensureTerminalWidget() {
     m_backend = new TerminalBackendQTermWidget(panelWidget);
 #endif
 
-    m_backend->setTerminalFont(SettingsManager::instance().terminalFont());
-
     if (!m_workingDirectory.isEmpty() && QDir(m_workingDirectory).exists()) {
         m_backend->setWorkingDirectory(m_workingDirectory);
     }
@@ -186,8 +184,7 @@ void TerminalPanel::startTerminal() {
     emit terminalStarted();
     m_backend->setFocus();
 
-    QString colorScheme = themeToColorScheme(SettingsManager::instance().theme());
-    m_backend->applyTheme(colorScheme);
+    refreshTheme();
 }
 
 void TerminalPanel::stopTerminal() {

@@ -2,12 +2,13 @@
 #define FINDSYMBOLSDIALOG_H
 
 #include <QDialog>
-#include <QLineEdit>
-#include <QTreeView>
-#include <QStandardItemModel>
-#include <QLabel>
-#include <QTimer>
-#include <QPushButton>
+
+class QLineEdit;
+class QTreeView;
+class QStandardItemModel;
+class QLabel;
+class QTimer;
+class QPushButton;
 
 namespace lsp {
 class LspServerManager;

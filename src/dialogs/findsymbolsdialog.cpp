@@ -2,6 +2,12 @@
 #include "lsp/lsptypes.h"
 #include "lsp/lspservermanager.h"
 
+#include <QLineEdit>
+#include <QTreeView>
+#include <QStandardItemModel>
+#include <QLabel>
+#include <QTimer>
+#include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
