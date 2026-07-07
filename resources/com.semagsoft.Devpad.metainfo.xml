@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.semagsoft.Devpad</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+  <name>Devpad</name>
+  <summary>A C++/Qt6 code editor with syntax highlighting and embedded terminal</summary>
+  <description>
+    <p>Devpad is a feature-rich code editor built with Qt6 and QScintilla. It provides:</p>
+    <ul>
+      <li>Multi-tab editing with syntax highlighting for 20+ languages</li>
+      <li>LSP integration (go-to-definition, references, rename, hover, completions, diagnostics)</li>
+      <li>Embedded terminal panel (QTermWidget)</li>
+      <li>Project panel with file tree and file type icons</li>
+      <li>Split view with drag-and-drop tab support</li>
+      <li>Snippet expansion with tab-stop navigation</li>
+      <li>Find and Replace with regex support and Find in Files</li>
+      <li>Print and Print Preview with syntax highlighting</li>
+      <li>17 built-in themes with custom theme support</li>
+      <li>Session management and auto-save with backup/recovery</li>
+      <li>External tools integration</li>
+      <li>Internationalization (German, Spanish, French)</li>
+    </ul>
+  </description>
+  <url type="homepage">https://semagsoft.com</url>
+  <url type="bugtracker">https://github.com/Semagsoft/Devpad/issues</url>
+  <url type="donation">https://semagsoft.com/donate</url>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://semagsoft.com/devpad/screenshot.png</image>
+      <caption>Devpad main window with C++ file open</caption>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>Development</category>
+    <category>IDE</category>
+    <category>TextEditor</category>
+  </categories>
+  <keywords>
+    <keyword>editor</keyword>
+    <keyword>code</keyword>
+    <keyword>programming</keyword>
+    <keyword>ide</keyword>
+  </keywords>
+  <provides>
+    <binary>Devpad</binary>
+  </provides>
+  <releases>
+    <release version="1.0.0" date="2026-07-06">
+      <description>
+        <p>Initial release of Devpad.</p>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>
