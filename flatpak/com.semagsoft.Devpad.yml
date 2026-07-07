@@ -12,7 +12,7 @@ finish-args:
   - --filesystem=home
 build-options:
   env:
-    - QMAKE: /usr/lib/x86_64-linux-gnu/qt6/bin/qmake
+    - QMAKE: qmake6
 cleanup:
   - /include
   - /lib/cmake
@@ -45,3 +45,4 @@ modules:
     sources:
       - type: dir
         path: ..
+

@@ -52,7 +52,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 
 **Debian/Ubuntu:**
 ```bash
-sudo apt install qt6-base-dev libqtermwidget6-1-dev libqscintilla2-qt6-dev cmake g++
+sudo apt install qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev libqtermwidget6-1-dev libqscintilla2-qt6-dev cmake g++
 ```
 
 **Arch Linux:**

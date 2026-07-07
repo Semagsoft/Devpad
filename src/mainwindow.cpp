@@ -482,13 +482,16 @@ void MainWindow::setupLspConnections()
                 for (const auto& a : actions) {
                     QString title = a["title"].toString();
                     QAction* act = menu.addAction(title);
-                    QString command = a["command"].toObject()["command"].toString();
-                    QJsonObject cmdArgs = a["command"].toObject()["arguments"].toArray().first().toObject();
+                    QJsonObject cmd = a["command"].toObject();
+                    QString command = cmd["command"].toString();
+                    QJsonArray args = cmd["arguments"].toArray();
                     act->setData(command);
                 }
                 QAction* chosen = menu.exec(QCursor::pos());
                 if (chosen && !chosen->data().toString().isEmpty()) {
+#ifdef QT_DEBUG
                     qDebug() << "Code action:" << chosen->data().toString();
+#endif
                 }
             });
 
@@ -1252,6 +1255,7 @@ void MainWindow::quitDevpad()
 
 bool MainWindow::signalOtherInstancesToQuit()
 {
+#ifdef Q_OS_LINUX
     QProcess pgrep;
     pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("Devpad"));
     if (!pgrep.waitForFinished(2000))
@@ -1284,6 +1288,9 @@ bool MainWindow::signalOtherInstancesToQuit()
             }
         }
     }
+#else
+    Q_UNUSED(QCoreApplication::applicationPid())
+#endif
     return true;
 }
 
@@ -1302,6 +1309,8 @@ bool MainWindow::saveAllModifiedTabs()
 void MainWindow::handleQuitRequest()
 {
     QLocalSocket* client = m_localServer->nextPendingConnection();
+    if (!client)
+        return;
     connect(client, &QLocalSocket::readyRead, this, [this, client]() {
         if (!client->canReadLine())
             return;

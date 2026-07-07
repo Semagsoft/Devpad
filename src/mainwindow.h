@@ -1,3 +1,21 @@
+/*
+ * Devpad - A C++/Qt6 code editor
+ * Copyright (C) 2026 Semagsoft
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -121,35 +139,35 @@ private:
     void saveCurrentFileWithEncoding(const QString& encoding);
 
     // Owned: child widgets (parent=this), destroyed by Qt parent mechanism
-    QTabWidget* m_tabWidget;
-    SplitView* m_splitView;
-    ProjectPanel* m_projectPanel;
-    TerminalPanel* m_terminalPanel;
+    QTabWidget* m_tabWidget = nullptr;
+    SplitView* m_splitView = nullptr;
+    ProjectPanel* m_projectPanel = nullptr;
+    TerminalPanel* m_terminalPanel = nullptr;
 
     // Owned: QObject children (parent=this), destroyed automatically
-    EditorController* m_editorController;
-    ActionManager* m_actionManager;
-    SessionManager* m_sessionManager;
-    EncodingManager* m_encodingManager;
-    ThemeApplier* m_themeApplier;
-    PrintManager* m_printManager;
+    EditorController* m_editorController = nullptr;
+    ActionManager* m_actionManager = nullptr;
+    SessionManager* m_sessionManager = nullptr;
+    EncodingManager* m_encodingManager = nullptr;
+    ThemeApplier* m_themeApplier = nullptr;
+    PrintManager* m_printManager = nullptr;
 
     // Owned: QObject children (parent=this), destroyed automatically
-    FileManager* m_fileManager;
-    TabManager* m_tabManager;
-    SearchManager* m_searchManager;
-    FileWatcherManager* m_fileWatcherManager;
-    QTimer* m_autoSaveTimer;
+    FileManager* m_fileManager = nullptr;
+    TabManager* m_tabManager = nullptr;
+    SearchManager* m_searchManager = nullptr;
+    FileWatcherManager* m_fileWatcherManager = nullptr;
+    QTimer* m_autoSaveTimer = nullptr;
 
     // QPointer: auto-nulls when dialog is destroyed externally
     QPointer<FindInFilesDialog> m_findInFilesDialog;
 
     // Owned: QObject children (parent=this), destroyed automatically
-    ExternalToolManager* m_externalToolManager;
-    RemoteFileService* m_remoteFileService;
-    SnippetManager* m_snippetManager;
-    lsp::LspServerManager* m_lspServerManager;
-    ErrorListPanel* m_errorListPanel;
+    ExternalToolManager* m_externalToolManager = nullptr;
+    RemoteFileService* m_remoteFileService = nullptr;
+    SnippetManager* m_snippetManager = nullptr;
+    lsp::LspServerManager* m_lspServerManager = nullptr;
+    ErrorListPanel* m_errorListPanel = nullptr;
     QPointer<FindSymbolsDialog> m_findSymbolsDialog;
 
     QLocalServer* m_localServer = nullptr;

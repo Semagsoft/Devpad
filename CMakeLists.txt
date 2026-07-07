@@ -229,7 +229,25 @@ target_include_directories(Devpad PRIVATE
     src
 )
 
+# ── Install rules ─────────────────────────────────────────────
 install(TARGETS Devpad RUNTIME DESTINATION bin)
+
+install(FILES resources/com.semagsoft.Devpad.desktop
+    DESTINATION share/applications
+)
+
+install(FILES resources/com.semagsoft.Devpad.metainfo.xml
+    DESTINATION share/metainfo
+)
+
+install(FILES resources/icons/devpad.svg
+    DESTINATION share/icons/hicolor/scalable/apps
+    RENAME com.semagsoft.Devpad.svg
+)
+
+install(FILES LICENSE
+    DESTINATION share/licenses/Devpad
+)
 
 # ── Internationalization ──────────────────────────────────────
 set(TS_FILES

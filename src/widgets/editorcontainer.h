@@ -23,9 +23,9 @@ public:
     bool isFindBarVisible() const;
 
 private:
-    QVBoxLayout *m_layout;
-    InlineFindBar *m_findBar;
-    CodeEditor *m_editor;
+    QVBoxLayout *m_layout = nullptr;
+    InlineFindBar *m_findBar = nullptr;
+    CodeEditor *m_editor = nullptr;
 };
 
 #endif // EDITORCONTAINER_H

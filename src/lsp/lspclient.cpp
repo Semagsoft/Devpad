@@ -1,3 +1,21 @@
+/*
+ * Devpad - A C++/Qt6 code editor
+ * Copyright (C) 2026 Semagsoft
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
 #include "lspclient.h"
 #include "settingsmanager.h"
 
@@ -7,6 +25,8 @@
 #include <QJsonDocument>
 #include <QDir>
 #include <QFileInfo>
+
+#include "logger.h"
 
 namespace lsp {
 
@@ -801,7 +821,9 @@ void LspClient::onReadyReadStderr()
     if (!data.isEmpty()) {
         QString msg = QString::fromUtf8(data).trimmed();
         if (!msg.isEmpty())
+#ifdef QT_DEBUG
             qDebug().noquote() << QString("[LSP %1] %2").arg(m_language, msg);
+#endif
     }
 }
 
@@ -812,8 +834,10 @@ void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
 
     if (status == QProcess::CrashExit && m_retryCount < MAX_RETRIES) {
         m_retryCount++;
+#ifdef QT_DEBUG
         qDebug().noquote() << QString("Language server for %1 crashed, restarting (attempt %2/%3)...")
                                   .arg(m_language).arg(m_retryCount).arg(MAX_RETRIES);
+#endif
         QTimer::singleShot(m_retryCount * 1000, this, &LspClient::tryRestart);
     }
 }
@@ -855,14 +879,26 @@ void LspClient::handleNotification(const QString& method, const QJsonObject& par
         QString msg = params["message"].toString();
         QString prefix = "LSP";
         switch (type) {
-        case 1: qWarning().noquote() << QString("[%1] %2").arg(prefix, msg); break;
-        case 2: qWarning().noquote() << QString("[%1] %2").arg(prefix, msg); break;
-        case 3: qDebug().noquote() << QString("[%1] %2").arg(prefix, msg); break;
-        default: qDebug().noquote() << QString("[%1] %2").arg(prefix, msg); break;
+        case 1:
+        case 2:
+            Logger::instance().warning(QString("[%1] %2").arg(prefix, msg));
+            break;
+        case 3:
+#ifdef QT_DEBUG
+            qDebug().noquote() << QString("[%1] %2").arg(prefix, msg);
+#endif
+            break;
+        default:
+#ifdef QT_DEBUG
+            qDebug().noquote() << QString("[%1] %2").arg(prefix, msg);
+#endif
+            break;
         }
     } else if (method == "window/logMessage") {
         QString msg = params["message"].toString();
+#ifdef QT_DEBUG
         qDebug().noquote() << QString("[LSP %1] %2").arg(m_language, msg);
+#endif
     }
 }
 
