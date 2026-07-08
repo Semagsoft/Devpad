@@ -211,7 +211,7 @@ target_include_directories(Devpad_lib PUBLIC
 target_link_qscintilla(Devpad_lib)
 
 # ── Main executable ───────────────────────────────────────────
-add_executable(Devpad)
+add_executable(Devpad WIN32)
 
 target_sources(Devpad PRIVATE
     src/main.cpp
