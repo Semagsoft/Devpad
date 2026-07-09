@@ -22,8 +22,8 @@ SetCompressor /SOLID lzma
 
 ; ----- Interface -----
 !define MUI_ABORTWARNING
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
-!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define MUI_ICON "devpad.ico"
+!define MUI_UNICON "devpad.ico"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
@@ -59,6 +59,7 @@ Section "Devpad" SecCore
     SetOutPath "$INSTDIR"
     ; Main executable
     File "..\build\Devpad.exe"
+    File "devpad.ico"
 
     ; Qt DLLs
     File "..\build\dist\Qt6Core.dll"
@@ -176,9 +177,9 @@ SectionEnd
 Section "Shortcuts" SecShortcuts
     SetShellVarContext all
     CreateDirectory "$SMPROGRAMS\Devpad"
-    CreateShortCut "$SMPROGRAMS\Devpad\Devpad.lnk" "$INSTDIR\Devpad.exe" "" "$INSTDIR\Devpad.exe" 0
-    CreateShortCut "$SMPROGRAMS\Devpad\Uninstall.lnk" "$INSTDIR\uninst.exe"
-    CreateShortCut "$DESKTOP\Devpad.lnk" "$INSTDIR\Devpad.exe" "" "$INSTDIR\Devpad.exe" 0
+    CreateShortCut "$SMPROGRAMS\Devpad\Devpad.lnk" "$INSTDIR\Devpad.exe" "" "$INSTDIR\devpad.ico" 0
+    CreateShortCut "$SMPROGRAMS\Devpad\Uninstall.lnk" "$INSTDIR\uninst.exe" "" "$INSTDIR\devpad.ico" 0
+    CreateShortCut "$DESKTOP\Devpad.lnk" "$INSTDIR\Devpad.exe" "" "$INSTDIR\devpad.ico" 0
 SectionEnd
 
 ; ----- File Associations -----
@@ -187,35 +188,35 @@ Section "File Associations" SecAssoc
 
     ; Create ProgID
     WriteRegStr HKLM "Software\Classes\Devpad.File\shell\open\command" "" '"$INSTDIR\Devpad.exe" "%1"'
-    WriteRegStr HKLM "Software\Classes\Devpad.File\DefaultIcon" "" "$INSTDIR\Devpad.exe,0"
+    WriteRegStr HKLM "Software\Classes\Devpad.File\DefaultIcon" "" "$INSTDIR\devpad.ico"
 
     ; Register extensions
-    !insertmacro APP_ASSOCIATE "cpp"  "Devpad.File" "C++ Source"          "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "c"    "Devpad.File" "C Source"            "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "h"    "Devpad.File" "C/C++ Header"        "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "hpp"  "Devpad.File" "C++ Header"          "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "cc"   "Devpad.File" "C++ Source"          "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "cxx"  "Devpad.File" "C++ Source"          "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "cs"   "Devpad.File" "C# Source"           "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "java" "Devpad.File" "Java Source"         "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "py"   "Devpad.File" "Python Source"       "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "js"   "Devpad.File" "JavaScript Source"   "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "ts"   "Devpad.File" "TypeScript Source"   "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "tsx"  "Devpad.File" "TypeScript JSX"      "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "html" "Devpad.File" "HTML Document"       "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "css"  "Devpad.File" "CSS Stylesheet"      "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "xml"  "Devpad.File" "XML Document"        "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "svg"  "Devpad.File" "SVG Document"        "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "sql"  "Devpad.File" "SQL Script"          "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "rs"   "Devpad.File" "Rust Source"         "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "go"   "Devpad.File" "Go Source"           "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "md"   "Devpad.File" "Markdown Document"   "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "sh"   "Devpad.File" "Shell Script"        "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "cmake" "Devpad.File" "CMake Script"       "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "json" "Devpad.File" "JSON Document"       "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "yaml" "Devpad.File" "YAML Document"       "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "yml"  "Devpad.File" "YAML Document"       "$INSTDIR\Devpad.exe,0"
-    !insertmacro APP_ASSOCIATE "txt"  "Devpad.File" "Text Document"       "$INSTDIR\Devpad.exe,0"
+    !insertmacro APP_ASSOCIATE "cpp"  "Devpad.File" "C++ Source"          "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "c"    "Devpad.File" "C Source"            "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "h"    "Devpad.File" "C/C++ Header"        "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "hpp"  "Devpad.File" "C++ Header"          "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "cc"   "Devpad.File" "C++ Source"          "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "cxx"  "Devpad.File" "C++ Source"          "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "cs"   "Devpad.File" "C# Source"           "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "java" "Devpad.File" "Java Source"         "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "py"   "Devpad.File" "Python Source"       "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "js"   "Devpad.File" "JavaScript Source"   "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "ts"   "Devpad.File" "TypeScript Source"   "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "tsx"  "Devpad.File" "TypeScript JSX"      "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "html" "Devpad.File" "HTML Document"       "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "css"  "Devpad.File" "CSS Stylesheet"      "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "xml"  "Devpad.File" "XML Document"        "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "svg"  "Devpad.File" "SVG Document"        "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "sql"  "Devpad.File" "SQL Script"          "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "rs"   "Devpad.File" "Rust Source"         "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "go"   "Devpad.File" "Go Source"           "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "md"   "Devpad.File" "Markdown Document"   "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "sh"   "Devpad.File" "Shell Script"        "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "cmake" "Devpad.File" "CMake Script"       "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "json" "Devpad.File" "JSON Document"       "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "yaml" "Devpad.File" "YAML Document"       "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "yml"  "Devpad.File" "YAML Document"       "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "txt"  "Devpad.File" "Text Document"       "$INSTDIR\devpad.ico"
 
     ; "Open with Devpad" context menu for all files
     WriteRegStr HKLM "Software\Classes\*\shell\Open with Devpad\command" "" '"$INSTDIR\Devpad.exe" "%1"'

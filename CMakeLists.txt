@@ -216,6 +216,7 @@ add_executable(Devpad WIN32)
 target_sources(Devpad PRIVATE
     src/main.cpp
     resources/resources.qrc
+    $<$<PLATFORM_ID:Windows>:resources/appicon.rc>
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
