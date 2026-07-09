@@ -31,6 +31,9 @@ moc_*.cpp
 *.swp
 *.swo
 
+# Distribution tarballs
+Devpad-*.tar.gz
+
 # OS
 .DS_Store
 Thumbs.db
