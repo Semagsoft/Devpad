@@ -820,10 +820,11 @@ void LspClient::onReadyReadStderr()
     QByteArray data = m_process->readAllStandardError();
     if (!data.isEmpty()) {
         QString msg = QString::fromUtf8(data).trimmed();
-        if (!msg.isEmpty())
+        if (!msg.isEmpty()) {
 #ifdef QT_DEBUG
             qDebug().noquote() << QString("[LSP %1] %2").arg(m_language, msg);
 #endif
+        }
     }
 }
 
