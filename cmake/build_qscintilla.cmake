@@ -22,6 +22,10 @@ endif()
 find_program(QMAKE6 NAMES qmake6 qmake REQUIRED)
 message(STATUS "Using qmake: ${QMAKE6}")
 
+# ── Find make ────────────────────────────────────────────────
+find_program(MAKE_CMD NAMES mingw32-make make REQUIRED)
+message(STATUS "Using make: ${MAKE_CMD}")
+
 # ── Locate the actual source root ────────────────────────────
 # The tarball may or may not have a top-level directory.
 set(QSCI_ROOT "")
@@ -82,7 +86,7 @@ message(STATUS "qmake configuration OK")
 # ── Build ─────────────────────────────────────────────────────
 message(STATUS "Building QScintilla...")
 execute_process(
-    COMMAND make -j${NPROC}
+    COMMAND ${MAKE_CMD} -j${NPROC}
     WORKING_DIRECTORY ${QSCI_BUILD_DIR}
     RESULT_VARIABLE result
     ERROR_VARIABLE error
@@ -96,7 +100,7 @@ message(STATUS "QScintilla build OK")
 # ── Install ───────────────────────────────────────────────────
 message(STATUS "Installing QScintilla to ${QSCINTILLA_INSTALL_DIR}...")
 execute_process(
-    COMMAND make install
+    COMMAND ${MAKE_CMD} install
     WORKING_DIRECTORY ${QSCI_BUILD_DIR}
     RESULT_VARIABLE result
     ERROR_VARIABLE error

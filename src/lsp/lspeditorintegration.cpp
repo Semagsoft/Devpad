@@ -384,7 +384,9 @@ void LspEditorIntegration::handleCodeActions(const QList<QJsonObject>& actions)
     // This just logs them
     for (const auto& a : actions) {
         QString title = a["title"].toString();
+#ifdef QT_DEBUG
         qDebug() << "Code action available:" << title;
+#endif
     }
 }
 

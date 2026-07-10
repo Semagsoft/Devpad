@@ -60,14 +60,14 @@ private:
     void loadSettings();
     void saveSettings();
 
-    QLineEdit *searchLineEdit;
-    QPushButton *findNextButton;
-    QPushButton *findPrevButton;
-    QPushButton *closeButton;
-    QCheckBox *matchCaseCheckBox;
-    QCheckBox *matchWholeWordCheckBox;
-    QCheckBox *searchUpCheckBox;
-    QCheckBox *useRegexCheckBox;
+    QLineEdit *searchLineEdit = nullptr;
+    QPushButton *findNextButton = nullptr;
+    QPushButton *findPrevButton = nullptr;
+    QPushButton *closeButton = nullptr;
+    QCheckBox *matchCaseCheckBox = nullptr;
+    QCheckBox *matchWholeWordCheckBox = nullptr;
+    QCheckBox *searchUpCheckBox = nullptr;
+    QCheckBox *useRegexCheckBox = nullptr;
     QPointer<QsciScintilla> editor;
     DialogSettings m_settings;
 };

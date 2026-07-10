@@ -30,7 +30,7 @@ const char* MIME_TAB = "application/x-devpad-tab";
 
 QString dragResponsePath(qint64 pid, quint64 dragId)
 {
-    return QStringLiteral("/tmp/devpad-drag-resp-%1-%2").arg(pid).arg(dragId);
+    return QDir::tempPath() + QStringLiteral("/devpad-drag-resp-%1-%2").arg(pid).arg(dragId);
 }
 
 QColor dropHighlightColor()

@@ -104,9 +104,9 @@ private:
     void updateDropOverlay(QPoint screenPos);
     void clearDropIndicators();
 
-    QSplitter *m_splitter;
+    QSplitter *m_splitter = nullptr;
     DropZoneOverlay *m_dropOverlay = nullptr;
-    QTabWidget *m_primaryWidget;
+    QTabWidget *m_primaryWidget = nullptr;
     QList<QTabWidget*> m_panes;
     QTabWidget *m_activeWidget = nullptr;
     bool m_dragActive = false;

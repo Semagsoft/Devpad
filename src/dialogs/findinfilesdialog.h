@@ -92,18 +92,18 @@ private:
     void saveSettings();
     void cleanupSearch();
 
-    QLineEdit *searchLineEdit;
-    QLineEdit *dirLineEdit;
-    QLineEdit *filterLineEdit;
-    QPushButton *browseButton;
-    QPushButton *searchButton;
-    QPushButton *stopButton;
-    QPushButton *closeButton;
-    QCheckBox *matchCaseCheckBox;
-    QCheckBox *matchWholeWordCheckBox;
-    QCheckBox *useRegexCheckBox;
-    QTreeWidget *resultTree;
-    QLabel *statusLabel;
+    QLineEdit *searchLineEdit = nullptr;
+    QLineEdit *dirLineEdit = nullptr;
+    QLineEdit *filterLineEdit = nullptr;
+    QPushButton *browseButton = nullptr;
+    QPushButton *searchButton = nullptr;
+    QPushButton *stopButton = nullptr;
+    QPushButton *closeButton = nullptr;
+    QCheckBox *matchCaseCheckBox = nullptr;
+    QCheckBox *matchWholeWordCheckBox = nullptr;
+    QCheckBox *useRegexCheckBox = nullptr;
+    QTreeWidget *resultTree = nullptr;
+    QLabel *statusLabel = nullptr;
 
     QThread *m_workerThread = nullptr;
     FindInFilesWorker *m_worker = nullptr;

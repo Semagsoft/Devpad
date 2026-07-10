@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.23)
-project(Devpad VERSION 1.0.0 LANGUAGES CXX)
+﻿cmake_minimum_required(VERSION 3.23)
+project(Devpad VERSION 1.0 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
@@ -211,11 +211,12 @@ target_include_directories(Devpad_lib PUBLIC
 target_link_qscintilla(Devpad_lib)
 
 # ── Main executable ───────────────────────────────────────────
-add_executable(Devpad)
+add_executable(Devpad WIN32)
 
 target_sources(Devpad PRIVATE
     src/main.cpp
     resources/resources.qrc
+    $<$<PLATFORM_ID:Windows>:resources/appicon.rc>
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
@@ -229,7 +230,25 @@ target_include_directories(Devpad PRIVATE
     src
 )
 
+# ── Install rules ─────────────────────────────────────────────
 install(TARGETS Devpad RUNTIME DESTINATION bin)
+
+install(FILES resources/com.semagsoft.Devpad.desktop
+    DESTINATION share/applications
+)
+
+install(FILES resources/com.semagsoft.Devpad.metainfo.xml
+    DESTINATION share/metainfo
+)
+
+install(FILES resources/icons/devpad.svg
+    DESTINATION share/icons/hicolor/scalable/apps
+    RENAME com.semagsoft.Devpad.svg
+)
+
+install(FILES LICENSE
+    DESTINATION share/licenses/Devpad
+)
 
 # ── Internationalization ──────────────────────────────────────
 set(TS_FILES

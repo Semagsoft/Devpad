@@ -1,6 +1,6 @@
 {
     ":/icons/Common/filetypes/cppfile.svg": ["c", "cpp", "h", "hpp", "cc", "cxx", "c++", "h++", "hxx"],
-    ":/icons/File/htmlfile.svg": ["html", "htm", "xhtml", "xaml", "xsl", "xslt", "url", "xml"],
+    ":/icons/Common/filetypes/htmlfile.svg": ["html", "htm", "xhtml", "xaml", "xsl", "xslt", "url", "xml"],
     ":/icons/Common/filetypes/misccode.svg": ["cs", "java", "class", "py", "pyw", "pyi", "pyc", "js", "mjs", "cjs", "ts", "tsx", "jsx", "css", "scss", "sass", "less", "sql", "ddl", "sh", "bash", "zsh", "ksh", "fish", "bat", "cmd", "ps1", "json", "jsonc", "yaml", "yml", "toml", "doc", "docx", "pdf", "dll", "so", "a", "lib", "o", "obj", "cmake", "make", "mk", "dockerfile", "lock", "desktop", "service"],
     ":/icons/Common/filetypes/textfile.svg": ["txt", "md", "markdown", "log", "cfg", "ini", "conf", "config", "csv", "tsv", "rtf", "gitignore", "gitattributes", "gitmodules", "env"],
     ":/icons/Common/filetypes/imagefile.svg": ["svg", "png", "jpg", "jpeg", "gif", "bmp", "ico", "webp", "tiff", "tif", "psd", "ai"],

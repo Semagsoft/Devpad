@@ -23,10 +23,10 @@ private:
     void loadTools();
     void saveTools();
 
-    QTableWidget *m_table;
-    QPushButton *m_addButton;
-    QPushButton *m_editButton;
-    QPushButton *m_removeButton;
+    QTableWidget *m_table = nullptr;
+    QPushButton *m_addButton = nullptr;
+    QPushButton *m_editButton = nullptr;
+    QPushButton *m_removeButton = nullptr;
     DialogSettings m_geometrySettings;
 };
 

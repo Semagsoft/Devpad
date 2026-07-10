@@ -189,12 +189,20 @@ const ThemeApplicator& bashThemeApplicator()
     static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
     {
         auto* l = static_cast<QsciLexerBash*>(lexer);
+        l->setColor(colors.foreground, QsciLexerBash::Default);
+        l->setColor(colors.preprocessor, QsciLexerBash::Error);
         l->setColor(colors.comment, QsciLexerBash::Comment);
+        l->setColor(colors.number, QsciLexerBash::Number);
         l->setColor(colors.keyword, QsciLexerBash::Keyword);
         l->setColor(colors.string, QsciLexerBash::DoubleQuotedString);
         l->setColor(colors.string, QsciLexerBash::SingleQuotedString);
-        l->setColor(colors.number, QsciLexerBash::Number);
-        l->setColor(colors.operator_, QsciLexerBash::Default);
+        l->setColor(colors.operator_, QsciLexerBash::Operator);
+        l->setColor(colors.foreground, QsciLexerBash::Identifier);
+        l->setColor(colors.preprocessor, QsciLexerBash::Scalar);
+        l->setColor(colors.preprocessor, QsciLexerBash::ParameterExpansion);
+        l->setColor(colors.string, QsciLexerBash::Backticks);
+        l->setColor(colors.string, QsciLexerBash::HereDocumentDelimiter);
+        l->setColor(colors.string, QsciLexerBash::SingleQuotedHereDocument);
     };
     return fn;
 }

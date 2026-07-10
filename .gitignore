@@ -1,5 +1,7 @@
-build/
+﻿build/
 build-asan/
+build-release/
+Devpad-1.0-linux-x86_64/
 qscintilla-build/
 
 *.user
@@ -30,6 +32,9 @@ moc_*.cpp
 .idea/
 *.swp
 *.swo
+
+# Distribution tarballs
+Devpad-*.tar.gz
 
 # OS
 .DS_Store

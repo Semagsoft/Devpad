@@ -36,13 +36,13 @@ private:
     void setupUI();
     void populateResults(const QJsonArray& symbols);
 
-    lsp::LspServerManager* m_lspManager;
-    QLineEdit* m_searchEdit;
-    QTreeView* m_treeView;
-    QStandardItemModel* m_model;
-    QLabel* m_statusLabel;
-    QTimer* m_debounceTimer;
-    QPushButton* m_closeButton;
+    lsp::LspServerManager* m_lspManager = nullptr;
+    QLineEdit* m_searchEdit = nullptr;
+    QTreeView* m_treeView = nullptr;
+    QStandardItemModel* m_model = nullptr;
+    QLabel* m_statusLabel = nullptr;
+    QTimer* m_debounceTimer = nullptr;
+    QPushButton* m_closeButton = nullptr;
     int m_navigateLine = -1;
     int m_navigateColumn = -1;
 };

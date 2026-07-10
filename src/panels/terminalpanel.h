@@ -66,9 +66,9 @@ private:
     void stopTerminal();
     QString themeToColorScheme(ThemeId themeId) const;
 
-    QWidget *panelWidget;
-    QVBoxLayout *mainLayout;
-    TerminalBackend *m_backend;
+    QWidget *panelWidget = nullptr;
+    QVBoxLayout *mainLayout = nullptr;
+    TerminalBackend *m_backend = nullptr;
 
     QString m_workingDirectory;
     bool m_isRunning;

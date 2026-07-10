@@ -32,9 +32,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             cmake build-essential clang-tidy \
-            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev \
+            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev \
             qttools6-dev \
-            libgl-dev
+            libgl-dev \
+            libqscintilla2-qt6-dev libqtermwidget6-1-dev
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -65,9 +66,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             cmake build-essential clang \
-            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev \
+            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev \
             qttools6-dev \
             libgl-dev \
+            libqscintilla2-qt6-dev libqtermwidget6-1-dev \
             ccache
 
       - name: Setup ccache
@@ -101,9 +103,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             cmake build-essential \
-            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev \
+            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev \
             qttools6-dev \
-            libgl-dev
+            libgl-dev \
+            libqscintilla2-qt6-dev libqtermwidget6-1-dev
 
       - name: Configure
         run: |

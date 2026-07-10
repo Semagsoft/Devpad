@@ -101,14 +101,14 @@ private:
     void showInFileManager(const QString &filePath);
     void openInTerminal(const QString &dirPath);
 
-    QWidget *panelWidget;
-    QVBoxLayout *mainLayout;
-    QLineEdit *filterEdit;
-    QTreeView *treeView;
-    QFileSystemModel *fileModel;
-    FileFilterProxyModel *filterProxyModel;
-    QToolButton *headerButton;
-    QLabel *titleLabel;
+    QWidget *panelWidget = nullptr;
+    QVBoxLayout *mainLayout = nullptr;
+    QLineEdit *filterEdit = nullptr;
+    QTreeView *treeView = nullptr;
+    QFileSystemModel *fileModel = nullptr;
+    FileFilterProxyModel *filterProxyModel = nullptr;
+    QToolButton *headerButton = nullptr;
+    QLabel *titleLabel = nullptr;
     QMenu *recentFoldersMenu = nullptr;
     QString currentRootPath;
     QString currentFilter;
