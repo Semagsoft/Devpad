@@ -92,6 +92,49 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  appimage:
+    name: Build AppImage
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            cmake build-essential \
+            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev \
+            qttools6-dev \
+            libgl-dev \
+            libqscintilla2-qt6-dev libqtermwidget6-1-dev \
+            libfuse2
+
+      - name: Configure
+        run: cmake -S . -B build-appimage -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_TESTS=OFF
+
+      - name: Build
+        run: cmake --build build-appimage -j$(nproc)
+
+      - name: Package AppImage
+        run: bash scripts/package-appimage.sh
+        env:
+          BUILD_DIR: build-appimage
+          APPIMAGE_EXTRACT_AND_RUN: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Devpad-AppImage-${{ github.ref_name }}
+          path: Devpad-*.AppImage
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Devpad-*.AppImage
+          fail_on_unmatched_files: false
+
   sanitize:
     name: Sanitizers (ASan+UBSan)
     runs-on: ubuntu-24.04

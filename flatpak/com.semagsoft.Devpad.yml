@@ -10,6 +10,8 @@ finish-args:
   - --share=network
   - --device=dri
   - --filesystem=home
+  - --socket=pulseaudio
+  - --talk-name=org.freedesktop.Notifications
 build-options:
   env:
     - QMAKE: qmake6
@@ -19,8 +21,17 @@ cleanup:
   - /lib/pkgconfig
   - /share/man
 modules:
+  - name: lxqt-build-tools
+    buildsystem: cmake
+    builddir: true
+    sources:
+      - type: git
+        url: https://github.com/lxqt/lxqt-build-tools.git
+        tag: 2.1.0
+
   - name: qtermwidget
     buildsystem: cmake
+    builddir: true
     sources:
       - type: git
         url: https://github.com/lxqt/qtermwidget.git
@@ -29,8 +40,19 @@ modules:
       - -DBUILD_SHARED_LIBS=ON
 
   - name: qscintilla
-    buildsystem: qmake
-    subdir: src/
+    buildsystem: simple
+    build-commands:
+      - cd src && qmake PREFIX=/app QMAKE_INCDIR=/app/include
+      - make -j $FLATPAK_BUILDER_N_JOBS -C src
+      - install -D -m 755 src/libqscintilla2_qt6.so.15.2.1 /app/lib/libqscintilla2_qt6.so.15.2.1
+      - ln -s libqscintilla2_qt6.so.15.2.1 /app/lib/libqscintilla2_qt6.so.15
+      - ln -s libqscintilla2_qt6.so.15.2.1 /app/lib/libqscintilla2_qt6.so.15.2
+      - ln -s libqscintilla2_qt6.so.15.2.1 /app/lib/libqscintilla2_qt6.so
+      - cp -r src/Qsci /app/include/Qsci
+      - mkdir -p /app/share/qsci
+      - cp -r qsci /app/share/
+      - mkdir -p /app/share/mkspecs/features
+      - cp src/features/qscintilla2.prf /app/share/mkspecs/features/
     sources:
       - type: archive
         url: https://www.riverbankcomputing.com/static/Downloads/QScintilla/2.14.1/QScintilla_src-2.14.1.tar.gz

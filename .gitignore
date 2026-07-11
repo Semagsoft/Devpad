@@ -1,4 +1,5 @@
 ﻿build/
+build-appimage/
 build-asan/
 build-release/
 Devpad-1.0-linux-x86_64/
@@ -33,7 +34,9 @@ moc_*.cpp
 *.swp
 *.swo
 
-# Distribution tarballs
+# Distribution packages/ tarballs
+Devpad*.AppImage
+Devpad*.flatpak
 Devpad-*.tar.gz
 
 # OS
