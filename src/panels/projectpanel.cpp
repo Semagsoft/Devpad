@@ -142,8 +142,7 @@ QIcon ProjectPanel::iconForFile(const QString &filePath) {
 
 void FileFilterProxyModel::setFilterText(const QString &text) {
     m_filterText = text;
-    beginFilterChange();
-    endFilterChange();
+    invalidateFilter();
 }
 
 bool FileFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const {
