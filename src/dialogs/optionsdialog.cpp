@@ -399,6 +399,8 @@ void OptionsDialog::setupPanelsTab()
     projectLayout->addRow(tr("Panel position:"), projectPanelPositionComboBox);
     showHiddenFilesCheckBox = new QCheckBox(tr("Show hidden files"), projectGroup);
     projectLayout->addRow(showHiddenFilesCheckBox);
+    useGitIgnoreCheckBox = new QCheckBox(tr("Use .gitignore filtering"), projectGroup);
+    projectLayout->addRow(useGitIgnoreCheckBox);
     mainLayout->addWidget(projectGroup);
     mainLayout->addStretch();
 
@@ -500,6 +502,7 @@ void OptionsDialog::loadSettings()
     terminalFontSizeBox->setText(QString::number(s.terminalFontSize()));
     projectPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.projectPanelPosition()));
     showHiddenFilesCheckBox->setChecked(s.showHiddenFiles());
+    useGitIgnoreCheckBox->setChecked(s.useGitIgnore());
     verticalEdgeCheckBox->setChecked(s.verticalEdgeEnabled());
     verticalEdgeColumnSpin->setValue(s.verticalEdgeColumn());
     defaultEncodingComboBox->setCurrentIndex(s.defaultEncoding());
@@ -576,6 +579,7 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setTerminalFontSize(qMax(1, terminalFontSizeBox->text().toInt()));
     SettingsManager::instance().setProjectPanelPosition(static_cast<ProjectPanelPosition>(projectPanelPositionComboBox->currentIndex()));
     SettingsManager::instance().setShowHiddenFiles(showHiddenFilesCheckBox->isChecked());
+    SettingsManager::instance().setUseGitIgnore(useGitIgnoreCheckBox->isChecked());
     SettingsManager::instance().setVerticalEdgeEnabled(verticalEdgeCheckBox->isChecked());
     SettingsManager::instance().setVerticalEdgeColumn(verticalEdgeColumnSpin->value());
     SettingsManager::instance().setDefaultFontFamily(fontFaceComboBox->currentText());

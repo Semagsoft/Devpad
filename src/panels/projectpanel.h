@@ -19,10 +19,13 @@
 #ifndef PROJECTPANEL_H
 #define PROJECTPANEL_H
 
+#include "gitignore.h"
+
 #include <QDockWidget>
 #include <QSortFilterProxyModel>
 #include <QSet>
 #include <QFileIconProvider>
+#include <memory>
 
 class QFileSystemModel;
 class QLabel;
@@ -46,6 +49,10 @@ public:
     const QSet<QString>& expandedFolders() const { return m_expandedFolders; }
     void notifyDataChanged(const QModelIndex &index);
 
+    void setGitIgnoreEnabled(bool enabled);
+    void setGitIgnoreRootPath(const QString &rootPath);
+    void scanGitIgnoreDirectory(const QString &dirPath);
+
 protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
@@ -57,6 +64,8 @@ private:
     QIcon m_hiddenFolderIcon;
     QSet<QString> m_expandedFolders;
     QFileIconProvider m_fileIconProvider;
+    std::unique_ptr<GitIgnore> m_gitIgnore;
+    bool m_gitIgnoreEnabled = true;
 };
 
 class ProjectPanel : public QDockWidget {
@@ -100,6 +109,7 @@ private:
     void openInEditor(const QString &filePath);
     void showInFileManager(const QString &filePath);
     void openInTerminal(const QString &dirPath);
+    void updateGitIgnore();
 
     QWidget *panelWidget = nullptr;
     QVBoxLayout *mainLayout = nullptr;

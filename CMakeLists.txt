@@ -147,6 +147,7 @@ add_library(Devpad_lib STATIC
     src/theme.cpp
     src/logger.cpp
     src/encodingutils.cpp
+    src/gitignore.cpp
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp

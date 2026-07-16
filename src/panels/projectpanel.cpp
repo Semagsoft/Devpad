@@ -145,12 +145,49 @@ void FileFilterProxyModel::setFilterText(const QString &text) {
     invalidateFilter();
 }
 
+void FileFilterProxyModel::setGitIgnoreEnabled(bool enabled) {
+    m_gitIgnoreEnabled = enabled;
+    invalidateFilter();
+}
+
+void FileFilterProxyModel::setGitIgnoreRootPath(const QString &rootPath) {
+    if (rootPath.isEmpty()) {
+        m_gitIgnore.reset();
+    } else {
+        m_gitIgnore = std::make_unique<GitIgnore>(rootPath);
+    }
+    invalidateFilter();
+}
+
+void FileFilterProxyModel::scanGitIgnoreDirectory(const QString &dirPath) {
+    if (m_gitIgnore) {
+        m_gitIgnore->scanDirectory(dirPath);
+        invalidateFilter();
+    }
+}
+
 bool FileFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const {
+    QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
+    QString filePath = sourceModel()->data(index, QFileSystemModel::FilePathRole).toString();
+    bool isDir = sourceModel()->hasChildren(index);
+
+    if (m_gitIgnoreEnabled && m_gitIgnore && !m_gitIgnore->isEmpty()) {
+        if (m_gitIgnore->isIgnored(filePath, isDir)) {
+            if (isDir) {
+                for (int i = 0; i < sourceModel()->rowCount(index); ++i) {
+                    if (filterAcceptsRow(i, index)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
     if (m_filterText.isEmpty()) {
         return true;
     }
 
-    QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
     QString fileName = sourceModel()->data(index, Qt::DisplayRole).toString();
 
     if (fileName.contains(m_filterText, Qt::CaseInsensitive)) {
@@ -268,6 +305,7 @@ void ProjectPanel::setRootPath(const QString &path) {
 
     SettingsManager::instance().addRecentFolder(path);
 
+    updateGitIgnore();
     applyFilter();
 }
 
@@ -307,6 +345,16 @@ void ProjectPanel::reloadFilter() {
     if (SettingsManager::instance().showHiddenFiles())
         filters |= QDir::Hidden;
     fileModel->setFilter(filters);
+}
+
+void ProjectPanel::updateGitIgnore() {
+    bool useGitIgnore = SettingsManager::instance().useGitIgnore();
+    filterProxyModel->setGitIgnoreEnabled(useGitIgnore);
+    if (useGitIgnore && !currentRootPath.isEmpty()) {
+        filterProxyModel->setGitIgnoreRootPath(currentRootPath);
+    } else {
+        filterProxyModel->setGitIgnoreRootPath(QString());
+    }
 }
 
 void ProjectPanel::showRecentFoldersMenu() {
@@ -366,6 +414,8 @@ void ProjectPanel::onFolderExpanded(const QModelIndex &index) {
     expanded.insert(path);
     filterProxyModel->setExpandedFolders(expanded);
     filterProxyModel->notifyDataChanged(index);
+
+    filterProxyModel->scanGitIgnoreDirectory(path);
 }
 
 QString ProjectPanel::filePathFromIndex(const QModelIndex &index) const {
@@ -454,6 +504,17 @@ void ProjectPanel::onContextMenu(const QPoint &pos) {
         connect(showHiddenAct, &QAction::triggered, this, [this, hiddenVisible]() {
             SettingsManager::instance().setShowHiddenFiles(!hiddenVisible);
             reloadFilter();
+        });
+
+        bool gitIgnoreEnabled = SettingsManager::instance().useGitIgnore();
+        QAction *gitIgnoreAct = menu.addAction(
+            gitIgnoreEnabled ? tr("Disable .gitignore Filtering") : tr("Enable .gitignore Filtering"));
+        gitIgnoreAct->setCheckable(true);
+        gitIgnoreAct->setChecked(gitIgnoreEnabled);
+        connect(gitIgnoreAct, &QAction::triggered, this, [this]() {
+            bool enabled = !SettingsManager::instance().useGitIgnore();
+            SettingsManager::instance().setUseGitIgnore(enabled);
+            updateGitIgnore();
         });
     }
 
