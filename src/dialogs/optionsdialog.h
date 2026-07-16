@@ -95,6 +95,7 @@ private:
     QCheckBox *autoSaveCheckBox = nullptr;
     QSpinBox *autoSaveIntervalSpin = nullptr;
     QCheckBox *showHiddenFilesCheckBox = nullptr;
+    QCheckBox *useGitIgnoreCheckBox = nullptr;
     QComboBox *projectPanelPositionComboBox = nullptr;
     ThemePreviewWidget *themePreview = nullptr;
     QPushButton *accentColorButton = nullptr;

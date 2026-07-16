@@ -187,6 +187,7 @@ void SettingsManager::loadCache()
     m_cache.autoSave.autoSaveToOriginalFile = m_settings.value("Options_AutoSaveToOriginalFile", true).toBool();
 
     m_cache.project.showHiddenFiles = m_settings.value("Options_ShowHiddenFiles", false).toBool();
+    m_cache.project.useGitIgnore = m_settings.value("Options_UseGitIgnore", true).toBool();
     m_cache.project.projectPanelPosition = static_cast<ProjectPanelPosition>(
         m_settings.value("Options_ProjectPanelPosition", static_cast<int>(ProjectPanelPosition::Left)).toInt());
 
@@ -354,8 +355,10 @@ void SettingsManager::setAutoSaveInterval(int seconds) { writeCached("Options_Au
 void SettingsManager::setAutoSaveToOriginalFile(bool enabled) { writeCached("Options_AutoSaveToOriginalFile", m_cache.autoSave.autoSaveToOriginalFile, enabled); }
 SettingsManager::ProjectSettings SettingsManager::projectSettings() const { return m_cache.project; }
 bool SettingsManager::showHiddenFiles() const { return m_cache.project.showHiddenFiles; }
+bool SettingsManager::useGitIgnore() const { return m_cache.project.useGitIgnore; }
 ProjectPanelPosition SettingsManager::projectPanelPosition() const { return m_cache.project.projectPanelPosition; }
 void SettingsManager::setShowHiddenFiles(bool visible) { writeCached("Options_ShowHiddenFiles", m_cache.project.showHiddenFiles, visible); }
+void SettingsManager::setUseGitIgnore(bool enabled) { writeCached("Options_UseGitIgnore", m_cache.project.useGitIgnore, enabled); }
 void SettingsManager::setProjectPanelPosition(ProjectPanelPosition position) { writeCached("Options_ProjectPanelPosition", m_cache.project.projectPanelPosition, position); }
 
 QString SettingsManager::syntaxForExtension(const QString& ext) const

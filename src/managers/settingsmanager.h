@@ -144,6 +144,7 @@ public:
     struct ProjectSettings
     {
         bool showHiddenFiles = false;
+        bool useGitIgnore = true;
         ProjectPanelPosition projectPanelPosition = ProjectPanelPosition::Left;
     };
 
@@ -272,8 +273,10 @@ public:
     // ── Project settings ───────────────────────────────────────
     ProjectSettings projectSettings() const;
     bool showHiddenFiles() const;
+    bool useGitIgnore() const;
     ProjectPanelPosition projectPanelPosition() const;
     void setShowHiddenFiles(bool visible);
+    void setUseGitIgnore(bool enabled);
     void setProjectPanelPosition(ProjectPanelPosition position);
 
     // ── File type associations ─────────────────────────────────
