@@ -24,6 +24,7 @@ Makefile
 *.la
 moc_*.cpp
 .qmake.stash
+*.wixpdb
 
 # Generated translation files
 *.qm
@@ -38,6 +39,8 @@ moc_*.cpp
 Devpad*.AppImage
 Devpad*.flatpak
 Devpad-*.tar.gz
+
+Devpad*.msi
 
 # OS
 .DS_Store
