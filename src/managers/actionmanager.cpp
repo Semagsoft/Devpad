@@ -133,8 +133,6 @@ void ActionManager::createActions() {
     });
 
     m_findSymbolsAct = new QAction(tr("Find Symbol..."), this);
-    m_findSymbolsAct->setShortcut(QKeySequence("Ctrl+Shift+O"));
-    m_actionsWithShortcuts.append(m_findSymbolsAct);
     connect(m_findSymbolsAct, &QAction::triggered, this, [this]() { emit findSymbolsTriggered(); });
 
     m_expandSelectionAct = new QAction(tr("Expand Selection"), this);
