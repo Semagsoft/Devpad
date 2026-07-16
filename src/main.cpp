@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "mainwindow.h"
+#include "managers/settingsmanager.h"
 #include "theme.h"
 #include "devpad_version.h"
 
@@ -87,6 +88,12 @@ int main(int argc, char* argv[])
     app.setApplicationVersion(DEVPAD_VERSION);
 
     initThemeSystem();
+
+    {
+        const auto& ui = SettingsManager::instance().uiSettings();
+        if (!ui.uiFontFamily.isEmpty())
+            QApplication::setFont(QFont(ui.uiFontFamily, ui.uiFontSize));
+    }
 
     MainWindow mainWindow;
 
