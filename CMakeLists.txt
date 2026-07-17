@@ -45,7 +45,7 @@ else()
             GIT_REPOSITORY https://github.com/lxqt/qtermwidget.git
             GIT_TAG 2.1.0
             PREFIX ${DEPS_PREFIX}/qtermwidget
-            PATCH_COMMAND sed -i "s/ SHARED / STATIC /" CMakeLists.txt
+            PATCH_COMMAND sh -c "sed -i.bak 's/ SHARED / STATIC /' CMakeLists.txt && rm -f CMakeLists.txt.bak"
             CMAKE_ARGS
                 -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
                 -DCMAKE_PREFIX_PATH=${DEPS_PREFIX}

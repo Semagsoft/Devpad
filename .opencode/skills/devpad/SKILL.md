@@ -170,15 +170,15 @@ All managers are singletons or parented to `MainWindow`. The `EditorController` 
 ```bash
 # Debug
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build -j$(nproc)
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 
 # Release
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 
 # With tests
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
-cmake --build build -j$(nproc)
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 
 # Install system-wide
 cmake --install build
@@ -260,7 +260,7 @@ The Flatpak manifest:
 ### Running Tests
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
-cmake --build build -j$(nproc)
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 ctest --test-dir build --output-on-failure
 ```
 

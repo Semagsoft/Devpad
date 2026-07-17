@@ -80,14 +80,22 @@ cmake --build build -j
 pacman -S mingw-w64-ucrt-x86_64-qt6 mingw-w64-ucrt-x86_64-qscintilla \
           mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-gcc
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 ```
+
+**macOS (Homebrew):**
+```bash
+brew install qt cmake librsvg
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(sysctl -n hw.logicalcpu)
+```
+QScintilla and qtermwidget6 are built automatically from source if not found.
 
 ## Building
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 ```
 
 Install system-wide (requires root):
@@ -99,9 +107,16 @@ cmake --install build
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
-cmake --build build -j$(nproc)
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 ctest --test-dir build --output-on-failure
 ```
+
+### Packaging for macOS
+
+```bash
+./scripts/package-macos.sh
+```
+Produces `Devpad-<version>-macos-<arch>.dmg` with a bundled `.app`.
 
 ## Usage
 

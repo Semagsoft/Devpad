@@ -42,6 +42,11 @@ Devpad-*.tar.gz
 
 Devpad*.msi
 
+# macOS distribution
+Devpad*.dmg
+Devpad*.app
+build-release-macos/
+
 # OS
 .DS_Store
 Thumbs.db
