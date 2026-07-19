@@ -17,21 +17,21 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "lspclient.h"
+
+#include "logger.h"
 #include "settingsmanager.h"
 
 #include <QCoreApplication>
-#include <QProcess>
-#include <QJsonArray>
-#include <QJsonDocument>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QProcess>
 
-#include "logger.h"
+namespace lsp
+{
 
-namespace lsp {
-
-LspClient::LspClient(const QString& language, QObject* parent)
-    : QObject(parent), m_language(language)
+LspClient::LspClient(const QString& language, QObject* parent) : QObject(parent), m_language(language)
 {
     m_jsonRpc = new LspJsonRpc(this);
 
@@ -46,7 +46,8 @@ LspClient::~LspClient()
 
 void LspClient::startServer(const QString& command, const QStringList& args, const QString& rootUri)
 {
-    if (m_process && m_process->state() != QProcess::NotRunning) {
+    if (m_process && m_process->state() != QProcess::NotRunning)
+    {
         stopServer();
     }
 
@@ -60,13 +61,13 @@ void LspClient::startServer(const QString& command, const QStringList& args, con
 
     connect(m_process, &QProcess::readyReadStandardOutput, this, &LspClient::onReadyReadStdout);
     connect(m_process, &QProcess::readyReadStandardError, this, &LspClient::onReadyReadStderr);
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, &LspClient::onProcessFinished);
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &LspClient::onProcessFinished);
     connect(m_process, &QProcess::errorOccurred, this, &LspClient::onProcessError);
 
     m_process->start(command, args);
 
-    if (!m_process->waitForStarted(5000)) {
+    if (!m_process->waitForStarted(5000))
+    {
         emit serverError(tr("Failed to start language server: %1").arg(command));
         return;
     }
@@ -80,10 +81,10 @@ void LspClient::stopServer()
     if (!m_process)
         return;
 
-    if (m_process->state() != QProcess::NotRunning) {
+    if (m_process->state() != QProcess::NotRunning)
+    {
         // Send shutdown request
-        QByteArray shutdown = m_jsonRpc->createRequest(
-            m_jsonRpc->nextRequestId(), "shutdown", QJsonObject());
+        QByteArray shutdown = m_jsonRpc->createRequest(m_jsonRpc->nextRequestId(), "shutdown", QJsonObject());
         m_process->write(shutdown);
         m_process->waitForBytesWritten(1000);
 
@@ -92,7 +93,8 @@ void LspClient::stopServer()
         m_process->write(exit);
         m_process->waitForBytesWritten(1000);
 
-        if (!m_process->waitForFinished(3000)) {
+        if (!m_process->waitForFinished(3000))
+        {
             m_process->terminate();
             if (!m_process->waitForFinished(2000))
                 m_process->kill();
@@ -162,14 +164,16 @@ void LspClient::sendInitialize()
     params["trace"] = QStringLiteral("off");
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& result) {
-        m_retryCount = 0;
-        m_capabilities = ServerCapabilities::fromJson(result.toObject()["capabilities"].toObject());
-        m_initialized = true;
-        QByteArray notification = m_jsonRpc->createNotification("initialized", QJsonObject());
-        if (m_process)
-            m_process->write(notification);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this](const QJsonValue& result)
+                                      {
+                                          m_retryCount = 0;
+                                          m_capabilities = ServerCapabilities::fromJson(result.toObject()["capabilities"].toObject());
+                                          m_initialized = true;
+                                          QByteArray notification = m_jsonRpc->createNotification("initialized", QJsonObject());
+                                          if (m_process)
+                                              m_process->write(notification);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "initialize", params);
     if (m_process)
@@ -263,21 +267,27 @@ void LspClient::requestCompletion(const QString& uri, const Position& pos, int t
     params["context"] = context;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        CompletionList list;
-        QJsonArray items;
-        QJsonObject obj = result.toObject();
-        if (result.isObject() && obj.contains("items")) {
-            items = obj["items"].toArray();
-            list.isIncomplete = obj["isIncomplete"].toBool();
-        } else if (result.isArray()) {
-            items = result.toArray();
-        }
-        for (const auto& item : items) {
-            list.items.append(CompletionItem::fromJson(item.toObject()));
-        }
-        emit completionReady(uri, list);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          CompletionList list;
+                                          QJsonArray items;
+                                          QJsonObject obj = result.toObject();
+                                          if (result.isObject() && obj.contains("items"))
+                                          {
+                                              items = obj["items"].toArray();
+                                              list.isIncomplete = obj["isIncomplete"].toBool();
+                                          }
+                                          else if (result.isArray())
+                                          {
+                                              items = result.toArray();
+                                          }
+                                          for (const auto& item : items)
+                                          {
+                                              list.items.append(CompletionItem::fromJson(item.toObject()));
+                                          }
+                                          emit completionReady(uri, list);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/completion", params);
     m_process->write(request);
@@ -295,21 +305,27 @@ void LspClient::requestDefinition(const QString& uri, const Position& pos)
     params["position"] = pos.toJson();
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        Location loc;
-        if (result.isObject()) {
-            QJsonObject obj = result.toObject();
-            if (obj.contains("range")) {
-                loc = Location::fromJson(obj);
-            }
-        } else if (result.isArray()) {
-            QJsonArray arr = result.toArray();
-            if (!arr.isEmpty())
-                loc = Location::fromJson(arr.first().toObject());
-        }
-        if (!loc.uri.isEmpty())
-            emit definitionReady(uri, loc);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          Location loc;
+                                          if (result.isObject())
+                                          {
+                                              QJsonObject obj = result.toObject();
+                                              if (obj.contains("range"))
+                                              {
+                                                  loc = Location::fromJson(obj);
+                                              }
+                                          }
+                                          else if (result.isArray())
+                                          {
+                                              QJsonArray arr = result.toArray();
+                                              if (!arr.isEmpty())
+                                                  loc = Location::fromJson(arr.first().toObject());
+                                          }
+                                          if (!loc.uri.isEmpty())
+                                              emit definitionReady(uri, loc);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/definition", params);
     m_process->write(request);
@@ -327,20 +343,25 @@ void LspClient::requestTypeDefinition(const QString& uri, const Position& pos)
     params["position"] = pos.toJson();
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        Location loc;
-        if (result.isObject()) {
-            QJsonObject obj = result.toObject();
-            if (obj.contains("range"))
-                loc = Location::fromJson(obj);
-        } else if (result.isArray()) {
-            QJsonArray arr = result.toArray();
-            if (!arr.isEmpty())
-                loc = Location::fromJson(arr.first().toObject());
-        }
-        if (!loc.uri.isEmpty())
-            emit typeDefinitionReady(uri, loc);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          Location loc;
+                                          if (result.isObject())
+                                          {
+                                              QJsonObject obj = result.toObject();
+                                              if (obj.contains("range"))
+                                                  loc = Location::fromJson(obj);
+                                          }
+                                          else if (result.isArray())
+                                          {
+                                              QJsonArray arr = result.toArray();
+                                              if (!arr.isEmpty())
+                                                  loc = Location::fromJson(arr.first().toObject());
+                                          }
+                                          if (!loc.uri.isEmpty())
+                                              emit typeDefinitionReady(uri, loc);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/typeDefinition", params);
     m_process->write(request);
@@ -358,20 +379,25 @@ void LspClient::requestDeclaration(const QString& uri, const Position& pos)
     params["position"] = pos.toJson();
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        Location loc;
-        if (result.isObject()) {
-            QJsonObject obj = result.toObject();
-            if (obj.contains("range"))
-                loc = Location::fromJson(obj);
-        } else if (result.isArray()) {
-            QJsonArray arr = result.toArray();
-            if (!arr.isEmpty())
-                loc = Location::fromJson(arr.first().toObject());
-        }
-        if (!loc.uri.isEmpty())
-            emit declarationReady(uri, loc);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          Location loc;
+                                          if (result.isObject())
+                                          {
+                                              QJsonObject obj = result.toObject();
+                                              if (obj.contains("range"))
+                                                  loc = Location::fromJson(obj);
+                                          }
+                                          else if (result.isArray())
+                                          {
+                                              QJsonArray arr = result.toArray();
+                                              if (!arr.isEmpty())
+                                                  loc = Location::fromJson(arr.first().toObject());
+                                          }
+                                          if (!loc.uri.isEmpty())
+                                              emit declarationReady(uri, loc);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/declaration", params);
     m_process->write(request);
@@ -396,14 +422,17 @@ void LspClient::requestCodeAction(const QString& uri, const Range& range, const 
     params["context"] = ctx;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        QList<QJsonObject> actions;
-        if (result.isArray()) {
-            for (const auto& v : result.toArray())
-                actions.append(v.toObject());
-        }
-        emit codeActionReady(uri, actions);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          QList<QJsonObject> actions;
+                                          if (result.isArray())
+                                          {
+                                              for (const auto& v : result.toArray())
+                                                  actions.append(v.toObject());
+                                          }
+                                          emit codeActionReady(uri, actions);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/codeAction", params);
     m_process->write(request);
@@ -418,9 +447,7 @@ void LspClient::requestWorkspaceSymbols(const QString& query)
     params["query"] = query;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, query](const QJsonValue& result) {
-        emit workspaceSymbolsReady(query, result.toArray());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, query](const QJsonValue& result) { emit workspaceSymbolsReady(query, result.toArray()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "workspace/symbol", params);
     m_process->write(request);
@@ -441,9 +468,7 @@ void LspClient::requestSelectionRanges(const QString& uri, const QList<Position>
     params["positions"] = posArr;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        emit selectionRangesReady(uri, result.toArray());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit selectionRangesReady(uri, result.toArray()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/selectionRange", params);
     m_process->write(request);
@@ -461,9 +486,7 @@ void LspClient::requestLinkedEditingRange(const QString& uri, const Position& po
     params["position"] = pos.toJson();
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        emit linkedEditingRangeReady(uri, result.toObject());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit linkedEditingRangeReady(uri, result.toObject()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/linkedEditingRange", params);
     m_process->write(request);
@@ -481,9 +504,7 @@ void LspClient::prepareCallHierarchy(const QString& uri, const Position& pos)
     params["position"] = pos.toJson();
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        emit callHierarchyReady(uri, result.toArray());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit callHierarchyReady(uri, result.toArray()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/prepareCallHierarchy", params);
     m_process->write(request);
@@ -501,9 +522,7 @@ void LspClient::incomingCalls(const QString& uri, const QString& itemId)
     params["item"] = item;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        emit incomingCallsReady(uri, result.toArray());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit incomingCallsReady(uri, result.toArray()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "callHierarchy/incomingCalls", params);
     m_process->write(request);
@@ -521,9 +540,7 @@ void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
     params["item"] = item;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        emit outgoingCallsReady(uri, result.toArray());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit outgoingCallsReady(uri, result.toArray()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "callHierarchy/outgoingCalls", params);
     m_process->write(request);
@@ -540,10 +557,12 @@ void LspClient::requestSemanticTokensFull(const QString& uri)
     params["textDocument"] = textDoc;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        QJsonObject obj = result.toObject();
-        emit semanticTokensFullReady(uri, obj["data"].toArray());
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          QJsonObject obj = result.toObject();
+                                          emit semanticTokensFullReady(uri, obj["data"].toArray());
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/semanticTokens/full", params);
     m_process->write(request);
@@ -562,14 +581,17 @@ void LspClient::requestReferences(const QString& uri, const Position& pos)
     params["context"] = QJsonObject{{"includeDeclaration", true}};
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        QList<Location> locations;
-        if (result.isArray()) {
-            for (const auto& v : result.toArray())
-                locations.append(Location::fromJson(v.toObject()));
-        }
-        emit referencesReady(uri, locations);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          QList<Location> locations;
+                                          if (result.isArray())
+                                          {
+                                              for (const auto& v : result.toArray())
+                                                  locations.append(Location::fromJson(v.toObject()));
+                                          }
+                                          emit referencesReady(uri, locations);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/references", params);
     m_process->write(request);
@@ -587,26 +609,34 @@ void LspClient::requestHover(const QString& uri, const Position& pos)
     params["position"] = pos.toJson();
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        QString contents;
-        QJsonObject obj = result.toObject();
-        QJsonValue val = obj["contents"];
-        if (val.isString()) {
-            contents = val.toString();
-        } else if (val.isObject()) {
-            contents = val.toObject()["value"].toString();
-        } else if (val.isArray()) {
-            QStringList parts;
-            for (const auto& v : val.toArray()) {
-                if (v.isString())
-                    parts.append(v.toString());
-                else if (v.isObject())
-                    parts.append(v.toObject()["value"].toString());
-            }
-            contents = parts.join("\n");
-        }
-        emit hoverReady(uri, contents);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          QString contents;
+                                          QJsonObject obj = result.toObject();
+                                          QJsonValue val = obj["contents"];
+                                          if (val.isString())
+                                          {
+                                              contents = val.toString();
+                                          }
+                                          else if (val.isObject())
+                                          {
+                                              contents = val.toObject()["value"].toString();
+                                          }
+                                          else if (val.isArray())
+                                          {
+                                              QStringList parts;
+                                              for (const auto& v : val.toArray())
+                                              {
+                                                  if (v.isString())
+                                                      parts.append(v.toString());
+                                                  else if (v.isObject())
+                                                      parts.append(v.toObject()["value"].toString());
+                                              }
+                                              contents = parts.join("\n");
+                                          }
+                                          emit hoverReady(uri, contents);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/hover", params);
     m_process->write(request);
@@ -623,17 +653,20 @@ void LspClient::requestDocumentSymbols(const QString& uri)
     params["textDocument"] = textDoc;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        QJsonArray symbols;
-        if (result.isArray())
-            symbols = result.toArray();
-        else if (result.isObject()) {
-            QJsonObject obj = result.toObject();
-            if (obj.contains("symbols"))
-                symbols = obj["symbols"].toArray();
-        }
-        emit documentSymbolsReady(uri, symbols);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          QJsonArray symbols;
+                                          if (result.isArray())
+                                              symbols = result.toArray();
+                                          else if (result.isObject())
+                                          {
+                                              QJsonObject obj = result.toObject();
+                                              if (obj.contains("symbols"))
+                                                  symbols = obj["symbols"].toArray();
+                                          }
+                                          emit documentSymbolsReady(uri, symbols);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/documentSymbol", params);
     m_process->write(request);
@@ -654,14 +687,17 @@ void LspClient::requestFormatting(const QString& uri, int tabSize, bool insertSp
     params["options"] = options;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        QList<QJsonObject> edits;
-        if (result.isArray()) {
-            for (const auto& v : result.toArray())
-                edits.append(v.toObject());
-        }
-        emit formattingReady(uri, edits);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          QList<QJsonObject> edits;
+                                          if (result.isArray())
+                                          {
+                                              for (const auto& v : result.toArray())
+                                                  edits.append(v.toObject());
+                                          }
+                                          emit formattingReady(uri, edits);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/formatting", params);
     m_process->write(request);
@@ -683,14 +719,17 @@ void LspClient::requestRangeFormatting(const QString& uri, const Range& range, i
     params["options"] = options;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        QList<QJsonObject> edits;
-        if (result.isArray()) {
-            for (const auto& v : result.toArray())
-                edits.append(v.toObject());
-        }
-        emit rangeFormattingReady(uri, edits);
-    });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this, uri](const QJsonValue& result)
+                                      {
+                                          QList<QJsonObject> edits;
+                                          if (result.isArray())
+                                          {
+                                              for (const auto& v : result.toArray())
+                                                  edits.append(v.toObject());
+                                          }
+                                          emit rangeFormattingReady(uri, edits);
+                                      });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/rangeFormatting", params);
     m_process->write(request);
@@ -708,9 +747,7 @@ void LspClient::requestSignatureHelp(const QString& uri, const Position& pos)
     params["position"] = pos.toJson();
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        emit signatureHelpReady(uri, result.toObject());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit signatureHelpReady(uri, result.toObject()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/signatureHelp", params);
     m_process->write(request);
@@ -722,7 +759,8 @@ void LspClient::requestDiagnostics(const QString& uri)
         return;
 
     // For servers that support the pull model (3.17+), request diagnostics
-    if (m_capabilities.diagnosticProvider) {
+    if (m_capabilities.diagnosticProvider)
+    {
         QJsonObject params;
         QJsonObject textDoc;
         textDoc["uri"] = uri;
@@ -730,20 +768,25 @@ void LspClient::requestDiagnostics(const QString& uri)
         params["identifier"] = QStringLiteral("default");
 
         int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        QList<Diagnostic> diagnostics;
-        QJsonArray items;
-        if (result.isObject()) {
-            QJsonObject obj = result.toObject();
-            if (obj.contains("items"))
-                items = obj["items"].toArray();
-        } else if (result.isArray()) {
-            items = result.toArray();
-        }
-        for (const auto& v : items)
-            diagnostics.append(Diagnostic::fromJson(v.toObject()));
-        emit diagnosticsReady(uri, diagnostics);
-    });
+        m_jsonRpc->registerPendingRequest(id,
+                                          [this, uri](const QJsonValue& result)
+                                          {
+                                              QList<Diagnostic> diagnostics;
+                                              QJsonArray items;
+                                              if (result.isObject())
+                                              {
+                                                  QJsonObject obj = result.toObject();
+                                                  if (obj.contains("items"))
+                                                      items = obj["items"].toArray();
+                                              }
+                                              else if (result.isArray())
+                                              {
+                                                  items = result.toArray();
+                                              }
+                                              for (const auto& v : items)
+                                                  diagnostics.append(Diagnostic::fromJson(v.toObject()));
+                                              emit diagnosticsReady(uri, diagnostics);
+                                          });
 
         QByteArray request = m_jsonRpc->createRequest(id, "textDocument/diagnostic", params);
         m_process->write(request);
@@ -763,9 +806,7 @@ void LspClient::requestRename(const QString& uri, const Position& pos, const QSt
     params["newName"] = newName;
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        emit renameReady(uri, result.toObject());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit renameReady(uri, result.toObject()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/rename", params);
     m_process->write(request);
@@ -783,9 +824,7 @@ void LspClient::requestDocumentHighlight(const QString& uri, const Position& pos
     params["position"] = pos.toJson();
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) {
-        emit documentHighlightReady(uri, result.toArray());
-    });
+    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit documentHighlightReady(uri, result.toArray()); });
 
     QByteArray request = m_jsonRpc->createRequest(id, "textDocument/documentHighlight", params);
     m_process->write(request);
@@ -818,9 +857,11 @@ void LspClient::onReadyReadStderr()
     if (!m_process)
         return;
     QByteArray data = m_process->readAllStandardError();
-    if (!data.isEmpty()) {
+    if (!data.isEmpty())
+    {
         QString msg = QString::fromUtf8(data).trimmed();
-        if (!msg.isEmpty()) {
+        if (!msg.isEmpty())
+        {
 #ifdef QT_DEBUG
             qDebug().noquote() << QString("[LSP %1] %2").arg(m_language, msg);
 #endif
@@ -833,11 +874,12 @@ void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
     m_initialized = false;
     emit serverStopped();
 
-    if (status == QProcess::CrashExit && m_retryCount < MAX_RETRIES) {
+    if (status == QProcess::CrashExit && m_retryCount < MAX_RETRIES)
+    {
         m_retryCount++;
 #ifdef QT_DEBUG
-        qDebug().noquote() << QString("Language server for %1 crashed, restarting (attempt %2/%3)...")
-                                  .arg(m_language).arg(m_retryCount).arg(MAX_RETRIES);
+        qDebug().noquote()
+            << QString("Language server for %1 crashed, restarting (attempt %2/%3)...").arg(m_language).arg(m_retryCount).arg(MAX_RETRIES);
 #endif
         QTimer::singleShot(m_retryCount * 1000, this, &LspClient::tryRestart);
     }
@@ -851,7 +893,8 @@ void LspClient::tryRestart()
 
 void LspClient::onProcessError(QProcess::ProcessError error)
 {
-    switch (error) {
+    switch (error)
+    {
     case QProcess::FailedToStart:
         emit serverError(tr("Language server failed to start for %1").arg(m_language));
         break;
@@ -868,18 +911,22 @@ void LspClient::onProcessError(QProcess::ProcessError error)
 
 void LspClient::handleNotification(const QString& method, const QJsonObject& params)
 {
-    if (method == "textDocument/publishDiagnostics") {
+    if (method == "textDocument/publishDiagnostics")
+    {
         QString uri = params["uri"].toString();
         QList<Diagnostic> diagnostics;
         QJsonArray diags = params["diagnostics"].toArray();
         for (const auto& d : diags)
             diagnostics.append(Diagnostic::fromJson(d.toObject()));
         emit diagnosticsReady(uri, diagnostics);
-    } else if (method == "window/showMessage") {
+    }
+    else if (method == "window/showMessage")
+    {
         int type = params["type"].toInt(0);
         QString msg = params["message"].toString();
         QString prefix = "LSP";
-        switch (type) {
+        switch (type)
+        {
         case 1:
         case 2:
             Logger::instance().warning(QString("[%1] %2").arg(prefix, msg));
@@ -895,7 +942,9 @@ void LspClient::handleNotification(const QString& method, const QJsonObject& par
 #endif
             break;
         }
-    } else if (method == "window/logMessage") {
+    }
+    else if (method == "window/logMessage")
+    {
         QString msg = params["message"].toString();
 #ifdef QT_DEBUG
         qDebug().noquote() << QString("[LSP %1] %2").arg(m_language, msg);
@@ -905,7 +954,8 @@ void LspClient::handleNotification(const QString& method, const QJsonObject& par
 
 void LspClient::handleResponse(int /*id*/, const QJsonValue& /*result*/, const QJsonObject& error)
 {
-    if (!error.isEmpty()) {
+    if (!error.isEmpty())
+    {
         QString msg = error["message"].toString();
         QString code = QString::number(error["code"].toInt());
         emit serverError(QStringLiteral("[%1] %2").arg(code, msg));

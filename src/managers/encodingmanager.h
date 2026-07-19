@@ -19,28 +19,29 @@
 #ifndef ENCODINGMANAGER_H
 #define ENCODINGMANAGER_H
 
+#include <QMenu>
 #include <QObject>
 #include <QString>
-#include <QMenu>
 
 class CodeEditor;
 class QComboBox;
 
-class EncodingManager : public QObject {
+class EncodingManager : public QObject
+{
     Q_OBJECT
 
 public:
-    explicit EncodingManager(QObject *parent = nullptr);
+    explicit EncodingManager(QObject* parent = nullptr);
 
-    void populateEncodingMenu(QMenu *menu, bool isReopen);
+    void populateEncodingMenu(QMenu* menu, bool isReopen);
 
-    void updateEncodingSelector(QComboBox *comboBox, CodeEditor *editor);
+    void updateEncodingSelector(QComboBox* comboBox, CodeEditor* editor);
 
 signals:
-    void encodingSelected(const QString &encoding, bool reopen);
+    void encodingSelected(const QString& encoding, bool reopen);
 
 private:
-    void connectEncodingSelector(QComboBox *comboBox);
+    void connectEncodingSelector(QComboBox* comboBox);
 };
 
 #endif

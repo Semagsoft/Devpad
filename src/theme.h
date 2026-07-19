@@ -19,12 +19,14 @@
 #ifndef THEME_H
 #define THEME_H
 
-#include <QString>
 #include <QColor>
-#include <QPalette>
 #include <QJsonObject>
+#include <QPalette>
+#include <QString>
+#include <cstdint>
 
-enum class ThemeId {
+enum class ThemeId : std::uint8_t
+{
     Light = 0,
     Dark = 1,
     System = 2,
@@ -45,7 +47,8 @@ enum class ThemeId {
     Count
 };
 
-struct ThemeColors {
+struct ThemeColors
+{
     QString name;
     bool isDark;
 
@@ -114,8 +117,8 @@ QList<ThemeId> allBuiltInThemes();
 
 // Custom user themes from ~/.config/devpad/themes/*.json
 QList<ThemeColors> loadCustomThemes();
-ThemeColors parseThemeJson(const QJsonObject &json);
+ThemeColors parseThemeJson(const QJsonObject& json);
 QStringList customThemeNames();
-ThemeColors getCustomThemeColors(const QString &name);
+ThemeColors getCustomThemeColors(const QString& name);
 
 #endif

@@ -9,8 +9,7 @@
 
 SnippetManager* SnippetManager::s_instance = nullptr;
 
-SnippetManager::SnippetManager(QObject* parent)
-    : QObject(parent)
+SnippetManager::SnippetManager(QObject* parent) : QObject(parent)
 {
     s_instance = this;
     loadBuiltIn();

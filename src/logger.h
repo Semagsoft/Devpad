@@ -19,26 +19,34 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
+#include <QDateTime>
 #include <QFile>
-#include <QTextStream>
 #include <QMutex>
 #include <QString>
-#include <QDateTime>
+#include <QTextStream>
 
-class Logger {
+class Logger
+{
 public:
     static Logger& instance();
 
-    enum Level { Debug, Info, Warning, Error, Critical };
+    enum Level
+    {
+        Debug,
+        Info,
+        Warning,
+        Error,
+        Critical
+    };
 
-    void debug(const QString &message) const;
-    void info(const QString &message) const;
-    void warning(const QString &message) const;
-    void error(const QString &message) const;
-    void critical(const QString &message) const;
+    void debug(const QString& message) const;
+    void info(const QString& message) const;
+    void warning(const QString& message) const;
+    void error(const QString& message) const;
+    void critical(const QString& message) const;
 
-    void log(Level level, const QString &message) const;
-    void setLogFile(const QString &filePath);
+    void log(Level level, const QString& message) const;
+    void setLogFile(const QString& filePath);
     void setLevel(Level level);
 
 private:
@@ -46,7 +54,7 @@ private:
     ~Logger();
     Q_DISABLE_COPY(Logger)
 
-    void rotateLogFile(const QString &logFilePath);
+    void rotateLogFile(const QString& logFilePath);
     QString levelString(Level level) const;
 
     mutable QFile m_file;
@@ -55,23 +63,28 @@ private:
     Level m_level;
 };
 
-inline void Logger::debug(const QString &message) const {
+inline void Logger::debug(const QString& message) const
+{
     log(Debug, message);
 }
 
-inline void Logger::info(const QString &message) const {
+inline void Logger::info(const QString& message) const
+{
     log(Info, message);
 }
 
-inline void Logger::warning(const QString &message) const {
+inline void Logger::warning(const QString& message) const
+{
     log(Warning, message);
 }
 
-inline void Logger::error(const QString &message) const {
+inline void Logger::error(const QString& message) const
+{
     log(Error, message);
 }
 
-inline void Logger::critical(const QString &message) const {
+inline void Logger::critical(const QString& message) const
+{
     log(Critical, message);
 }
 

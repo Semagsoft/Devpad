@@ -1,14 +1,15 @@
 #ifndef LSPJSONRPC_H
 #define LSPJSONRPC_H
 
-#include <QObject>
 #include <QByteArray>
-#include <QJsonObject>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QObject>
 #include <QTimer>
 #include <functional>
 
-namespace lsp {
+namespace lsp
+{
 
 class LspJsonRpc : public QObject
 {
@@ -23,7 +24,7 @@ public:
     QByteArray createResponse(int id, const QJsonObject& result);
 
     using ResponseCallback = std::function<void(const QJsonValue&)>;
-    void registerPendingRequest(int id, ResponseCallback callback, int timeoutMs = 30000);
+    void registerPendingRequest(int id, const ResponseCallback& callback, int timeoutMs = 30000);
     int nextRequestId();
     void cancelRequest(int id);
 

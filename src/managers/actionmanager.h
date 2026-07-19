@@ -19,9 +19,11 @@
 #ifndef ACTIONMANAGER_H
 #define ACTIONMANAGER_H
 
-#include <QObject>
 #include "encodingmenuhelper.h"
 #include "recentfileshelper.h"
+
+#include <QObject>
+#include <cstdint>
 #include <functional>
 
 class CodeEditor;
@@ -42,12 +44,13 @@ class QTabWidget;
 class QToolBar;
 class QToolButton;
 
-struct ActionTargets {
-    EditorController *editorController = nullptr;
-    TerminalPanel *terminalPanel = nullptr;
-    SplitView *splitView = nullptr;
-    EncodingManager *encodingManager = nullptr;
-    MainWindow *mainWindow = nullptr;
+struct ActionTargets
+{
+    EditorController* editorController = nullptr;
+    TerminalPanel* terminalPanel = nullptr;
+    SplitView* splitView = nullptr;
+    EncodingManager* encodingManager = nullptr;
+    MainWindow* mainWindow = nullptr;
     std::function<void(const QString&)> openRecentFile;
     std::function<void()> clearRecentFiles;
     std::function<void()> updateRecentFileActions;
@@ -55,90 +58,350 @@ struct ActionTargets {
     std::function<void(int, QTabWidget*)> tabPinToggled;
 };
 
-class ActionManager : public QObject {
+class ActionManager : public QObject
+{
     Q_OBJECT
 
 public:
-    enum class FileAction { New, NewWindow, Open, OpenRemote, OpenFolder, CloseProject, Save, SaveAs, SaveAll, Revert, CloseTab, CloseAllTabs, Exit, Quit };
-    enum class EditAction { Undo, Redo, Cut, Copy, Paste, SelectAll, Delete, Find, Replace, FindInFiles, GoToLine, FindNext, FindPrevious, ToggleComment, FormatSelection, ExpandSelection, ShrinkSelection };
-    enum class ViewAction { ZoomIn, ZoomOut, ZoomReset, FullScreen, ProjectPanel, TerminalPanel, ToolBar, StatusBar, MenuBar, WordWrap };
-    enum class DocumentAction { Print, PrintPreview, PageSetup, ReadOnly, ToggleBookmark, NextBookmark, PrevBookmark, ClearBookmarks, InsertSnippet };
-    enum class LspAction { GoToDefinition, GoToTypeDefinition, GoToDeclaration, FindReferences, TriggerCompletion, RenameSymbol };
-    enum class HelpAction { Options, ConfigureExternalTools, About, Donate, Website };
+    enum class FileAction : std::uint8_t
+    {
+        New,
+        NewWindow,
+        Open,
+        OpenRemote,
+        OpenFolder,
+        CloseProject,
+        Save,
+        SaveAs,
+        SaveAll,
+        Revert,
+        CloseTab,
+        CloseAllTabs,
+        Exit,
+        Quit
+    };
+    enum class EditAction : std::uint8_t
+    {
+        Undo,
+        Redo,
+        Cut,
+        Copy,
+        Paste,
+        SelectAll,
+        Delete,
+        Find,
+        Replace,
+        FindInFiles,
+        GoToLine,
+        FindNext,
+        FindPrevious,
+        ToggleComment,
+        FormatSelection,
+        ExpandSelection,
+        ShrinkSelection
+    };
+    enum class ViewAction : std::uint8_t
+    {
+        ZoomIn,
+        ZoomOut,
+        ZoomReset,
+        FullScreen,
+        ProjectPanel,
+        TerminalPanel,
+        ToolBar,
+        StatusBar,
+        MenuBar,
+        WordWrap
+    };
+    enum class DocumentAction : std::uint8_t
+    {
+        Print,
+        PrintPreview,
+        PageSetup,
+        ReadOnly,
+        ToggleBookmark,
+        NextBookmark,
+        PrevBookmark,
+        ClearBookmarks,
+        InsertSnippet
+    };
+    enum class LspAction : std::uint8_t
+    {
+        GoToDefinition,
+        GoToTypeDefinition,
+        GoToDeclaration,
+        FindReferences,
+        TriggerCompletion,
+        RenameSymbol
+    };
+    enum class HelpAction : std::uint8_t
+    {
+        Options,
+        ConfigureExternalTools,
+        About,
+        Donate,
+        Website
+    };
 
-    explicit ActionManager(QObject *parent = nullptr);
+    explicit ActionManager(QObject* parent = nullptr);
 
     void createActions();
-    void buildMenus(QMenuBar *menuBar);
+    void buildMenus(QMenuBar* menuBar);
     QToolBar* buildToolBar();
-    void buildStatusBar(QStatusBar *statusBar, ProjectPanel *projectPanel, TerminalPanel *terminalPanel);
+    void buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectPanel, TerminalPanel* terminalPanel);
 
-    QAction* newAct() const { return m_newAct; }
-     QAction* quitDevpadAct() const { return m_quitDevpadAct; }
-     QAction* undoAct() const { return m_undoAct; }
+    QAction* newAct() const
+    {
+        return m_newAct;
+    }
+    QAction* quitDevpadAct() const
+    {
+        return m_quitDevpadAct;
+    }
+    QAction* undoAct() const
+    {
+        return m_undoAct;
+    }
 
-    QAction* redoAct() const { return m_redoAct; }
-    QAction* cutAct() const { return m_cutAct; }
-    QAction* copyAct() const { return m_copyAct; }
-    QAction* pasteAct() const { return m_pasteAct; }
-    QAction* selectAllAct() const { return m_selectAllAct; }
-    QAction* deleteAct() const { return m_deleteAct; }
-    QAction* findAct() const { return m_findAct; }
-    QAction* replaceAct() const { return m_replaceAct; }
-    QAction* findInFilesAct() const { return m_findInFilesAct; }
-    QAction* goToAct() const { return m_goToAct; }
-    QAction* findNextAct() const { return m_findNextAct; }
-    QAction* findPrevAct() const { return m_findPrevAct; }
-    QAction* zoomInAct() const { return m_zoomInAct; }
-    QAction* zoomOutAct() const { return m_zoomOutAct; }
-    QAction* zoomResetAct() const { return m_zoomResetAct; }
-    QAction* fullScreenAct() const { return m_fullScreenAct; }
-    QAction* projectPanelAct() const { return m_projectPanelAct; }
-    QAction* terminalPanelAct() const { return m_terminalPanelAct; }
-    QAction* toolBarAct() const { return m_toolBarAct; }
-    QAction* statusBarAct() const { return m_statusBarAct; }
-    QAction* wordWrapAct() const { return m_wordWrapAct; }
-    QAction* printAct() const { return m_printAct; }
-    QAction* printPreviewAct() const { return m_printPreviewAct; }
-    QAction* pageSetupAct() const { return m_pageSetupAct; }
-    QAction* readOnlyAct() const { return m_readOnlyAct; }
-    QAction* toggleBookmarkAct() const { return m_toggleBookmarkAct; }
-    QAction* nextBookmarkAct() const { return m_nextBookmarkAct; }
-    QAction* prevBookmarkAct() const { return m_prevBookmarkAct; }
-    QAction* clearBookmarksAct() const { return m_clearBookmarksAct; }
-    QAction* insertSnippetAct() const { return m_insertSnippetAct; }
-    QAction* formatSelectionAct() const { return m_formatSelectionAct; }
-    QAction* goToDefinitionAct() const { return m_goToDefinitionAct; }
-    QAction* goToTypeDefinitionAct() const { return m_goToTypeDefinitionAct; }
-    QAction* goToDeclarationAct() const { return m_goToDeclarationAct; }
-    QAction* findReferencesAct() const { return m_findReferencesAct; }
-    QAction* triggerCompletionAct() const { return m_triggerCompletionAct; }
-    QAction* renameSymbolAct() const { return m_renameSymbolAct; }
-    QAction* findSymbolsAct() const { return m_findSymbolsAct; }
-    QAction* expandSelectionAct() const { return m_expandSelectionAct; }
-    QAction* shrinkSelectionAct() const { return m_shrinkSelectionAct; }
-    QAction* optionsAct() const { return m_optionsAct; }
-    QAction* aboutAct() const { return m_aboutAct; }
-    QAction* donateAct() const { return m_donateAct; }
-    QAction* websiteAct() const { return m_websiteAct; }
-    QAction* menuBarAct() const { return m_menuBarAct; }
-    QMenu* recentFilesMenu() const { return m_recentFilesHelper ? m_recentFilesHelper->menu() : nullptr; }
-    QAction* recentFileAct(int index) const { return m_recentFilesHelper ? m_recentFilesHelper->fileAction(index) : nullptr; }
-    QAction* clearRecentFilesAct() const { return m_recentFilesHelper ? m_recentFilesHelper->clearAction() : nullptr; }
-    QMenu* reopenEncodingMenu() const { return m_encodingHelper ? m_encodingHelper->reopenMenu() : nullptr; }
-    QMenu* saveEncodingMenu() const { return m_encodingHelper ? m_encodingHelper->saveMenu() : nullptr; }
-    QToolBar* toolBar() const { return m_toolBar; }
-    QLabel* lineColLabel() const { return m_lineColLabel; }
-    QComboBox* encodingComboBox() const { return m_encodingComboBox; }
-    QLabel* fileTypeLabel() const { return m_fileTypeLabel; }
-    QAction* errorListPanelAct() const { return m_errorListPanelAct; }
-    QToolButton* projectPanelButton() const { return m_projectPanelButton; }
-    QToolButton* terminalPanelButton() const { return m_terminalPanelButton; }
-    QToolButton* errorListPanelButton() const { return m_errorListPanelButton; }
+    QAction* redoAct() const
+    {
+        return m_redoAct;
+    }
+    QAction* cutAct() const
+    {
+        return m_cutAct;
+    }
+    QAction* copyAct() const
+    {
+        return m_copyAct;
+    }
+    QAction* pasteAct() const
+    {
+        return m_pasteAct;
+    }
+    QAction* selectAllAct() const
+    {
+        return m_selectAllAct;
+    }
+    QAction* deleteAct() const
+    {
+        return m_deleteAct;
+    }
+    QAction* findAct() const
+    {
+        return m_findAct;
+    }
+    QAction* replaceAct() const
+    {
+        return m_replaceAct;
+    }
+    QAction* findInFilesAct() const
+    {
+        return m_findInFilesAct;
+    }
+    QAction* goToAct() const
+    {
+        return m_goToAct;
+    }
+    QAction* findNextAct() const
+    {
+        return m_findNextAct;
+    }
+    QAction* findPrevAct() const
+    {
+        return m_findPrevAct;
+    }
+    QAction* zoomInAct() const
+    {
+        return m_zoomInAct;
+    }
+    QAction* zoomOutAct() const
+    {
+        return m_zoomOutAct;
+    }
+    QAction* zoomResetAct() const
+    {
+        return m_zoomResetAct;
+    }
+    QAction* fullScreenAct() const
+    {
+        return m_fullScreenAct;
+    }
+    QAction* projectPanelAct() const
+    {
+        return m_projectPanelAct;
+    }
+    QAction* terminalPanelAct() const
+    {
+        return m_terminalPanelAct;
+    }
+    QAction* toolBarAct() const
+    {
+        return m_toolBarAct;
+    }
+    QAction* statusBarAct() const
+    {
+        return m_statusBarAct;
+    }
+    QAction* wordWrapAct() const
+    {
+        return m_wordWrapAct;
+    }
+    QAction* printAct() const
+    {
+        return m_printAct;
+    }
+    QAction* printPreviewAct() const
+    {
+        return m_printPreviewAct;
+    }
+    QAction* pageSetupAct() const
+    {
+        return m_pageSetupAct;
+    }
+    QAction* readOnlyAct() const
+    {
+        return m_readOnlyAct;
+    }
+    QAction* toggleBookmarkAct() const
+    {
+        return m_toggleBookmarkAct;
+    }
+    QAction* nextBookmarkAct() const
+    {
+        return m_nextBookmarkAct;
+    }
+    QAction* prevBookmarkAct() const
+    {
+        return m_prevBookmarkAct;
+    }
+    QAction* clearBookmarksAct() const
+    {
+        return m_clearBookmarksAct;
+    }
+    QAction* insertSnippetAct() const
+    {
+        return m_insertSnippetAct;
+    }
+    QAction* formatSelectionAct() const
+    {
+        return m_formatSelectionAct;
+    }
+    QAction* goToDefinitionAct() const
+    {
+        return m_goToDefinitionAct;
+    }
+    QAction* goToTypeDefinitionAct() const
+    {
+        return m_goToTypeDefinitionAct;
+    }
+    QAction* goToDeclarationAct() const
+    {
+        return m_goToDeclarationAct;
+    }
+    QAction* findReferencesAct() const
+    {
+        return m_findReferencesAct;
+    }
+    QAction* triggerCompletionAct() const
+    {
+        return m_triggerCompletionAct;
+    }
+    QAction* renameSymbolAct() const
+    {
+        return m_renameSymbolAct;
+    }
+    QAction* findSymbolsAct() const
+    {
+        return m_findSymbolsAct;
+    }
+    QAction* expandSelectionAct() const
+    {
+        return m_expandSelectionAct;
+    }
+    QAction* shrinkSelectionAct() const
+    {
+        return m_shrinkSelectionAct;
+    }
+    QAction* optionsAct() const
+    {
+        return m_optionsAct;
+    }
+    QAction* aboutAct() const
+    {
+        return m_aboutAct;
+    }
+    QAction* donateAct() const
+    {
+        return m_donateAct;
+    }
+    QAction* websiteAct() const
+    {
+        return m_websiteAct;
+    }
+    QAction* menuBarAct() const
+    {
+        return m_menuBarAct;
+    }
+    QMenu* recentFilesMenu() const
+    {
+        return m_recentFilesHelper ? m_recentFilesHelper->menu() : nullptr;
+    }
+    QAction* recentFileAct(int index) const
+    {
+        return m_recentFilesHelper ? m_recentFilesHelper->fileAction(index) : nullptr;
+    }
+    QAction* clearRecentFilesAct() const
+    {
+        return m_recentFilesHelper ? m_recentFilesHelper->clearAction() : nullptr;
+    }
+    QMenu* reopenEncodingMenu() const
+    {
+        return m_encodingHelper ? m_encodingHelper->reopenMenu() : nullptr;
+    }
+    QMenu* saveEncodingMenu() const
+    {
+        return m_encodingHelper ? m_encodingHelper->saveMenu() : nullptr;
+    }
+    QToolBar* toolBar() const
+    {
+        return m_toolBar;
+    }
+    QLabel* lineColLabel() const
+    {
+        return m_lineColLabel;
+    }
+    QComboBox* encodingComboBox() const
+    {
+        return m_encodingComboBox;
+    }
+    QLabel* fileTypeLabel() const
+    {
+        return m_fileTypeLabel;
+    }
+    QAction* errorListPanelAct() const
+    {
+        return m_errorListPanelAct;
+    }
+    QToolButton* projectPanelButton() const
+    {
+        return m_projectPanelButton;
+    }
+    QToolButton* terminalPanelButton() const
+    {
+        return m_terminalPanelButton;
+    }
+    QToolButton* errorListPanelButton() const
+    {
+        return m_errorListPanelButton;
+    }
 
     void rebuildExternalToolsMenu();
-    void wireConnections(const ActionTargets &targets);
-    QList<QAction*> actionsWithShortcuts() const { return m_actionsWithShortcuts; }
+    void wireConnections(const ActionTargets& targets);
+    QList<QAction*> actionsWithShortcuts() const
+    {
+        return m_actionsWithShortcuts;
+    }
 
 signals:
     // ── Individual signals (existing) ──────────────────────────
@@ -209,7 +472,7 @@ signals:
     void websiteTriggered();
     void externalToolTriggered(int index);
 
-    void openRecentFileTriggered(const QString &filePath);
+    void openRecentFileTriggered(const QString& filePath);
     void clearRecentFilesTriggered();
     void actionsWithShortcutsChanged();
 
@@ -222,10 +485,10 @@ signals:
     void helpActionTriggered(HelpAction action);
 
 private:
-    template<typename Functor>
-    QAction* createIconAction(const QString &iconPath, const QString &text, const QKeySequence &shortcut, Functor slot) {
+    template <typename Functor> QAction* createIconAction(const QString& iconPath, const QString& text, const QKeySequence& shortcut, Functor slot)
+    {
         QIcon icon(iconPath);
-        QAction *action = new QAction(icon, text, this);
+        auto* action = new QAction(icon, text, this);
         action->setShortcut(shortcut);
         if (!shortcut.isEmpty())
             m_actionsWithShortcuts.append(action);
@@ -233,11 +496,11 @@ private:
         return action;
     }
 
-    void buildFileMenu(QMenu *fileMenu);
-    void buildEditMenu(QMenu *editMenu);
-    void buildViewMenu(QMenu *viewMenu);
-    void buildToolsMenu(QMenu *toolsMenu);
-    void buildHelpMenu(QMenu *helpMenu);
+    void buildFileMenu(QMenu* fileMenu);
+    void buildEditMenu(QMenu* editMenu);
+    void buildViewMenu(QMenu* viewMenu);
+    void buildToolsMenu(QMenu* toolsMenu);
+    void buildHelpMenu(QMenu* helpMenu);
 
     QAction* m_menuBarAct = nullptr;
     QAction* m_newAct = nullptr;

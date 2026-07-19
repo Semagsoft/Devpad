@@ -1,4 +1,5 @@
 #include "theme.h"
+
 #include "settingsmanager.h"
 
 #include <QApplication>
@@ -16,15 +17,18 @@
 #include <cmath>
 #include <mutex>
 
-static int clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
-
-static QColor shiftRgb(const QColor &c, int delta) {
-    return QColor(clamp(c.red() + delta, 0, 255),
-                  clamp(c.green() + delta, 0, 255),
-                  clamp(c.blue() + delta, 0, 255));
+static int clamp(int v, int lo, int hi)
+{
+    return v < lo ? lo : v > hi ? hi : v;
 }
 
-static QColor dimToGray(const QColor &c, double amount) {
+static QColor shiftRgb(const QColor& c, int delta)
+{
+    return QColor(clamp(c.red() + delta, 0, 255), clamp(c.green() + delta, 0, 255), clamp(c.blue() + delta, 0, 255));
+}
+
+static QColor dimToGray(const QColor& c, double amount)
+{
     int gray = qRound(c.red() * 0.299 + c.green() * 0.587 + c.blue() * 0.114);
     int r = qRound(c.red() * (1.0 - amount) + gray * amount);
     int g = qRound(c.green() * (1.0 - amount) + gray * amount);
@@ -32,42 +36,47 @@ static QColor dimToGray(const QColor &c, double amount) {
     return QColor(clamp(r, 0, 255), clamp(g, 0, 255), clamp(b, 0, 255));
 }
 
-static QColor blend(const QColor &a, const QColor &b, double t) {
+static QColor blend(const QColor& a, const QColor& b, double t)
+{
     int r = qRound(a.red() * (1.0 - t) + b.red() * t);
     int g = qRound(a.green() * (1.0 - t) + b.green() * t);
     int bl = qRound(a.blue() * (1.0 - t) + b.blue() * t);
     return QColor(clamp(r, 0, 255), clamp(g, 0, 255), clamp(bl, 0, 255));
 }
 
-static QColor accentFgFor(const QColor &accent) {
+static QColor accentFgFor(const QColor& accent)
+{
     return accent.lightness() < 128 ? QColor(255, 255, 255) : QColor(0, 0, 0);
 }
 
 // ── WCAG contrast utilities ──────────────────────────────────────
 
-static double relativeLuminance(const QColor &c) {
-    auto linearize = [](double ch) -> double {
-        return ch <= 0.04045 ? ch / 12.92 : std::pow((ch + 0.055) / 1.055, 2.4);
-    };
+static double relativeLuminance(const QColor& c)
+{
+    auto linearize = [](double ch) -> double { return ch <= 0.04045 ? ch / 12.92 : std::pow((ch + 0.055) / 1.055, 2.4); };
     double r = linearize(c.redF());
     double g = linearize(c.greenF());
     double b = linearize(c.blueF());
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-static double contrastRatio(const QColor &a, const QColor &b) {
+static double contrastRatio(const QColor& a, const QColor& b)
+{
     double l1 = relativeLuminance(a);
     double l2 = relativeLuminance(b);
-    if (l1 < l2) std::swap(l1, l2);
+    if (l1 < l2)
+        std::swap(l1, l2);
     return (l1 + 0.05) / (l2 + 0.05);
 }
 
-static QColor ensureContrast(const QColor &text, const QColor &bg, double minRatio) {
+static QColor ensureContrast(const QColor& text, const QColor& bg, double minRatio)
+{
     if (contrastRatio(text, bg) >= minRatio)
         return text;
     QColor result = text;
     bool dark = bg.lightness() < 128;
-    for (int i = 0; i < 30; ++i) {
+    for (int i = 0; i < 30; ++i)
+    {
         result = dark ? result.lighter(108) : result.darker(108);
         if (contrastRatio(result, bg) >= minRatio)
             return result;
@@ -77,20 +86,22 @@ static QColor ensureContrast(const QColor &text, const QColor &bg, double minRat
 
 // ── Saturation-aware dim (preserve hue better) ───────────────────
 
-static QColor dimSaturated(const QColor &c, double amount, bool preserveHue = true) {
+static QColor dimSaturated(const QColor& c, double amount, bool preserveHue = true)
+{
     if (!preserveHue)
         return dimToGray(c, amount);
     int gray = qRound(c.red() * 0.299 + c.green() * 0.587 + c.blue() * 0.114);
     double s = 1.0 - amount;
-    return QColor(clamp(qRound(c.red() * s + gray * amount), 0, 255),
-                  clamp(qRound(c.green() * s + gray * amount), 0, 255),
+    return QColor(clamp(qRound(c.red() * s + gray * amount), 0, 255), clamp(qRound(c.green() * s + gray * amount), 0, 255),
                   clamp(qRound(c.blue() * s + gray * amount), 0, 255));
 }
 
 // ── Theme polish: per-theme overrides after resolve() ────────────
 
-static void applyThemePolish(ThemeColors &c, ThemeId id) {
-    switch (id) {
+static void applyThemePolish(ThemeColors& c, ThemeId id)
+{
+    switch (id)
+    {
     case ThemeId::Dark:
         c.toolbarBg = QColor(18, 18, 22);
         c.statusbarBg = QColor(10, 10, 12);
@@ -175,7 +186,8 @@ static void applyThemePolish(ThemeColors &c, ThemeId id) {
 
 // ── Improved resolve() ───────────────────────────────────────────
 
-void ThemeColors::resolve() {
+void ThemeColors::resolve()
+{
     bool dark = isDark;
 
     toolbarBg = shiftRgb(surfaceBg, dark ? 6 : -4);
@@ -219,7 +231,8 @@ void ThemeColors::resolve() {
 
 // ── Theme factory functions ──────────────────────────────────────
 
-static ThemeColors createLightTheme() {
+static ThemeColors createLightTheme()
+{
     ThemeColors c;
     c.name = "Light";
     c.isDark = false;
@@ -246,7 +259,8 @@ static ThemeColors createLightTheme() {
     return c;
 }
 
-static ThemeColors createDarkTheme() {
+static ThemeColors createDarkTheme()
+{
     ThemeColors c;
     c.name = "Dark";
     c.isDark = true;
@@ -273,7 +287,8 @@ static ThemeColors createDarkTheme() {
     return c;
 }
 
-static ThemeColors createNordTheme() {
+static ThemeColors createNordTheme()
+{
     ThemeColors c;
     c.name = "Nord";
     c.isDark = true;
@@ -300,7 +315,8 @@ static ThemeColors createNordTheme() {
     return c;
 }
 
-static ThemeColors createSolarizedLightTheme() {
+static ThemeColors createSolarizedLightTheme()
+{
     ThemeColors c;
     c.name = "Solarized Light";
     c.isDark = false;
@@ -327,7 +343,8 @@ static ThemeColors createSolarizedLightTheme() {
     return c;
 }
 
-static ThemeColors createMonokaiTheme() {
+static ThemeColors createMonokaiTheme()
+{
     ThemeColors c;
     c.name = "Monokai";
     c.isDark = true;
@@ -354,7 +371,8 @@ static ThemeColors createMonokaiTheme() {
     return c;
 }
 
-static ThemeColors createGruvboxDarkTheme() {
+static ThemeColors createGruvboxDarkTheme()
+{
     ThemeColors c;
     c.name = "Gruvbox Dark";
     c.isDark = true;
@@ -383,7 +401,8 @@ static ThemeColors createGruvboxDarkTheme() {
 
 // ── New Theme: Catppuccin Mocha ──────────────────────────────────
 
-static ThemeColors createCatppuccinMochaTheme() {
+static ThemeColors createCatppuccinMochaTheme()
+{
     ThemeColors c;
     c.name = "Catppuccin Mocha";
     c.isDark = true;
@@ -412,7 +431,8 @@ static ThemeColors createCatppuccinMochaTheme() {
 
 // ── New Theme: Catppuccin Macchiato ──────────────────────────────
 
-static ThemeColors createCatppuccinMacchiatoTheme() {
+static ThemeColors createCatppuccinMacchiatoTheme()
+{
     ThemeColors c;
     c.name = "Catppuccin Macchiato";
     c.isDark = true;
@@ -441,7 +461,8 @@ static ThemeColors createCatppuccinMacchiatoTheme() {
 
 // ── New Theme: Catppuccin Frappé ─────────────────────────────────
 
-static ThemeColors createCatppuccinFrappeTheme() {
+static ThemeColors createCatppuccinFrappeTheme()
+{
     ThemeColors c;
     c.name = "Catppuccin Frappé";
     c.isDark = true;
@@ -470,7 +491,8 @@ static ThemeColors createCatppuccinFrappeTheme() {
 
 // ── New Theme: Catppuccin Latte ──────────────────────────────────
 
-static ThemeColors createCatppuccinLatteTheme() {
+static ThemeColors createCatppuccinLatteTheme()
+{
     ThemeColors c;
     c.name = "Catppuccin Latte";
     c.isDark = false;
@@ -499,7 +521,8 @@ static ThemeColors createCatppuccinLatteTheme() {
 
 // ── New Theme: Tokyo Night ───────────────────────────────────────
 
-static ThemeColors createTokyoNightTheme() {
+static ThemeColors createTokyoNightTheme()
+{
     ThemeColors c;
     c.name = "Tokyo Night";
     c.isDark = true;
@@ -528,7 +551,8 @@ static ThemeColors createTokyoNightTheme() {
 
 // ── New Theme: Tokyo Night Storm ─────────────────────────────────
 
-static ThemeColors createTokyoNightStormTheme() {
+static ThemeColors createTokyoNightStormTheme()
+{
     ThemeColors c;
     c.name = "Tokyo Night Storm";
     c.isDark = true;
@@ -557,7 +581,8 @@ static ThemeColors createTokyoNightStormTheme() {
 
 // ── New Theme: Dracula ───────────────────────────────────────────
 
-static ThemeColors createDraculaTheme() {
+static ThemeColors createDraculaTheme()
+{
     ThemeColors c;
     c.name = "Dracula";
     c.isDark = true;
@@ -586,7 +611,8 @@ static ThemeColors createDraculaTheme() {
 
 // ── New Theme: One Dark ──────────────────────────────────────────
 
-static ThemeColors createOneDarkTheme() {
+static ThemeColors createOneDarkTheme()
+{
     ThemeColors c;
     c.name = "One Dark";
     c.isDark = true;
@@ -615,7 +641,8 @@ static ThemeColors createOneDarkTheme() {
 
 // ── New Theme: Ayu Light ─────────────────────────────────────────
 
-static ThemeColors createAyuLightTheme() {
+static ThemeColors createAyuLightTheme()
+{
     ThemeColors c;
     c.name = "Ayu Light";
     c.isDark = false;
@@ -644,7 +671,8 @@ static ThemeColors createAyuLightTheme() {
 
 // ── New Theme: Ayu Dark ──────────────────────────────────────────
 
-static ThemeColors createAyuDarkTheme() {
+static ThemeColors createAyuDarkTheme()
+{
     ThemeColors c;
     c.name = "Ayu Dark";
     c.isDark = true;
@@ -676,46 +704,51 @@ static ThemeColors createAyuDarkTheme() {
 static QList<ThemeColors> s_customThemeCache;
 static QStringList s_customThemeNames;
 
-static QColor jsonColor(const QJsonObject &obj, const QString &key, const QColor &fallback) {
-    if (obj.contains(key)) {
+static QColor jsonColor(const QJsonObject& obj, const QString& key, const QColor& fallback)
+{
+    if (obj.contains(key))
+    {
         QString s = obj.value(key).toString();
         QColor c(s);
-        if (c.isValid()) return c;
+        if (c.isValid())
+            return c;
     }
     return fallback;
 }
 
-ThemeColors parseThemeJson(const QJsonObject &json) {
+ThemeColors parseThemeJson(const QJsonObject& json)
+{
     ThemeColors c;
     c.name = json.value("name").toString("Custom");
     c.isDark = json.value("isDark").toBool(false);
 
     QJsonObject colors = json.value("colors").toObject();
-    c.background     = jsonColor(colors, "background", QColor(255, 255, 255));
-    c.foreground     = jsonColor(colors, "foreground", QColor(0, 0, 0));
-    c.surfaceBg      = jsonColor(colors, "surfaceBg", c.background);
-    c.surfaceFg      = jsonColor(colors, "surfaceFg", c.foreground);
-    c.accent         = jsonColor(colors, "accent", QColor(51, 153, 255));
-    c.border         = jsonColor(colors, "border", QColor(200, 200, 200));
-    c.caret          = jsonColor(colors, "caret", c.foreground);
-    c.lineHighlight  = jsonColor(colors, "lineHighlight", shiftRgb(c.background, -10));
-    c.marginBg       = jsonColor(colors, "marginBg", shiftRgb(c.surfaceBg, -5));
-    c.marginFg       = jsonColor(colors, "marginFg", dimToGray(c.foreground, 0.4));
-    c.foldMarginBg   = jsonColor(colors, "foldMarginBg", shiftRgb(c.background, -3));
+    c.background = jsonColor(colors, "background", QColor(255, 255, 255));
+    c.foreground = jsonColor(colors, "foreground", QColor(0, 0, 0));
+    c.surfaceBg = jsonColor(colors, "surfaceBg", c.background);
+    c.surfaceFg = jsonColor(colors, "surfaceFg", c.foreground);
+    c.accent = jsonColor(colors, "accent", QColor(51, 153, 255));
+    c.border = jsonColor(colors, "border", QColor(200, 200, 200));
+    c.caret = jsonColor(colors, "caret", c.foreground);
+    c.lineHighlight = jsonColor(colors, "lineHighlight", shiftRgb(c.background, -10));
+    c.marginBg = jsonColor(colors, "marginBg", shiftRgb(c.surfaceBg, -5));
+    c.marginFg = jsonColor(colors, "marginFg", dimToGray(c.foreground, 0.4));
+    c.foldMarginBg = jsonColor(colors, "foldMarginBg", shiftRgb(c.background, -3));
     c.foldMarginBgAlt = jsonColor(colors, "foldMarginBgAlt", shiftRgb(c.background, -8));
-    c.comment        = jsonColor(colors, "comment", dimToGray(c.foreground, 0.5));
-    c.keyword        = jsonColor(colors, "keyword", c.accent);
-    c.string         = jsonColor(colors, "string", c.foreground);
-    c.number         = jsonColor(colors, "number", c.foreground);
-    c.operator_      = jsonColor(colors, "operator", c.foreground);
-    c.function       = jsonColor(colors, "function", c.foreground);
-    c.preprocessor   = jsonColor(colors, "preprocessor", c.keyword);
+    c.comment = jsonColor(colors, "comment", dimToGray(c.foreground, 0.5));
+    c.keyword = jsonColor(colors, "keyword", c.accent);
+    c.string = jsonColor(colors, "string", c.foreground);
+    c.number = jsonColor(colors, "number", c.foreground);
+    c.operator_ = jsonColor(colors, "operator", c.foreground);
+    c.function = jsonColor(colors, "function", c.foreground);
+    c.preprocessor = jsonColor(colors, "preprocessor", c.keyword);
 
     c.resolve();
     return c;
 }
 
-QList<ThemeColors> loadCustomThemes() {
+QList<ThemeColors> loadCustomThemes()
+{
     s_customThemeCache.clear();
     s_customThemeNames.clear();
 
@@ -725,7 +758,8 @@ QList<ThemeColors> loadCustomThemes() {
         return s_customThemeCache;
 
     QStringList jsonFiles = themeDir.entryList({"*.json"}, QDir::Files, QDir::Name);
-    for (const QString &file : jsonFiles) {
+    for (const QString& file : jsonFiles)
+    {
         QFile f(themeDir.absoluteFilePath(file));
         if (!f.open(QFile::ReadOnly))
             continue;
@@ -742,17 +776,20 @@ QList<ThemeColors> loadCustomThemes() {
     return s_customThemeCache;
 }
 
-QStringList customThemeNames() {
+QStringList customThemeNames()
+{
     if (s_customThemeNames.isEmpty())
         loadCustomThemes();
     return s_customThemeNames;
 }
 
-ThemeColors getCustomThemeColors(const QString &name) {
+ThemeColors getCustomThemeColors(const QString& name)
+{
     if (s_customThemeCache.isEmpty())
         loadCustomThemes();
 
-    for (const auto &c : s_customThemeCache) {
+    for (const auto& c : s_customThemeCache)
+    {
         if (c.name == name)
             return c;
     }
@@ -761,8 +798,9 @@ ThemeColors getCustomThemeColors(const QString &name) {
 
 // ── Accent overlay ───────────────────────────────────────────────
 
-static void applyAccent(ThemeColors &colors) {
-    const auto &s = SettingsManager::instance();
+static void applyAccent(ThemeColors& colors)
+{
+    const auto& s = SettingsManager::instance();
     if (!s.hasAccentColor())
         return;
     QColor accent = s.accentColor();
@@ -783,9 +821,11 @@ static void applyAccent(ThemeColors &colors) {
 
 // ── System theme detection ───────────────────────────────────────
 
-static bool systemIsDarkImpl() {
-    auto *hints = QApplication::styleHints();
-    if (hints) {
+static bool systemIsDarkImpl()
+{
+    auto* hints = QApplication::styleHints();
+    if (hints)
+    {
         if (hints->colorScheme() == Qt::ColorScheme::Dark)
             return true;
         if (hints->colorScheme() == Qt::ColorScheme::Light)
@@ -801,9 +841,12 @@ static bool s_systemDarkValue = false;
 class PaletteChangeFilter : public QObject
 {
 public:
-    explicit PaletteChangeFilter(QObject *parent = nullptr) : QObject(parent) {}
+    explicit PaletteChangeFilter(QObject* parent = nullptr) : QObject(parent)
+    {
+    }
+
 protected:
-    bool eventFilter(QObject *obj, QEvent *event) override
+    bool eventFilter(QObject* obj, QEvent* event) override
     {
         if (event->type() == QEvent::ApplicationPaletteChange)
             s_systemDarkCached = false;
@@ -811,57 +854,66 @@ protected:
     }
 };
 
-void initThemeSystem() {
+void initThemeSystem()
+{
     s_systemDarkValue = systemIsDarkImpl();
     s_systemDarkCached = true;
     static PaletteChangeFilter filter;
     qApp->installEventFilter(&filter);
 }
 
-static bool systemIsDark() {
-    if (!s_systemDarkCached) {
+static bool systemIsDark()
+{
+    if (!s_systemDarkCached)
+    {
         s_systemDarkValue = systemIsDarkImpl();
         s_systemDarkCached = true;
     }
     return s_systemDarkValue;
 }
 
-int builtInThemeCount() {
+int builtInThemeCount()
+{
     return static_cast<int>(ThemeId::Count);
 }
 
-QList<ThemeId> allBuiltInThemes() {
+QList<ThemeId> allBuiltInThemes()
+{
     QList<ThemeId> ids;
     for (int i = 0; i < static_cast<int>(ThemeId::Count); ++i)
         ids.append(static_cast<ThemeId>(i));
     return ids;
 }
 
-ThemeColors getThemeColors(ThemeId themeId) {
+ThemeColors getThemeColors(ThemeId themeId)
+{
     static constexpr int NUM_THEMES = static_cast<int>(ThemeId::Count);
     static std::array<ThemeColors, NUM_THEMES> s_cache;
     static std::once_flag s_initFlag;
-    std::call_once(s_initFlag, []() {
-        s_cache[static_cast<int>(ThemeId::Light)] = createLightTheme();
-        s_cache[static_cast<int>(ThemeId::Dark)] = createDarkTheme();
-        s_cache[static_cast<int>(ThemeId::Nord)] = createNordTheme();
-        s_cache[static_cast<int>(ThemeId::SolarizedLight)] = createSolarizedLightTheme();
-        s_cache[static_cast<int>(ThemeId::Monokai)] = createMonokaiTheme();
-        s_cache[static_cast<int>(ThemeId::GruvboxDark)] = createGruvboxDarkTheme();
-        s_cache[static_cast<int>(ThemeId::CatppuccinMocha)] = createCatppuccinMochaTheme();
-        s_cache[static_cast<int>(ThemeId::CatppuccinMacchiato)] = createCatppuccinMacchiatoTheme();
-        s_cache[static_cast<int>(ThemeId::CatppuccinFrappe)] = createCatppuccinFrappeTheme();
-        s_cache[static_cast<int>(ThemeId::CatppuccinLatte)] = createCatppuccinLatteTheme();
-        s_cache[static_cast<int>(ThemeId::TokyoNight)] = createTokyoNightTheme();
-        s_cache[static_cast<int>(ThemeId::TokyoNightStorm)] = createTokyoNightStormTheme();
-        s_cache[static_cast<int>(ThemeId::Dracula)] = createDraculaTheme();
-        s_cache[static_cast<int>(ThemeId::OneDark)] = createOneDarkTheme();
-        s_cache[static_cast<int>(ThemeId::AyuLight)] = createAyuLightTheme();
-        s_cache[static_cast<int>(ThemeId::AyuDark)] = createAyuDarkTheme();
-    });
+    std::call_once(s_initFlag,
+                   []()
+                   {
+                       s_cache[static_cast<int>(ThemeId::Light)] = createLightTheme();
+                       s_cache[static_cast<int>(ThemeId::Dark)] = createDarkTheme();
+                       s_cache[static_cast<int>(ThemeId::Nord)] = createNordTheme();
+                       s_cache[static_cast<int>(ThemeId::SolarizedLight)] = createSolarizedLightTheme();
+                       s_cache[static_cast<int>(ThemeId::Monokai)] = createMonokaiTheme();
+                       s_cache[static_cast<int>(ThemeId::GruvboxDark)] = createGruvboxDarkTheme();
+                       s_cache[static_cast<int>(ThemeId::CatppuccinMocha)] = createCatppuccinMochaTheme();
+                       s_cache[static_cast<int>(ThemeId::CatppuccinMacchiato)] = createCatppuccinMacchiatoTheme();
+                       s_cache[static_cast<int>(ThemeId::CatppuccinFrappe)] = createCatppuccinFrappeTheme();
+                       s_cache[static_cast<int>(ThemeId::CatppuccinLatte)] = createCatppuccinLatteTheme();
+                       s_cache[static_cast<int>(ThemeId::TokyoNight)] = createTokyoNightTheme();
+                       s_cache[static_cast<int>(ThemeId::TokyoNightStorm)] = createTokyoNightStormTheme();
+                       s_cache[static_cast<int>(ThemeId::Dracula)] = createDraculaTheme();
+                       s_cache[static_cast<int>(ThemeId::OneDark)] = createOneDarkTheme();
+                       s_cache[static_cast<int>(ThemeId::AyuLight)] = createAyuLightTheme();
+                       s_cache[static_cast<int>(ThemeId::AyuDark)] = createAyuDarkTheme();
+                   });
 
     ThemeId resolved = themeId;
-    if (themeId == ThemeId::System) {
+    if (themeId == ThemeId::System)
+    {
         resolved = systemIsDark() ? ThemeId::Dark : ThemeId::Light;
     }
 
@@ -875,7 +927,8 @@ ThemeColors getThemeColors(ThemeId themeId) {
     return colors;
 }
 
-QPalette getThemePalette(const ThemeColors& colors) {
+QPalette getThemePalette(const ThemeColors& colors)
+{
     QPalette palette;
     palette.setColor(QPalette::Window, colors.dialogBg);
     palette.setColor(QPalette::WindowText, colors.dialogFg);
@@ -890,11 +943,14 @@ QPalette getThemePalette(const ThemeColors& colors) {
     palette.setColor(QPalette::AlternateBase, colors.background);
     palette.setColor(QPalette::ToolTipBase, colors.background);
     palette.setColor(QPalette::ToolTipText, colors.foreground);
-    if (colors.isDark) {
+    if (colors.isDark)
+    {
         palette.setColor(QPalette::Disabled, QPalette::WindowText, QColor(120, 120, 120));
         palette.setColor(QPalette::Disabled, QPalette::Text, QColor(120, 120, 120));
         palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(120, 120, 120));
-    } else {
+    }
+    else
+    {
         palette.setColor(QPalette::Disabled, QPalette::WindowText, QColor(160, 160, 160));
         palette.setColor(QPalette::Disabled, QPalette::Text, QColor(160, 160, 160));
         palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(160, 160, 160));
@@ -902,51 +958,72 @@ QPalette getThemePalette(const ThemeColors& colors) {
     return palette;
 }
 
-QString themeDisplayName(ThemeId themeId) {
-    switch (themeId) {
-        case ThemeId::Light: return QObject::tr("Light");
-        case ThemeId::Dark: return QObject::tr("Dark");
-        case ThemeId::System: return QObject::tr("System");
-        case ThemeId::Nord: return QObject::tr("Nord");
-        case ThemeId::SolarizedLight: return QObject::tr("Solarized Light");
-        case ThemeId::Monokai: return QObject::tr("Monokai");
-        case ThemeId::GruvboxDark: return QObject::tr("Gruvbox Dark");
-        case ThemeId::CatppuccinMocha: return QObject::tr("Catppuccin Mocha");
-        case ThemeId::CatppuccinMacchiato: return QObject::tr("Catppuccin Macchiato");
-        case ThemeId::CatppuccinFrappe: return QObject::tr("Catppuccin Frappé");
-        case ThemeId::CatppuccinLatte: return QObject::tr("Catppuccin Latte");
-        case ThemeId::TokyoNight: return QObject::tr("Tokyo Night");
-        case ThemeId::TokyoNightStorm: return QObject::tr("Tokyo Night Storm");
-        case ThemeId::Dracula: return QObject::tr("Dracula");
-        case ThemeId::OneDark: return QObject::tr("One Dark");
-        case ThemeId::AyuLight: return QObject::tr("Ayu Light");
-        case ThemeId::AyuDark: return QObject::tr("Ayu Dark");
-        case ThemeId::Count: return {};
+QString themeDisplayName(ThemeId themeId)
+{
+    switch (themeId)
+    {
+    case ThemeId::Light:
+        return QObject::tr("Light");
+    case ThemeId::Dark:
+        return QObject::tr("Dark");
+    case ThemeId::System:
+        return QObject::tr("System");
+    case ThemeId::Nord:
+        return QObject::tr("Nord");
+    case ThemeId::SolarizedLight:
+        return QObject::tr("Solarized Light");
+    case ThemeId::Monokai:
+        return QObject::tr("Monokai");
+    case ThemeId::GruvboxDark:
+        return QObject::tr("Gruvbox Dark");
+    case ThemeId::CatppuccinMocha:
+        return QObject::tr("Catppuccin Mocha");
+    case ThemeId::CatppuccinMacchiato:
+        return QObject::tr("Catppuccin Macchiato");
+    case ThemeId::CatppuccinFrappe:
+        return QObject::tr("Catppuccin Frappé");
+    case ThemeId::CatppuccinLatte:
+        return QObject::tr("Catppuccin Latte");
+    case ThemeId::TokyoNight:
+        return QObject::tr("Tokyo Night");
+    case ThemeId::TokyoNightStorm:
+        return QObject::tr("Tokyo Night Storm");
+    case ThemeId::Dracula:
+        return QObject::tr("Dracula");
+    case ThemeId::OneDark:
+        return QObject::tr("One Dark");
+    case ThemeId::AyuLight:
+        return QObject::tr("Ayu Light");
+    case ThemeId::AyuDark:
+        return QObject::tr("Ayu Dark");
+    case ThemeId::Count:
+        return {};
     }
     return QObject::tr("Light");
 }
 
-bool isThemeDark(ThemeId themeId) {
+bool isThemeDark(ThemeId themeId)
+{
     if (themeId == ThemeId::System)
         return systemIsDark();
     static constexpr bool darkMap[] = {
-        false,  // Light
-        true,   // Dark
-        false,  // System (unused, resolved above)
-        true,   // Nord
-        false,  // SolarizedLight
-        true,   // Monokai
-        true,   // GruvboxDark
-        true,   // CatppuccinMocha
-        true,   // CatppuccinMacchiato
-        true,   // CatppuccinFrappe
-        false,  // CatppuccinLatte
-        true,   // TokyoNight
-        true,   // TokyoNightStorm
-        true,   // Dracula
-        true,   // OneDark
-        false,  // AyuLight
-        true,   // AyuDark
+        false, // Light
+        true,  // Dark
+        false, // System (unused, resolved above)
+        true,  // Nord
+        false, // SolarizedLight
+        true,  // Monokai
+        true,  // GruvboxDark
+        true,  // CatppuccinMocha
+        true,  // CatppuccinMacchiato
+        true,  // CatppuccinFrappe
+        false, // CatppuccinLatte
+        true,  // TokyoNight
+        true,  // TokyoNightStorm
+        true,  // Dracula
+        true,  // OneDark
+        false, // AyuLight
+        true,  // AyuDark
     };
     int idx = static_cast<int>(themeId);
     if (idx < 0 || idx >= static_cast<int>(ThemeId::Count))
@@ -954,6 +1031,7 @@ bool isThemeDark(ThemeId themeId) {
     return darkMap[idx];
 }
 
-bool prefersNativeStyling(ThemeId themeId) {
+bool prefersNativeStyling(ThemeId themeId)
+{
     return themeId == ThemeId::System;
 }

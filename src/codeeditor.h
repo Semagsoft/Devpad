@@ -19,9 +19,11 @@
 #ifndef CODEEDITOR_H
 #define CODEEDITOR_H
 
+#include "lsp/lspeditorintegration.h"
+#include "lsp/lsptypes.h"
 #include "settingsmanager.h"
-#include "snippetengine.h"
 #include "snippet.h"
+#include "snippetengine.h"
 #include "theme.h"
 
 #include <QScopedPointer>
@@ -31,9 +33,6 @@
 #include <Qsci/qsciglobal.h>
 #include <Qsci/qscilexer.h>
 #include <Qsci/qsciscintilla.h>
-
-#include "lsp/lsptypes.h"
-#include "lsp/lspeditorintegration.h"
 
 class CodeEditor : public QsciScintilla
 {
@@ -99,7 +98,10 @@ public:
     bool isSnippetMode() const;
     void exitSnippetMode();
     void registerSnippetAutoCompletion(const QList<Snippet>& snippets);
-    SnippetEngine* snippetEngine() const { return m_snippetEngine; }
+    SnippetEngine* snippetEngine() const
+    {
+        return m_snippetEngine;
+    }
 
     // LSP support
     void setLspServerManager(lsp::LspServerManager* manager);
@@ -128,11 +130,17 @@ public:
     int documentVersion() const;
     void setDocumentVersion(int v);
 
-    lsp::LspEditorIntegration* lspIntegration() const { return m_lspIntegration; }
+    lsp::LspEditorIntegration* lspIntegration() const
+    {
+        return m_lspIntegration;
+    }
 
-    ThemeId themeId() const { return m_themeId; }
+    ThemeId themeId() const
+    {
+        return m_themeId;
+    }
 
-    void replaceSelectedText(const QString &text);
+    void replaceSelectedText(const QString& text) override;
     int lineFromPosition(int pos) const;
     int cursorPosition() const;
     void showToolTip(int pos, const QString& text);

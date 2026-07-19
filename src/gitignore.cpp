@@ -1,19 +1,18 @@
 #include "gitignore.h"
+
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QDir>
 #include <QTextStream>
 
-GitIgnore::GitIgnore()
-{
-}
+GitIgnore::GitIgnore() = default;
 
-GitIgnore::GitIgnore(const QString &rootPath)
+GitIgnore::GitIgnore(const QString& rootPath)
 {
     setRootPath(rootPath);
 }
 
-void GitIgnore::setRootPath(const QString &rootPath)
+void GitIgnore::setRootPath(const QString& rootPath)
 {
     clear();
     m_rootPath = QFileInfo(rootPath).absoluteFilePath();
@@ -34,7 +33,7 @@ bool GitIgnore::isEmpty() const
     return m_patterns.isEmpty();
 }
 
-void GitIgnore::scanDirectory(const QString &dirPath)
+void GitIgnore::scanDirectory(const QString& dirPath)
 {
     if (m_rootPath.isEmpty())
         return;
@@ -51,27 +50,29 @@ void GitIgnore::scanDirectory(const QString &dirPath)
         parseFile(gitIgnorePath, absDir);
 }
 
-void GitIgnore::parseFile(const QString &filePath, const QString &dirPath)
+void GitIgnore::parseFile(const QString& filePath, const QString& dirPath)
 {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
 
     QTextStream in(&file);
-    while (!in.atEnd()) {
+    while (!in.atEnd())
+    {
         QString line = in.readLine().trimmed();
         addPattern(line, dirPath);
     }
 }
 
-void GitIgnore::addPattern(const QString &line, const QString &dirPath)
+void GitIgnore::addPattern(const QString& line, const QString& dirPath)
 {
     if (line.isEmpty() || line.startsWith('#'))
         return;
 
     QString pattern = line;
     bool negate = false;
-    if (pattern.startsWith('!')) {
+    if (pattern.startsWith('!'))
+    {
         negate = true;
         pattern = pattern.mid(1);
     }
@@ -91,7 +92,8 @@ void GitIgnore::addPattern(const QString &line, const QString &dirPath)
     if (!regex.isValid())
         return;
 
-    if (dirOnly) {
+    if (dirOnly)
+    {
         QString p = regex.pattern();
         p.replace(QRegularExpression("\\$$"), "(/.*)?$");
         regex = QRegularExpression(p);
@@ -100,22 +102,22 @@ void GitIgnore::addPattern(const QString &line, const QString &dirPath)
     m_patterns[dirPath].append({regex, negate, dirOnly, anchored});
 }
 
-QString GitIgnore::relativePath(const QString &filePath, const QString &dirPath) const
+QString GitIgnore::relativePath(const QString& filePath, const QString& dirPath) const
 {
     QString absFile = QFileInfo(filePath).absoluteFilePath();
     QString absDir = QFileInfo(dirPath).absoluteFilePath();
 
     if (!absFile.startsWith(absDir + '/') && absFile != absDir)
-        return QString();
+        return {};
 
     if (absFile == absDir)
-        return QString();
+        return {};
 
     QString rel = absFile.mid(absDir.length() + 1);
     return rel;
 }
 
-QRegularExpression GitIgnore::patternToRegex(const QString &pattern, bool anchored) const
+QRegularExpression GitIgnore::patternToRegex(const QString& pattern, bool anchored) const
 {
     QString regex;
     int i = 0;
@@ -123,41 +125,60 @@ QRegularExpression GitIgnore::patternToRegex(const QString &pattern, bool anchor
     if (anchored)
         regex += '^';
 
-    while (i < pattern.size()) {
+    while (i < pattern.size())
+    {
         QChar c = pattern[i];
 
-        if (c == '*' && i + 1 < pattern.size() && pattern[i + 1] == '*') {
+        if (c == '*' && i + 1 < pattern.size() && pattern[i + 1] == '*')
+        {
             regex += ".*";
             i += 2;
             if (i < pattern.size() && pattern[i] == '/')
                 i++;
-        } else if (c == '*') {
+        }
+        else if (c == '*')
+        {
             regex += "[^/]*";
             i++;
-        } else if (c == '?') {
+        }
+        else if (c == '?')
+        {
             regex += "[^/]";
             i++;
-        } else if (c == '.') {
+        }
+        else if (c == '.')
+        {
             regex += "\\.";
             i++;
-        } else if (c == '[') {
+        }
+        else if (c == '[')
+        {
             int end = pattern.indexOf(']', i + 1);
-            if (end == -1) {
+            if (end == -1)
+            {
                 regex += "\\[";
                 i++;
-            } else {
+            }
+            else
+            {
                 QString cls = pattern.mid(i, end - i + 1);
                 regex += cls;
                 i = end + 1;
             }
-        } else if (c == '\\') {
+        }
+        else if (c == '\\')
+        {
             regex += "\\\\";
             i++;
-        } else if (c == '+' || c == '^' || c == '$' || c == '{' || c == '}' || c == '(' || c == ')' || c == '|') {
+        }
+        else if (c == '+' || c == '^' || c == '$' || c == '{' || c == '}' || c == '(' || c == ')' || c == '|')
+        {
             regex += '\\';
             regex += c;
             i++;
-        } else {
+        }
+        else
+        {
             regex += c;
             i++;
         }
@@ -167,14 +188,13 @@ QRegularExpression GitIgnore::patternToRegex(const QString &pattern, bool anchor
     return QRegularExpression(regex);
 }
 
-bool GitIgnore::isIgnored(const QString &filePath, bool isDir) const
+bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
 {
     if (m_patterns.isEmpty())
         return false;
 
-    QFileInfo fi(filePath);
-    QString absPath = fi.absoluteFilePath();
-    QString fileDir = fi.isDir() ? absPath : fi.absolutePath();
+    QString absPath = QFileInfo(filePath).absoluteFilePath();
+    QString fileDir = isDir ? absPath : QFileInfo(filePath).absolutePath();
 
     if (!fileDir.startsWith(m_rootPath + '/') && fileDir != m_rootPath)
         return false;
@@ -183,7 +203,8 @@ bool GitIgnore::isIgnored(const QString &filePath, bool isDir) const
 
     QStringList dirs;
     QString current = fileDir;
-    while (current.startsWith(m_rootPath + '/') || current == m_rootPath) {
+    while (current.startsWith(m_rootPath + '/') || current == m_rootPath)
+    {
         dirs.prepend(current);
         if (current == m_rootPath)
             break;
@@ -193,7 +214,8 @@ bool GitIgnore::isIgnored(const QString &filePath, bool isDir) const
         current = current.left(slash);
     }
 
-    for (const QString &dir : dirs) {
+    for (const QString& dir : dirs)
+    {
         auto it = m_patterns.find(dir);
         if (it == m_patterns.end())
             continue;
@@ -202,15 +224,15 @@ bool GitIgnore::isIgnored(const QString &filePath, bool isDir) const
         if (relPath.isEmpty())
             continue;
 
-        for (const Pattern &p : it.value()) {
+        for (const Pattern& p : it.value())
+        {
             QString matchTarget;
-            if (p.dirOnly) {
+            if (p.dirOnly || p.anchored || !relPath.contains('/'))
+            {
                 matchTarget = relPath;
-            } else if (p.anchored) {
-                matchTarget = relPath;
-            } else if (!relPath.contains('/')) {
-                matchTarget = relPath;
-            } else {
+            }
+            else
+            {
                 matchTarget = relPath.section('/', -1);
             }
 

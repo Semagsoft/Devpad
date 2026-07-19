@@ -19,13 +19,15 @@
 #ifndef LSPCLIENT_H
 #define LSPCLIENT_H
 
+#include "lspjsonrpc.h"
+#include "lsptypes.h"
+
 #include <QObject>
 #include <QProcess>
 #include <QTimer>
-#include "lsptypes.h"
-#include "lspjsonrpc.h"
 
-namespace lsp {
+namespace lsp
+{
 
 class LspClient : public QObject
 {
@@ -38,9 +40,18 @@ public:
     void startServer(const QString& command, const QStringList& args, const QString& rootUri);
     void stopServer();
     bool isRunning() const;
-    const QString& language() const { return m_language; }
-    const ServerCapabilities& capabilities() const { return m_capabilities; }
-    QString rootUri() const { return m_rootUri; }
+    const QString& language() const
+    {
+        return m_language;
+    }
+    const ServerCapabilities& capabilities() const
+    {
+        return m_capabilities;
+    }
+    QString rootUri() const
+    {
+        return m_rootUri;
+    }
 
     // Document synchronization
     void openDocument(const QString& uri, const QString& text, int version);
@@ -117,7 +128,8 @@ private:
     void handleResponse(int id, const QJsonValue& result, const QJsonObject& error);
     QString methodName(const QString& method) const;
 
-    struct DocumentState {
+    struct DocumentState
+    {
         int version = 0;
         QString uri;
         QString text;

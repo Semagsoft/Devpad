@@ -26,47 +26,48 @@
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <cstdint>
 #include <memory>
 #include <type_traits>
 
 class CodeEditor;
 
-enum class StartupMode
+enum class StartupMode : std::uint8_t
 {
     NewFile = 0,
     RestoreSession = 1,
     OpenLastFile = 2,
     Empty = 3
 };
-enum class CloseButtonMode
+enum class CloseButtonMode : std::uint8_t
 {
     Right = 0,
     Left = 1
 };
-enum class TabDisplayMode
+enum class TabDisplayMode : std::uint8_t
 {
     AlwaysShow = 0,
     ShowTwoPlus = 1,
     NeverShow = 2
 };
-enum class CursorStyle
+enum class CursorStyle : std::uint8_t
 {
     Line = 0,
     Block = 1,
     Underline = 2
 };
-enum class TabBarPosition
+enum class TabBarPosition : std::uint8_t
 {
     Top = 0,
     Bottom = 1
 };
-enum class TerminalPanelPosition
+enum class TerminalPanelPosition : std::uint8_t
 {
     Bottom = 0,
     Right = 1,
     Tab = 2
 };
-enum class ProjectPanelPosition
+enum class ProjectPanelPosition : std::uint8_t
 {
     Left = 0,
     Right = 1
@@ -184,7 +185,7 @@ public:
     ThemeColors currentThemeColors() const;
     QColor accentColor() const;
     bool hasAccentColor() const;
-    void setAccentColor(const QColor &color);
+    void setAccentColor(const QColor& color);
     void clearAccentColor();
     int defaultEncoding() const;
     int defaultFormat() const;
@@ -291,12 +292,10 @@ public:
     QString externalToolWorkingDir(int index) const;
     QString externalToolShortcut(int index) const;
     bool externalToolRunInTerminal(int index) const;
-    void setExternalTool(int index, const QString& name, const QString& command,
-                         const QString& arguments, const QString& workingDir,
+    void setExternalTool(int index, const QString& name, const QString& command, const QString& arguments, const QString& workingDir,
                          const QString& shortcut, bool runInTerminal);
-    void addExternalTool(const QString& name, const QString& command,
-                         const QString& arguments, const QString& workingDir,
-                         const QString& shortcut, bool runInTerminal);
+    void addExternalTool(const QString& name, const QString& command, const QString& arguments, const QString& workingDir, const QString& shortcut,
+                         bool runInTerminal);
     void removeExternalTool(int index);
 
     // ── Recent files / folders ─────────────────────────────────
@@ -314,7 +313,7 @@ private:
     SettingsManager();
     Q_DISABLE_COPY(SettingsManager)
 
-    ~SettingsManager() = default;
+    ~SettingsManager() override = default;
 
     static constexpr int CurrentSettingsVersion = 1;
     static const QHash<QString, QString>& extensionMap();
@@ -324,7 +323,7 @@ private:
     friend struct std::default_delete<SettingsManager>;
     void loadCache();
     void ensureSettingsVersion();
-    
+
     struct Cache
     {
         EditorSettings editor;
@@ -337,8 +336,7 @@ private:
         bool hasAccentColor = false;
     };
 
-    template<typename T>
-    void writeCached(const char* key, T& cacheField, T value)
+    template <typename T> void writeCached(const char* key, T& cacheField, const T& value)
     {
         if constexpr (std::is_enum_v<T>)
             m_settings.setValue(key, static_cast<int>(value));

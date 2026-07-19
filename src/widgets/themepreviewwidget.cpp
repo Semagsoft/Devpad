@@ -1,34 +1,34 @@
 #include "themepreviewwidget.h"
+
 #include <QPainter>
 
-ThemePreviewWidget::ThemePreviewWidget(QWidget *parent)
-    : QWidget(parent)
+ThemePreviewWidget::ThemePreviewWidget(QWidget* parent) : QWidget(parent)
 {
     setMinimumHeight(180);
     setMaximumHeight(220);
 }
 
-void ThemePreviewWidget::setThemeColors(const ThemeColors &colors)
+void ThemePreviewWidget::setThemeColors(const ThemeColors& colors)
 {
     m_colors = colors;
     update();
 }
 
-static QColor blendPreview(const QColor &a, const QColor &b, double t) {
+static QColor blendPreview(const QColor& a, const QColor& b, double t)
+{
     auto clamp = [](int v) { return v < 0 ? 0 : v > 255 ? 255 : v; };
-    return QColor(clamp(qRound(a.red() * (1.0 - t) + b.red() * t)),
-                  clamp(qRound(a.green() * (1.0 - t) + b.green() * t)),
+    return QColor(clamp(qRound(a.red() * (1.0 - t) + b.red() * t)), clamp(qRound(a.green() * (1.0 - t) + b.green() * t)),
                   clamp(qRound(a.blue() * (1.0 - t) + b.blue() * t)));
 }
 
-void ThemePreviewWidget::paintEvent(QPaintEvent *)
+void ThemePreviewWidget::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
     int w = width();
     int h = height();
-    const auto &c = m_colors;
+    const auto& c = m_colors;
 
     // ── Toolbar area ──
     int toolbarH = 22;
@@ -38,7 +38,8 @@ void ThemePreviewWidget::paintEvent(QPaintEvent *)
     // Toolbar buttons
     QColor btnColor = blendPreview(c.toolbarBg, c.selectionBg, 0.25);
     int btnY = 4;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         QRect btn(i * 22 + 6, btnY, 14, 14);
         p.fillRect(btn, btnColor);
     }
@@ -87,7 +88,8 @@ void ThemePreviewWidget::paintEvent(QPaintEvent *)
     mono.setStyleHint(QFont::Monospace);
     p.setFont(mono);
     p.setPen(c.marginFg);
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 7; ++i)
+    {
         int ly = editorY + i * lineH + 12;
         QRect numRect(2, ly - 10, marginW - 6, 12);
         p.drawText(numRect, Qt::AlignRight | Qt::AlignVCenter, QString::number(i + 1));
@@ -96,14 +98,26 @@ void ThemePreviewWidget::paintEvent(QPaintEvent *)
     // Code content
     int cx = marginW + 6;
 
-    struct Token { QString text; QColor color; };
-    struct Line { QVector<Token> tokens; };
+    struct Token
+    {
+        QString text;
+        QColor color;
+    };
+    struct Line
+    {
+        QVector<Token> tokens;
+    };
 
     Line lines[7];
     lines[0] = {{{"use ", c.keyword}, {"std::io;\n", c.function}}};
     lines[1] = {{{"\n", c.foreground}}};
     lines[2] = {{{"fn ", c.keyword}, {"main", c.function}, {"() ", c.operator_}, {"{\n", c.operator_}}};
-    lines[3] = {{{"    let ", c.keyword}, {"mut ", c.keyword}, {"input", c.foreground}, {" = ", c.operator_}, {"String", c.function}, {"::new();\n", c.function}}};
+    lines[3] = {{{"    let ", c.keyword},
+                 {"mut ", c.keyword},
+                 {"input", c.foreground},
+                 {" = ", c.operator_},
+                 {"String", c.function},
+                 {"::new();\n", c.function}}};
     lines[4] = {{{"    println!(\"", c.function}, {"hello ", c.string}, {"{}\", ", c.function}, {"input", c.foreground}, {");\n", c.function}}};
     lines[5] = {{{"    let ", c.keyword}, {"x", c.foreground}, {" = ", c.operator_}, {"42", c.number}, {";\n", c.operator_}}};
     lines[6] = {{{"}\n", c.operator_}}};
@@ -121,9 +135,11 @@ void ThemePreviewWidget::paintEvent(QPaintEvent *)
     p.fillRect(caretX, caretLineY + 2, 2, lineH - 4, c.caret);
 
     int ly = editorY + 12;
-    for (int li = 0; li < 7; ++li) {
+    for (int li = 0; li < 7; ++li)
+    {
         int tx = cx;
-        for (const auto &token : lines[li].tokens) {
+        for (const auto& token : lines[li].tokens)
+        {
             bool isSelected = (li == 4 && token.text == "hello ");
             p.setPen(isSelected ? c.selectionFg : token.color);
             p.drawText(tx, ly, token.text);

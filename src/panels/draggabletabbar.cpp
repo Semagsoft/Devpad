@@ -1,6 +1,7 @@
 #include "draggabletabbar.h"
-#include "codeeditor.h"
+
 #include "appstrings.h"
+#include "codeeditor.h"
 #include "settingsmanager.h"
 #include "splitview.h"
 
@@ -12,8 +13,8 @@
 #include <QDir>
 #include <QDrag>
 #include <QDragEnterEvent>
-#include <QDragMoveEvent>
 #include <QDragLeaveEvent>
+#include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QFile>
 #include <QFileInfo>
@@ -41,8 +42,7 @@ QColor dropHighlightColor()
 
 // ── DraggableTabBar ────────────────────────────────────────────
 
-DraggableTabBar::DraggableTabBar(QWidget* parent)
-    : QTabBar(parent)
+DraggableTabBar::DraggableTabBar(QWidget* parent) : QTabBar(parent)
 {
     setMovable(true);
     QColor c = dropHighlightColor();
@@ -52,9 +52,11 @@ DraggableTabBar::DraggableTabBar(QWidget* parent)
 void DraggableTabBar::mousePressEvent(QMouseEvent* event)
 {
     m_dragTabIndex = -1;
-    if (event->button() == Qt::LeftButton) {
+    if (event->button() == Qt::LeftButton)
+    {
         int idx = tabAt(event->pos());
-        if (idx >= 0) {
+        if (idx >= 0)
+        {
             m_dragTabIndex = idx;
             m_dragStartPos = event->pos();
             m_dragging = false;
@@ -65,13 +67,16 @@ void DraggableTabBar::mousePressEvent(QMouseEvent* event)
 
 void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
 {
-    if (m_dragTabIndex < 0 || !(event->buttons() & Qt::LeftButton)) {
+    if (m_dragTabIndex < 0 || !(event->buttons() & Qt::LeftButton))
+    {
         QTabBar::mouseMoveEvent(event);
         return;
     }
 
-    if (!m_dragging && (event->pos() - m_dragStartPos).manhattanLength() >= QApplication::startDragDistance()) {
-        if (rect().contains(event->pos())) {
+    if (!m_dragging && (event->pos() - m_dragStartPos).manhattanLength() >= QApplication::startDragDistance())
+    {
+        if (rect().contains(event->pos()))
+        {
             QTabBar::mouseMoveEvent(event);
             return;
         }
@@ -100,7 +105,8 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
         qint64 srcPid = QCoreApplication::applicationPid();
         stream << srcPid << dragId << m_dragTabIndex << filePath;
         mimeData->setData(MIME_TAB, data);
-        if (ce && !filePath.isEmpty()) {
+        if (ce && !filePath.isEmpty())
+        {
             QList<QUrl> urls;
             urls << QUrl::fromLocalFile(filePath);
             mimeData->setUrls(urls);
@@ -108,7 +114,8 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
         drag->setMimeData(mimeData);
 
         QRect r = tabRect(m_dragTabIndex);
-        if (r.isValid()) {
+        if (r.isValid())
+        {
             QPixmap pixmap(r.size() * devicePixelRatioF());
             pixmap.setDevicePixelRatio(devicePixelRatioF());
             pixmap.fill(Qt::transparent);
@@ -123,13 +130,19 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
 
         SplitView::removeDragSource(dragId);
 
-        auto removeTabFromSource = [&]() {
-            if (tabWidget && m_dragTabIndex >= 0 && m_dragTabIndex < tabWidget->count()) {
-                if (tabWidget->widget(m_dragTabIndex) == expectedWidget) {
+        auto removeTabFromSource = [&]()
+        {
+            if (tabWidget && m_dragTabIndex >= 0 && m_dragTabIndex < tabWidget->count())
+            {
+                if (tabWidget->widget(m_dragTabIndex) == expectedWidget)
+                {
                     tabWidget->removeTab(m_dragTabIndex);
-                    if (tabWidget->count() == 0) {
-                        for (QWidget* p = tabWidget->parentWidget(); p; p = p->parentWidget()) {
-                            if (auto* sv = qobject_cast<SplitView*>(p)) {
+                    if (tabWidget->count() == 0)
+                    {
+                        for (QWidget* p = tabWidget->parentWidget(); p; p = p->parentWidget())
+                        {
+                            if (auto* sv = qobject_cast<SplitView*>(p))
+                            {
                                 sv->removePane(tabWidget);
                                 break;
                             }
@@ -139,16 +152,22 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
             }
         };
 
-        if (result != Qt::IgnoreAction && !handledDragIds().contains(dragId)) {
+        if (result != Qt::IgnoreAction && !handledDragIds().contains(dragId))
+        {
             handledDragIds().remove(dragId);
             removeTabFromSource();
-        } else if (result == Qt::IgnoreAction) {
+        }
+        else if (result == Qt::IgnoreAction)
+        {
             QString respPath = dragResponsePath(QCoreApplication::applicationPid(), dragId);
             bool crossProcessAccepted = QFile::exists(respPath);
-            if (crossProcessAccepted) {
+            if (crossProcessAccepted)
+            {
                 QFile::remove(respPath);
                 removeTabFromSource();
-            } else if (tabWidget) {
+            }
+            else if (tabWidget)
+            {
                 auto* w = tabWidget->widget(m_dragTabIndex);
                 auto* ce = w ? w->findChild<CodeEditor*>() : nullptr;
                 QString filePath = ce ? ce->fileName() : QString();
@@ -167,7 +186,8 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
 
 void DraggableTabBar::setDropIndicator(int index)
 {
-    if (m_dropIndicatorIndex != index) {
+    if (m_dropIndicatorIndex != index)
+    {
         m_dropIndicatorIndex = index;
         update();
     }
@@ -183,9 +203,11 @@ void DraggableTabBar::setDropIndicatorColor(const QColor& color)
 void DraggableTabBar::paintEvent(QPaintEvent* event)
 {
     QTabBar::paintEvent(event);
-    if (m_dropIndicatorIndex >= 0 && m_dropIndicatorIndex < count()) {
+    if (m_dropIndicatorIndex >= 0 && m_dropIndicatorIndex < count())
+    {
         QRect r = tabRect(m_dropIndicatorIndex);
-        if (r.isValid()) {
+        if (r.isValid())
+        {
             QPainter p(this);
             p.setPen(Qt::NoPen);
             p.setBrush(m_dropColor);

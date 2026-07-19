@@ -17,47 +17,52 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "findinfilesdialog.h"
-#include <QLineEdit>
-#include <QPushButton>
+
 #include <QCheckBox>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
-#include <QThread>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QFileDialog>
 #include <QDir>
 #include <QDirIterator>
+#include <QFileDialog>
 #include <QFileInfo>
-#include <QRegularExpression>
-#include <QTextStream>
-
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QKeyEvent>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QRegularExpression>
+#include <QTextStream>
+#include <QThread>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <QVBoxLayout>
 
-FindInFilesWorker::FindInFilesWorker(const QString &searchText, const QString &rootDir,
-                                     const QString &pattern, const QStringList &excludeDirs,
+FindInFilesWorker::FindInFilesWorker(const QString& searchText, const QString& rootDir, const QString& pattern, const QStringList& excludeDirs,
                                      bool matchCase, bool wholeWord, bool useRegex)
-    : m_searchText(searchText), m_rootDir(rootDir), m_pattern(pattern),
-      m_excludeDirs(excludeDirs), m_matchCase(matchCase),
-      m_wholeWord(wholeWord), m_useRegex(useRegex) {
+    : m_searchText(searchText), m_rootDir(rootDir), m_pattern(pattern), m_excludeDirs(excludeDirs), m_matchCase(matchCase), m_wholeWord(wholeWord),
+      m_useRegex(useRegex)
+{
 }
 
-void FindInFilesWorker::run() {
+void FindInFilesWorker::run()
+{
     m_totalMatches = 0;
 
-    if (m_searchText.isEmpty() || m_rootDir.isEmpty()) {
+    if (m_searchText.isEmpty() || m_rootDir.isEmpty())
+    {
         emit searchFinished(0);
         return;
     }
 
     QStringList nameFilters;
-    if (m_pattern.trimmed().isEmpty()) {
+    if (m_pattern.trimmed().isEmpty())
+    {
         nameFilters << "*";
-    } else {
+    }
+    else
+    {
         QStringList parts = m_pattern.split(' ', Qt::SkipEmptyParts);
-        for (const QString &p : parts) {
+        for (const QString& p : parts)
+        {
             QString trimmed = p.trimmed();
             if (!trimmed.isEmpty())
                 nameFilters << trimmed;
@@ -67,8 +72,10 @@ void FindInFilesWorker::run() {
     }
 
     QDirIterator it(m_rootDir, nameFilters, QDir::Files, QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        if (QThread::currentThread()->isInterruptionRequested()) {
+    while (it.hasNext())
+    {
+        if (QThread::currentThread()->isInterruptionRequested())
+        {
             emit searchFinished(m_totalMatches);
             return;
         }
@@ -76,9 +83,10 @@ void FindInFilesWorker::run() {
         QString filePath = it.next();
 
         bool excluded = false;
-        for (const QString &exDir : m_excludeDirs) {
-            if (filePath.startsWith(exDir + '/') || filePath.contains('/' + exDir + '/')
-                || filePath.endsWith('/' + exDir) || filePath == exDir) {
+        for (const QString& exDir : m_excludeDirs)
+        {
+            if (filePath.startsWith(exDir + '/') || filePath.contains('/' + exDir + '/') || filePath.endsWith('/' + exDir) || filePath == exDir)
+            {
                 excluded = true;
                 break;
             }
@@ -87,37 +95,48 @@ void FindInFilesWorker::run() {
             continue;
 
         searchFile(filePath);
-        if (m_hasError) break;
+        if (m_hasError)
+            break;
     }
 
     emit searchFinished(m_totalMatches);
 }
 
-void FindInFilesWorker::searchFile(const QString &filePath) {
+void FindInFilesWorker::searchFile(const QString& filePath)
+{
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly))
         return;
 
-    if (file.size() > 10 * 1024 * 1024)
+    if (file.size() > static_cast<qint64>(10) * 1024 * 1024)
         return;
 
     QByteArray rawData = file.readAll();
     file.close();
 
     QStringConverter::Encoding encoding = QStringConverter::Utf8;
-    if (rawData.startsWith(QByteArray("\xFF\xFE\x00\x00", 4))) {
+    if (rawData.startsWith(QByteArray("\xFF\xFE\x00\x00", 4)))
+    {
         encoding = QStringConverter::Utf32LE;
         rawData.remove(0, 4);
-    } else if (rawData.startsWith(QByteArray("\x00\x00\xFE\xFF", 4))) {
+    }
+    else if (rawData.startsWith(QByteArray("\x00\x00\xFE\xFF", 4)))
+    {
         encoding = QStringConverter::Utf32BE;
         rawData.remove(0, 4);
-    } else if (rawData.startsWith(QByteArray("\xFF\xFE", 2))) {
+    }
+    else if (rawData.startsWith(QByteArray("\xFF\xFE", 2)))
+    {
         encoding = QStringConverter::Utf16LE;
         rawData.remove(0, 2);
-    } else if (rawData.startsWith(QByteArray("\xFE\xFF", 2))) {
+    }
+    else if (rawData.startsWith(QByteArray("\xFE\xFF", 2)))
+    {
         encoding = QStringConverter::Utf16BE;
         rawData.remove(0, 2);
-    } else if (rawData.startsWith(QByteArray("\xEF\xBB\xBF", 3))) {
+    }
+    else if (rawData.startsWith(QByteArray("\xEF\xBB\xBF", 3)))
+    {
         rawData.remove(0, 3);
     }
 
@@ -125,8 +144,10 @@ void FindInFilesWorker::searchFile(const QString &filePath) {
     in.setEncoding(encoding);
 
     int lineNumber = 0;
-    while (!in.atEnd()) {
-        if (QThread::currentThread()->isInterruptionRequested()) {
+    while (!in.atEnd())
+    {
+        if (QThread::currentThread()->isInterruptionRequested())
+        {
             emit searchFinished(m_totalMatches);
             return;
         }
@@ -139,42 +160,49 @@ void FindInFilesWorker::searchFile(const QString &filePath) {
 
         bool matched = false;
 
-        if (m_useRegex) {
-            QRegularExpression::PatternOption opt = m_matchCase
-                ? QRegularExpression::NoPatternOption
-                : QRegularExpression::CaseInsensitiveOption;
+        if (m_useRegex)
+        {
+            QRegularExpression::PatternOption opt = m_matchCase ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption;
             QRegularExpression re(compareSearch, opt);
-            if (!re.isValid()) {
+            if (!re.isValid())
+            {
                 emit searchError(tr("Invalid regex: %1").arg(re.errorString()));
                 m_hasError = true;
                 return;
             }
             matched = re.match(compareLine).hasMatch();
-        } else if (m_wholeWord) {
+        }
+        else if (m_wholeWord)
+        {
             int idx = compareLine.indexOf(compareSearch);
-            while (idx >= 0) {
+            while (idx >= 0)
+            {
                 bool leftBoundary = (idx == 0) || !compareLine[idx - 1].isLetterOrNumber();
                 int end = idx + compareSearch.length();
                 bool rightBoundary = (end >= compareLine.length()) || !compareLine[end].isLetterOrNumber();
-                if (leftBoundary && rightBoundary) {
+                if (leftBoundary && rightBoundary)
+                {
                     matched = true;
                     break;
                 }
                 idx = compareLine.indexOf(compareSearch, idx + 1);
             }
-        } else {
+        }
+        else
+        {
             matched = compareLine.contains(compareSearch);
         }
 
-        if (matched) {
+        if (matched)
+        {
             m_totalMatches++;
             emit matchFound(filePath, lineNumber, line.trimmed());
         }
     }
 }
 
-FindInFilesDialog::FindInFilesDialog(const QString &defaultDir, QWidget *parent)
-    : QDialog(parent), m_settings("FindInFiles") {
+FindInFilesDialog::FindInFilesDialog(const QString& defaultDir, QWidget* parent) : QDialog(parent), m_settings("FindInFiles")
+{
     setWindowTitle(tr("Find in Files"));
     setMinimumSize(700, 500);
     setupUI();
@@ -188,21 +216,23 @@ FindInFilesDialog::FindInFilesDialog(const QString &defaultDir, QWidget *parent)
     m_settings.restoreGeometry(this);
 }
 
-FindInFilesDialog::~FindInFilesDialog() {
+FindInFilesDialog::~FindInFilesDialog()
+{
     onStop();
 }
 
-void FindInFilesDialog::setupUI() {
-    auto *mainLayout = new QVBoxLayout(this);
+void FindInFilesDialog::setupUI()
+{
+    auto* mainLayout = new QVBoxLayout(this);
 
-    auto *searchLayout = new QHBoxLayout();
+    auto* searchLayout = new QHBoxLayout();
     searchLayout->addWidget(new QLabel(tr("Find:"), this));
     searchLineEdit = new QLineEdit(this);
     searchLineEdit->setPlaceholderText(tr("Enter search text..."));
     searchLayout->addWidget(searchLineEdit);
     mainLayout->addLayout(searchLayout);
 
-    auto *dirLayout = new QHBoxLayout();
+    auto* dirLayout = new QHBoxLayout();
     dirLayout->addWidget(new QLabel(tr("In:"), this));
     dirLineEdit = new QLineEdit(this);
     dirLineEdit->setPlaceholderText(tr("Search directory..."));
@@ -211,14 +241,14 @@ void FindInFilesDialog::setupUI() {
     dirLayout->addWidget(browseButton);
     mainLayout->addLayout(dirLayout);
 
-    auto *filterLayout = new QHBoxLayout();
+    auto* filterLayout = new QHBoxLayout();
     filterLayout->addWidget(new QLabel(tr("Filter:"), this));
     filterLineEdit = new QLineEdit(this);
     filterLineEdit->setPlaceholderText(tr("e.g. *.cpp *.h *.py (space-separated, * for all)"));
     filterLayout->addWidget(filterLineEdit);
     mainLayout->addLayout(filterLayout);
 
-    auto *optionsLayout = new QHBoxLayout();
+    auto* optionsLayout = new QHBoxLayout();
     matchCaseCheckBox = new QCheckBox(tr("Match case"), this);
     matchWholeWordCheckBox = new QCheckBox(tr("Whole word"), this);
     useRegexCheckBox = new QCheckBox(tr("Regex"), this);
@@ -240,7 +270,7 @@ void FindInFilesDialog::setupUI() {
     resultTree->header()->setSectionResizeMode(2, QHeaderView::Stretch);
     mainLayout->addWidget(resultTree);
 
-    auto *bottomLayout = new QHBoxLayout();
+    auto* bottomLayout = new QHBoxLayout();
     statusLabel = new QLabel(this);
     bottomLayout->addWidget(statusLabel, 1);
 
@@ -263,13 +293,15 @@ void FindInFilesDialog::setupUI() {
     searchLineEdit->setFocus();
 }
 
-void FindInFilesDialog::startSearch(const QString &searchText, const QString &directory) {
+void FindInFilesDialog::startSearch(const QString& searchText, const QString& directory)
+{
     searchLineEdit->setText(searchText);
     dirLineEdit->setText(directory);
     onSearch();
 }
 
-void FindInFilesDialog::onSearch() {
+void FindInFilesDialog::onSearch()
+{
     onStop();
 
     resultTree->clear();
@@ -281,7 +313,8 @@ void FindInFilesDialog::onSearch() {
         return;
 
     QString rootDir = dirLineEdit->text().trimmed();
-    if (rootDir.isEmpty() || !QDir(rootDir).exists()) {
+    if (rootDir.isEmpty() || !QDir(rootDir).exists())
+    {
         statusLabel->setText(tr("Invalid directory."));
         return;
     }
@@ -289,10 +322,8 @@ void FindInFilesDialog::onSearch() {
     QStringList excludeDirs = {"/.git/", "/node_modules/", "/.svn/", "/__pycache__/", "/.hg/"};
     QString filter = filterLineEdit->text().trimmed();
 
-    m_worker = new FindInFilesWorker(searchText, rootDir, filter, excludeDirs,
-                                      matchCaseCheckBox->isChecked(),
-                                      matchWholeWordCheckBox->isChecked(),
-                                      useRegexCheckBox->isChecked());
+    m_worker = new FindInFilesWorker(searchText, rootDir, filter, excludeDirs, matchCaseCheckBox->isChecked(), matchWholeWordCheckBox->isChecked(),
+                                     useRegexCheckBox->isChecked());
 
     m_workerThread = new QThread(this);
     m_worker->moveToThread(m_workerThread);
@@ -309,33 +340,42 @@ void FindInFilesDialog::onSearch() {
     m_workerThread->start();
 }
 
-void FindInFilesDialog::onStop() {
-    if (m_workerThread && m_workerThread->isRunning()) {
+void FindInFilesDialog::onStop()
+{
+    if (m_workerThread && m_workerThread->isRunning())
+    {
         m_workerThread->requestInterruption();
     }
     cleanupSearch();
 }
 
-void FindInFilesDialog::cleanupSearch() {
-    if (m_worker) {
+void FindInFilesDialog::cleanupSearch()
+{
+    if (m_worker)
+    {
         m_worker->disconnect();
     }
-    if (m_workerThread) {
+    if (m_workerThread)
+    {
         m_workerThread->disconnect();
-        if (m_workerThread->isRunning()) {
+        if (m_workerThread->isRunning())
+        {
             m_workerThread->quit();
-            if (!m_workerThread->wait(3000)) {
+            if (!m_workerThread->wait(3000))
+            {
                 m_workerThread->terminate();
                 m_workerThread->wait();
             }
         }
     }
 
-    if (m_worker) {
+    if (m_worker)
+    {
         m_worker->deleteLater();
         m_worker = nullptr;
     }
-    if (m_workerThread) {
+    if (m_workerThread)
+    {
         m_workerThread->deleteLater();
         m_workerThread = nullptr;
     }
@@ -345,12 +385,14 @@ void FindInFilesDialog::cleanupSearch() {
     stopButton->setEnabled(false);
 }
 
-void FindInFilesDialog::onMatchFound(const QString &filePath, int lineNumber, const QString &lineText) {
-    if (!m_searching) return;
+void FindInFilesDialog::onMatchFound(const QString& filePath, int lineNumber, const QString& lineText)
+{
+    if (!m_searching)
+        return;
     m_matchCount++;
     QString relativePath = QDir(dirLineEdit->text()).relativeFilePath(filePath);
 
-    auto *item = new QTreeWidgetItem(resultTree);
+    auto* item = new QTreeWidgetItem(resultTree);
     item->setText(0, relativePath);
     item->setText(1, QString::number(lineNumber));
     item->setText(2, lineText);
@@ -363,16 +405,16 @@ void FindInFilesDialog::onMatchFound(const QString &filePath, int lineNumber, co
     statusLabel->setText(tr("Found %1 match(es)...").arg(m_matchCount));
 }
 
-void FindInFilesDialog::onSearchFinished(int totalMatches) {
+void FindInFilesDialog::onSearchFinished(int totalMatches)
+{
     Q_UNUSED(totalMatches)
-    if (!m_searching) return;
+    if (!m_searching)
+        return;
 
     if (m_matchCount == 0)
         statusLabel->setText(tr("No results found."));
     else
-        statusLabel->setText(tr("Found %1 match(es) in %2 file(s).")
-            .arg(m_matchCount)
-            .arg(resultTree->topLevelItemCount()));
+        statusLabel->setText(tr("Found %1 match(es) in %2 file(s).").arg(m_matchCount).arg(resultTree->topLevelItemCount()));
 
     resultTree->resizeColumnToContents(0);
     resultTree->resizeColumnToContents(1);
@@ -380,38 +422,47 @@ void FindInFilesDialog::onSearchFinished(int totalMatches) {
     cleanupSearch();
 }
 
-void FindInFilesDialog::onSearchError(const QString &message) {
+void FindInFilesDialog::onSearchError(const QString& message)
+{
     statusLabel->setText(tr("Error: %1").arg(message));
 }
 
-void FindInFilesDialog::onBrowseDirectory() {
-    QString dir = QFileDialog::getExistingDirectory(this, tr("Select Search Directory"),
-                                                     dirLineEdit->text());
+void FindInFilesDialog::onBrowseDirectory()
+{
+    QString dir = QFileDialog::getExistingDirectory(this, tr("Select Search Directory"), dirLineEdit->text());
     if (!dir.isEmpty())
         dirLineEdit->setText(dir);
 }
 
-void FindInFilesDialog::onResultDoubleClicked(QTreeWidgetItem *item, int column) {
+void FindInFilesDialog::onResultDoubleClicked(QTreeWidgetItem* item, int column)
+{
     Q_UNUSED(column)
-    if (!item) return;
+    if (!item)
+        return;
 
     QString filePath = item->data(0, Qt::UserRole).toString();
     int lineNumber = item->data(1, Qt::UserRole).toInt();
     emit navigateToResult(filePath, lineNumber);
 }
 
-void FindInFilesDialog::closeEvent(QCloseEvent *event) {
+void FindInFilesDialog::closeEvent(QCloseEvent* event)
+{
     onStop();
     saveSettings();
     m_settings.saveGeometry(this);
     QDialog::closeEvent(event);
 }
 
-void FindInFilesDialog::keyPressEvent(QKeyEvent *event) {
-    if (event->key() == Qt::Key_Escape) {
-        if (m_workerThread && m_workerThread->isRunning()) {
+void FindInFilesDialog::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Escape)
+    {
+        if (m_workerThread && m_workerThread->isRunning())
+        {
             onStop();
-        } else {
+        }
+        else
+        {
             close();
         }
         event->accept();
@@ -420,14 +471,16 @@ void FindInFilesDialog::keyPressEvent(QKeyEvent *event) {
     QDialog::keyPressEvent(event);
 }
 
-void FindInFilesDialog::loadSettings() {
+void FindInFilesDialog::loadSettings()
+{
     matchCaseCheckBox->setChecked(m_settings.load("MatchCase", false).toBool());
     matchWholeWordCheckBox->setChecked(m_settings.load("MatchWholeWord", false).toBool());
     useRegexCheckBox->setChecked(m_settings.load("UseRegex", false).toBool());
     filterLineEdit->setText(m_settings.load("Filter", "*").toString());
 }
 
-void FindInFilesDialog::saveSettings() {
+void FindInFilesDialog::saveSettings()
+{
     m_settings.save("MatchCase", matchCaseCheckBox->isChecked());
     m_settings.save("MatchWholeWord", matchWholeWordCheckBox->isChecked());
     m_settings.save("UseRegex", useRegexCheckBox->isChecked());

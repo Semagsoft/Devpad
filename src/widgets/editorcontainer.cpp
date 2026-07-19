@@ -1,11 +1,11 @@
 #include "editorcontainer.h"
+
 #include "codeeditor.h"
 #include "inlinefindbar.h"
 
 #include <QVBoxLayout>
 
-EditorContainer::EditorContainer(CodeEditor *editor, QWidget *parent)
-    : QWidget(parent), m_editor(editor)
+EditorContainer::EditorContainer(CodeEditor* editor, QWidget* parent) : QWidget(parent), m_editor(editor)
 {
     m_layout = new QVBoxLayout(this);
     m_layout->setContentsMargins(0, 0, 0, 0);
@@ -17,9 +17,7 @@ EditorContainer::EditorContainer(CodeEditor *editor, QWidget *parent)
     m_layout->addWidget(m_findBar);
     m_layout->addWidget(m_editor, 1);
 
-    connect(m_findBar, &InlineFindBar::closed, this, [this]() {
-        m_findBar->hide();
-    });
+    connect(m_findBar, &InlineFindBar::closed, this, [this]() { m_findBar->hide(); });
 }
 
 void EditorContainer::showFindBar()

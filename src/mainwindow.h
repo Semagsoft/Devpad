@@ -46,7 +46,8 @@ class TabManager;
 class TerminalPanel;
 class ThemeApplier;
 
-namespace lsp {
+namespace lsp
+{
 class LspServerManager;
 } // namespace lsp
 
@@ -131,7 +132,7 @@ private:
 
     void loadFile(const QString& fileName, const QString& encoding = QString());
     void updateSplitViewVisibility();
-    QString getSyntaxForFile(const QString& displayName) const;
+    [[nodiscard]] QString getSyntaxForFile(const QString& displayName) const;
     void updateStatusBarLabelsVisibility();
     void updateRecentFileActions();
     void updateEncodingSelector();

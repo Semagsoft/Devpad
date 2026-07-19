@@ -110,8 +110,7 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
     }
 
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
-    if (!validComponentRegex.match(host).hasMatch() ||
-        !validComponentRegex.match(remotePath).hasMatch() ||
+    if (!validComponentRegex.match(host).hasMatch() || !validComponentRegex.match(remotePath).hasMatch() ||
         (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
         emit downloadFailed(urlStr, tr("SSH URL contains invalid characters."));
@@ -215,7 +214,8 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
             [killTimer](int, QProcess::ExitStatus)
             {
                 QPointer<QTimer> guard(killTimer);
-                if (guard) {
+                if (guard)
+                {
                     guard->stop();
                     guard->deleteLater();
                 }
@@ -224,7 +224,8 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
             [killTimer](QProcess::ProcessError)
             {
                 QPointer<QTimer> guard(killTimer);
-                if (guard) {
+                if (guard)
+                {
                     guard->stop();
                     guard->deleteLater();
                 }

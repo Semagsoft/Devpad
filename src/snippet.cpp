@@ -18,8 +18,8 @@
  */
 #include "snippet.h"
 
-#include <QRegularExpression>
 #include <QMap>
+#include <QRegularExpression>
 
 Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 {
@@ -65,8 +65,7 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
     }
 
     // Apply replacements from end to start to preserve positions
-    std::sort(replacements.begin(), replacements.end(),
-              [](const PlaceholderReplace& a, const PlaceholderReplace& b) { return a.pos > b.pos; });
+    std::sort(replacements.begin(), replacements.end(), [](const PlaceholderReplace& a, const PlaceholderReplace& b) { return a.pos > b.pos; });
 
     for (const auto& pr : replacements)
     {
@@ -173,8 +172,7 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
         result.tabStops.append(it2.value());
     }
 
-    std::sort(result.tabStops.begin(), result.tabStops.end(),
-              [](const TabStop& a, const TabStop& b) { return a.number < b.number; });
+    std::sort(result.tabStops.begin(), result.tabStops.end(), [](const TabStop& a, const TabStop& b) { return a.number < b.number; });
 
     return result;
 }

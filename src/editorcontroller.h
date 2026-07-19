@@ -47,8 +47,8 @@ public:
     void closeAllTabs();
     bool onTabCloseRequested(int index);
 
-    CodeEditor* currentEditor() const;
-    CodeEditor* findEditorByFileName(const QString& fileName) const;
+    [[nodiscard]] CodeEditor* currentEditor() const;
+    [[nodiscard]] CodeEditor* findEditorByFileName(const QString& fileName) const;
 
     void undo();
     void redo();

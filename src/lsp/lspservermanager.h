@@ -19,13 +19,15 @@
 #ifndef LSPSERVERMANAGER_H
 #define LSPSERVERMANAGER_H
 
-#include <QObject>
+#include "lspclient.h"
+#include "lsptypes.h"
+
 #include <QHash>
 #include <QMap>
-#include "lsptypes.h"
-#include "lspclient.h"
+#include <QObject>
 
-namespace lsp {
+namespace lsp
+{
 
 class LspServerManager : public QObject
 {
@@ -46,7 +48,10 @@ public:
     bool hasCapability(const QString& uri, const QString& capability) const;
     QString rootUriForFile(const QString& filePath) const;
 
-    QList<QString> languages() const { return m_clients.keys(); }
+    QList<QString> languages() const
+    {
+        return m_clients.keys();
+    }
 
     static QHash<QString, QString> defaultServerCommands();
     static QStringList defaultServerArgs(const QString& language);
@@ -75,9 +80,9 @@ signals:
     void semanticTokensFullReady(const QString& uri, const QJsonArray& tokens);
 
 private:
-    QHash<QString, LspClient*> m_clients; // language -> client
+    QHash<QString, LspClient*> m_clients;       // language -> client
     QMap<QString, QString> m_documentLanguages; // uri -> language
-    QMap<QString, int> m_documentVersions; // uri -> version
+    QMap<QString, int> m_documentVersions;      // uri -> version
 };
 
 } // namespace lsp

@@ -1,33 +1,36 @@
 #include "externaltoolmanager.h"
+
 #include "settingsmanager.h"
 
-#include <QFormLayout>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
 #include <QDialogButtonBox>
-#include <QProcess>
 #include <QDir>
 #include <QFileInfo>
-#include <QTextEdit>
 #include <QFontDatabase>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QProcess>
 #include <QPushButton>
+#include <QTextEdit>
+#include <QVBoxLayout>
 
-ExternalToolManager::ExternalToolManager(QObject *parent) : QObject(parent)
+ExternalToolManager::ExternalToolManager(QObject* parent) : QObject(parent)
 {
 }
 
-QList<ExternalTool> ExternalToolManager::tools() const {
+QList<ExternalTool> ExternalToolManager::tools() const
+{
     return m_tools;
 }
 
-void ExternalToolManager::setTools(const QList<ExternalTool>& tools) {
+void ExternalToolManager::setTools(const QList<ExternalTool>& tools)
+{
     m_tools = tools;
     emit toolsChanged();
 }
 
-QString ExternalToolManager::resolveVariables(const QString& template_, const QString& filePath,
-                                               const QString& projectDir, const QString& selectedText,
-                                               int lineNumber) const {
+QString ExternalToolManager::resolveVariables(const QString& template_, const QString& filePath, const QString& projectDir,
+                                              const QString& selectedText, int lineNumber) const
+{
     QString result = template_;
 
     QFileInfo fi(filePath);
@@ -49,10 +52,11 @@ QString ExternalToolManager::resolveVariables(const QString& template_, const QS
     return result;
 }
 
-QString ExternalToolManager::workingDirForTool(const ExternalTool& tool, const QString& filePath,
-                                                const QString& projectDir) const {
+QString ExternalToolManager::workingDirForTool(const ExternalTool& tool, const QString& filePath, const QString& projectDir) const
+{
     QString wd = resolveVariables(tool.workingDir, filePath, projectDir, QString(), 0);
-    if (wd.isEmpty()) {
+    if (wd.isEmpty())
+    {
         if (!projectDir.isEmpty())
             wd = projectDir;
         else if (!filePath.isEmpty())
@@ -70,36 +74,60 @@ QStringList ExternalToolManager::parseArguments(const QString& args)
     bool inSingleQuote = false;
     bool inDoubleQuote = false;
 
-    for (int i = 0; i < args.size(); ++i) {
+    for (int i = 0; i < args.size(); ++i)
+    {
         const QChar c = args[i];
 
-        if (inSingleQuote) {
-            if (c == QLatin1Char('\'')) {
+        if (inSingleQuote)
+        {
+            if (c == QLatin1Char('\''))
+            {
                 inSingleQuote = false;
-            } else {
+            }
+            else
+            {
                 current += c;
             }
-        } else if (inDoubleQuote) {
-            if (c == QLatin1Char('"')) {
+        }
+        else if (inDoubleQuote)
+        {
+            if (c == QLatin1Char('"'))
+            {
                 inDoubleQuote = false;
-            } else if (c == QLatin1Char('\\') && i + 1 < args.size()) {
+            }
+            else if (c == QLatin1Char('\\') && i + 1 < args.size())
+            {
                 current += args[++i];
-            } else {
+            }
+            else
+            {
                 current += c;
             }
-        } else {
-            if (c == QLatin1Char('\'')) {
+        }
+        else
+        {
+            if (c == QLatin1Char('\''))
+            {
                 inSingleQuote = true;
-            } else if (c == QLatin1Char('"')) {
+            }
+            else if (c == QLatin1Char('"'))
+            {
                 inDoubleQuote = true;
-            } else if (c == QLatin1Char('\\') && i + 1 < args.size()) {
+            }
+            else if (c == QLatin1Char('\\') && i + 1 < args.size())
+            {
                 current += args[++i];
-            } else if (c.isSpace()) {
-                if (!current.isEmpty()) {
+            }
+            else if (c.isSpace())
+            {
+                if (!current.isEmpty())
+                {
                     result << current;
                     current.clear();
                 }
-            } else {
+            }
+            else
+            {
                 current += c;
             }
         }
@@ -118,11 +146,8 @@ QString ExternalToolManager::shellEscape(const QString& s)
     return QLatin1Char('\'') + escaped + QLatin1Char('\'');
 }
 
-bool ExternalToolManager::runTool(int index, const QString& filePath,
-                                   const QString& projectDir, const QString& selectedText,
-                                   int lineNumber,
-                                   const std::function<void(const QString&)>& terminalSender,
-                                   QWidget* parent)
+bool ExternalToolManager::runTool(int index, const QString& filePath, const QString& projectDir, const QString& selectedText, int lineNumber,
+                                  const std::function<void(const QString&)>& terminalSender, QWidget* parent)
 {
     auto& s = SettingsManager::instance();
     if (index < 0 || index >= s.externalToolCount())
@@ -143,22 +168,26 @@ bool ExternalToolManager::runTool(int index, const QString& filePath,
     // This preserves argument boundaries when resolved values contain spaces
     QStringList parsedArgTemplates = parseArguments(tool.arguments);
     QStringList resolvedArgs;
-    for (const auto& argTemplate : parsedArgTemplates) {
+    for (const auto& argTemplate : parsedArgTemplates)
+    {
         resolvedArgs << resolveVariables(argTemplate, filePath, projectDir, selectedText, lineNumber);
     }
 
     QString resolvedWorkDir = workingDirForTool(tool, filePath, projectDir);
 
-    if (tool.runInTerminal && terminalSender) {
+    if (tool.runInTerminal && terminalSender)
+    {
         // Terminal path: build a properly shell-escaped command
-        QString cmdLine = QStringLiteral("cd %1 && exec %2")
-                              .arg(shellEscape(resolvedWorkDir), shellEscape(resolvedCmd));
-        for (const auto& arg : resolvedArgs) {
+        QString cmdLine = QStringLiteral("cd %1 && exec %2").arg(shellEscape(resolvedWorkDir), shellEscape(resolvedCmd));
+        for (const auto& arg : resolvedArgs)
+        {
             cmdLine += QLatin1Char(' ') + shellEscape(arg);
         }
         cmdLine += QLatin1Char('\n');
         terminalSender(cmdLine);
-    } else {
+    }
+    else
+    {
         // Background QProcess path with output dialog
         auto* process = new QProcess(parent);
         process->setWorkingDirectory(resolvedWorkDir);
@@ -176,14 +205,14 @@ bool ExternalToolManager::runTool(int index, const QString& filePath,
         layout->addWidget(closeBtn);
 
         QObject::connect(closeBtn, &QPushButton::clicked, outputDialog, &QDialog::accept);
-        QObject::connect(process, &QProcess::readyReadStandardOutput, outputDialog, [process, outputText]() {
-            outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
-        });
-        QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                outputDialog, [outputText, process](int, QProcess::ExitStatus) {
-            outputText->append(ExternalToolManager::tr("\n--- Process exited ---"));
-            outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
-        });
+        QObject::connect(process, &QProcess::readyReadStandardOutput, outputDialog,
+                         [process, outputText]() { outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput())); });
+        QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), outputDialog,
+                         [outputText, process](int, QProcess::ExitStatus)
+                         {
+                             outputText->append(ExternalToolManager::tr("\n--- Process exited ---"));
+                             outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
+                         });
         outputDialog->setAttribute(Qt::WA_DeleteOnClose);
         outputDialog->show();
 
@@ -193,18 +222,19 @@ bool ExternalToolManager::runTool(int index, const QString& filePath,
     return true;
 }
 
-ExternalToolEditDialog::ExternalToolEditDialog(QWidget *parent)
-    : QDialog(parent) {
+ExternalToolEditDialog::ExternalToolEditDialog(QWidget* parent) : QDialog(parent)
+{
     setupUI();
 }
 
-ExternalToolEditDialog::ExternalToolEditDialog(const ExternalTool& tool, QWidget *parent)
-    : QDialog(parent) {
+ExternalToolEditDialog::ExternalToolEditDialog(const ExternalTool& tool, QWidget* parent) : QDialog(parent)
+{
     setupUI();
     setTool(tool);
 }
 
-ExternalTool ExternalToolEditDialog::tool() const {
+ExternalTool ExternalToolEditDialog::tool() const
+{
     ExternalTool t;
     t.name = m_nameEdit->text().trimmed();
     t.command = m_commandEdit->text().trimmed();
@@ -215,7 +245,8 @@ ExternalTool ExternalToolEditDialog::tool() const {
     return t;
 }
 
-void ExternalToolEditDialog::setTool(const ExternalTool& tool) {
+void ExternalToolEditDialog::setTool(const ExternalTool& tool)
+{
     m_nameEdit->setText(tool.name);
     m_commandEdit->setText(tool.command);
     m_argumentsEdit->setText(tool.arguments);
@@ -224,7 +255,8 @@ void ExternalToolEditDialog::setTool(const ExternalTool& tool) {
     m_runInTerminalCheck->setChecked(tool.runInTerminal);
 }
 
-void ExternalToolEditDialog::setupUI() {
+void ExternalToolEditDialog::setupUI()
+{
     setWindowTitle(tr("Edit External Tool"));
     setMinimumWidth(450);
 
@@ -257,11 +289,10 @@ void ExternalToolEditDialog::setupUI() {
 
     mainLayout->addLayout(formLayout);
 
-    m_hintLabel = new QLabel(
-        tr("Variables: %f = full path, %n = filename, %d = directory, "
-           "%p = project dir, %e = extension, %s = selected text, "
-           "%l = line number, %% = literal %"),
-        this);
+    m_hintLabel = new QLabel(tr("Variables: %f = full path, %n = filename, %d = directory, "
+                                "%p = project dir, %e = extension, %s = selected text, "
+                                "%l = line number, %% = literal %"),
+                             this);
     m_hintLabel->setWordWrap(true);
     m_hintLabel->setStyleSheet("color: gray; font-size: 11px;");
     mainLayout->addWidget(m_hintLabel);

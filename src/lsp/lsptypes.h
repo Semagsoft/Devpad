@@ -19,14 +19,15 @@
 #ifndef LSPTYPES_H
 #define LSPTYPES_H
 
-#include <QString>
-#include <QList>
-#include <QJsonObject>
 #include <QJsonArray>
+#include <QJsonObject>
 #include <QJsonValue>
+#include <QList>
+#include <QString>
 #include <QUrl>
 
-namespace lsp {
+namespace lsp
+{
 
 struct Position
 {

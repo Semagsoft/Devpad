@@ -22,9 +22,9 @@
 #include "gitignore.h"
 
 #include <QDockWidget>
-#include <QSortFilterProxyModel>
-#include <QSet>
 #include <QFileIconProvider>
+#include <QSet>
+#include <QSortFilterProxyModel>
 #include <memory>
 
 class QFileSystemModel;
@@ -35,27 +35,31 @@ class QToolButton;
 class QTreeView;
 class QVBoxLayout;
 
-class FileFilterProxyModel : public QSortFilterProxyModel {
+class FileFilterProxyModel : public QSortFilterProxyModel
+{
     Q_OBJECT
 
 public:
-    explicit FileFilterProxyModel(QObject *parent = nullptr);
-    void setFilterText(const QString &text);
-    QVariant data(const QModelIndex &index, int role) const override;
+    explicit FileFilterProxyModel(QObject* parent = nullptr);
+    void setFilterText(const QString& text);
+    QVariant data(const QModelIndex& index, int role) const override;
 
-    void setFolderIcons(const QIcon &closed, const QIcon &open);
-    void setHiddenFolderIcon(const QIcon &icon);
-    void setExpandedFolders(const QSet<QString> &paths);
-    const QSet<QString>& expandedFolders() const { return m_expandedFolders; }
-    void notifyDataChanged(const QModelIndex &index);
+    void setFolderIcons(const QIcon& closed, const QIcon& open);
+    void setHiddenFolderIcon(const QIcon& icon);
+    void setExpandedFolders(const QSet<QString>& paths);
+    const QSet<QString>& expandedFolders() const
+    {
+        return m_expandedFolders;
+    }
+    void notifyDataChanged(const QModelIndex& index);
 
     void setGitIgnoreEnabled(bool enabled);
-    void setGitIgnoreRootPath(const QString &rootPath);
-    void scanGitIgnoreDirectory(const QString &dirPath);
+    void setGitIgnoreRootPath(const QString& rootPath);
+    void scanGitIgnoreDirectory(const QString& dirPath);
 
 protected:
-    bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
-    bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
+    bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const override;
+    bool lessThan(const QModelIndex& left, const QModelIndex& right) const override;
 
 private:
     QString m_filterText;
@@ -68,58 +72,59 @@ private:
     bool m_gitIgnoreEnabled = true;
 };
 
-class ProjectPanel : public QDockWidget {
+class ProjectPanel : public QDockWidget
+{
     Q_OBJECT
 
 public:
-    explicit ProjectPanel(QWidget *parent = nullptr);
+    explicit ProjectPanel(QWidget* parent = nullptr);
 
-    void setRootPath(const QString &path);
+    void setRootPath(const QString& path);
     void clear();
-    QString rootPath() const;
+    [[nodiscard]] QString rootPath() const;
 
-    static QIcon iconForFile(const QString &filePath);
+    static QIcon iconForFile(const QString& filePath);
 
 signals:
-    void fileDoubleClicked(const QString &filePath);
-    void folderSelected(const QString &folderPath);
+    void fileDoubleClicked(const QString& filePath);
+    void folderSelected(const QString& folderPath);
 
 private slots:
-    void onItemClicked(const QModelIndex &index);
-    void onFilterTextChanged(const QString &text);
-    void onContextMenu(const QPoint &pos);
+    void onItemClicked(const QModelIndex& index);
+    void onFilterTextChanged(const QString& text);
+    void onContextMenu(const QPoint& pos);
     void onRecentFolderSelected();
     void onClearRecentFolders();
     void showRecentFoldersMenu();
-    void onFolderExpanded(const QModelIndex &index);
-    void onFolderCollapsed(const QModelIndex &index);
+    void onFolderExpanded(const QModelIndex& index);
+    void onFolderCollapsed(const QModelIndex& index);
 
 private:
     void setupUI();
     void applyFilter();
     void reloadFilter();
-    void buildRecentFoldersMenu(QMenu *menu);
-    QString filePathFromIndex(const QModelIndex &index) const;
-    bool isWithinRoot(const QString &path) const;
-    void newFile(const QString &dirPath);
-    void newFolder(const QString &dirPath);
-    void renameItem(const QString &filePath);
-    void deleteItem(const QString &filePath);
-    void copyPath(const QString &filePath);
-    void openInEditor(const QString &filePath);
-    void showInFileManager(const QString &filePath);
-    void openInTerminal(const QString &dirPath);
+    void buildRecentFoldersMenu(QMenu* menu) const;
+    [[nodiscard]] QString filePathFromIndex(const QModelIndex& index) const;
+    [[nodiscard]] bool isWithinRoot(const QString& path) const;
+    void newFile(const QString& dirPath);
+    void newFolder(const QString& dirPath);
+    void renameItem(const QString& filePath);
+    void deleteItem(const QString& filePath);
+    void copyPath(const QString& filePath);
+    void openInEditor(const QString& filePath);
+    void showInFileManager(const QString& filePath);
+    void openInTerminal(const QString& dirPath);
     void updateGitIgnore();
 
-    QWidget *panelWidget = nullptr;
-    QVBoxLayout *mainLayout = nullptr;
-    QLineEdit *filterEdit = nullptr;
-    QTreeView *treeView = nullptr;
-    QFileSystemModel *fileModel = nullptr;
-    FileFilterProxyModel *filterProxyModel = nullptr;
-    QToolButton *headerButton = nullptr;
-    QLabel *titleLabel = nullptr;
-    QMenu *recentFoldersMenu = nullptr;
+    QWidget* panelWidget = nullptr;
+    QVBoxLayout* mainLayout = nullptr;
+    QLineEdit* filterEdit = nullptr;
+    QTreeView* treeView = nullptr;
+    QFileSystemModel* fileModel = nullptr;
+    FileFilterProxyModel* filterProxyModel = nullptr;
+    QToolButton* headerButton = nullptr;
+    QLabel* titleLabel = nullptr;
+    QMenu* recentFoldersMenu = nullptr;
     QString currentRootPath;
     QString currentFilter;
 };

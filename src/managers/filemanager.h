@@ -25,24 +25,28 @@
 class CodeEditor;
 class QWidget;
 
-class FileManager : public QObject {
+class FileManager : public QObject
+{
     Q_OBJECT
 
 public:
-    explicit FileManager(QObject *parent = nullptr);
-    ~FileManager() = default;
+    explicit FileManager(QObject* parent = nullptr);
+    ~FileManager() override = default;
 
-    bool loadFile(const QString &fileName, CodeEditor *editor, const QString &encoding = QString());
-    bool saveFile(const QString &fileName, CodeEditor *editor, const QString &encoding = QString());
+    bool loadFile(const QString& fileName, CodeEditor* editor, const QString& encoding = QString());
+    bool saveFile(const QString& fileName, CodeEditor* editor, const QString& encoding = QString());
 
-    const QString& lastError() const { return m_lastError; }
+    const QString& lastError() const
+    {
+        return m_lastError;
+    }
 
-    static QString detectEncoding(const QByteArray &buffer);
+    static QString detectEncoding(const QByteArray& buffer);
 
 signals:
-    void fileLoaded(const QString &fileName);
-    void fileSaved(const QString &fileName);
-    void error(const QString &message);
+    void fileLoaded(const QString& fileName);
+    void fileSaved(const QString& fileName);
+    void error(const QString& message);
 
 private:
     QString m_lastError;
