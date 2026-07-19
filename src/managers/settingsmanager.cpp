@@ -188,8 +188,8 @@ void SettingsManager::loadCache()
 
     m_cache.project.showHiddenFiles = m_settings.value("Options_ShowHiddenFiles", false).toBool();
     m_cache.project.useGitIgnore = m_settings.value("Options_UseGitIgnore", true).toBool();
-    m_cache.project.projectPanelPosition = static_cast<ProjectPanelPosition>(
-        m_settings.value("Options_ProjectPanelPosition", static_cast<int>(ProjectPanelPosition::Left)).toInt());
+    m_cache.project.projectPanelPosition =
+        static_cast<ProjectPanelPosition>(m_settings.value("Options_ProjectPanelPosition", static_cast<int>(ProjectPanelPosition::Left)).toInt());
 
     m_cache.lsp.enabled = m_settings.value("LSP/Enabled", true).toBool();
     m_cache.lsp.showErrorList = m_settings.value("LSP/ShowErrorList", true).toBool();
@@ -221,49 +221,175 @@ SettingsManager::AutoSaveSettings SettingsManager::autoSaveSettings() const
     return m_cache.autoSave;
 }
 
-QString SettingsManager::defaultFontFamily() const { return m_cache.editor.defaultFontFamily; }
-int SettingsManager::defaultFontSize() const { return m_cache.editor.defaultFontSize; }
-QFont SettingsManager::defaultFont() const { return QFont(defaultFontFamily(), defaultFontSize()); }
-bool SettingsManager::showLineNumbers() const { return m_cache.editor.showLineNumbers; }
-bool SettingsManager::scrollPastContent() const { return m_cache.editor.scrollPastContent; }
-bool SettingsManager::codeCollapsing() const { return m_cache.editor.codeCollapsing; }
-bool SettingsManager::wordWrap() const { return m_cache.editor.wordWrap; }
-ThemeId SettingsManager::theme() const { return m_cache.editor.theme; }
-bool SettingsManager::isDarkTheme() const { return isThemeDark(theme()); }
-ThemeColors SettingsManager::currentThemeColors() const { return getThemeColors(theme()); }
-int SettingsManager::defaultEncoding() const { return m_cache.editor.defaultEncoding; }
-int SettingsManager::defaultFormat() const { return m_cache.editor.defaultFormat; }
-bool SettingsManager::showWhitespace() const { return m_cache.editor.showWhitespace; }
-bool SettingsManager::autoCompletionEnabled() const { return m_cache.editor.autoCompletionEnabled; }
-int SettingsManager::autoCompletionThreshold() const { return m_cache.editor.autoCompletionThreshold; }
-bool SettingsManager::autoCompletionCaseSensitive() const { return m_cache.editor.autoCompletionCaseSensitive; }
-bool SettingsManager::autoCloseBrackets() const { return m_cache.editor.autoCloseBrackets; }
-int SettingsManager::tabWidth() const { return m_cache.editor.tabWidth; }
-CursorStyle SettingsManager::cursorStyle() const { return m_cache.editor.cursorStyle; }
-bool SettingsManager::cursorBlinking() const { return m_cache.editor.cursorBlinking; }
-bool SettingsManager::highlightCurrentLine() const { return m_cache.editor.highlightCurrentLine; }
-bool SettingsManager::verticalEdgeEnabled() const { return m_cache.editor.verticalEdgeEnabled; }
-int SettingsManager::verticalEdgeColumn() const { return m_cache.editor.verticalEdgeColumn; }
+QString SettingsManager::defaultFontFamily() const
+{
+    return m_cache.editor.defaultFontFamily;
+}
+int SettingsManager::defaultFontSize() const
+{
+    return m_cache.editor.defaultFontSize;
+}
+QFont SettingsManager::defaultFont() const
+{
+    return QFont(defaultFontFamily(), defaultFontSize());
+}
+bool SettingsManager::showLineNumbers() const
+{
+    return m_cache.editor.showLineNumbers;
+}
+bool SettingsManager::scrollPastContent() const
+{
+    return m_cache.editor.scrollPastContent;
+}
+bool SettingsManager::codeCollapsing() const
+{
+    return m_cache.editor.codeCollapsing;
+}
+bool SettingsManager::wordWrap() const
+{
+    return m_cache.editor.wordWrap;
+}
+ThemeId SettingsManager::theme() const
+{
+    return m_cache.editor.theme;
+}
+bool SettingsManager::isDarkTheme() const
+{
+    return isThemeDark(theme());
+}
+ThemeColors SettingsManager::currentThemeColors() const
+{
+    return getThemeColors(theme());
+}
+int SettingsManager::defaultEncoding() const
+{
+    return m_cache.editor.defaultEncoding;
+}
+int SettingsManager::defaultFormat() const
+{
+    return m_cache.editor.defaultFormat;
+}
+bool SettingsManager::showWhitespace() const
+{
+    return m_cache.editor.showWhitespace;
+}
+bool SettingsManager::autoCompletionEnabled() const
+{
+    return m_cache.editor.autoCompletionEnabled;
+}
+int SettingsManager::autoCompletionThreshold() const
+{
+    return m_cache.editor.autoCompletionThreshold;
+}
+bool SettingsManager::autoCompletionCaseSensitive() const
+{
+    return m_cache.editor.autoCompletionCaseSensitive;
+}
+bool SettingsManager::autoCloseBrackets() const
+{
+    return m_cache.editor.autoCloseBrackets;
+}
+int SettingsManager::tabWidth() const
+{
+    return m_cache.editor.tabWidth;
+}
+CursorStyle SettingsManager::cursorStyle() const
+{
+    return m_cache.editor.cursorStyle;
+}
+bool SettingsManager::cursorBlinking() const
+{
+    return m_cache.editor.cursorBlinking;
+}
+bool SettingsManager::highlightCurrentLine() const
+{
+    return m_cache.editor.highlightCurrentLine;
+}
+bool SettingsManager::verticalEdgeEnabled() const
+{
+    return m_cache.editor.verticalEdgeEnabled;
+}
+int SettingsManager::verticalEdgeColumn() const
+{
+    return m_cache.editor.verticalEdgeColumn;
+}
 
-CloseButtonMode SettingsManager::closeButtonMode() const { return m_cache.ui.closeButtonMode; }
-bool SettingsManager::showMenuBar() const { return m_cache.ui.showMenuBar; }
-bool SettingsManager::showToolbar() const { return m_cache.ui.showToolbar; }
-bool SettingsManager::showStatusbar() const { return m_cache.ui.showStatusbar; }
-TabDisplayMode SettingsManager::tabDisplayMode() const { return m_cache.ui.tabDisplayMode; }
-TabBarPosition SettingsManager::tabBarPosition() const { return m_cache.ui.tabBarPosition; }
-QString SettingsManager::uiFontFamily() const { return m_cache.ui.uiFontFamily; }
-int SettingsManager::uiFontSize() const { return m_cache.ui.uiFontSize; }
-QFont SettingsManager::uiFont() const { return QFont(uiFontFamily(), uiFontSize()); }
-StartupMode SettingsManager::startupMode() const { return m_cache.ui.startupMode; }
-TerminalPanelPosition SettingsManager::terminalPanelPosition() const { return m_cache.terminal.terminalPanelPosition; }
-int SettingsManager::terminalPanelMinWidth() const { return m_cache.terminal.terminalPanelMinWidth; }
-QString SettingsManager::terminalFontFamily() const { return m_cache.terminal.terminalFontFamily; }
-int SettingsManager::terminalFontSize() const { return m_cache.terminal.terminalFontSize; }
-QFont SettingsManager::terminalFont() const { return QFont(terminalFontFamily(), terminalFontSize()); }
-bool SettingsManager::showTerminalPanel() const { return m_cache.terminal.showTerminalPanel; }
-bool SettingsManager::autoSaveEnabled() const { return m_cache.autoSave.autoSaveEnabled; }
-int SettingsManager::autoSaveInterval() const { return m_cache.autoSave.autoSaveInterval; }
-bool SettingsManager::autoSaveToOriginalFile() const { return m_cache.autoSave.autoSaveToOriginalFile; }
+CloseButtonMode SettingsManager::closeButtonMode() const
+{
+    return m_cache.ui.closeButtonMode;
+}
+bool SettingsManager::showMenuBar() const
+{
+    return m_cache.ui.showMenuBar;
+}
+bool SettingsManager::showToolbar() const
+{
+    return m_cache.ui.showToolbar;
+}
+bool SettingsManager::showStatusbar() const
+{
+    return m_cache.ui.showStatusbar;
+}
+TabDisplayMode SettingsManager::tabDisplayMode() const
+{
+    return m_cache.ui.tabDisplayMode;
+}
+TabBarPosition SettingsManager::tabBarPosition() const
+{
+    return m_cache.ui.tabBarPosition;
+}
+QString SettingsManager::uiFontFamily() const
+{
+    return m_cache.ui.uiFontFamily;
+}
+int SettingsManager::uiFontSize() const
+{
+    return m_cache.ui.uiFontSize;
+}
+QFont SettingsManager::uiFont() const
+{
+    return QFont(uiFontFamily(), uiFontSize());
+}
+StartupMode SettingsManager::startupMode() const
+{
+    return m_cache.ui.startupMode;
+}
+TerminalPanelPosition SettingsManager::terminalPanelPosition() const
+{
+    return m_cache.terminal.terminalPanelPosition;
+}
+int SettingsManager::terminalPanelMinWidth() const
+{
+    return m_cache.terminal.terminalPanelMinWidth;
+}
+QString SettingsManager::terminalFontFamily() const
+{
+    return m_cache.terminal.terminalFontFamily;
+}
+int SettingsManager::terminalFontSize() const
+{
+    return m_cache.terminal.terminalFontSize;
+}
+QFont SettingsManager::terminalFont() const
+{
+    return QFont(terminalFontFamily(), terminalFontSize());
+}
+bool SettingsManager::showTerminalPanel() const
+{
+    return m_cache.terminal.showTerminalPanel;
+}
+bool SettingsManager::autoSaveEnabled() const
+{
+    return m_cache.autoSave.autoSaveEnabled;
+}
+int SettingsManager::autoSaveInterval() const
+{
+    return m_cache.autoSave.autoSaveInterval;
+}
+bool SettingsManager::autoSaveToOriginalFile() const
+{
+    return m_cache.autoSave.autoSaveToOriginalFile;
+}
 
 void SettingsManager::applyToEditor(CodeEditor* editor) const
 {
@@ -286,13 +412,34 @@ void SettingsManager::applyToEditor(CodeEditor* editor) const
     editor->setVerticalEdge(verticalEdgeEnabled(), verticalEdgeColumn());
 }
 
-void SettingsManager::setDefaultFontFamily(const QString& family) { writeCached("Options_DefaultFont", m_cache.editor.defaultFontFamily, family); }
-void SettingsManager::setDefaultFontSize(int size) { writeCached("Options_DefaultFontSize", m_cache.editor.defaultFontSize, size); }
-void SettingsManager::setShowLineNumbers(bool visible) { writeCached("Options_ShowLineNumbers", m_cache.editor.showLineNumbers, visible); }
-void SettingsManager::setScrollPastContent(bool enabled) { writeCached("Options_ScrollPastContent", m_cache.editor.scrollPastContent, enabled); }
-void SettingsManager::setCodeCollapsing(bool enabled) { writeCached("Options_CodeCollapsing", m_cache.editor.codeCollapsing, enabled); }
-void SettingsManager::setWordWrap(bool enabled) { writeCached("Options_WordWrap", m_cache.editor.wordWrap, enabled); }
-void SettingsManager::setTheme(ThemeId theme) { writeCached("Options_Theme", m_cache.editor.theme, theme); }
+void SettingsManager::setDefaultFontFamily(const QString& family)
+{
+    writeCached("Options_DefaultFont", m_cache.editor.defaultFontFamily, family);
+}
+void SettingsManager::setDefaultFontSize(int size)
+{
+    writeCached("Options_DefaultFontSize", m_cache.editor.defaultFontSize, size);
+}
+void SettingsManager::setShowLineNumbers(bool visible)
+{
+    writeCached("Options_ShowLineNumbers", m_cache.editor.showLineNumbers, visible);
+}
+void SettingsManager::setScrollPastContent(bool enabled)
+{
+    writeCached("Options_ScrollPastContent", m_cache.editor.scrollPastContent, enabled);
+}
+void SettingsManager::setCodeCollapsing(bool enabled)
+{
+    writeCached("Options_CodeCollapsing", m_cache.editor.codeCollapsing, enabled);
+}
+void SettingsManager::setWordWrap(bool enabled)
+{
+    writeCached("Options_WordWrap", m_cache.editor.wordWrap, enabled);
+}
+void SettingsManager::setTheme(ThemeId theme)
+{
+    writeCached("Options_Theme", m_cache.editor.theme, theme);
+}
 QColor SettingsManager::accentColor() const
 {
     return m_cache.accentColor;
@@ -303,7 +450,7 @@ bool SettingsManager::hasAccentColor() const
     return m_cache.hasAccentColor;
 }
 
-void SettingsManager::setAccentColor(const QColor &color)
+void SettingsManager::setAccentColor(const QColor& color)
 {
     m_cache.accentColor = color;
     m_cache.hasAccentColor = color.isValid();
@@ -317,49 +464,172 @@ void SettingsManager::clearAccentColor()
     m_cache.hasAccentColor = false;
     m_settings.remove("Options_AccentColor");
 }
-void SettingsManager::setDefaultEncoding(int encoding) { writeCached("Options_DefaultEncoding", m_cache.editor.defaultEncoding, encoding); }
-void SettingsManager::setDefaultFormat(int format) { writeCached("Options_DefaultFormat", m_cache.editor.defaultFormat, format); }
+void SettingsManager::setDefaultEncoding(int encoding)
+{
+    writeCached("Options_DefaultEncoding", m_cache.editor.defaultEncoding, encoding);
+}
+void SettingsManager::setDefaultFormat(int format)
+{
+    writeCached("Options_DefaultFormat", m_cache.editor.defaultFormat, format);
+}
 
-void SettingsManager::setShowWhitespace(bool visible) { writeCached("Options_ShowWhitespace", m_cache.editor.showWhitespace, visible); }
-void SettingsManager::setAutoCompletionEnabled(bool enabled) { writeCached("Options_AutoCompletion", m_cache.editor.autoCompletionEnabled, enabled); }
-void SettingsManager::setAutoCompletionThreshold(int threshold) { writeCached("Options_AutoCompletionThreshold", m_cache.editor.autoCompletionThreshold, threshold); }
-void SettingsManager::setAutoCompletionCaseSensitive(bool sensitive) { writeCached("Options_AutoCompletionCaseSensitive", m_cache.editor.autoCompletionCaseSensitive, sensitive); }
-void SettingsManager::setAutoCloseBrackets(bool enabled) { writeCached("Options_AutoCloseBrackets", m_cache.editor.autoCloseBrackets, enabled); }
-void SettingsManager::setTabWidth(int width) { writeCached("Options_TabWidth", m_cache.editor.tabWidth, width); }
-void SettingsManager::setCursorStyle(CursorStyle style) { writeCached("Options_CursorStyle", m_cache.editor.cursorStyle, style); }
-void SettingsManager::setCursorBlinking(bool enabled) { writeCached("Options_CursorBlinking", m_cache.editor.cursorBlinking, enabled); }
-void SettingsManager::setHighlightCurrentLine(bool enabled) { writeCached("Options_HighlightCurrentLine", m_cache.editor.highlightCurrentLine, enabled); }
-void SettingsManager::setVerticalEdgeEnabled(bool enabled) { writeCached("Options_VerticalEdgeEnabled", m_cache.editor.verticalEdgeEnabled, enabled); }
-void SettingsManager::setVerticalEdgeColumn(int column) { writeCached("Options_VerticalEdgeColumn", m_cache.editor.verticalEdgeColumn, column); }
-bool SettingsManager::snippetsEnabled() const { return m_cache.editor.snippetsEnabled; }
-bool SettingsManager::predictiveSnippets() const { return m_cache.editor.predictiveSnippets; }
-void SettingsManager::setSnippetsEnabled(bool enabled) { writeCached("Options_SnippetsEnabled", m_cache.editor.snippetsEnabled, enabled); }
-void SettingsManager::setPredictiveSnippets(bool enabled) { writeCached("Options_PredictiveSnippets", m_cache.editor.predictiveSnippets, enabled); }
-void SettingsManager::setStartupMode(StartupMode mode) { writeCached("Options_StartupMode", m_cache.ui.startupMode, mode); }
-void SettingsManager::setCloseButtonMode(CloseButtonMode mode) { writeCached("Options_CloseButtonMode", m_cache.ui.closeButtonMode, mode); }
-void SettingsManager::setTabDisplayMode(TabDisplayMode mode) { writeCached("Options_TabDisplayMode", m_cache.ui.tabDisplayMode, mode); }
-void SettingsManager::setTabBarPosition(TabBarPosition position) { writeCached("Options_TabBarPosition", m_cache.ui.tabBarPosition, position); }
-void SettingsManager::setShowMenuBar(bool visible) { writeCached("Options_ShowMenuBar", m_cache.ui.showMenuBar, visible); }
-void SettingsManager::setShowToolbar(bool visible) { writeCached("Options_ShowToolbar", m_cache.ui.showToolbar, visible); }
-void SettingsManager::setShowStatusbar(bool visible) { writeCached("Options_ShowStatusbar", m_cache.ui.showStatusbar, visible); }
-void SettingsManager::setUiFontFamily(const QString& family) { writeCached("Options_UIFont", m_cache.ui.uiFontFamily, family); }
-void SettingsManager::setUiFontSize(int size) { writeCached("Options_UIFontSize", m_cache.ui.uiFontSize, size); }
-void SettingsManager::setTerminalPanelPosition(TerminalPanelPosition position) { writeCached("Options_TerminalPanelPosition", m_cache.terminal.terminalPanelPosition, position); }
-void SettingsManager::setTerminalPanelMinWidth(int width) { writeCached("Options_TerminalPanelMinWidth", m_cache.terminal.terminalPanelMinWidth, width); }
-void SettingsManager::setTerminalFontFamily(const QString& family) { writeCached("Options_TerminalFont", m_cache.terminal.terminalFontFamily, family); }
-void SettingsManager::setTerminalFontSize(int size) { writeCached("Options_TerminalFontSize", m_cache.terminal.terminalFontSize, size); }
-void SettingsManager::setShowTerminalPanel(bool visible) { writeCached("Options_ShowTerminalPanel", m_cache.terminal.showTerminalPanel, visible); }
+void SettingsManager::setShowWhitespace(bool visible)
+{
+    writeCached("Options_ShowWhitespace", m_cache.editor.showWhitespace, visible);
+}
+void SettingsManager::setAutoCompletionEnabled(bool enabled)
+{
+    writeCached("Options_AutoCompletion", m_cache.editor.autoCompletionEnabled, enabled);
+}
+void SettingsManager::setAutoCompletionThreshold(int threshold)
+{
+    writeCached("Options_AutoCompletionThreshold", m_cache.editor.autoCompletionThreshold, threshold);
+}
+void SettingsManager::setAutoCompletionCaseSensitive(bool sensitive)
+{
+    writeCached("Options_AutoCompletionCaseSensitive", m_cache.editor.autoCompletionCaseSensitive, sensitive);
+}
+void SettingsManager::setAutoCloseBrackets(bool enabled)
+{
+    writeCached("Options_AutoCloseBrackets", m_cache.editor.autoCloseBrackets, enabled);
+}
+void SettingsManager::setTabWidth(int width)
+{
+    writeCached("Options_TabWidth", m_cache.editor.tabWidth, width);
+}
+void SettingsManager::setCursorStyle(CursorStyle style)
+{
+    writeCached("Options_CursorStyle", m_cache.editor.cursorStyle, style);
+}
+void SettingsManager::setCursorBlinking(bool enabled)
+{
+    writeCached("Options_CursorBlinking", m_cache.editor.cursorBlinking, enabled);
+}
+void SettingsManager::setHighlightCurrentLine(bool enabled)
+{
+    writeCached("Options_HighlightCurrentLine", m_cache.editor.highlightCurrentLine, enabled);
+}
+void SettingsManager::setVerticalEdgeEnabled(bool enabled)
+{
+    writeCached("Options_VerticalEdgeEnabled", m_cache.editor.verticalEdgeEnabled, enabled);
+}
+void SettingsManager::setVerticalEdgeColumn(int column)
+{
+    writeCached("Options_VerticalEdgeColumn", m_cache.editor.verticalEdgeColumn, column);
+}
+bool SettingsManager::snippetsEnabled() const
+{
+    return m_cache.editor.snippetsEnabled;
+}
+bool SettingsManager::predictiveSnippets() const
+{
+    return m_cache.editor.predictiveSnippets;
+}
+void SettingsManager::setSnippetsEnabled(bool enabled)
+{
+    writeCached("Options_SnippetsEnabled", m_cache.editor.snippetsEnabled, enabled);
+}
+void SettingsManager::setPredictiveSnippets(bool enabled)
+{
+    writeCached("Options_PredictiveSnippets", m_cache.editor.predictiveSnippets, enabled);
+}
+void SettingsManager::setStartupMode(StartupMode mode)
+{
+    writeCached("Options_StartupMode", m_cache.ui.startupMode, mode);
+}
+void SettingsManager::setCloseButtonMode(CloseButtonMode mode)
+{
+    writeCached("Options_CloseButtonMode", m_cache.ui.closeButtonMode, mode);
+}
+void SettingsManager::setTabDisplayMode(TabDisplayMode mode)
+{
+    writeCached("Options_TabDisplayMode", m_cache.ui.tabDisplayMode, mode);
+}
+void SettingsManager::setTabBarPosition(TabBarPosition position)
+{
+    writeCached("Options_TabBarPosition", m_cache.ui.tabBarPosition, position);
+}
+void SettingsManager::setShowMenuBar(bool visible)
+{
+    writeCached("Options_ShowMenuBar", m_cache.ui.showMenuBar, visible);
+}
+void SettingsManager::setShowToolbar(bool visible)
+{
+    writeCached("Options_ShowToolbar", m_cache.ui.showToolbar, visible);
+}
+void SettingsManager::setShowStatusbar(bool visible)
+{
+    writeCached("Options_ShowStatusbar", m_cache.ui.showStatusbar, visible);
+}
+void SettingsManager::setUiFontFamily(const QString& family)
+{
+    writeCached("Options_UIFont", m_cache.ui.uiFontFamily, family);
+}
+void SettingsManager::setUiFontSize(int size)
+{
+    writeCached("Options_UIFontSize", m_cache.ui.uiFontSize, size);
+}
+void SettingsManager::setTerminalPanelPosition(TerminalPanelPosition position)
+{
+    writeCached("Options_TerminalPanelPosition", m_cache.terminal.terminalPanelPosition, position);
+}
+void SettingsManager::setTerminalPanelMinWidth(int width)
+{
+    writeCached("Options_TerminalPanelMinWidth", m_cache.terminal.terminalPanelMinWidth, width);
+}
+void SettingsManager::setTerminalFontFamily(const QString& family)
+{
+    writeCached("Options_TerminalFont", m_cache.terminal.terminalFontFamily, family);
+}
+void SettingsManager::setTerminalFontSize(int size)
+{
+    writeCached("Options_TerminalFontSize", m_cache.terminal.terminalFontSize, size);
+}
+void SettingsManager::setShowTerminalPanel(bool visible)
+{
+    writeCached("Options_ShowTerminalPanel", m_cache.terminal.showTerminalPanel, visible);
+}
 
-void SettingsManager::setAutoSaveEnabled(bool enabled) { writeCached("Options_AutoSaveEnabled", m_cache.autoSave.autoSaveEnabled, enabled); }
-void SettingsManager::setAutoSaveInterval(int seconds) { writeCached("Options_AutoSaveInterval", m_cache.autoSave.autoSaveInterval, seconds); }
-void SettingsManager::setAutoSaveToOriginalFile(bool enabled) { writeCached("Options_AutoSaveToOriginalFile", m_cache.autoSave.autoSaveToOriginalFile, enabled); }
-SettingsManager::ProjectSettings SettingsManager::projectSettings() const { return m_cache.project; }
-bool SettingsManager::showHiddenFiles() const { return m_cache.project.showHiddenFiles; }
-bool SettingsManager::useGitIgnore() const { return m_cache.project.useGitIgnore; }
-ProjectPanelPosition SettingsManager::projectPanelPosition() const { return m_cache.project.projectPanelPosition; }
-void SettingsManager::setShowHiddenFiles(bool visible) { writeCached("Options_ShowHiddenFiles", m_cache.project.showHiddenFiles, visible); }
-void SettingsManager::setUseGitIgnore(bool enabled) { writeCached("Options_UseGitIgnore", m_cache.project.useGitIgnore, enabled); }
-void SettingsManager::setProjectPanelPosition(ProjectPanelPosition position) { writeCached("Options_ProjectPanelPosition", m_cache.project.projectPanelPosition, position); }
+void SettingsManager::setAutoSaveEnabled(bool enabled)
+{
+    writeCached("Options_AutoSaveEnabled", m_cache.autoSave.autoSaveEnabled, enabled);
+}
+void SettingsManager::setAutoSaveInterval(int seconds)
+{
+    writeCached("Options_AutoSaveInterval", m_cache.autoSave.autoSaveInterval, seconds);
+}
+void SettingsManager::setAutoSaveToOriginalFile(bool enabled)
+{
+    writeCached("Options_AutoSaveToOriginalFile", m_cache.autoSave.autoSaveToOriginalFile, enabled);
+}
+SettingsManager::ProjectSettings SettingsManager::projectSettings() const
+{
+    return m_cache.project;
+}
+bool SettingsManager::showHiddenFiles() const
+{
+    return m_cache.project.showHiddenFiles;
+}
+bool SettingsManager::useGitIgnore() const
+{
+    return m_cache.project.useGitIgnore;
+}
+ProjectPanelPosition SettingsManager::projectPanelPosition() const
+{
+    return m_cache.project.projectPanelPosition;
+}
+void SettingsManager::setShowHiddenFiles(bool visible)
+{
+    writeCached("Options_ShowHiddenFiles", m_cache.project.showHiddenFiles, visible);
+}
+void SettingsManager::setUseGitIgnore(bool enabled)
+{
+    writeCached("Options_UseGitIgnore", m_cache.project.useGitIgnore, enabled);
+}
+void SettingsManager::setProjectPanelPosition(ProjectPanelPosition position)
+{
+    writeCached("Options_ProjectPanelPosition", m_cache.project.projectPanelPosition, position);
+}
 
 QString SettingsManager::syntaxForExtension(const QString& ext) const
 {
@@ -375,37 +645,44 @@ QString SettingsManager::syntaxForFile(const QString& filePath) const
     return syntaxForExtension(QFileInfo(filePath).suffix());
 }
 
-int SettingsManager::externalToolCount() const {
+int SettingsManager::externalToolCount() const
+{
     return m_settings.value("ExternalTools/Count", 0).toInt();
 }
 
-QString SettingsManager::externalToolName(int index) const {
+QString SettingsManager::externalToolName(int index) const
+{
     return m_settings.value(QString("ExternalTools/%1/Name").arg(index)).toString();
 }
 
-QString SettingsManager::externalToolCommand(int index) const {
+QString SettingsManager::externalToolCommand(int index) const
+{
     return m_settings.value(QString("ExternalTools/%1/Command").arg(index)).toString();
 }
 
-QString SettingsManager::externalToolArguments(int index) const {
+QString SettingsManager::externalToolArguments(int index) const
+{
     return m_settings.value(QString("ExternalTools/%1/Arguments").arg(index)).toString();
 }
 
-QString SettingsManager::externalToolWorkingDir(int index) const {
+QString SettingsManager::externalToolWorkingDir(int index) const
+{
     return m_settings.value(QString("ExternalTools/%1/WorkingDir").arg(index)).toString();
 }
 
-QString SettingsManager::externalToolShortcut(int index) const {
+QString SettingsManager::externalToolShortcut(int index) const
+{
     return m_settings.value(QString("ExternalTools/%1/Shortcut").arg(index)).toString();
 }
 
-bool SettingsManager::externalToolRunInTerminal(int index) const {
+bool SettingsManager::externalToolRunInTerminal(int index) const
+{
     return m_settings.value(QString("ExternalTools/%1/RunInTerminal").arg(index), true).toBool();
 }
 
-void SettingsManager::setExternalTool(int index, const QString& name, const QString& command,
-                                       const QString& arguments, const QString& workingDir,
-                                       const QString& shortcut, bool runInTerminal) {
+void SettingsManager::setExternalTool(int index, const QString& name, const QString& command, const QString& arguments, const QString& workingDir,
+                                      const QString& shortcut, bool runInTerminal)
+{
     QString prefix = QString("ExternalTools/%1/").arg(index);
     m_settings.setValue(prefix + "Name", name);
     m_settings.setValue(prefix + "Command", command);
@@ -415,9 +692,9 @@ void SettingsManager::setExternalTool(int index, const QString& name, const QStr
     m_settings.setValue(prefix + "RunInTerminal", runInTerminal);
 }
 
-void SettingsManager::addExternalTool(const QString& name, const QString& command,
-                                       const QString& arguments, const QString& workingDir,
-                                       const QString& shortcut, bool runInTerminal) {
+void SettingsManager::addExternalTool(const QString& name, const QString& command, const QString& arguments, const QString& workingDir,
+                                      const QString& shortcut, bool runInTerminal)
+{
     int count = m_settings.value("ExternalTools/Count", 0).toInt();
     m_settings.setValue("ExternalTools/Count", count + 1);
     QString prefix = QString("ExternalTools/%1/").arg(count);
@@ -429,9 +706,11 @@ void SettingsManager::addExternalTool(const QString& name, const QString& comman
     m_settings.setValue(prefix + "RunInTerminal", runInTerminal);
 }
 
-void SettingsManager::removeExternalTool(int index) {
+void SettingsManager::removeExternalTool(int index)
+{
     int count = m_settings.value("ExternalTools/Count", 0).toInt();
-    if (index < 0 || index >= count) return;
+    if (index < 0 || index >= count)
+        return;
 
     QString prefix = QString("ExternalTools/%1/").arg(index);
     m_settings.remove(prefix + "Name");
@@ -441,7 +720,8 @@ void SettingsManager::removeExternalTool(int index) {
     m_settings.remove(prefix + "Shortcut");
     m_settings.remove(prefix + "RunInTerminal");
 
-    for (int i = index + 1; i < count; ++i) {
+    for (int i = index + 1; i < count; ++i)
+    {
         QString oldPrefix = QString("ExternalTools/%1/").arg(i);
         QString newPrefix = QString("ExternalTools/%1/").arg(i - 1);
         m_settings.setValue(newPrefix + "Name", m_settings.value(oldPrefix + "Name"));
@@ -468,9 +748,18 @@ SettingsManager::LspSettings SettingsManager::lspSettings() const
     return m_cache.lsp;
 }
 
-bool SettingsManager::lspEnabled() const { return m_cache.lsp.enabled; }
-bool SettingsManager::lspShowErrorList() const { return m_cache.lsp.showErrorList; }
-int SettingsManager::lspCompletionTriggerChars() const { return m_cache.lsp.completionTriggerChars; }
+bool SettingsManager::lspEnabled() const
+{
+    return m_cache.lsp.enabled;
+}
+bool SettingsManager::lspShowErrorList() const
+{
+    return m_cache.lsp.showErrorList;
+}
+int SettingsManager::lspCompletionTriggerChars() const
+{
+    return m_cache.lsp.completionTriggerChars;
+}
 
 QString SettingsManager::lspServerCommand(const QString& language) const
 {
@@ -560,4 +849,3 @@ void SettingsManager::clearRecentFolders()
 {
     m_settings.remove("recentFolders");
 }
-

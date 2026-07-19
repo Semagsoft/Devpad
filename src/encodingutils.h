@@ -24,20 +24,22 @@
 #include <QStringConverter>
 #include <QVector>
 
-struct EncodingInfo {
+struct EncodingInfo
+{
     QString displayName;
     QStringConverter::Encoding encoding;
 };
 
-struct BomResult {
+struct BomResult
+{
     int size = 0;
     QString encodingName;
 };
 
-BomResult detectBom(const QByteArray &data);
+BomResult detectBom(const QByteArray& data);
 
 const QVector<EncodingInfo>& supportedEncodings();
-QStringConverter::Encoding encodingFromName(const QString &name);
+QStringConverter::Encoding encodingFromName(const QString& name);
 QString encodingToDisplayName(QStringConverter::Encoding enc);
 
 #endif

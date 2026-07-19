@@ -19,19 +19,20 @@
 #ifndef BACKUPMANAGER_H
 #define BACKUPMANAGER_H
 
-#include <QString>
 #include <QMutex>
+#include <QString>
 
-class BackupManager {
+class BackupManager
+{
 public:
     static QString backupDirectory();
-    static QString backupPathForFile(const QString &filePath);
+    static QString backupPathForFile(const QString& filePath);
 
-    static bool saveBackup(const QString &filePath, const QString &content);
-    static bool hasBackup(const QString &filePath);
-    static bool isBackupNewer(const QString &filePath);
-    static QString getBackupContent(const QString &filePath);
-    static bool deleteBackup(const QString &filePath);
+    static bool saveBackup(const QString& filePath, const QString& content);
+    static bool hasBackup(const QString& filePath);
+    static bool isBackupNewer(const QString& filePath);
+    static QString getBackupContent(const QString& filePath);
+    static bool deleteBackup(const QString& filePath);
 
 private:
     static QMutex s_mutex;

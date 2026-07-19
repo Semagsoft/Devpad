@@ -17,44 +17,46 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "lspeditorintegration.h"
-#include "lspclient.h"
-#include "lspservermanager.h"
-#include "lsptypes.h"
-#include "lspindicators.h"
 
 #include "../codeeditor.h"
+#include "lspclient.h"
+#include "lspindicators.h"
+#include "lspservermanager.h"
+#include "lsptypes.h"
 #include "settingsmanager.h"
 
 #include <QFileInfo>
 #include <QInputDialog>
 
-namespace lsp {
+namespace lsp
+{
 
-LspEditorIntegration::LspEditorIntegration(CodeEditor* editor, QObject* parent)
-    : QObject(parent), m_editor(editor)
+LspEditorIntegration::LspEditorIntegration(CodeEditor* editor, QObject* parent) : QObject(parent), m_editor(editor)
 {
     m_completionTimer = new QTimer(this);
     m_completionTimer->setSingleShot(true);
     m_completionTimer->setInterval(200);
-    connect(m_completionTimer, &QTimer::timeout, this, [this]() {
-        if (m_lspActive && m_lspManager)
-            triggerCompletion();
-    });
+    connect(m_completionTimer, &QTimer::timeout, this,
+            [this]()
+            {
+                if (m_lspActive && m_lspManager)
+                    triggerCompletion();
+            });
 
     m_diagnosticsTimer = new QTimer(this);
     m_diagnosticsTimer->setSingleShot(true);
     m_diagnosticsTimer->setInterval(500);
-    connect(m_diagnosticsTimer, &QTimer::timeout, this, [this]() {
-        if (m_lspActive)
-            sendDidChange();
-    });
+    connect(m_diagnosticsTimer, &QTimer::timeout, this,
+            [this]()
+            {
+                if (m_lspActive)
+                    sendDidChange();
+            });
 
     m_highlightTimer = new QTimer(this);
     m_highlightTimer->setSingleShot(true);
     m_highlightTimer->setInterval(300);
-    connect(m_highlightTimer, &QTimer::timeout, this, [this]() {
-        requestDocumentHighlight();
-    });
+    connect(m_highlightTimer, &QTimer::timeout, this, [this]() { requestDocumentHighlight(); });
 }
 
 LspEditorIntegration::~LspEditorIntegration() = default;
@@ -74,10 +76,12 @@ void LspEditorIntegration::setLanguage(const QString& language)
 
 void LspEditorIntegration::sendDidOpen()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
 
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty() || filePath == m_editor->tr("Untitled")) return;
+    if (filePath.isEmpty() || filePath == m_editor->tr("Untitled"))
+        return;
 
     QString uri = uriFromPath(filePath);
     QString text = m_editor->text();
@@ -86,10 +90,12 @@ void LspEditorIntegration::sendDidOpen()
 
 void LspEditorIntegration::sendDidChange()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
 
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty() || filePath == m_editor->tr("Untitled")) return;
+    if (filePath.isEmpty() || filePath == m_editor->tr("Untitled"))
+        return;
 
     QString uri = uriFromPath(filePath);
     QString text = m_editor->text();
@@ -98,12 +104,15 @@ void LspEditorIntegration::sendDidChange()
 
 void LspEditorIntegration::goToDefinition()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().definitionProvider) return;
+    if (!client || !client->capabilities().definitionProvider)
+        return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
     client->requestDefinition(uri, {line, col});
@@ -111,12 +120,15 @@ void LspEditorIntegration::goToDefinition()
 
 void LspEditorIntegration::goToTypeDefinition()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().typeDefinitionProvider) return;
+    if (!client || !client->capabilities().typeDefinitionProvider)
+        return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
     client->requestTypeDefinition(uri, {line, col});
@@ -124,12 +136,15 @@ void LspEditorIntegration::goToTypeDefinition()
 
 void LspEditorIntegration::goToDeclaration()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().declarationProvider) return;
+    if (!client || !client->capabilities().declarationProvider)
+        return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
     client->requestDeclaration(uri, {line, col});
@@ -137,12 +152,15 @@ void LspEditorIntegration::goToDeclaration()
 
 void LspEditorIntegration::formatSelection()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().formattingProvider) return;
+    if (!client || !client->capabilities().formattingProvider)
+        return;
     int lineFrom, colFrom, lineTo, colTo;
     m_editor->getSelection(&lineFrom, &colFrom, &lineTo, &colTo);
     Range range{{lineFrom, colFrom}, {lineTo, colTo}};
@@ -153,12 +171,15 @@ void LspEditorIntegration::formatSelection()
 
 void LspEditorIntegration::findReferences()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().referencesProvider) return;
+    if (!client || !client->capabilities().referencesProvider)
+        return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
     client->requestReferences(uri, {line, col});
@@ -166,12 +187,15 @@ void LspEditorIntegration::findReferences()
 
 void LspEditorIntegration::triggerCompletion()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().completionProvider) return;
+    if (!client || !client->capabilities().completionProvider)
+        return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
     int triggerKind = m_lastCharWasTrigger ? 2 : 1;
@@ -181,29 +205,35 @@ void LspEditorIntegration::triggerCompletion()
 
 void LspEditorIntegration::requestRename()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().renameProvider) return;
+    if (!client || !client->capabilities().renameProvider)
+        return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
     bool ok = false;
-    QString newName = QInputDialog::getText(nullptr, tr("Rename Symbol"), tr("New name:"),
-                                            QLineEdit::Normal, QString(), &ok);
-    if (!ok || newName.isEmpty()) return;
+    QString newName = QInputDialog::getText(nullptr, tr("Rename Symbol"), tr("New name:"), QLineEdit::Normal, QString(), &ok);
+    if (!ok || newName.isEmpty())
+        return;
     client->requestRename(uri, {line, col}, newName);
 }
 
 void LspEditorIntegration::requestDocumentHighlight()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().documentHighlightProvider) return;
+    if (!client || !client->capabilities().documentHighlightProvider)
+        return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
     client->requestDocumentHighlight(uri, {line, col});
@@ -211,12 +241,15 @@ void LspEditorIntegration::requestDocumentHighlight()
 
 void LspEditorIntegration::requestCodeActions()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().codeActionProvider) return;
+    if (!client || !client->capabilities().codeActionProvider)
+        return;
     int lineFrom, colFrom, lineTo, colTo;
     m_editor->getSelection(&lineFrom, &colFrom, &lineTo, &colTo);
     Range range{{lineFrom, colFrom}, {lineTo, colTo}};
@@ -225,14 +258,17 @@ void LspEditorIntegration::requestCodeActions()
 
 void LspEditorIntegration::expandSelection()
 {
-    if (!m_lspActive || !m_lspManager) return;
+    if (!m_lspActive || !m_lspManager)
+        return;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return;
+    if (filePath.isEmpty())
+        return;
 
     int line, col;
     m_editor->getCursorPosition(&line, &col);
 
-    if (!m_selectionRangeStack.isEmpty() && m_selectionRangeDepth > 0) {
+    if (!m_selectionRangeStack.isEmpty() && m_selectionRangeDepth > 0)
+    {
         m_selectionRangeDepth--;
         const auto& r = m_selectionRangeStack[m_selectionRangeDepth];
         m_editor->setSelection(r.start.line, r.start.character, r.end.line, r.end.character);
@@ -241,7 +277,8 @@ void LspEditorIntegration::expandSelection()
 
     QString uri = uriFromPath(filePath);
     LspClient* client = m_lspManager->clientForUri(uri);
-    if (!client || !client->capabilities().selectionRangeProvider) return;
+    if (!client || !client->capabilities().selectionRangeProvider)
+        return;
     QList<Position> positions{{line, col}};
     client->requestSelectionRanges(uri, positions);
 }
@@ -269,34 +306,38 @@ void LspEditorIntegration::handleCompletion(const CompletionList& completions)
 void LspEditorIntegration::handleHighlights(const QJsonArray& highlights)
 {
     m_editor->clearHighlights();
-    for (const auto& h : highlights) {
+    for (const auto& h : highlights)
+    {
         QJsonObject obj = h.toObject();
         auto range = Range::fromJson(obj["range"].toObject());
-        m_editor->fillIndicatorRange(range.start.line, range.start.character,
-                                     range.end.line, range.end.character, LSP_INDICATOR_HIGHLIGHT);
+        m_editor->fillIndicatorRange(range.start.line, range.start.character, range.end.line, range.end.character, LSP_INDICATOR_HIGHLIGHT);
     }
 }
 
 void LspEditorIntegration::handleDiagnostics(const QString& uri, const QList<Diagnostic>& diagnostics)
 {
     m_editor->clearDiagnostics();
-    for (const auto& d : diagnostics) {
+    for (const auto& d : diagnostics)
+    {
         int indicator = LSP_INDICATOR_ERROR;
-        if (d.severityLevel == 2) indicator = LSP_INDICATOR_WARNING;
-        else if (d.severityLevel >= 3) indicator = LSP_INDICATOR_INFO;
-        m_editor->fillIndicatorRange(d.range.start.line, d.range.start.character,
-                                     d.range.end.line, d.range.end.character, indicator);
+        if (d.severityLevel == 2)
+            indicator = LSP_INDICATOR_WARNING;
+        else if (d.severityLevel >= 3)
+            indicator = LSP_INDICATOR_INFO;
+        m_editor->fillIndicatorRange(d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character, indicator);
     }
     emit diagnosticsChanged(uri, diagnostics);
 }
 
 static void flattenSelectionRanges(const QJsonObject& node, QList<Range>& out)
 {
-    if (node.contains("range")) {
+    if (node.contains("range"))
+    {
         out.append(Range::fromJson(node["range"].toObject()));
     }
     QJsonArray children = node["children"].toArray();
-    for (const auto& child : children) {
+    for (const auto& child : children)
+    {
         flattenSelectionRanges(child.toObject(), out);
     }
 }
@@ -304,12 +345,14 @@ static void flattenSelectionRanges(const QJsonObject& node, QList<Range>& out)
 void LspEditorIntegration::handleSelectionRanges(const QJsonArray& ranges)
 {
     m_selectionRangeStack.clear();
-    if (ranges.isEmpty()) return;
+    if (ranges.isEmpty())
+        return;
 
     QJsonObject root = ranges.first().toObject();
     flattenSelectionRanges(root, m_selectionRangeStack);
 
-    if (m_selectionRangeStack.isEmpty()) return;
+    if (m_selectionRangeStack.isEmpty())
+        return;
 
     m_selectionRangeDepth = 0;
     const auto& r = m_selectionRangeStack.first();
@@ -335,9 +378,11 @@ void LspEditorIntegration::handleFormatting(const QList<QJsonObject>& edits)
 
 lsp::LspClient* LspEditorIntegration::clientForCurrentFile() const
 {
-    if (!m_lspManager) return nullptr;
+    if (!m_lspManager)
+        return nullptr;
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty()) return nullptr;
+    if (filePath.isEmpty())
+        return nullptr;
     QString uri = uriFromPath(filePath);
     return m_lspManager->clientForUri(uri);
 }
@@ -349,40 +394,35 @@ void LspEditorIntegration::handleSignatureHelp(const QJsonObject& info)
 
 void LspEditorIntegration::handleDefinition(const Location& location)
 {
-    emit navigateToLocation(pathFromUri(location.uri),
-                            location.range.start.line,
-                            location.range.start.character);
+    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, location.range.start.character);
 }
 
 void LspEditorIntegration::handleTypeDefinition(const Location& location)
 {
-    emit navigateToLocation(pathFromUri(location.uri),
-                            location.range.start.line,
-                            location.range.start.character);
+    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, location.range.start.character);
 }
 
 void LspEditorIntegration::handleDeclaration(const Location& location)
 {
-    emit navigateToLocation(pathFromUri(location.uri),
-                            location.range.start.line,
-                            location.range.start.character);
+    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, location.range.start.character);
 }
 
 void LspEditorIntegration::handleReferences(const QList<Location>& locations)
 {
-    if (locations.isEmpty()) return;
+    if (locations.isEmpty())
+        return;
     const auto& loc = locations.first();
-    emit navigateToLocation(pathFromUri(loc.uri),
-                            loc.range.start.line,
-                            loc.range.start.character);
+    emit navigateToLocation(pathFromUri(loc.uri), loc.range.start.line, loc.range.start.character);
 }
 
 void LspEditorIntegration::handleCodeActions(const QList<QJsonObject>& actions)
 {
-    if (actions.isEmpty()) return;
+    if (actions.isEmpty())
+        return;
     // Code actions are currently handled via MainWindow for menu display
     // This just logs them
-    for (const auto& a : actions) {
+    for (const auto& a : actions)
+    {
         QString title = a["title"].toString();
 #ifdef QT_DEBUG
         qDebug() << "Code action available:" << title;
@@ -392,7 +432,8 @@ void LspEditorIntegration::handleCodeActions(const QList<QJsonObject>& actions)
 
 void LspEditorIntegration::handleHover(const QString& contents)
 {
-    if (contents.isEmpty()) return;
+    if (contents.isEmpty())
+        return;
     int pos = m_editor->cursorPosition();
     m_editor->showToolTip(pos, contents);
 }

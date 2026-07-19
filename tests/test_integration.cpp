@@ -1,8 +1,8 @@
 #include "codeeditor.h"
 #include "filemanager.h"
 #include "projectpanel.h"
-#include "snippet.h"
 #include "settingsmanager.h"
+#include "snippet.h"
 #include "theme.h"
 
 #include <QDir>
@@ -86,8 +86,10 @@ TEST_F(FileEditSaveIntegrationTest, SnippetExpansionPipeline)
 
     // Tab stop 1 (i) - should appear 3 times (declaration, condition, increment)
     bool found1 = false;
-    for (const auto& ts : expanded.tabStops) {
-        if (ts.number == 1) {
+    for (const auto& ts : expanded.tabStops)
+    {
+        if (ts.number == 1)
+        {
             found1 = true;
             EXPECT_EQ(ts.positions.size(), 3);
             EXPECT_EQ(ts.defaultValue, "i");
@@ -99,8 +101,10 @@ TEST_F(FileEditSaveIntegrationTest, SnippetExpansionPipeline)
 
     // Tab stop 2 (count) - should appear once
     bool found2 = false;
-    for (const auto& ts : expanded.tabStops) {
-        if (ts.number == 2) {
+    for (const auto& ts : expanded.tabStops)
+    {
+        if (ts.number == 2)
+        {
             found2 = true;
             EXPECT_EQ(ts.positions.size(), 1);
             EXPECT_EQ(ts.defaultValue, "count");
@@ -112,8 +116,10 @@ TEST_F(FileEditSaveIntegrationTest, SnippetExpansionPipeline)
 
     // Tab stop 0 (final cursor) - should appear once
     bool found0 = false;
-    for (const auto& ts : expanded.tabStops) {
-        if (ts.number == 0) {
+    for (const auto& ts : expanded.tabStops)
+    {
+        if (ts.number == 0)
+        {
             found0 = true;
             EXPECT_EQ(ts.positions.size(), 1);
             break;
@@ -135,8 +141,10 @@ TEST_F(FileEditSaveIntegrationTest, SnippetWithMirroredTabStops)
     EXPECT_EQ(expanded.text.toStdString(), "#ifndef HEADER_H\n#define HEADER_H\n\n\n\n#endif");
 
     bool found1 = false;
-    for (const auto& ts : expanded.tabStops) {
-        if (ts.number == 1) {
+    for (const auto& ts : expanded.tabStops)
+    {
+        if (ts.number == 1)
+        {
             found1 = true;
             // Header guard name appears at 2 positions
             EXPECT_EQ(ts.positions.size(), 2);

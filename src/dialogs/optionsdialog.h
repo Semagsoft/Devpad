@@ -19,8 +19,9 @@
 #ifndef OPTIONSDIALOG_H
 #define OPTIONSDIALOG_H
 
-#include <QDialog>
 #include "dialogsettings.h"
+
+#include <QDialog>
 
 class QComboBox;
 class QCheckBox;
@@ -32,11 +33,12 @@ class QTableWidget;
 
 class ThemePreviewWidget;
 
-class OptionsDialog : public QDialog {
+class OptionsDialog : public QDialog
+{
     Q_OBJECT
 
 public:
-    explicit OptionsDialog(QWidget *parent = nullptr);
+    explicit OptionsDialog(QWidget* parent = nullptr);
     ~OptionsDialog() override;
 
 signals:
@@ -48,7 +50,7 @@ private slots:
 
 private:
     void setupUI();
-    QWidget* createScrollContainer(QWidget *content);
+    QWidget* createScrollContainer(QWidget* content);
     void setupGeneralTab();
     void setupAppearanceTab();
     void setupEditorTab();
@@ -58,55 +60,55 @@ private:
     void saveSettings();
     void updateThemePreview();
 
-    QTabWidget *tabWidget = nullptr;
+    QTabWidget* tabWidget = nullptr;
 
-    QComboBox *startupComboBox = nullptr;
-    QComboBox *themeComboBox = nullptr;
-    QComboBox *defaultFormatComboBox = nullptr;
-    QComboBox *closeButtonComboBox = nullptr;
-    QComboBox *defaultEncodingComboBox = nullptr;
-    QComboBox *fontFaceComboBox = nullptr;
-    QComboBox *tabDisplayComboBox = nullptr;
-    QComboBox *cursorStyleComboBox = nullptr;
-    QComboBox *tabBarPositionComboBox = nullptr;
-    QComboBox *terminalPanelPositionComboBox = nullptr;
-    QSpinBox *terminalPanelMinWidthSpin = nullptr;
-    QComboBox *terminalFontFaceComboBox = nullptr;
-    QLineEdit *terminalFontSizeBox = nullptr;
-    QSpinBox *tabWidthSpin = nullptr;
-    QSpinBox *verticalEdgeColumnSpin = nullptr;
-    QLineEdit *fontSizeBox = nullptr;
-    QComboBox *uiFontFaceComboBox = nullptr;
-    QLineEdit *uiFontSizeBox = nullptr;
-    QCheckBox *showLineNumbersCheckBox = nullptr;
-    QCheckBox *scrollPastContentCheckBox = nullptr;
-    QCheckBox *wordWrapCheckBox = nullptr;
-    QCheckBox *codeCollapsingCheckBox = nullptr;
-    QCheckBox *showWhitespaceCheckBox = nullptr;
-    QCheckBox *cursorBlinkingCheckBox = nullptr;
-    QCheckBox *highlightCurrentLineCheckBox = nullptr;
-    QCheckBox *verticalEdgeCheckBox = nullptr;
-    QCheckBox *autoCompletionCheckBox = nullptr;
-    QSpinBox *autoCompletionThresholdSpin = nullptr;
-    QCheckBox *autoCompletionCaseSensitiveCheckBox = nullptr;
-    QCheckBox *autoCloseBracketsCheckBox = nullptr;
-    QCheckBox *snippetsCheckBox = nullptr;
-    QCheckBox *predictiveSnippetsCheckBox = nullptr;
-    QCheckBox *autoSaveCheckBox = nullptr;
-    QSpinBox *autoSaveIntervalSpin = nullptr;
-    QCheckBox *showHiddenFilesCheckBox = nullptr;
-    QCheckBox *useGitIgnoreCheckBox = nullptr;
-    QComboBox *projectPanelPositionComboBox = nullptr;
-    ThemePreviewWidget *themePreview = nullptr;
-    QPushButton *accentColorButton = nullptr;
+    QComboBox* startupComboBox = nullptr;
+    QComboBox* themeComboBox = nullptr;
+    QComboBox* defaultFormatComboBox = nullptr;
+    QComboBox* closeButtonComboBox = nullptr;
+    QComboBox* defaultEncodingComboBox = nullptr;
+    QComboBox* fontFaceComboBox = nullptr;
+    QComboBox* tabDisplayComboBox = nullptr;
+    QComboBox* cursorStyleComboBox = nullptr;
+    QComboBox* tabBarPositionComboBox = nullptr;
+    QComboBox* terminalPanelPositionComboBox = nullptr;
+    QSpinBox* terminalPanelMinWidthSpin = nullptr;
+    QComboBox* terminalFontFaceComboBox = nullptr;
+    QLineEdit* terminalFontSizeBox = nullptr;
+    QSpinBox* tabWidthSpin = nullptr;
+    QSpinBox* verticalEdgeColumnSpin = nullptr;
+    QLineEdit* fontSizeBox = nullptr;
+    QComboBox* uiFontFaceComboBox = nullptr;
+    QLineEdit* uiFontSizeBox = nullptr;
+    QCheckBox* showLineNumbersCheckBox = nullptr;
+    QCheckBox* scrollPastContentCheckBox = nullptr;
+    QCheckBox* wordWrapCheckBox = nullptr;
+    QCheckBox* codeCollapsingCheckBox = nullptr;
+    QCheckBox* showWhitespaceCheckBox = nullptr;
+    QCheckBox* cursorBlinkingCheckBox = nullptr;
+    QCheckBox* highlightCurrentLineCheckBox = nullptr;
+    QCheckBox* verticalEdgeCheckBox = nullptr;
+    QCheckBox* autoCompletionCheckBox = nullptr;
+    QSpinBox* autoCompletionThresholdSpin = nullptr;
+    QCheckBox* autoCompletionCaseSensitiveCheckBox = nullptr;
+    QCheckBox* autoCloseBracketsCheckBox = nullptr;
+    QCheckBox* snippetsCheckBox = nullptr;
+    QCheckBox* predictiveSnippetsCheckBox = nullptr;
+    QCheckBox* autoSaveCheckBox = nullptr;
+    QSpinBox* autoSaveIntervalSpin = nullptr;
+    QCheckBox* showHiddenFilesCheckBox = nullptr;
+    QCheckBox* useGitIgnoreCheckBox = nullptr;
+    QComboBox* projectPanelPositionComboBox = nullptr;
+    ThemePreviewWidget* themePreview = nullptr;
+    QPushButton* accentColorButton = nullptr;
     QColor m_accentColor;
     DialogSettings m_geometrySettings;
 
     // LSP settings
-    QCheckBox *lspEnabledCheckBox = nullptr;
-    QCheckBox *lspShowErrorListCheckBox = nullptr;
-    QSpinBox *lspCompletionTriggerSpin = nullptr;
-    QTableWidget *lspServerTable = nullptr;
+    QCheckBox* lspEnabledCheckBox = nullptr;
+    QCheckBox* lspShowErrorListCheckBox = nullptr;
+    QSpinBox* lspCompletionTriggerSpin = nullptr;
+    QTableWidget* lspServerTable = nullptr;
 };
 
 #endif // OPTIONSDIALOG_H

@@ -17,17 +17,19 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "replacedialog.h"
-#include <QCloseEvent>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QCheckBox>
-#include <QLabel>
-#include <QGroupBox>
-#include <QMessageBox>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
 
-ReplaceDialog::ReplaceDialog(QWidget *parent) : QDialog(parent), editor(nullptr), m_settings("Replace") {
+#include <QCheckBox>
+#include <QCloseEvent>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QVBoxLayout>
+
+ReplaceDialog::ReplaceDialog(QWidget* parent) : QDialog(parent), editor(nullptr), m_settings("Replace")
+{
     setWindowTitle(tr("Replace"));
     setupUI();
     loadSettings();
@@ -35,33 +37,35 @@ ReplaceDialog::ReplaceDialog(QWidget *parent) : QDialog(parent), editor(nullptr)
 
 ReplaceDialog::~ReplaceDialog() = default;
 
-void ReplaceDialog::closeEvent(QCloseEvent *event) {
+void ReplaceDialog::closeEvent(QCloseEvent* event)
+{
     saveSettings();
     QDialog::closeEvent(event);
 }
 
-void ReplaceDialog::setupUI() {
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+void ReplaceDialog::setupUI()
+{
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
     // Find text
-    QHBoxLayout *findLayout = new QHBoxLayout();
-    QLabel *findLabel = new QLabel(tr("Find:"), this);
+    QHBoxLayout* findLayout = new QHBoxLayout();
+    QLabel* findLabel = new QLabel(tr("Find:"), this);
     findLineEdit = new QLineEdit(this);
     findLayout->addWidget(findLabel);
     findLayout->addWidget(findLineEdit);
     mainLayout->addLayout(findLayout);
 
     // Replace text
-    QHBoxLayout *replaceLayout = new QHBoxLayout();
-    QLabel *replaceLabel = new QLabel(tr("Replace:"), this);
+    QHBoxLayout* replaceLayout = new QHBoxLayout();
+    QLabel* replaceLabel = new QLabel(tr("Replace:"), this);
     replaceLineEdit = new QLineEdit(this);
     replaceLayout->addWidget(replaceLabel);
     replaceLayout->addWidget(replaceLineEdit);
     mainLayout->addLayout(replaceLayout);
 
     // Options
-    QGroupBox *optionsGroup = new QGroupBox(tr("Options"), this);
-    QVBoxLayout *optionsLayout = new QVBoxLayout(optionsGroup);
+    QGroupBox* optionsGroup = new QGroupBox(tr("Options"), this);
+    QVBoxLayout* optionsLayout = new QVBoxLayout(optionsGroup);
     matchCaseCheckBox = new QCheckBox(tr("Match case"), this);
     matchWholeWordCheckBox = new QCheckBox(tr("Match whole word"), this);
     useRegexCheckBox = new QCheckBox(tr("Use regular expressions"), this);
@@ -71,7 +75,7 @@ void ReplaceDialog::setupUI() {
     mainLayout->addWidget(optionsGroup);
 
     // Buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
     findNextButton = new QPushButton(tr("Find Next"), this);
     replaceButton = new QPushButton(tr("Replace"), this);
     replaceAllButton = new QPushButton(tr("Replace All"), this);
@@ -95,51 +99,64 @@ void ReplaceDialog::setupUI() {
     findLineEdit->setFocus();
 }
 
-QString ReplaceDialog::findText() const {
+QString ReplaceDialog::findText() const
+{
     return findLineEdit->text();
 }
 
-void ReplaceDialog::setFindText(const QString &text) {
+void ReplaceDialog::setFindText(const QString& text)
+{
     findLineEdit->setText(text);
 }
 
-QString ReplaceDialog::replaceText() const {
+QString ReplaceDialog::replaceText() const
+{
     return replaceLineEdit->text();
 }
 
-bool ReplaceDialog::matchCase() const {
+bool ReplaceDialog::matchCase() const
+{
     return matchCaseCheckBox->isChecked();
 }
 
-bool ReplaceDialog::matchWholeWord() const {
+bool ReplaceDialog::matchWholeWord() const
+{
     return matchWholeWordCheckBox->isChecked();
 }
 
-bool ReplaceDialog::useRegex() const {
+bool ReplaceDialog::useRegex() const
+{
     return useRegexCheckBox->isChecked();
 }
 
-void ReplaceDialog::setEditor(QsciScintilla *editor) {
+void ReplaceDialog::setEditor(QsciScintilla* editor)
+{
     this->editor = editor;
 }
 
-void ReplaceDialog::onFindTextChanged(const QString &text) {
+void ReplaceDialog::onFindTextChanged(const QString& text)
+{
     bool enabled = !text.isEmpty();
     findNextButton->setEnabled(enabled);
     replaceButton->setEnabled(enabled);
     replaceAllButton->setEnabled(enabled);
 }
 
-void ReplaceDialog::findNext() {
-    if (!editor) return;
+void ReplaceDialog::findNext()
+{
+    if (!editor)
+        return;
     bool found = editor->findFirst(findText(), useRegex(), matchCase(), matchWholeWord(), true);
     emit searchFinished(found);
 }
 
-void ReplaceDialog::replace() {
-    if (!editor) return;
+void ReplaceDialog::replace()
+{
+    if (!editor)
+        return;
 
-    if (editor->hasSelectedText()) {
+    if (editor->hasSelectedText())
+    {
         editor->replaceSelectedText(replaceText());
         editor->findFirst(findText(), useRegex(), matchCase(), matchWholeWord(), true);
         emit searchFinished(true);
@@ -147,24 +164,28 @@ void ReplaceDialog::replace() {
     }
 
     bool found = editor->findFirst(findText(), useRegex(), matchCase(), matchWholeWord(), true);
-    if (found) {
+    if (found)
+    {
         editor->replaceSelectedText(replaceText());
     }
     emit searchFinished(found);
 }
 
-void ReplaceDialog::replaceAll() {
-    if (!editor) return;
+void ReplaceDialog::replaceAll()
+{
+    if (!editor)
+        return;
     editor->beginUndoAction();
     editor->setCursorPosition(0, 0);
     int count = 0;
     int maxIterations = editor->length() + 1;
-    while (editor->findFirst(findText(), useRegex(), matchCase(), matchWholeWord(), true)) {
+    while (editor->findFirst(findText(), useRegex(), matchCase(), matchWholeWord(), true))
+    {
         editor->replaceSelectedText(replaceText());
         count++;
-        if (--maxIterations <= 0) {
-            QMessageBox::warning(this, tr("Replace All"),
-                tr("Maximum replacement limit reached. Possible infinite loop detected."));
+        if (--maxIterations <= 0)
+        {
+            QMessageBox::warning(this, tr("Replace All"), tr("Maximum replacement limit reached. Possible infinite loop detected."));
             break;
         }
     }
@@ -172,13 +193,15 @@ void ReplaceDialog::replaceAll() {
     QMessageBox::information(this, tr("Replace All"), tr("Replaced %1 occurrence(s).").arg(count));
 }
 
-void ReplaceDialog::loadSettings() {
+void ReplaceDialog::loadSettings()
+{
     matchCaseCheckBox->setChecked(m_settings.load("MatchCase", false).toBool());
     matchWholeWordCheckBox->setChecked(m_settings.load("MatchWholeWord", false).toBool());
     useRegexCheckBox->setChecked(m_settings.load("UseRegex", false).toBool());
 }
 
-void ReplaceDialog::saveSettings() {
+void ReplaceDialog::saveSettings()
+{
     m_settings.save("MatchCase", matchCaseCheckBox->isChecked());
     m_settings.save("MatchWholeWord", matchWholeWordCheckBox->isChecked());
     m_settings.save("UseRegex", useRegexCheckBox->isChecked());

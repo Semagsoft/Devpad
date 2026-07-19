@@ -16,23 +16,23 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+#include "devpad_version.h"
 #include "mainwindow.h"
 #include "managers/settingsmanager.h"
 #include "theme.h"
-#include "devpad_version.h"
 
 #include <QApplication>
 #include <QDir>
 #include <QFileInfo>
-
 #include <cstdlib>
 #include <iostream>
 
 #ifdef Q_OS_UNIX
 #include <csignal>
 #include <cstring>
-#include <unistd.h>
+
 #include <execinfo.h>
+#include <unistd.h>
 
 static void crashHandler(int sig, siginfo_t* info, void*)
 {
@@ -40,15 +40,25 @@ static void crashHandler(int sig, siginfo_t* info, void*)
     write(STDERR_FILENO, msg, strlen(msg));
 
     const char* sigName = nullptr;
-    switch (sig) {
-    case SIGSEGV: sigName = "SIGSEGV"; break;
-    case SIGABRT: sigName = "SIGABRT"; break;
-    case SIGFPE:  sigName = "SIGFPE";  break;
-    default:      sigName = "Unknown"; break;
+    switch (sig)
+    {
+    case SIGSEGV:
+        sigName = "SIGSEGV";
+        break;
+    case SIGABRT:
+        sigName = "SIGABRT";
+        break;
+    case SIGFPE:
+        sigName = "SIGFPE";
+        break;
+    default:
+        sigName = "Unknown";
+        break;
     }
     write(STDERR_FILENO, sigName, strlen(sigName));
 
-    if (info && sig == SIGSEGV) {
+    if (info && sig == SIGSEGV)
+    {
         const char* addrMsg = "\nFault address: ";
         write(STDERR_FILENO, addrMsg, strlen(addrMsg));
         char addr[32];

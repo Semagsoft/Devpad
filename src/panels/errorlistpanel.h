@@ -1,12 +1,13 @@
 #ifndef ERRORLISTPANEL_H
 #define ERRORLISTPANEL_H
 
-#include <QDockWidget>
-#include <QTreeView>
-#include <QStandardItemModel>
-#include <QComboBox>
-#include <QLabel>
 #include "lsp/lsptypes.h"
+
+#include <QComboBox>
+#include <QDockWidget>
+#include <QLabel>
+#include <QStandardItemModel>
+#include <QTreeView>
 
 class ErrorListPanel : public QDockWidget
 {

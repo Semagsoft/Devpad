@@ -1,11 +1,11 @@
-#include "printmanager.h"
 #include "codeeditor.h"
+#include "printmanager.h"
 #include "settingsmanager.h"
 
-#include <gtest/gtest.h>
-
-#include <QTextDocument>
 #include <QPrinter>
+#include <QTextDocument>
+
+#include <gtest/gtest.h>
 
 class PrintManagerTest : public ::testing::Test
 {

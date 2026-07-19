@@ -1,10 +1,10 @@
-#include "snippetmanager.h"
-#include "snippet.h"
 #include "settingsmanager.h"
-
-#include <gtest/gtest.h>
+#include "snippet.h"
+#include "snippetmanager.h"
 
 #include <QApplication>
+
+#include <gtest/gtest.h>
 
 class SnippetManagerTest : public ::testing::Test
 {

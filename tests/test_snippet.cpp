@@ -1,4 +1,5 @@
 #include "snippet.h"
+
 #include <gtest/gtest.h>
 
 TEST(SnippetTest, ParseBodySimpleTabStop)
@@ -111,5 +112,3 @@ TEST(SnippetTest, ExpandReturnsParseBodyResult)
     EXPECT_EQ(result.tabStops[0].number, 1);
     EXPECT_EQ(result.tabStops[0].defaultValue, "world");
 }
-
-

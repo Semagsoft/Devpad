@@ -19,64 +19,81 @@
 #ifndef SPLITVIEW_H
 #define SPLITVIEW_H
 
-#include <QWidget>
-#include <QPointer>
-#include <QMap>
-#include <functional>
-
 #include "draggabletabbar.h"
+
+#include <QMap>
+#include <QPointer>
+#include <QWidget>
+#include <functional>
 
 class DropZoneOverlay;
 class QSplitter;
 class QTabWidget;
 
-class SplitView : public QWidget {
+class SplitView : public QWidget
+{
     Q_OBJECT
 
 public:
-    enum class DropZone { None, Left, Right, Top, Bottom, Center };
+    enum class DropZone
+    {
+        None,
+        Left,
+        Right,
+        Top,
+        Bottom,
+        Center
+    };
 
-    explicit SplitView(QWidget *parent = nullptr);
+    explicit SplitView(QWidget* parent = nullptr);
     ~SplitView() override;
 
     QTabWidget* activeTabWidget() const;
-    QTabWidget* primaryTabWidget() const { return m_primaryWidget; }
-    QTabWidget* addNewPane(QTabWidget *relativeTo, Qt::Orientation orientation, bool after);
-    void removePane(QTabWidget *tabWidget);
-    bool moveTabToPane(int tabIndex, QTabWidget *source, QTabWidget *target, int insertIndex = -1);
-    void detachTabToWindow(int tabIndex, QTabWidget *source);
+    QTabWidget* primaryTabWidget() const
+    {
+        return m_primaryWidget;
+    }
+    QTabWidget* addNewPane(QTabWidget* relativeTo, Qt::Orientation orientation, bool after);
+    void removePane(QTabWidget* tabWidget);
+    bool moveTabToPane(int tabIndex, QTabWidget* source, QTabWidget* target, int insertIndex = -1);
+    void detachTabToWindow(int tabIndex, QTabWidget* source);
 
     static quint64 nextDragId();
-    static void registerDragSource(quint64 id, QTabWidget *widget);
+    static void registerDragSource(quint64 id, QTabWidget* widget);
     static void removeDragSource(quint64 id);
     static QTabWidget* dragSource(quint64 id);
 
-    int paneCount() const { return m_panes.size(); }
+    int paneCount() const
+    {
+        return m_panes.size();
+    }
     QTabWidget* paneAt(int index) const;
-    QSplitter* splitter() const { return m_splitter; }
+    QSplitter* splitter() const
+    {
+        return m_splitter;
+    }
 
-    void setPaneCallbacks(std::function<void(QTabWidget*)> onAdded,
-                          std::function<void(QTabWidget*)> onRemoved,
+    void setPaneCallbacks(std::function<void(QTabWidget*)> onAdded, std::function<void(QTabWidget*)> onRemoved,
                           std::function<void(QTabWidget*, int)> onTabMoved = nullptr);
 
     // Split current active pane
     void splitActivePane(Qt::Orientation orientation);
 
 signals:
-    void activeTabWidgetChanged(QTabWidget *tabWidget);
-    void tabDetachedToWindow(const QString &filePath);
+    void activeTabWidgetChanged(QTabWidget* tabWidget);
+    void tabDetachedToWindow(const QString& filePath);
     void closeAllTabsRequested();
-    void tabPinToggled(int tabIndex, QTabWidget *pane);
-    void externalTabDropped(const QString &filePath);
+    void tabPinToggled(int tabIndex, QTabWidget* pane);
+    void externalTabDropped(const QString& filePath);
 
 protected:
-    bool eventFilter(QObject *obj, QEvent *event) override;
-    void dragEnterEvent(QDragEnterEvent *event) override;
-    void dragMoveEvent(QDragMoveEvent *event) override;
-    void dragLeaveEvent(QDragLeaveEvent *event) override;
-    void dropEvent(QDropEvent *event) override;
-    void paintEvent(QPaintEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dragLeaveEvent(QDragLeaveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private slots:
     void onTabWidgetCurrentChanged(int index);
@@ -85,30 +102,30 @@ private:
     QTabWidget* createTabWidget();
     QTabWidget* findPaneAt(QPoint screenPos) const;
     QTabBar* tabBarAt(QPoint screenPos) const;
-    QTabWidget* tabWidgetForBar(QTabBar *bar) const;
-    void installFilterOnChildWidgets(QWidget *widget);
+    QTabWidget* tabWidgetForBar(QTabBar* bar) const;
+    void installFilterOnChildWidgets(QWidget* widget);
     DropZoneOverlay* overlay();
-    void handleDrop(QDropEvent *event);
+    void handleDrop(QDropEvent* event);
     int totalTabCount() const;
 
     // Nested splitter helpers
-    QSplitter* parentSplitterFor(QWidget *widget) const;
-    void splitPane(QTabWidget *pane, DropZone zone, QTabWidget *sourcePane, int sourceIndex);
-    void collapseSplitter(QSplitter *splitter);
+    QSplitter* parentSplitterFor(QWidget* widget) const;
+    void splitPane(QTabWidget* pane, DropZone zone, QTabWidget* sourcePane, int sourceIndex);
+    void collapseSplitter(QSplitter* splitter);
     void syncPaneList();
-    void distributeSplitter(QSplitter *splitter);
-    void setupNewPane(QTabWidget *newPane);
+    void distributeSplitter(QSplitter* splitter);
+    void setupNewPane(QTabWidget* newPane);
 
     // Zone detection
-    DropZone calcDropZone(QTabWidget *pane, QPoint screenPos) const;
+    DropZone calcDropZone(QTabWidget* pane, QPoint screenPos) const;
     void updateDropOverlay(QPoint screenPos);
     void clearDropIndicators();
 
-    QSplitter *m_splitter = nullptr;
-    DropZoneOverlay *m_dropOverlay = nullptr;
-    QTabWidget *m_primaryWidget = nullptr;
+    QSplitter* m_splitter = nullptr;
+    DropZoneOverlay* m_dropOverlay = nullptr;
+    QTabWidget* m_primaryWidget = nullptr;
     QList<QTabWidget*> m_panes;
-    QTabWidget *m_activeWidget = nullptr;
+    QTabWidget* m_activeWidget = nullptr;
     bool m_dragActive = false;
 
     // highlight state for tab bar
@@ -117,7 +134,7 @@ private:
 
     // drop zone state
     DropZone m_activeDropZone = DropZone::None;
-    QTabWidget *m_dropTargetPane = nullptr;
+    QTabWidget* m_dropTargetPane = nullptr;
 
     bool m_dropping = false;
 

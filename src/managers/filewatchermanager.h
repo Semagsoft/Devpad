@@ -19,29 +19,30 @@
 #ifndef FILEWATCHERMANAGER_H
 #define FILEWATCHERMANAGER_H
 
-#include <QObject>
+#include <QDateTime>
 #include <QFileSystemWatcher>
 #include <QHash>
-#include <QDateTime>
+#include <QObject>
 
-class FileWatcherManager : public QObject {
+class FileWatcherManager : public QObject
+{
     Q_OBJECT
 
 public:
-    explicit FileWatcherManager(QObject *parent = nullptr);
+    explicit FileWatcherManager(QObject* parent = nullptr);
 
-    void watchFile(const QString &filePath);
-    void unwatchFile(const QString &filePath);
+    void watchFile(const QString& filePath);
+    void unwatchFile(const QString& filePath);
     void unwatchAll();
 
-    void updateModificationTime(const QString &filePath);
+    void updateModificationTime(const QString& filePath);
 
 signals:
-    void fileModifiedExternally(const QString &filePath);
+    void fileModifiedExternally(const QString& filePath);
 
 private slots:
-    void onDirectoryChanged(const QString &path);
-    void onFileChanged(const QString &path);
+    void onDirectoryChanged(const QString& path);
+    void onFileChanged(const QString& path);
 
 private:
     QFileSystemWatcher m_watcher;

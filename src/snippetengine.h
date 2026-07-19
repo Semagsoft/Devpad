@@ -34,7 +34,10 @@ public:
     explicit SnippetEngine(CodeEditor* editor);
 
     void insertSnippet(const Snippet& snippet);
-    bool isActive() const { return m_snippetActive; }
+    bool isActive() const
+    {
+        return m_snippetActive;
+    }
     void exitSnippetMode();
 
     bool handleKeyPress(int key, Qt::KeyboardModifiers modifiers);

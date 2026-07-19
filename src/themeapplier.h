@@ -19,23 +19,25 @@
 #ifndef THEMEAPPLIER_H
 #define THEMEAPPLIER_H
 
-#include <QObject>
 #include "theme.h"
+
+#include <QObject>
 
 class QMainWindow;
 class TabManager;
 
-class ThemeApplier : public QObject {
+class ThemeApplier : public QObject
+{
     Q_OBJECT
 
 public:
-    explicit ThemeApplier(QObject *parent = nullptr);
+    explicit ThemeApplier(QObject* parent = nullptr);
 
-    void applyTheme(QMainWindow *window);
-    void applySettingsToAllEditors(TabManager *tabManager);
+    void applyTheme(QMainWindow* window);
+    void applySettingsToAllEditors(TabManager* tabManager);
 
 private:
-    QString buildStyleSheet(const ThemeColors &colors) const;
+    QString buildStyleSheet(const ThemeColors& colors) const;
 };
 
 #endif

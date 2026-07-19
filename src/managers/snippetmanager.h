@@ -3,9 +3,9 @@
 
 #include "snippet.h"
 
-#include <QObject>
 #include <QHash>
 #include <QList>
+#include <QObject>
 #include <QString>
 
 class SnippetManager : public QObject
@@ -19,7 +19,10 @@ public:
     QList<Snippet> snippetsForLanguage(const QString& language) const;
     QList<Snippet> allSnippets() const;
 
-    const QHash<QString, QList<Snippet>>& snippetMap() const { return m_snippets; }
+    const QHash<QString, QList<Snippet>>& snippetMap() const
+    {
+        return m_snippets;
+    }
 
     Snippet snippetByName(const QString& name) const;
     QList<Snippet> snippetsByPrefix(const QString& prefix, const QString& language = QString()) const;
@@ -34,7 +37,7 @@ private:
     void loadUserSnippets();
 
     QHash<QString, QList<Snippet>> m_snippets; // keyed by language
-    QList<Snippet> m_globalSnippets;            // snippets with no scope
+    QList<Snippet> m_globalSnippets;           // snippets with no scope
 
     static SnippetManager* s_instance;
 };

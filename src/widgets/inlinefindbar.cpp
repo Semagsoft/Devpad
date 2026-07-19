@@ -1,29 +1,30 @@
 #include "inlinefindbar.h"
+
 #include "codeeditor.h"
 #include "settingsmanager.h"
 #include "theme.h"
 
+#include <QFrame>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
-#include <QToolButton>
-#include <QPushButton>
-#include <QTimer>
-#include <QKeyEvent>
-#include <QResizeEvent>
 #include <QPainter>
-#include <QStyle>
-#include <QFrame>
+#include <QPushButton>
+#include <QResizeEvent>
 #include <QSettings>
+#include <QStyle>
+#include <QTimer>
+#include <QToolButton>
 
 #include <Qsci/qsciscintilla.h>
 #include <Qsci/qsciscintillabase.h>
 
 // ── Helpers ──────────────────────────────────────────────────
 
-static QToolButton *createToolButton(const QIcon &icon, const QString &tooltip, bool checkable = false)
+static QToolButton* createToolButton(const QIcon& icon, const QString& tooltip, bool checkable = false)
 {
-    auto *btn = new QToolButton;
+    auto* btn = new QToolButton;
     btn->setIcon(icon);
     btn->setToolTip(tooltip);
     btn->setCheckable(checkable);
@@ -36,7 +37,7 @@ static QToolButton *createToolButton(const QIcon &icon, const QString &tooltip, 
 
 // ── Painted icons ───────────────────────────────────────────
 
-QIcon InlineFindBar::paintIcon(const QColor &fg, const QString &text, bool underline, bool brackets)
+QIcon InlineFindBar::paintIcon(const QColor& fg, const QString& text, bool underline, bool brackets)
 {
     QPixmap pix(24, 24);
     pix.fill(Qt::transparent);
@@ -67,8 +68,7 @@ QIcon InlineFindBar::paintIcon(const QColor &fg, const QString &text, bool under
 
 // ── Constructor / Destructor ─────────────────────────────────
 
-InlineFindBar::InlineFindBar(CodeEditor *editor, QWidget *parent)
-    : QWidget(parent), m_editor(editor)
+InlineFindBar::InlineFindBar(CodeEditor* editor, QWidget* parent) : QWidget(parent), m_editor(editor)
 {
     setVisible(false);
     setFixedHeight(38);
@@ -99,16 +99,16 @@ InlineFindBar::~InlineFindBar() = default;
 
 // ── Events ───────────────────────────────────────────────────
 
-void InlineFindBar::resizeEvent(QResizeEvent *event)
+void InlineFindBar::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
 }
 
-bool InlineFindBar::eventFilter(QObject *obj, QEvent *event)
+bool InlineFindBar::eventFilter(QObject* obj, QEvent* event)
 {
     if (obj == m_findInput && event->type() == QEvent::KeyPress)
     {
-        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        auto* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter)
         {
             if (keyEvent->modifiers() & Qt::ShiftModifier)
@@ -130,7 +130,7 @@ bool InlineFindBar::eventFilter(QObject *obj, QEvent *event)
 
 void InlineFindBar::setupUI()
 {
-    auto *layout = new QHBoxLayout(this);
+    auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(4, 0, 4, 0);
     layout->setSpacing(3);
 
@@ -167,11 +167,11 @@ void InlineFindBar::setupUI()
 
     // Replace section (container)
     m_replaceSection = new QWidget(this);
-    auto *repLayout = new QHBoxLayout(m_replaceSection);
+    auto* repLayout = new QHBoxLayout(m_replaceSection);
     repLayout->setContentsMargins(0, 0, 0, 0);
     repLayout->setSpacing(3);
 
-    auto *sep = new QFrame(m_replaceSection);
+    auto* sep = new QFrame(m_replaceSection);
     sep->setFrameShape(QFrame::VLine);
     sep->setFixedWidth(2);
     repLayout->addWidget(sep);
@@ -219,7 +219,7 @@ void InlineFindBar::setReplaceMode(bool replace)
         m_findInput->setFocus();
 }
 
-void InlineFindBar::showFindMode(const QString &selectedText)
+void InlineFindBar::showFindMode(const QString& selectedText)
 {
     updateIcons();
     setReplaceMode(false);
@@ -232,7 +232,7 @@ void InlineFindBar::showFindMode(const QString &selectedText)
     performSearch();
 }
 
-void InlineFindBar::showReplaceMode(const QString &selectedText)
+void InlineFindBar::showReplaceMode(const QString& selectedText)
 {
     updateIcons();
     setReplaceMode(true);
@@ -276,7 +276,7 @@ bool InlineFindBar::useRegex() const
 
 // ── Slots ────────────────────────────────────────────────────
 
-void InlineFindBar::onFindTextChanged(const QString &)
+void InlineFindBar::onFindTextChanged(const QString&)
 {
     if (isVisible())
         m_debounceTimer->start();
@@ -336,7 +336,7 @@ void InlineFindBar::onReplaceClicked()
     if (m_matches.isEmpty() || m_currentMatch < 0 || m_currentMatch >= m_matches.size())
         return;
 
-    const auto &match = m_matches[m_currentMatch];
+    const auto& match = m_matches[m_currentMatch];
     m_editor->setSelection(match.pos, 0, match.pos + match.len, 0);
     m_editor->replaceSelectedText(m_replaceInput->text());
 
@@ -358,7 +358,7 @@ void InlineFindBar::onReplaceAllClicked()
 
     for (int i = m_matches.size() - 1; i >= 0; --i)
     {
-        const auto &match = m_matches[i];
+        const auto& match = m_matches[i];
         m_editor->setSelection(match.pos, 0, match.pos + match.len, 0);
         m_editor->replaceSelectedText(replaceText);
     }
@@ -416,7 +416,8 @@ void InlineFindBar::performSearch()
 
         found = m_editor->findNext();
         pos++;
-        if (pos > 100000) break;
+        if (pos > 100000)
+            break;
     }
 
     if (m_matches.isEmpty())
@@ -436,7 +437,7 @@ void InlineFindBar::navigateToMatch(int index)
         return;
 
     m_currentMatch = index;
-    const auto &match = m_matches[index];
+    const auto& match = m_matches[index];
 
     m_editor->setSelection(match.pos, 0, match.pos + match.len, 0);
     int line = static_cast<int>(m_editor->SendScintilla(QsciScintillaBase::SCI_LINEFROMPOSITION, match.pos));
@@ -486,7 +487,8 @@ void InlineFindBar::updateIcons()
 
 QColor InlineFindBar::highlightColor() const
 {
-    if (!m_editor) return QColor(255, 255, 0, 100);
+    if (!m_editor)
+        return QColor(255, 255, 0, 100);
     ThemeColors colors = getThemeColors(m_editor->themeId());
     QColor base = colors.accent;
     base.setAlpha(80);

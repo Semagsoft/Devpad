@@ -72,7 +72,8 @@ void EditorController::newFile()
 bool EditorController::saveFile()
 {
     CodeEditor* editor = currentEditor();
-    if (!editor) {
+    if (!editor)
+    {
         return false;
     }
 
@@ -411,9 +412,7 @@ void EditorController::insertSnippet()
             names << s.name;
 
         bool ok;
-        QString chosen = QInputDialog::getItem(
-            qobject_cast<QWidget*>(parent()), tr("Insert Snippet"),
-            tr("Select a snippet:"), names, 0, false, &ok);
+        QString chosen = QInputDialog::getItem(qobject_cast<QWidget*>(parent()), tr("Insert Snippet"), tr("Select a snippet:"), names, 0, false, &ok);
 
         if (ok && !chosen.isEmpty())
         {
@@ -601,8 +600,7 @@ void EditorController::reloadWithEncoding(const QString& encoding)
     QString fileName = editor->fileName();
     if (fileName.isEmpty() || fileName == Strings::untitled())
     {
-        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"),
-                             tr("Cannot reopen an unsaved file."));
+        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot reopen an unsaved file."));
         return;
     }
 

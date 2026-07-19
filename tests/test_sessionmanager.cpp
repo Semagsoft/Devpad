@@ -1,14 +1,14 @@
-#include "sessionmanager.h"
 #include "codeeditor.h"
+#include "projectpanel.h"
+#include "sessionmanager.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
-#include "projectpanel.h"
-
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
 
 #include <QApplication>
 #include <QTabWidget>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 class SessionManagerTest : public ::testing::Test
 {

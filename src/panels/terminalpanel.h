@@ -31,20 +31,21 @@ enum class TerminalPanelPosition : int;
 
 class TerminalBackend;
 
-class TerminalPanel : public QDockWidget {
+class TerminalPanel : public QDockWidget
+{
     Q_OBJECT
 
 public:
-    explicit TerminalPanel(QWidget *parent = nullptr);
+    explicit TerminalPanel(QWidget* parent = nullptr);
     ~TerminalPanel() override;
 
-    void setWorkingDirectory(const QString &path);
+    void setWorkingDirectory(const QString& path);
     QString workingDirectory() const;
 
-    void sendCommand(const QString &command);
+    void sendCommand(const QString& command);
     void refreshTheme();
-    void toggle(QTabWidget *tabWidget, QMainWindow *mainWindow);
-    void applyPosition(TerminalPanelPosition pos, QTabWidget *tabWidget, QMainWindow *mainWindow);
+    void toggle(QTabWidget* tabWidget, QMainWindow* mainWindow);
+    void applyPosition(TerminalPanelPosition pos, QTabWidget* tabWidget, QMainWindow* mainWindow);
 
 signals:
     void terminalStarted();
@@ -55,8 +56,8 @@ private slots:
     void onSessionFinished();
 
 protected:
-    void showEvent(QShowEvent *event) override;
-    void contextMenuEvent(QContextMenuEvent *event) override;
+    void showEvent(QShowEvent* event) override;
+    void contextMenuEvent(QContextMenuEvent* event) override;
 
 private:
     void extractColorSchemes();
@@ -66,9 +67,9 @@ private:
     void stopTerminal();
     QString themeToColorScheme(ThemeId themeId) const;
 
-    QWidget *panelWidget = nullptr;
-    QVBoxLayout *mainLayout = nullptr;
-    TerminalBackend *m_backend = nullptr;
+    QWidget* panelWidget = nullptr;
+    QVBoxLayout* mainLayout = nullptr;
+    TerminalBackend* m_backend = nullptr;
 
     QString m_workingDirectory;
     bool m_isRunning;

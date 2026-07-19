@@ -1,12 +1,13 @@
 #include "actionmanager.h"
 #include "settingsmanager.h"
 
-#include <gtest/gtest.h>
 #include <QAction>
-#include <QMenuBar>
 #include <QMenu>
+#include <QMenuBar>
 #include <QStatusBar>
 #include <QToolBar>
+
+#include <gtest/gtest.h>
 
 class ActionManagerTest : public ::testing::Test
 {

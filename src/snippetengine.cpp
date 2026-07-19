@@ -17,15 +17,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "snippetengine.h"
+
 #include "codeeditor.h"
 
 #include <QKeyEvent>
-
-#include <Qsci/qsciscintilla.h>
 #include <algorithm>
 
-SnippetEngine::SnippetEngine(CodeEditor* editor)
-    : QObject(editor), m_editor(editor)
+#include <Qsci/qsciscintilla.h>
+
+SnippetEngine::SnippetEngine(CodeEditor* editor) : QObject(editor), m_editor(editor)
 {
 }
 
@@ -93,8 +93,7 @@ void SnippetEngine::enterSnippetMode(const Snippet::ExpandedSnippet& expanded, i
         }
     }
 
-    std::sort(m_tabStopInfos.begin(), m_tabStopInfos.end(),
-              [](const TabStopInfo& a, const TabStopInfo& b) { return a.pos < b.pos; });
+    std::sort(m_tabStopInfos.begin(), m_tabStopInfos.end(), [](const TabStopInfo& a, const TabStopInfo& b) { return a.pos < b.pos; });
 
     if (m_tabStopInfos.isEmpty())
     {
@@ -229,8 +228,10 @@ void SnippetEngine::recalculateTabStopPositions()
     for (int i = 0; i < m_tabStopInfos.size(); ++i)
     {
         auto& info = m_tabStopInfos[i];
-        int start = static_cast<int>(m_editor->SendScintilla(QsciScintillaBase::SCI_INDICATORSTART, static_cast<unsigned long>(SNIPPET_INDICATOR), static_cast<unsigned long>(info.pos)));
-        int end = static_cast<int>(m_editor->SendScintilla(QsciScintillaBase::SCI_INDICATOREND, static_cast<unsigned long>(SNIPPET_INDICATOR), static_cast<unsigned long>(info.pos)));
+        int start = static_cast<int>(m_editor->SendScintilla(QsciScintillaBase::SCI_INDICATORSTART, static_cast<unsigned long>(SNIPPET_INDICATOR),
+                                                             static_cast<unsigned long>(info.pos)));
+        int end = static_cast<int>(m_editor->SendScintilla(QsciScintillaBase::SCI_INDICATOREND, static_cast<unsigned long>(SNIPPET_INDICATOR),
+                                                           static_cast<unsigned long>(info.pos)));
         if (start >= 0 && end > start)
         {
             info.pos = start;

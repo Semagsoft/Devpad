@@ -19,18 +19,19 @@
 #ifndef LSPEDITORINTEGRATION_H
 #define LSPEDITORINTEGRATION_H
 
-#include <QObject>
-#include <QString>
-#include <QList>
-#include <QTimer>
+#include "lsptypes.h"
+
 #include <QJsonArray>
 #include <QJsonObject>
-
-#include "lsptypes.h"
+#include <QList>
+#include <QObject>
+#include <QString>
+#include <QTimer>
 
 class CodeEditor;
 
-namespace lsp {
+namespace lsp
+{
 
 class LspServerManager;
 class LspClient;
@@ -44,13 +45,28 @@ public:
     ~LspEditorIntegration() override;
 
     void setServerManager(LspServerManager* manager);
-    LspServerManager* serverManager() const { return m_lspManager; }
+    LspServerManager* serverManager() const
+    {
+        return m_lspManager;
+    }
 
     void setLanguage(const QString& language);
-    const QString& language() const { return m_lspLanguage; }
-    bool isActive() const { return m_lspActive; }
-    int documentVersion() const { return m_docVersion; }
-    void setDocumentVersion(int v) { m_docVersion = v; }
+    const QString& language() const
+    {
+        return m_lspLanguage;
+    }
+    bool isActive() const
+    {
+        return m_lspActive;
+    }
+    int documentVersion() const
+    {
+        return m_docVersion;
+    }
+    void setDocumentVersion(int v)
+    {
+        m_docVersion = v;
+    }
 
     // LSP actions
     void goToDefinition();
@@ -87,28 +103,84 @@ public:
     void handleSymbols(const QJsonArray& symbols);
 
     // Timer and trigger helpers
-    void startCompletionTimer() { if (m_lspActive) m_completionTimer->start(); }
-    void startDiagnosticsTimer() { if (m_lspActive) m_diagnosticsTimer->start(); }
+    void startCompletionTimer()
+    {
+        if (m_lspActive)
+            m_completionTimer->start();
+    }
+    void startDiagnosticsTimer()
+    {
+        if (m_lspActive)
+            m_diagnosticsTimer->start();
+    }
 
     // Completion, linked editing, selection, and token state
-    const QList<CompletionItem>& completionItems() const { return m_lspCompletionItems; }
-    void setCompletionItems(const QList<CompletionItem>& items) { m_lspCompletionItems = items; }
-    const QList<Range>& linkedRanges() const { return m_linkedRanges; }
-    void setLinkedRanges(const QList<Range>& ranges) { m_linkedRanges = ranges; }
-    bool isApplyingLinkedEdit() const { return m_isApplyingLinkedEdit; }
-    void setApplyingLinkedEdit(bool v) { m_isApplyingLinkedEdit = v; }
-    const QString& semanticTokensUri() const { return m_semanticTokensUri; }
-    void setSemanticTokensUri(const QString& uri) { m_semanticTokensUri = uri; }
+    const QList<CompletionItem>& completionItems() const
+    {
+        return m_lspCompletionItems;
+    }
+    void setCompletionItems(const QList<CompletionItem>& items)
+    {
+        m_lspCompletionItems = items;
+    }
+    const QList<Range>& linkedRanges() const
+    {
+        return m_linkedRanges;
+    }
+    void setLinkedRanges(const QList<Range>& ranges)
+    {
+        m_linkedRanges = ranges;
+    }
+    bool isApplyingLinkedEdit() const
+    {
+        return m_isApplyingLinkedEdit;
+    }
+    void setApplyingLinkedEdit(bool v)
+    {
+        m_isApplyingLinkedEdit = v;
+    }
+    const QString& semanticTokensUri() const
+    {
+        return m_semanticTokensUri;
+    }
+    void setSemanticTokensUri(const QString& uri)
+    {
+        m_semanticTokensUri = uri;
+    }
 
-    int selectionRangeDepth() const { return m_selectionRangeDepth; }
-    void setSelectionRangeDepth(int d) { m_selectionRangeDepth = d; }
-    const QList<Range>& selectionRangeStack() const { return m_selectionRangeStack; }
-    void setSelectionRangeStack(const QList<Range>& stack) { m_selectionRangeStack = stack; }
+    int selectionRangeDepth() const
+    {
+        return m_selectionRangeDepth;
+    }
+    void setSelectionRangeDepth(int d)
+    {
+        m_selectionRangeDepth = d;
+    }
+    const QList<Range>& selectionRangeStack() const
+    {
+        return m_selectionRangeStack;
+    }
+    void setSelectionRangeStack(const QList<Range>& stack)
+    {
+        m_selectionRangeStack = stack;
+    }
 
-    int lastTriggerChar() const { return m_lastTriggerChar; }
-    void setLastTriggerChar(int c) { m_lastTriggerChar = c; }
-    bool lastCharWasTrigger() const { return m_lastCharWasTrigger; }
-    void setLastCharWasTrigger(bool v) { m_lastCharWasTrigger = v; }
+    int lastTriggerChar() const
+    {
+        return m_lastTriggerChar;
+    }
+    void setLastTriggerChar(int c)
+    {
+        m_lastTriggerChar = c;
+    }
+    bool lastCharWasTrigger() const
+    {
+        return m_lastCharWasTrigger;
+    }
+    void setLastCharWasTrigger(bool v)
+    {
+        m_lastCharWasTrigger = v;
+    }
 
     void setSelectionRanges(const QJsonArray& ranges);
     LspClient* clientForCurrentFile() const;

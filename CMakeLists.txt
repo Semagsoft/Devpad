@@ -266,6 +266,25 @@ target_sources(Devpad PRIVATE ${qm_files})
 # ── Tests ─────────────────────────────────────────────────────
 option(BUILD_TESTS "Build unit tests" ON)
 
+# ── Formatting ────────────────────────────────────────────────
+find_program(CLANG_FORMAT clang-format)
+if(CLANG_FORMAT)
+    file(GLOB_RECURSE ALL_SOURCES
+        src/*.cpp src/*.h src/*.hpp
+        tests/*.cpp tests/*.h tests/*.hpp
+    )
+    add_custom_target(format
+        COMMAND ${CLANG_FORMAT} -i ${ALL_SOURCES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Formatting all source files with clang-format"
+    )
+    add_custom_target(check-format
+        COMMAND ${CLANG_FORMAT} --dry-run --Werror ${ALL_SOURCES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Checking formatting with clang-format"
+    )
+endif()
+
 if(BUILD_TESTS)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     include(FetchContent)

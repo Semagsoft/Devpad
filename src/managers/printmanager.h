@@ -25,16 +25,17 @@ class CodeEditor;
 class QPrinter;
 class QWidget;
 
-class PrintManager : public QObject {
+class PrintManager : public QObject
+{
     Q_OBJECT
 
 public:
-    explicit PrintManager(QObject *parent = nullptr);
+    explicit PrintManager(QObject* parent = nullptr);
 
-    void printEditorWithHighlighting(CodeEditor *editor, QPrinter *printer);
+    void printEditorWithHighlighting(CodeEditor* editor, QPrinter* printer);
 
 private:
-    QString generateHighlightedHtml(CodeEditor *editor) const;
+    QString generateHighlightedHtml(CodeEditor* editor) const;
 };
 
 #endif

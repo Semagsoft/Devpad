@@ -17,39 +17,34 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "optionsdialog.h"
-#include "widgets/themepreviewwidget.h"
 
 #include "defaultsyntax.h"
 #include "encodingutils.h"
 #include "lsp/lspservermanager.h"
 #include "settingsmanager.h"
 #include "theme.h"
+#include "widgets/themepreviewwidget.h"
 
-#include <QComboBox>
 #include <QCheckBox>
-#include <QGroupBox>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QSpinBox>
-#include <QTabWidget>
-#include <QTableWidget>
-#include <QPushButton>
-#include <QSpinBox>
-#include <QTabWidget>
-#include <QTableWidget>
 #include <QColorDialog>
+#include <QComboBox>
 #include <QFontDatabase>
-#include <QHeaderView>
-#include <QLabel>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QIntValidator>
+#include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QScrollArea>
+#include <QSpinBox>
+#include <QTabWidget>
+#include <QTableWidget>
 #include <QVBoxLayout>
 
-OptionsDialog::OptionsDialog(QWidget* parent)
-    : QDialog(parent), m_geometrySettings("Options")
+OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent), m_geometrySettings("Options")
 {
     setWindowTitle(tr("Options"));
     setModal(true);
@@ -159,9 +154,11 @@ void OptionsDialog::setupAppearanceTab()
     }
     // Add custom user themes
     QStringList customThemes = customThemeNames();
-    if (!customThemes.isEmpty()) {
+    if (!customThemes.isEmpty())
+    {
         themeComboBox->insertSeparator(themeComboBox->count());
-        for (const QString &name : customThemes) {
+        for (const QString& name : customThemes)
+        {
             themeComboBox->addItem(name, -1);
         }
     }
@@ -171,45 +168,53 @@ void OptionsDialog::setupAppearanceTab()
     themePreview->setFixedHeight(110);
     themeLayout->addRow(themePreview);
 
-    QHBoxLayout *accentLayout = new QHBoxLayout();
+    QHBoxLayout* accentLayout = new QHBoxLayout();
     accentColorButton = new QPushButton(themeGroup);
     accentColorButton->setFixedSize(24, 24);
     accentColorButton->setCursor(Qt::PointingHandCursor);
-    QLabel *accentLabel = new QLabel(tr("Accent color:"), themeGroup);
-    QPushButton *clearAccentBtn = new QPushButton(tr("Clear"), themeGroup);
+    QLabel* accentLabel = new QLabel(tr("Accent color:"), themeGroup);
+    QPushButton* clearAccentBtn = new QPushButton(tr("Clear"), themeGroup);
     accentLayout->addWidget(accentColorButton);
     accentLayout->addWidget(clearAccentBtn);
     accentLayout->addStretch();
     themeLayout->addRow(accentLabel, accentLayout);
 
-    connect(themeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
-        int data = themeComboBox->currentData().toInt();
-        if (data >= 0) {
-            SettingsManager::instance().setTheme(static_cast<ThemeId>(data));
-        }
-        updateThemePreview();
-        emit themeChanged();
-    });
+    connect(themeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [this]()
+            {
+                int data = themeComboBox->currentData().toInt();
+                if (data >= 0)
+                {
+                    SettingsManager::instance().setTheme(static_cast<ThemeId>(data));
+                }
+                updateThemePreview();
+                emit themeChanged();
+            });
 
-    connect(accentColorButton, &QPushButton::clicked, this, [this]() {
-        QColor chosen = QColorDialog::getColor(m_accentColor, this, tr("Choose Accent Color"));
-        if (chosen.isValid()) {
-            m_accentColor = chosen;
-            SettingsManager::instance().setAccentColor(m_accentColor);
-            QString bg = chosen.name();
-            accentColorButton->setStyleSheet(QString("background-color: %1; border: 1px solid gray; border-radius: 3px;").arg(bg));
-            updateThemePreview();
-            emit themeChanged();
-        }
-    });
+    connect(accentColorButton, &QPushButton::clicked, this,
+            [this]()
+            {
+                QColor chosen = QColorDialog::getColor(m_accentColor, this, tr("Choose Accent Color"));
+                if (chosen.isValid())
+                {
+                    m_accentColor = chosen;
+                    SettingsManager::instance().setAccentColor(m_accentColor);
+                    QString bg = chosen.name();
+                    accentColorButton->setStyleSheet(QString("background-color: %1; border: 1px solid gray; border-radius: 3px;").arg(bg));
+                    updateThemePreview();
+                    emit themeChanged();
+                }
+            });
 
-    connect(clearAccentBtn, &QPushButton::clicked, this, [this]() {
-        m_accentColor = QColor();
-        SettingsManager::instance().clearAccentColor();
-        accentColorButton->setStyleSheet(QString());
-        updateThemePreview();
-        emit themeChanged();
-    });
+    connect(clearAccentBtn, &QPushButton::clicked, this,
+            [this]()
+            {
+                m_accentColor = QColor();
+                SettingsManager::instance().clearAccentColor();
+                accentColorButton->setStyleSheet(QString());
+                updateThemePreview();
+                emit themeChanged();
+            });
 
     mainLayout->addWidget(themeGroup);
 
@@ -448,14 +453,18 @@ void OptionsDialog::updateThemePreview()
 {
     ThemeColors colors;
     int data = themeComboBox->currentData().toInt();
-    if (data < 0) {
+    if (data < 0)
+    {
         // Custom theme
         QString name = themeComboBox->currentText();
         colors = getCustomThemeColors(name);
-    } else {
+    }
+    else
+    {
         colors = getThemeColors(static_cast<ThemeId>(data));
     }
-    if (m_accentColor.isValid()) {
+    if (m_accentColor.isValid())
+    {
         colors.accent = m_accentColor;
         colors.resolve();
     }
@@ -467,7 +476,8 @@ void OptionsDialog::loadSettings()
     const auto& s = SettingsManager::instance();
     startupComboBox->setCurrentIndex(static_cast<int>(s.startupMode()));
     m_accentColor = s.accentColor();
-    if (m_accentColor.isValid()) {
+    if (m_accentColor.isValid())
+    {
         accentColorButton->setStyleSheet(QString("background-color: %1; border: 1px solid gray; border-radius: 3px;").arg(m_accentColor.name()));
     }
     ThemeId savedThemeId = s.theme();
@@ -481,7 +491,8 @@ void OptionsDialog::loadSettings()
             break;
         }
     }
-    if (!found && themeComboBox->count() > 0) {
+    if (!found && themeComboBox->count() > 0)
+    {
         themeComboBox->setCurrentIndex(0);
     }
     updateThemePreview();
@@ -539,14 +550,17 @@ void OptionsDialog::loadSettings()
     auto defaultCmds = lsp::LspServerManager::defaultServerCommands();
     QSet<QString> seen;
     lspServerTable->setRowCount(0);
-    for (auto it = defaultCmds.constBegin(); it != defaultCmds.constEnd(); ++it) {
+    for (auto it = defaultCmds.constBegin(); it != defaultCmds.constEnd(); ++it)
+    {
         int row = lspServerTable->rowCount();
         lspServerTable->insertRow(row);
         QString lang = it.key();
         QString cmd = s.lspServerCommand(lang);
         QStringList args = s.lspServerArgs(lang);
-        if (cmd.isEmpty()) cmd = it.value();
-        if (args.isEmpty()) args = lsp::LspServerManager::defaultServerArgs(lang);
+        if (cmd.isEmpty())
+            cmd = it.value();
+        if (args.isEmpty())
+            args = lsp::LspServerManager::defaultServerArgs(lang);
         lspServerTable->setItem(row, 0, new QTableWidgetItem(lang));
         lspServerTable->setItem(row, 1, new QTableWidgetItem(cmd));
         lspServerTable->setItem(row, 2, new QTableWidgetItem(args.join(' ')));
@@ -557,7 +571,8 @@ void OptionsDialog::loadSettings()
 void OptionsDialog::saveSettings()
 {
     int themeData = themeComboBox->currentData().toInt();
-    if (themeData >= 0) {
+    if (themeData >= 0)
+    {
         SettingsManager::instance().setTheme(static_cast<ThemeId>(themeData));
     }
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(startupComboBox->currentIndex()));
@@ -606,22 +621,26 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setLspCompletionTriggerChars(lspCompletionTriggerSpin->value());
 
     // Save LSP server table
-    for (int i = 0; i < lspServerTable->rowCount(); ++i) {
+    for (int i = 0; i < lspServerTable->rowCount(); ++i)
+    {
         QTableWidgetItem* langItem = lspServerTable->item(i, 0);
         QTableWidgetItem* cmdItem = lspServerTable->item(i, 1);
         QTableWidgetItem* argsItem = lspServerTable->item(i, 2);
-        if (!langItem || !cmdItem) continue;
+        if (!langItem || !cmdItem)
+            continue;
         QString lang = langItem->text().trimmed();
         QString cmd = cmdItem->text().trimmed();
         QStringList args;
         if (argsItem && !argsItem->text().trimmed().isEmpty())
             args = argsItem->text().trimmed().split(' ', Qt::SkipEmptyParts);
         auto defaultCmds = lsp::LspServerManager::defaultServerCommands();
-        if (cmd != defaultCmds.value(lang)) {
+        if (cmd != defaultCmds.value(lang))
+        {
             SettingsManager::instance().setLspServerCommand(lang, cmd);
         }
         auto defaultArgs = lsp::LspServerManager::defaultServerArgs(lang);
-        if (args != defaultArgs) {
+        if (args != defaultArgs)
+        {
             SettingsManager::instance().setLspServerArgs(lang, args);
         }
     }

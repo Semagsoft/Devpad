@@ -1,12 +1,14 @@
 #include "terminalbackend_qtermwidget.h"
-#include "settingsmanager.h"
-#include <QVBoxLayout>
-#include <qtermwidget.h>
-#include <QStandardPaths>
 
-TerminalBackendQTermWidget::TerminalBackendQTermWidget(QWidget *parent)
-    : TerminalBackend(parent), m_term(nullptr), m_running(false)
-    , m_cachedFont(SettingsManager::instance().terminalFont())
+#include "settingsmanager.h"
+
+#include <QStandardPaths>
+#include <QVBoxLayout>
+
+#include <qtermwidget.h>
+
+TerminalBackendQTermWidget::TerminalBackendQTermWidget(QWidget* parent)
+    : TerminalBackend(parent), m_term(nullptr), m_running(false), m_cachedFont(SettingsManager::instance().terminalFont())
 {
 }
 
@@ -17,19 +19,23 @@ TerminalBackendQTermWidget::~TerminalBackendQTermWidget()
 
 void TerminalBackendQTermWidget::start()
 {
-    if (m_running) return;
-    if (!m_term) {
+    if (m_running)
+        return;
+    if (!m_term)
+    {
         m_term = new QTermWidget(0, this);
         if (!m_workingDir.isEmpty())
             m_term->setWorkingDirectory(m_workingDir);
         m_term->setTerminalFont(m_cachedFont);
         m_term->setHistorySize(-1);
         m_term->setScrollBarPosition(QTermWidgetInterface::ScrollBarRight);
-        connect(m_term, &QTermWidget::finished, this, [this]() {
-            m_running = false;
-            emit finished(0, 0);
-        });
-        auto *layout = new QVBoxLayout(this);
+        connect(m_term, &QTermWidget::finished, this,
+                [this]()
+                {
+                    m_running = false;
+                    emit finished(0, 0);
+                });
+        auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
         layout->addWidget(m_term, 1);
@@ -44,27 +50,28 @@ void TerminalBackendQTermWidget::start()
 
 void TerminalBackendQTermWidget::stop()
 {
-    if (!m_term) return;
+    if (!m_term)
+        return;
     delete m_term;
     m_term = nullptr;
     m_running = false;
 }
 
-void TerminalBackendQTermWidget::setWorkingDirectory(const QString &path)
+void TerminalBackendQTermWidget::setWorkingDirectory(const QString& path)
 {
     m_workingDir = path;
     if (m_term)
         m_term->setWorkingDirectory(path);
 }
 
-void TerminalBackendQTermWidget::setTerminalFont(const QFont &font)
+void TerminalBackendQTermWidget::setTerminalFont(const QFont& font)
 {
     m_cachedFont = font;
     if (m_term)
         m_term->setTerminalFont(font);
 }
 
-void TerminalBackendQTermWidget::applyTheme(const QString &schemeName)
+void TerminalBackendQTermWidget::applyTheme(const QString& schemeName)
 {
     if (m_term)
         m_term->setColorScheme(schemeName);
@@ -82,7 +89,7 @@ void TerminalBackendQTermWidget::pasteClipboard()
         m_term->pasteClipboard();
 }
 
-void TerminalBackendQTermWidget::sendText(const QString &text)
+void TerminalBackendQTermWidget::sendText(const QString& text)
 {
     if (m_term)
         m_term->sendText(text);

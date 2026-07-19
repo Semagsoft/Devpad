@@ -19,21 +19,24 @@
 #ifndef FINDDIALOG_H
 #define FINDDIALOG_H
 
+#include "dialogsettings.h"
+
 #include <QDialog>
 #include <QPointer>
+
 #include <Qsci/qsciscintilla.h>
-#include "dialogsettings.h"
 
 class QCloseEvent;
 class QLineEdit;
 class QPushButton;
 class QCheckBox;
 
-class FindDialog : public QDialog {
+class FindDialog : public QDialog
+{
     Q_OBJECT
 
 public:
-    explicit FindDialog(QWidget *parent = nullptr);
+    explicit FindDialog(QWidget* parent = nullptr);
     ~FindDialog() override;
 
     QString searchText() const;
@@ -41,33 +44,33 @@ public:
     bool matchWholeWord() const;
     bool searchUp() const;
     bool useRegex() const;
-    void setSearchText(const QString &text);
-    void setEditor(QsciScintilla *editor);
+    void setSearchText(const QString& text);
+    void setEditor(QsciScintilla* editor);
 
 signals:
     void searchFinished(bool found);
 
 private slots:
-    void onTextChanged(const QString &text);
+    void onTextChanged(const QString& text);
     void findNext();
     void findPrevious();
 
 protected:
-    void closeEvent(QCloseEvent *event) override;
+    void closeEvent(QCloseEvent* event) override;
 
 private:
     void setupUI();
     void loadSettings();
     void saveSettings();
 
-    QLineEdit *searchLineEdit = nullptr;
-    QPushButton *findNextButton = nullptr;
-    QPushButton *findPrevButton = nullptr;
-    QPushButton *closeButton = nullptr;
-    QCheckBox *matchCaseCheckBox = nullptr;
-    QCheckBox *matchWholeWordCheckBox = nullptr;
-    QCheckBox *searchUpCheckBox = nullptr;
-    QCheckBox *useRegexCheckBox = nullptr;
+    QLineEdit* searchLineEdit = nullptr;
+    QPushButton* findNextButton = nullptr;
+    QPushButton* findPrevButton = nullptr;
+    QPushButton* closeButton = nullptr;
+    QCheckBox* matchCaseCheckBox = nullptr;
+    QCheckBox* matchWholeWordCheckBox = nullptr;
+    QCheckBox* searchUpCheckBox = nullptr;
+    QCheckBox* useRegexCheckBox = nullptr;
     QPointer<QsciScintilla> editor;
     DialogSettings m_settings;
 };

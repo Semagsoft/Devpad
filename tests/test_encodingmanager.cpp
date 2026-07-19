@@ -1,10 +1,11 @@
-#include "encodingmanager.h"
 #include "codeeditor.h"
+#include "encodingmanager.h"
 #include "settingsmanager.h"
 
-#include <gtest/gtest.h>
 #include <QComboBox>
 #include <QMenu>
+
+#include <gtest/gtest.h>
 
 class EncodingManagerTest : public ::testing::Test
 {

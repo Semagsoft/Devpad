@@ -19,11 +19,11 @@
 #ifndef SNIPPET_H
 #define SNIPPET_H
 
+#include <QList>
+#include <QMap>
+#include <QPair>
 #include <QString>
 #include <QStringList>
-#include <QList>
-#include <QPair>
-#include <QMap>
 
 struct Snippet
 {
