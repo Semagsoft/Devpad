@@ -46,7 +46,8 @@ class TabManager;
 class TerminalPanel;
 class ThemeApplier;
 
-namespace lsp {
+namespace lsp
+{
 class LspServerManager;
 } // namespace lsp
 

@@ -19,8 +19,9 @@
 #ifndef FINDINFILESDIALOG_H
 #define FINDINFILESDIALOG_H
 
-#include <QDialog>
 #include "dialogsettings.h"
+
+#include <QDialog>
 
 class QLineEdit;
 class QPushButton;
@@ -31,24 +32,24 @@ class QLabel;
 class QThread;
 class QKeyEvent;
 
-class FindInFilesWorker : public QObject {
+class FindInFilesWorker : public QObject
+{
     Q_OBJECT
 
 public:
-    FindInFilesWorker(const QString &searchText, const QString &rootDir,
-                      const QString &pattern, const QStringList &excludeDirs,
-                      bool matchCase, bool wholeWord, bool useRegex);
+    FindInFilesWorker(const QString& searchText, const QString& rootDir, const QString& pattern, const QStringList& excludeDirs, bool matchCase,
+                      bool wholeWord, bool useRegex);
 
 public slots:
     void run();
 
 signals:
-    void matchFound(const QString &filePath, int lineNumber, const QString &lineText);
+    void matchFound(const QString& filePath, int lineNumber, const QString& lineText);
     void searchFinished(int totalMatches);
-    void searchError(const QString &message);
+    void searchError(const QString& message);
 
 private:
-    void searchFile(const QString &filePath);
+    void searchFile(const QString& filePath);
 
     QString m_searchText;
     QString m_rootDir;
@@ -61,30 +62,31 @@ private:
     int m_totalMatches = 0;
 };
 
-class FindInFilesDialog : public QDialog {
+class FindInFilesDialog : public QDialog
+{
     Q_OBJECT
 
 public:
-    explicit FindInFilesDialog(const QString &defaultDir, QWidget *parent = nullptr);
+    explicit FindInFilesDialog(const QString& defaultDir, QWidget* parent = nullptr);
     ~FindInFilesDialog() override;
 
-    void startSearch(const QString &searchText, const QString &directory);
+    void startSearch(const QString& searchText, const QString& directory);
 
 signals:
-    void navigateToResult(const QString &filePath, int lineNumber);
+    void navigateToResult(const QString& filePath, int lineNumber);
 
 private slots:
     void onSearch();
     void onStop();
-    void onMatchFound(const QString &filePath, int lineNumber, const QString &lineText);
+    void onMatchFound(const QString& filePath, int lineNumber, const QString& lineText);
     void onSearchFinished(int totalMatches);
-    void onSearchError(const QString &message);
+    void onSearchError(const QString& message);
     void onBrowseDirectory();
-    void onResultDoubleClicked(QTreeWidgetItem *item, int column);
+    void onResultDoubleClicked(QTreeWidgetItem* item, int column);
 
 protected:
-    void closeEvent(QCloseEvent *event) override;
-    void keyPressEvent(QKeyEvent *event) override;
+    void closeEvent(QCloseEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     void setupUI();
@@ -92,21 +94,21 @@ private:
     void saveSettings();
     void cleanupSearch();
 
-    QLineEdit *searchLineEdit = nullptr;
-    QLineEdit *dirLineEdit = nullptr;
-    QLineEdit *filterLineEdit = nullptr;
-    QPushButton *browseButton = nullptr;
-    QPushButton *searchButton = nullptr;
-    QPushButton *stopButton = nullptr;
-    QPushButton *closeButton = nullptr;
-    QCheckBox *matchCaseCheckBox = nullptr;
-    QCheckBox *matchWholeWordCheckBox = nullptr;
-    QCheckBox *useRegexCheckBox = nullptr;
-    QTreeWidget *resultTree = nullptr;
-    QLabel *statusLabel = nullptr;
+    QLineEdit* searchLineEdit = nullptr;
+    QLineEdit* dirLineEdit = nullptr;
+    QLineEdit* filterLineEdit = nullptr;
+    QPushButton* browseButton = nullptr;
+    QPushButton* searchButton = nullptr;
+    QPushButton* stopButton = nullptr;
+    QPushButton* closeButton = nullptr;
+    QCheckBox* matchCaseCheckBox = nullptr;
+    QCheckBox* matchWholeWordCheckBox = nullptr;
+    QCheckBox* useRegexCheckBox = nullptr;
+    QTreeWidget* resultTree = nullptr;
+    QLabel* statusLabel = nullptr;
 
-    QThread *m_workerThread = nullptr;
-    FindInFilesWorker *m_worker = nullptr;
+    QThread* m_workerThread = nullptr;
+    FindInFilesWorker* m_worker = nullptr;
     DialogSettings m_settings;
     int m_matchCount = 0;
     bool m_searching = false;

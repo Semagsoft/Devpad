@@ -17,16 +17,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "finddialog.h"
+
+#include <QCheckBox>
 #include <QCloseEvent>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QCheckBox>
-#include <QLabel>
-#include <QGroupBox>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
 
-FindDialog::FindDialog(QWidget *parent) : QDialog(parent), editor(nullptr), m_settings("Find") {
+FindDialog::FindDialog(QWidget* parent) : QDialog(parent), editor(nullptr), m_settings("Find")
+{
     setWindowTitle(tr("Find"));
     setupUI();
     loadSettings();
@@ -34,25 +36,27 @@ FindDialog::FindDialog(QWidget *parent) : QDialog(parent), editor(nullptr), m_se
 
 FindDialog::~FindDialog() = default;
 
-void FindDialog::closeEvent(QCloseEvent *event) {
+void FindDialog::closeEvent(QCloseEvent* event)
+{
     saveSettings();
     QDialog::closeEvent(event);
 }
 
-void FindDialog::setupUI() {
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+void FindDialog::setupUI()
+{
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
     // Search text
-    QHBoxLayout *searchLayout = new QHBoxLayout();
-    QLabel *findLabel = new QLabel(tr("Find:"), this);
+    QHBoxLayout* searchLayout = new QHBoxLayout();
+    QLabel* findLabel = new QLabel(tr("Find:"), this);
     searchLineEdit = new QLineEdit(this);
     searchLayout->addWidget(findLabel);
     searchLayout->addWidget(searchLineEdit);
     mainLayout->addLayout(searchLayout);
 
     // Options
-    QGroupBox *optionsGroup = new QGroupBox(tr("Options"), this);
-    QVBoxLayout *optionsLayout = new QVBoxLayout(optionsGroup);
+    QGroupBox* optionsGroup = new QGroupBox(tr("Options"), this);
+    QVBoxLayout* optionsLayout = new QVBoxLayout(optionsGroup);
     matchCaseCheckBox = new QCheckBox(tr("Match case"), this);
     matchWholeWordCheckBox = new QCheckBox(tr("Match whole word"), this);
     searchUpCheckBox = new QCheckBox(tr("Search up"), this);
@@ -64,7 +68,7 @@ void FindDialog::setupUI() {
     mainLayout->addWidget(optionsGroup);
 
     // Buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
     findNextButton = new QPushButton(tr("Find Next"), this);
     findPrevButton = new QPushButton(tr("Find Previous"), this);
     closeButton = new QPushButton(tr("Close"), this);
@@ -84,60 +88,74 @@ void FindDialog::setupUI() {
     searchLineEdit->setFocus();
 }
 
-QString FindDialog::searchText() const {
+QString FindDialog::searchText() const
+{
     return searchLineEdit->text();
 }
 
-void FindDialog::setSearchText(const QString &text) {
+void FindDialog::setSearchText(const QString& text)
+{
     searchLineEdit->setText(text);
 }
 
-bool FindDialog::matchCase() const {
+bool FindDialog::matchCase() const
+{
     return matchCaseCheckBox->isChecked();
 }
 
-bool FindDialog::matchWholeWord() const {
+bool FindDialog::matchWholeWord() const
+{
     return matchWholeWordCheckBox->isChecked();
 }
 
-bool FindDialog::searchUp() const {
+bool FindDialog::searchUp() const
+{
     return searchUpCheckBox->isChecked();
 }
 
-bool FindDialog::useRegex() const {
+bool FindDialog::useRegex() const
+{
     return useRegexCheckBox->isChecked();
 }
 
-void FindDialog::setEditor(QsciScintilla *editor) {
+void FindDialog::setEditor(QsciScintilla* editor)
+{
     this->editor = editor;
 }
 
-void FindDialog::onTextChanged(const QString &text) {
+void FindDialog::onTextChanged(const QString& text)
+{
     bool enabled = !text.isEmpty();
     findNextButton->setEnabled(enabled);
     findPrevButton->setEnabled(enabled);
 }
 
-void FindDialog::findNext() {
-    if (!editor) return;
+void FindDialog::findNext()
+{
+    if (!editor)
+        return;
     bool found = editor->findFirst(searchText(), useRegex(), matchCase(), matchWholeWord(), true, !searchUp());
     emit searchFinished(found);
 }
 
-void FindDialog::findPrevious() {
-    if (!editor) return;
+void FindDialog::findPrevious()
+{
+    if (!editor)
+        return;
     bool found = editor->findFirst(searchText(), useRegex(), matchCase(), matchWholeWord(), true, searchUp());
     emit searchFinished(found);
 }
 
-void FindDialog::loadSettings() {
+void FindDialog::loadSettings()
+{
     matchCaseCheckBox->setChecked(m_settings.load("MatchCase", false).toBool());
     matchWholeWordCheckBox->setChecked(m_settings.load("MatchWholeWord", false).toBool());
     searchUpCheckBox->setChecked(m_settings.load("SearchUp", false).toBool());
     useRegexCheckBox->setChecked(m_settings.load("UseRegex", false).toBool());
 }
 
-void FindDialog::saveSettings() {
+void FindDialog::saveSettings()
+{
     m_settings.save("MatchCase", matchCaseCheckBox->isChecked());
     m_settings.save("MatchWholeWord", matchWholeWordCheckBox->isChecked());
     m_settings.save("SearchUp", searchUpCheckBox->isChecked());

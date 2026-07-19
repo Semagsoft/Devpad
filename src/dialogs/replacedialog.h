@@ -19,21 +19,24 @@
 #ifndef REPLACEDIALOG_H
 #define REPLACEDIALOG_H
 
+#include "dialogsettings.h"
+
 #include <QDialog>
 #include <QPointer>
+
 #include <Qsci/qsciscintilla.h>
-#include "dialogsettings.h"
 
 class QCloseEvent;
 class QLineEdit;
 class QPushButton;
 class QCheckBox;
 
-class ReplaceDialog : public QDialog {
+class ReplaceDialog : public QDialog
+{
     Q_OBJECT
 
 public:
-    explicit ReplaceDialog(QWidget *parent = nullptr);
+    explicit ReplaceDialog(QWidget* parent = nullptr);
     ~ReplaceDialog() override;
 
     QString findText() const;
@@ -41,35 +44,35 @@ public:
     bool matchCase() const;
     bool matchWholeWord() const;
     bool useRegex() const;
-    void setFindText(const QString &text);
-    void setEditor(QsciScintilla *editor);
+    void setFindText(const QString& text);
+    void setEditor(QsciScintilla* editor);
 
 signals:
     void searchFinished(bool found);
 
 private slots:
-    void onFindTextChanged(const QString &text);
+    void onFindTextChanged(const QString& text);
     void findNext();
     void replace();
     void replaceAll();
 
 protected:
-    void closeEvent(QCloseEvent *event) override;
+    void closeEvent(QCloseEvent* event) override;
 
 private:
     void setupUI();
     void loadSettings();
     void saveSettings();
 
-    QLineEdit *findLineEdit = nullptr;
-    QLineEdit *replaceLineEdit = nullptr;
-    QPushButton *findNextButton = nullptr;
-    QPushButton *replaceButton = nullptr;
-    QPushButton *replaceAllButton = nullptr;
-    QPushButton *closeButton = nullptr;
-    QCheckBox *matchCaseCheckBox = nullptr;
-    QCheckBox *matchWholeWordCheckBox = nullptr;
-    QCheckBox *useRegexCheckBox = nullptr;
+    QLineEdit* findLineEdit = nullptr;
+    QLineEdit* replaceLineEdit = nullptr;
+    QPushButton* findNextButton = nullptr;
+    QPushButton* replaceButton = nullptr;
+    QPushButton* replaceAllButton = nullptr;
+    QPushButton* closeButton = nullptr;
+    QCheckBox* matchCaseCheckBox = nullptr;
+    QCheckBox* matchWholeWordCheckBox = nullptr;
+    QCheckBox* useRegexCheckBox = nullptr;
     QPointer<QsciScintilla> editor;
     DialogSettings m_settings;
 };

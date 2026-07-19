@@ -1,7 +1,5 @@
 #include "filewatchermanager.h"
 
-#include <gtest/gtest.h>
-
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -10,6 +8,8 @@
 #include <QTemporaryFile>
 #include <QTest>
 #include <QTimer>
+
+#include <gtest/gtest.h>
 
 class FileWatcherManagerTest : public ::testing::Test
 {
@@ -25,30 +25,32 @@ protected:
         delete m_manager;
     }
 
-    QString createFile(const QString &name, const QByteArray &content = "test")
+    QString createFile(const QString& name, const QByteArray& content = "test")
     {
         QString path = m_tempDir.filePath(name);
         QFile file(path);
-        if (file.open(QIODevice::WriteOnly)) {
+        if (file.open(QIODevice::WriteOnly))
+        {
             file.write(content);
             file.close();
         }
         return path;
     }
 
-    void modifyFile(const QString &path)
+    void modifyFile(const QString& path)
     {
         // Wait a tick so the modification time differs
         QTest::qSleep(10);
         QFile file(path);
-        if (file.open(QIODevice::Append)) {
+        if (file.open(QIODevice::Append))
+        {
             file.write("modified");
             file.close();
         }
     }
 
     QTemporaryDir m_tempDir;
-    FileWatcherManager *m_manager = nullptr;
+    FileWatcherManager* m_manager = nullptr;
 };
 
 TEST_F(FileWatcherManagerTest, ConstructorDoesNotCrash)
@@ -133,7 +135,8 @@ TEST_F(FileWatcherManagerTest, WatchFileInDirectory)
 TEST_F(FileWatcherManagerTest, MultipleIndependentWatches)
 {
     QStringList paths;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         QString path = createFile(QString("multi%1.txt").arg(i));
         paths << path;
         EXPECT_NO_THROW(m_manager->watchFile(path));

@@ -23,34 +23,27 @@
 
 #include <QFileInfo>
 #include <QFont>
-#include <QTabWidget>
 #include <QIcon>
 #include <QPointer>
 #include <QTabBar>
+#include <QTabWidget>
 #include <QToolButton>
 
 #include <Qsci/qsciscintilla.h>
-
 
 TabManager::TabManager(QTabWidget* primaryWidget, QObject* parent) : QObject(parent), m_primaryWidget(primaryWidget), m_activePane(primaryWidget)
 {
     m_panes.append(primaryWidget);
     connect(primaryWidget, &QTabWidget::currentChanged, this,
-            [this](int localIdx)
-            {
-                emit currentChanged(localToGlobalIndex(localIdx, m_primaryWidget));
-            });
+            [this](int localIdx) { emit currentChanged(localToGlobalIndex(localIdx, m_primaryWidget)); });
     connect(primaryWidget, &QTabWidget::tabCloseRequested, this,
-            [this](int localIdx)
-            {
-                emit tabCloseRequested(localToGlobalIndex(localIdx, m_primaryWidget));
-            });
+            [this](int localIdx) { emit tabCloseRequested(localToGlobalIndex(localIdx, m_primaryWidget)); });
     updateTabBarVisibility();
 }
 
 CodeEditor* TabManager::currentEditor() const
 {
-    auto *w = m_activePane->currentWidget();
+    auto* w = m_activePane->currentWidget();
     return w ? w->findChild<CodeEditor*>() : nullptr;
 }
 
@@ -61,7 +54,7 @@ CodeEditor* TabManager::editorAt(int index) const
     {
         if (index < globalIdx + pane->count())
         {
-            auto *w = pane->widget(index - globalIdx);
+            auto* w = pane->widget(index - globalIdx);
             return w ? w->findChild<CodeEditor*>() : nullptr;
         }
         globalIdx += pane->count();
@@ -75,8 +68,9 @@ CodeEditor* TabManager::findEditorByFileName(const QString& fileName) const
     {
         for (int i = 0; i < pane->count(); ++i)
         {
-            auto *w = pane->widget(i);
-            if (!w) continue;
+            auto* w = pane->widget(i);
+            if (!w)
+                continue;
             CodeEditor* editor = w->findChild<CodeEditor*>();
             if (editor && editor->fileName() == fileName)
             {
@@ -104,7 +98,7 @@ int TabManager::currentIndex() const
 
 int TabManager::indexOf(CodeEditor* editor) const
 {
-    auto *container = containerFor(editor);
+    auto* container = containerFor(editor);
     if (!container)
         return -1;
     int globalIdx = 0;
@@ -126,7 +120,7 @@ CodeEditor* TabManager::createEditor()
 
 void TabManager::addEditor(CodeEditor* editor, const QString& title)
 {
-    auto *container = new EditorContainer(editor, m_activePane);
+    auto* container = new EditorContainer(editor, m_activePane);
     m_containers.insert(editor, container);
     m_activePane->addTab(container, title);
     int idx = m_activePane->indexOf(container);
@@ -145,10 +139,12 @@ void TabManager::setTabPinned(CodeEditor* editor, bool pinned)
         m_pinnedEditors.remove(editor);
 
     QTabWidget* pane = paneForEditor(editor);
-    if (pane) {
-        auto *container = containerFor(editor);
+    if (pane)
+    {
+        auto* container = containerFor(editor);
         int idx = container ? pane->indexOf(container) : -1;
-        if (idx >= 0) {
+        if (idx >= 0)
+        {
             updateTabTitle(editor);
             updateCloseButton(idx, pane, SettingsManager::instance().closeButtonMode());
         }
@@ -165,7 +161,8 @@ QStringList TabManager::pinnedFiles() const
     QStringList files;
     for (const auto& ptr : m_pinnedEditors)
     {
-        if (!ptr) continue;
+        if (!ptr)
+            continue;
         QString name = ptr->fileName();
         if (!name.isEmpty() && name != Strings::untitled())
             files.append(name);
@@ -186,8 +183,9 @@ void TabManager::setPinnedFiles(const QStringList& files)
     {
         for (int i = 0; i < pane->count(); ++i)
         {
-            auto *w = pane->widget(i);
-            if (!w) continue;
+            auto* w = pane->widget(i);
+            if (!w)
+                continue;
             CodeEditor* editor = w->findChild<CodeEditor*>();
             if (editor)
             {
@@ -207,7 +205,8 @@ void TabManager::removeEditor(int index)
         {
             int localIdx = index - globalIdx;
             auto* w = pane->widget(localIdx);
-            if (!w) return;
+            if (!w)
+                return;
             auto* editor = w->findChild<CodeEditor*>();
             if (!editor)
                 return;
@@ -239,7 +238,8 @@ bool TabManager::closeEditor(int index)
         {
             int localIdx = index - globalIdx;
             auto* w = pane->widget(localIdx);
-            if (!w) return false;
+            if (!w)
+                return false;
             auto* editor = w->findChild<CodeEditor*>();
             if (!editor)
                 return false;
@@ -268,16 +268,8 @@ void TabManager::addPane(QTabWidget* pane)
     if (m_panes.contains(pane))
         return;
     m_panes.append(pane);
-    connect(pane, &QTabWidget::currentChanged, this,
-            [this, pane](int localIdx)
-            {
-                emit currentChanged(localToGlobalIndex(localIdx, pane));
-            });
-    connect(pane, &QTabWidget::tabCloseRequested, this,
-            [this, pane](int localIdx)
-            {
-                emit tabCloseRequested(localToGlobalIndex(localIdx, pane));
-            });
+    connect(pane, &QTabWidget::currentChanged, this, [this, pane](int localIdx) { emit currentChanged(localToGlobalIndex(localIdx, pane)); });
+    connect(pane, &QTabWidget::tabCloseRequested, this, [this, pane](int localIdx) { emit tabCloseRequested(localToGlobalIndex(localIdx, pane)); });
     updateAllCloseButtons(SettingsManager::instance().closeButtonMode());
     updateTabBarVisibility();
 }
@@ -303,7 +295,7 @@ void TabManager::setActivePane(QTabWidget* pane)
 
 QTabWidget* TabManager::paneForEditor(CodeEditor* editor) const
 {
-    auto *container = containerFor(editor);
+    auto* container = containerFor(editor);
     if (!container)
         return nullptr;
     for (QTabWidget* pane : m_panes)
@@ -331,7 +323,7 @@ void TabManager::updateTabTitle(CodeEditor* editor)
     QTabWidget* pane = paneForEditor(editor);
     if (!pane)
         return;
-    auto *container = containerFor(editor);
+    auto* container = containerFor(editor);
     int index = container ? pane->indexOf(container) : -1;
     if (index >= 0)
     {
@@ -443,8 +435,9 @@ void TabManager::applySettingsToAll(const SettingsManager::EditorSettings& setti
     {
         for (int i = 0; i < pane->count(); ++i)
         {
-            auto *w = pane->widget(i);
-            if (!w) continue;
+            auto* w = pane->widget(i);
+            if (!w)
+                continue;
             CodeEditor* editor = w->findChild<CodeEditor*>();
             if (editor)
             {

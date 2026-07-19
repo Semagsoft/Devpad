@@ -18,52 +18,59 @@
  */
 #include "encodingutils.h"
 
-BomResult detectBom(const QByteArray &data) {
-    if (data.size() >= 3 && data.first(3) == QByteArray("\xEF\xBB\xBF", 3)) {
+BomResult detectBom(const QByteArray& data)
+{
+    if (data.size() >= 3 && data.first(3) == QByteArray("\xEF\xBB\xBF", 3))
+    {
         return {3, "UTF-8"};
     }
-    if (data.size() >= 4 && data.first(4) == QByteArray("\x00\x00\xFE\xFF", 4)) {
+    if (data.size() >= 4 && data.first(4) == QByteArray("\x00\x00\xFE\xFF", 4))
+    {
         return {4, "UTF-32BE"};
     }
-    if (data.size() >= 4 && data.first(4) == QByteArray("\xFF\xFE\x00\x00", 4)) {
+    if (data.size() >= 4 && data.first(4) == QByteArray("\xFF\xFE\x00\x00", 4))
+    {
         return {4, "UTF-32LE"};
     }
-    if (data.size() >= 2 && data.first(2) == QByteArray("\xFE\xFF", 2)) {
+    if (data.size() >= 2 && data.first(2) == QByteArray("\xFE\xFF", 2))
+    {
         return {2, "UTF-16BE"};
     }
-    if (data.size() >= 2 && data.first(2) == QByteArray("\xFF\xFE", 2)) {
+    if (data.size() >= 2 && data.first(2) == QByteArray("\xFF\xFE", 2))
+    {
         return {2, "UTF-16LE"};
     }
     return {0, QString()};
 }
 
-const QVector<EncodingInfo>& supportedEncodings() {
+const QVector<EncodingInfo>& supportedEncodings()
+{
     static const QVector<EncodingInfo> encodings = {
-        {"UTF-8", QStringConverter::Utf8},
-        {"UTF-16", QStringConverter::Utf16},
-        {"UTF-16LE", QStringConverter::Utf16LE},
-        {"UTF-16BE", QStringConverter::Utf16BE},
-        {"UTF-32", QStringConverter::Utf32},
-        {"UTF-32LE", QStringConverter::Utf32LE},
-        {"UTF-32BE", QStringConverter::Utf32BE},
-        {"ISO-8859-1", QStringConverter::Latin1},
-        {"System", QStringConverter::System},
+        {"UTF-8", QStringConverter::Utf8},       {"UTF-16", QStringConverter::Utf16},      {"UTF-16LE", QStringConverter::Utf16LE},
+        {"UTF-16BE", QStringConverter::Utf16BE}, {"UTF-32", QStringConverter::Utf32},      {"UTF-32LE", QStringConverter::Utf32LE},
+        {"UTF-32BE", QStringConverter::Utf32BE}, {"ISO-8859-1", QStringConverter::Latin1}, {"System", QStringConverter::System},
     };
     return encodings;
 }
 
-QStringConverter::Encoding encodingFromName(const QString &name) {
-    for (const auto &info : supportedEncodings()) {
-        if (info.displayName == name) {
+QStringConverter::Encoding encodingFromName(const QString& name)
+{
+    for (const auto& info : supportedEncodings())
+    {
+        if (info.displayName == name)
+        {
             return info.encoding;
         }
     }
     return QStringConverter::Utf8;
 }
 
-QString encodingToDisplayName(QStringConverter::Encoding enc) {
-    for (const auto &info : supportedEncodings()) {
-        if (info.encoding == enc) {
+QString encodingToDisplayName(QStringConverter::Encoding enc)
+{
+    for (const auto& info : supportedEncodings())
+    {
+        if (info.encoding == enc)
+        {
             return info.displayName;
         }
     }

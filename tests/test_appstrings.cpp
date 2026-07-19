@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include "appstrings.h"
+
+#include <gtest/gtest.h>
 
 TEST(AppStringsTest, AppNameIsNonEmptyAndCorrect)
 {

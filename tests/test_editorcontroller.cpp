@@ -1,24 +1,24 @@
-#include "editorcontroller.h"
 #include "actionmanager.h"
 #include "appstrings.h"
 #include "backupmanager.h"
 #include "codeeditor.h"
+#include "editorcontroller.h"
 #include "filemanager.h"
 #include "filewatchermanager.h"
 #include "languageinfo.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
 
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-
 #include <QApplication>
+#include <QFile>
 #include <QObject>
 #include <QSignalSpy>
-#include <QTemporaryDir>
 #include <QTabWidget>
+#include <QTemporaryDir>
 #include <QTextStream>
-#include <QFile>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 class EditorControllerTest : public ::testing::Test
 {
@@ -47,10 +47,7 @@ protected:
         actionManager = new ActionManager();
         actionManager->createActions();
 
-        controller = new EditorController(
-            tabManager, fileManager, fileWatcherManager,
-            actionManager, tabWidget
-        );
+        controller = new EditorController(tabManager, fileManager, fileWatcherManager, actionManager, tabWidget);
     }
 
     void TearDown() override
@@ -124,9 +121,8 @@ TEST_F(EditorControllerTest, NewFileAppliesDefaultFormat)
     SettingsManager::instance().setDefaultFormat(0);
     controller->newFile();
     auto* editor = tabManager->currentEditor();
-    QStringList langs = {"cpp", "c", "csharp", "java", "python", "javascript",
-                         "typescript", "html", "css", "xml", "sql", "rust",
-                         "go", "markdown", "bash", "cmake"};
+    QStringList langs = {"cpp", "c",   "csharp", "java", "python", "javascript", "typescript", "html",
+                         "css", "xml", "sql",    "rust", "go",     "markdown",   "bash",       "cmake"};
     ASSERT_GT(langs.size(), 0);
     EXPECT_FALSE(editor->syntax().isEmpty());
 }
@@ -365,7 +361,8 @@ TEST_F(EditorControllerTest, SaveNamedFileMultipleTimes)
     CodeEditor* editor = controller->openFile(path);
     ASSERT_NE(editor, nullptr);
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++)
+    {
         editor->setText(QString("modified %1").arg(i));
         editor->setModified(true);
         EXPECT_TRUE(controller->saveFile());
@@ -443,15 +440,17 @@ TEST_F(EditorControllerTest, FileWatcherFiresAfterSave)
 
     // Connect fileModifiedExternally like MainWindow does
     QPointer<CodeEditor> editorPtr = editor;
-    QObject::connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally,
-                     fileWatcherManager, [editorPtr](const QString& filePath) {
-        // This simulates the MainWindow::onFileModifiedExternally behavior
-        if (!editorPtr) return;  // QPointer null-check after dialog
-        // Access the editor - this would crash with raw pointer
-        editorPtr->isModified();
-        editorPtr->bookmarkLines();
-        editorPtr->encoding();
-    });
+    QObject::connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally, fileWatcherManager,
+                     [editorPtr](const QString& filePath)
+                     {
+                         // This simulates the MainWindow::onFileModifiedExternally behavior
+                         if (!editorPtr)
+                             return; // QPointer null-check after dialog
+                         // Access the editor - this would crash with raw pointer
+                         editorPtr->isModified();
+                         editorPtr->bookmarkLines();
+                         editorPtr->encoding();
+                     });
 
     EXPECT_TRUE(controller->saveFile());
 
@@ -479,13 +478,15 @@ TEST_F(EditorControllerTest, SaveTriggersExternalModification)
     // Simulate what happens when file watcher fires AFTER save
     // by manually calling onFileChanged with a stale timestamp
     QPointer<CodeEditor> editorPtr = editor;
-    QObject::connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally,
-                     fileWatcherManager, [editorPtr](const QString&) {
-        if (editorPtr) {
-            // Touch the editor - shouldn't crash with QPointer
-            editorPtr->setModified(true);
-        }
-    });
+    QObject::connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally, fileWatcherManager,
+                     [editorPtr](const QString&)
+                     {
+                         if (editorPtr)
+                         {
+                             // Touch the editor - shouldn't crash with QPointer
+                             editorPtr->setModified(true);
+                         }
+                     });
 
     // Save once
     EXPECT_TRUE(controller->saveFile());
@@ -504,7 +505,8 @@ TEST_F(EditorControllerTest, SaveTriggersExternalModification)
     QApplication::processEvents();
 
     // Editor should still be usable if QPointer guard works
-    if (editorPtr) {
+    if (editorPtr)
+    {
         EXPECT_FALSE(editorPtr->isModified());
     }
 }

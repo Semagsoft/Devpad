@@ -19,7 +19,8 @@
 #ifndef LSPINDICATORS_H
 #define LSPINDICATORS_H
 
-namespace lsp {
+namespace lsp
+{
 
 // Scintilla indicator IDs used for LSP diagnostics
 // INDICATOR 20 = error (squiggle underline, red)

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -17,82 +17,100 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "themeapplier.h"
+
+#include "codeeditor.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
-#include "codeeditor.h"
+
 #include <QApplication>
 #include <QFile>
 #include <QMainWindow>
 
+ThemeApplier::ThemeApplier(QObject* parent) : QObject(parent)
+{
+}
 
-ThemeApplier::ThemeApplier(QObject *parent) : QObject(parent) {}
-
-void ThemeApplier::applyTheme(QMainWindow *window) {
+void ThemeApplier::applyTheme(QMainWindow* window)
+{
     ThemeId themeId = SettingsManager::instance().theme();
     ThemeColors colors = getThemeColors(themeId);
 
-    if (!prefersNativeStyling(themeId)) {
+    if (!prefersNativeStyling(themeId))
+    {
         QPalette palette = getThemePalette(colors);
         QApplication::setPalette(palette);
     }
 
     const auto& ui = SettingsManager::instance().uiSettings();
-    if (!ui.uiFontFamily.isEmpty()) {
+    if (!ui.uiFontFamily.isEmpty())
+    {
         QFont uiFont(ui.uiFontFamily, ui.uiFontSize);
         QApplication::setFont(uiFont);
     }
 
-    if (!prefersNativeStyling(themeId)) {
+    if (!prefersNativeStyling(themeId))
+    {
         QFile qssFile(":/theme.qss");
-        if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
+        if (qssFile.open(QFile::ReadOnly | QFile::Text))
+        {
             QString ss = QString::fromUtf8(qssFile.readAll());
 
-            struct Mapping { const char* key; QColor ThemeColors::* member; };
+            struct Mapping
+            {
+                const char* key;
+                QColor ThemeColors::*member;
+            };
             static constexpr Mapping mappings[] = {
-                {"%background%",           &ThemeColors::background},
-                {"%foreground%",           &ThemeColors::foreground},
-                {"%menuBg%",               &ThemeColors::menuBg},
-                {"%menuFg%",               &ThemeColors::menuFg},
-                {"%separator%",            &ThemeColors::separator},
-                {"%selectionBg%",          &ThemeColors::selectionBg},
-                {"%toolbarBg%",            &ThemeColors::toolbarBg},
-                {"%toolbarFg%",            &ThemeColors::toolbarFg},
-                {"%tabBg%",                &ThemeColors::tabBg},
-                {"%tabFg%",                &ThemeColors::tabFg},
-                {"%tabBgActive%",          &ThemeColors::tabBgActive},
-                {"%tabFgActive%",          &ThemeColors::tabFgActive},
-                {"%statusbarBg%",          &ThemeColors::statusbarBg},
-                {"%statusbarFg%",          &ThemeColors::statusbarFg},
-                {"%groupboxBg%",           &ThemeColors::groupboxBg},
-                {"%groupboxFg%",           &ThemeColors::groupboxFg},
-                {"%inputBg%",              &ThemeColors::inputBg},
-                {"%inputFg%",              &ThemeColors::inputFg},
-                {"%checkboxIndicator%",    &ThemeColors::checkboxIndicator},
-                {"%buttonBg%",             &ThemeColors::buttonBg},
-                {"%buttonFg%",             &ThemeColors::buttonFg},
-                {"%scrollbarBg%",          &ThemeColors::scrollbarBg},
-                {"%scrollbarHandle%",      &ThemeColors::scrollbarHandle},
+                {"%background%", &ThemeColors::background},
+                {"%foreground%", &ThemeColors::foreground},
+                {"%menuBg%", &ThemeColors::menuBg},
+                {"%menuFg%", &ThemeColors::menuFg},
+                {"%separator%", &ThemeColors::separator},
+                {"%selectionBg%", &ThemeColors::selectionBg},
+                {"%toolbarBg%", &ThemeColors::toolbarBg},
+                {"%toolbarFg%", &ThemeColors::toolbarFg},
+                {"%tabBg%", &ThemeColors::tabBg},
+                {"%tabFg%", &ThemeColors::tabFg},
+                {"%tabBgActive%", &ThemeColors::tabBgActive},
+                {"%tabFgActive%", &ThemeColors::tabFgActive},
+                {"%statusbarBg%", &ThemeColors::statusbarBg},
+                {"%statusbarFg%", &ThemeColors::statusbarFg},
+                {"%groupboxBg%", &ThemeColors::groupboxBg},
+                {"%groupboxFg%", &ThemeColors::groupboxFg},
+                {"%inputBg%", &ThemeColors::inputBg},
+                {"%inputFg%", &ThemeColors::inputFg},
+                {"%checkboxIndicator%", &ThemeColors::checkboxIndicator},
+                {"%buttonBg%", &ThemeColors::buttonBg},
+                {"%buttonFg%", &ThemeColors::buttonFg},
+                {"%scrollbarBg%", &ThemeColors::scrollbarBg},
+                {"%scrollbarHandle%", &ThemeColors::scrollbarHandle},
                 {"%scrollbarHandleHover%", &ThemeColors::scrollbarHandleHover},
             };
-            for (const auto& m : mappings) {
+            for (const auto& m : mappings)
+            {
                 ss.replace(QLatin1String(m.key), (colors.*(m.member)).name());
             }
 
             window->setStyleSheet(ss);
         }
-    } else {
+    }
+    else
+    {
         window->setStyleSheet(QString());
     }
 }
 
-void ThemeApplier::applySettingsToAllEditors(TabManager *tabManager) {
+void ThemeApplier::applySettingsToAllEditors(TabManager* tabManager)
+{
     const auto& ed = SettingsManager::instance().editorSettings();
 
     tabManager->applySettingsToAll(ed);
 
-    for (int i = 0; i < tabManager->count(); ++i) {
-        CodeEditor *editor = tabManager->editorAt(i);
-        if (editor) {
+    for (int i = 0; i < tabManager->count(); ++i)
+    {
+        CodeEditor* editor = tabManager->editorAt(i);
+        if (editor)
+        {
             editor->setWhitespaceVisible(ed.showWhitespace);
         }
     }

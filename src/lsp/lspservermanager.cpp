@@ -17,22 +17,24 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "lspservermanager.h"
+
 #include "settingsmanager.h"
 
-#include <QFileInfo>
 #include <QDir>
+#include <QFileInfo>
 #include <QStandardPaths>
 
-namespace lsp {
+namespace lsp
+{
 
-LspServerManager::LspServerManager(QObject* parent)
-    : QObject(parent)
+LspServerManager::LspServerManager(QObject* parent) : QObject(parent)
 {
 }
 
 LspServerManager::~LspServerManager()
 {
-    for (auto* client : m_clients) {
+    for (auto* client : m_clients)
+    {
         client->stopServer();
         delete client;
     }
@@ -43,10 +45,11 @@ QString LspServerManager::rootUriForFile(const QString& filePath) const
 {
     // Look for project root by checking for common markers
     QDir dir = QFileInfo(filePath).absoluteDir();
-    while (!dir.isRoot()) {
-        if (dir.exists(".git") || dir.exists(".svn") || dir.exists("CMakeLists.txt") ||
-            dir.exists("Cargo.toml") || dir.exists("package.json") || dir.exists("go.mod") ||
-            dir.exists("pom.xml") || dir.exists("build.gradle") || dir.exists("Setup.hs")) {
+    while (!dir.isRoot())
+    {
+        if (dir.exists(".git") || dir.exists(".svn") || dir.exists("CMakeLists.txt") || dir.exists("Cargo.toml") || dir.exists("package.json") ||
+            dir.exists("go.mod") || dir.exists("pom.xml") || dir.exists("build.gradle") || dir.exists("Setup.hs"))
+        {
             return uriFromPath(dir.absolutePath());
         }
         if (!dir.cdUp())
@@ -76,7 +79,8 @@ LspClient* LspServerManager::clientForLanguage(const QString& language)
         return nullptr;
 
     // Verify the server binary exists in PATH
-    if (QStandardPaths::findExecutable(serverCommand).isEmpty()) {
+    if (QStandardPaths::findExecutable(serverCommand).isEmpty())
+    {
 #ifdef QT_DEBUG
         qDebug().noquote() << QString("LSP server '%1' not found in PATH for %2").arg(serverCommand, language);
 #endif
@@ -134,7 +138,8 @@ void LspServerManager::openDocument(const QString& language, const QString& uri,
     if (!client)
         return;
 
-    if (!client->isRunning()) {
+    if (!client->isRunning())
+    {
         QString command = SettingsManager::instance().lspServerCommand(language);
         if (command.isEmpty())
             command = defaultServerCommands().value(language);
@@ -191,21 +196,36 @@ bool LspServerManager::hasCapability(const QString& uri, const QString& capabili
         return false;
 
     const auto& caps = client->capabilities();
-    if (capability == "completion") return caps.completionProvider;
-    if (capability == "definition") return caps.definitionProvider;
-    if (capability == "codeAction") return caps.codeActionProvider;
-    if (capability == "workspaceSymbol") return caps.workspaceSymbolProvider;
-    if (capability == "selectionRange") return caps.selectionRangeProvider;
-    if (capability == "linkedEditingRange") return caps.linkedEditingRangeProvider;
-    if (capability == "callHierarchy") return caps.callHierarchyProvider;
-    if (capability == "semanticTokens") return caps.semanticTokensProvider;
-    if (capability == "references") return caps.referencesProvider;
-    if (capability == "hover") return caps.hoverProvider;
-    if (capability == "documentSymbol") return caps.documentSymbolProvider;
-    if (capability == "signatureHelp") return caps.signatureHelpProvider;
-    if (capability == "formatting") return caps.formattingProvider;
-    if (capability == "typeDefinition") return caps.typeDefinitionProvider;
-    if (capability == "declaration") return caps.declarationProvider;
+    if (capability == "completion")
+        return caps.completionProvider;
+    if (capability == "definition")
+        return caps.definitionProvider;
+    if (capability == "codeAction")
+        return caps.codeActionProvider;
+    if (capability == "workspaceSymbol")
+        return caps.workspaceSymbolProvider;
+    if (capability == "selectionRange")
+        return caps.selectionRangeProvider;
+    if (capability == "linkedEditingRange")
+        return caps.linkedEditingRangeProvider;
+    if (capability == "callHierarchy")
+        return caps.callHierarchyProvider;
+    if (capability == "semanticTokens")
+        return caps.semanticTokensProvider;
+    if (capability == "references")
+        return caps.referencesProvider;
+    if (capability == "hover")
+        return caps.hoverProvider;
+    if (capability == "documentSymbol")
+        return caps.documentSymbolProvider;
+    if (capability == "signatureHelp")
+        return caps.signatureHelpProvider;
+    if (capability == "formatting")
+        return caps.formattingProvider;
+    if (capability == "typeDefinition")
+        return caps.typeDefinitionProvider;
+    if (capability == "declaration")
+        return caps.declarationProvider;
     return false;
 }
 

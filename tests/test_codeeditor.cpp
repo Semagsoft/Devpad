@@ -2,10 +2,10 @@
 #include "languageinfo.h"
 #include "settingsmanager.h"
 
-#include <gtest/gtest.h>
-
 #include <QApplication>
 #include <QFont>
+
+#include <gtest/gtest.h>
 
 class CodeEditorTest : public ::testing::Test
 {
@@ -165,7 +165,6 @@ TEST_F(CodeEditorTest, ApplyFontSetsFont)
     EXPECT_EQ(editor->font().family(), "Courier New");
     EXPECT_EQ(editor->font().pointSize(), 14);
 }
-
 
 TEST_F(CodeEditorTest, SetSyntaxToNullForUnknownLanguage)
 {

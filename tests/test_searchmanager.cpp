@@ -1,15 +1,15 @@
-#include "searchmanager.h"
 #include "codeeditor.h"
+#include "searchmanager.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
-
-#include <gtest/gtest.h>
 
 #include <QApplication>
 #include <QMainWindow>
 #include <QStatusBar>
 #include <QTabWidget>
+
 #include <Qsci/qsciscintilla.h>
+#include <gtest/gtest.h>
 
 class SearchManagerTest : public ::testing::Test
 {
@@ -51,8 +51,7 @@ TEST_F(SearchManagerTest, FindDialogIsCreatedOnShow)
 {
     searchManager->showFindDialog();
     // Dialog should be visible after showFindDialog
-    EXPECT_TRUE(searchManager->hasActiveSearch() || !searchManager->lastSearchText().isEmpty()
-                || searchManager->lastSearchText().isNull());
+    EXPECT_TRUE(searchManager->hasActiveSearch() || !searchManager->lastSearchText().isEmpty() || searchManager->lastSearchText().isNull());
     SUCCEED();
 }
 

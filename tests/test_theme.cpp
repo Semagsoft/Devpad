@@ -1,12 +1,12 @@
-#include "theme.h"
 #include "settingsmanager.h"
-
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include "theme.h"
 
 #include <QApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 class ThemeTest : public ::testing::Test
 {
@@ -30,7 +30,8 @@ TEST_F(ThemeTest, AllNonSystemThemesHaveUniqueNames)
     QStringList names;
     for (auto id : allBuiltInThemes())
     {
-        if (id == ThemeId::System) continue;
+        if (id == ThemeId::System)
+            continue;
         ThemeColors c = getThemeColors(id);
         EXPECT_FALSE(c.name.isEmpty());
         EXPECT_FALSE(names.contains(c.name)) << "duplicate name: " << c.name.toStdString();

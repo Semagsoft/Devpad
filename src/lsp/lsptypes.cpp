@@ -18,7 +18,8 @@
  */
 #include "lsptypes.h"
 
-namespace lsp {
+namespace lsp
+{
 
 QJsonObject Position::toJson() const
 {
@@ -30,7 +31,7 @@ QJsonObject Position::toJson() const
 
 Position Position::fromJson(const QJsonObject& obj)
 {
-    return { obj["line"].toInt(), obj["character"].toInt() };
+    return {obj["line"].toInt(), obj["character"].toInt()};
 }
 
 QJsonObject Range::toJson() const
@@ -64,12 +65,22 @@ Diagnostic Diagnostic::fromJson(const QJsonObject& obj)
     d.message = obj["message"].toString();
     int sev = obj["severity"].toInt(1);
     d.severityLevel = sev;
-    switch (sev) {
-    case 1: d.severity = "Error"; break;
-    case 2: d.severity = "Warning"; break;
-    case 3: d.severity = "Information"; break;
-    case 4: d.severity = "Hint"; break;
-    default: d.severity = "Error";
+    switch (sev)
+    {
+    case 1:
+        d.severity = "Error";
+        break;
+    case 2:
+        d.severity = "Warning";
+        break;
+    case 3:
+        d.severity = "Information";
+        break;
+    case 4:
+        d.severity = "Hint";
+        break;
+    default:
+        d.severity = "Error";
     }
     d.source = obj["source"].toString();
     if (obj.contains("code"))
@@ -83,8 +94,10 @@ QJsonObject Diagnostic::toJson() const
     obj["range"] = range.toJson();
     obj["message"] = message;
     obj["severity"] = severityLevel;
-    if (!source.isEmpty()) obj["source"] = source;
-    if (!code.isEmpty()) obj["code"] = code;
+    if (!source.isEmpty())
+        obj["source"] = source;
+    if (!code.isEmpty())
+        obj["code"] = code;
     return obj;
 }
 
@@ -93,22 +106,23 @@ CompletionItem CompletionItem::fromJson(const QJsonObject& obj)
     CompletionItem item;
     item.label = obj["label"].toString();
     int k = obj["kind"].toInt(0);
-    static const char* kindNames[] = {
-        "Text", "Method", "Function", "Constructor", "Field", "Variable",
-        "Class", "Interface", "Module", "Property", "Unit", "Value",
-        "Enum", "Keyword", "Snippet", "Color", "File", "Reference",
-        "Folder", "EnumMember", "Constant", "Struct", "Event", "Operator", "TypeParameter"
-    };
+    static const char* kindNames[] = {"Text",      "Method", "Function", "Constructor",  "Field",  "Variable",   "Class",
+                                      "Interface", "Module", "Property", "Unit",         "Value",  "Enum",       "Keyword",
+                                      "Snippet",   "Color",  "File",     "Reference",    "Folder", "EnumMember", "Constant",
+                                      "Struct",    "Event",  "Operator", "TypeParameter"};
     if (k >= 0 && k <= 25)
         item.kind = QString::fromLatin1(kindNames[k]);
     item.detail = obj["detail"].toString();
     item.documentation = obj["documentation"].toString();
-    if (obj.contains("textEdit")) {
+    if (obj.contains("textEdit"))
+    {
         auto te = obj["textEdit"].toObject();
         item.insertText = te["newText"].toString();
         item.startPos = -1;
         item.replaceLen = -1;
-    } else {
+    }
+    else
+    {
         item.insertText = obj["insertText"].toString(item.label);
     }
     return item;
@@ -139,7 +153,8 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
     QJsonObject ws = caps["workspace"].toObject();
     c.workspaceSymbolProvider = ws.contains("symbol");
 
-    if (c.completionProvider) {
+    if (c.completionProvider)
+    {
         QJsonObject comp = td["completion"].toObject();
         QJsonObject compOpts = comp["completionItem"].toObject();
         for (const auto& ch : compOpts["triggerCharacters"].toArray())

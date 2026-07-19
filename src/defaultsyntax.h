@@ -21,11 +21,10 @@
 
 #include <QStringList>
 
-inline QStringList defaultSyntaxLanguages() {
-    return {
-        "cpp", "c", "csharp", "java", "python", "javascript", "typescript",
-        "html", "css", "xml", "sql", "rust", "go", "markdown", "bash", "cmake"
-    };
+inline QStringList defaultSyntaxLanguages()
+{
+    return {"cpp", "c",   "csharp", "java", "python", "javascript", "typescript", "html",
+            "css", "xml", "sql",    "rust", "go",     "markdown",   "bash",       "cmake"};
 }
 
 #endif

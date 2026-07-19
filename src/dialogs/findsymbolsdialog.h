@@ -10,7 +10,8 @@ class QLabel;
 class QTimer;
 class QPushButton;
 
-namespace lsp {
+namespace lsp
+{
 class LspServerManager;
 }
 

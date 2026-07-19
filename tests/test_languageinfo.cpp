@@ -1,11 +1,10 @@
 #include "languageinfo.h"
 #include "theme.h"
 
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-
-#include <Qsci/qscilexer.h>
 #include <Qsci/qsciapis.h>
+#include <Qsci/qscilexer.h>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 static QString lexerClassName(QsciLexer* lexer)
 {
@@ -79,9 +78,8 @@ TEST_F(LanguageInfoTest, FactoryCreatesCorrectLexerType)
         QsciLexer* lexer = lang.factory(nullptr);
         ASSERT_NE(lexer, nullptr);
         QString actual = lexerClassName(lexer);
-        EXPECT_EQ(actual, lang.lexerClassName)
-            << lang.name.toStdString() << " expected " << lang.lexerClassName.toStdString()
-            << " but got " << actual.toStdString();
+        EXPECT_EQ(actual, lang.lexerClassName) << lang.name.toStdString() << " expected " << lang.lexerClassName.toStdString() << " but got "
+                                               << actual.toStdString();
         delete lexer;
     }
 }
@@ -123,15 +121,15 @@ TEST_F(LanguageInfoTest, ThemeApplicatorDoesNotCrash)
     {
         QsciLexer* lexer = lang.factory(nullptr);
         ASSERT_NE(lexer, nullptr);
-        EXPECT_NO_THROW(lang.themeApplicator(lexer, colors))
-            << "themeApplicator crashed for " << lang.name.toStdString();
+        EXPECT_NO_THROW(lang.themeApplicator(lexer, colors)) << "themeApplicator crashed for " << lang.name.toStdString();
         delete lexer;
     }
 }
 
 TEST_F(LanguageInfoTest, AliasesShareSameLexerClassName)
 {
-    auto getClassName = [](const QString& name) -> QString {
+    auto getClassName = [](const QString& name) -> QString
+    {
         const auto* lang = findLanguage(name);
         return lang ? lang->lexerClassName : QString();
     };

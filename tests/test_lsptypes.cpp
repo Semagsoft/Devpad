@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include "lsp/lsptypes.h"
+
+#include <gtest/gtest.h>
 
 using namespace lsp;
 
@@ -109,8 +110,7 @@ TEST(LspTypesTest, RangeToJsonAndBack)
 TEST(LspTypesTest, DiagnosticFromJsonError)
 {
     QJsonObject obj;
-    obj["range"] = QJsonObject{{"start", QJsonObject{{"line", 0}, {"character", 0}}},
-                                {"end", QJsonObject{{"line", 0}, {"character", 5}}}};
+    obj["range"] = QJsonObject{{"start", QJsonObject{{"line", 0}, {"character", 0}}}, {"end", QJsonObject{{"line", 0}, {"character", 5}}}};
     obj["message"] = QStringLiteral("Test error");
     obj["severity"] = 1;
     obj["source"] = QStringLiteral("test");
@@ -125,8 +125,7 @@ TEST(LspTypesTest, DiagnosticFromJsonError)
 TEST(LspTypesTest, DiagnosticFromJsonWarning)
 {
     QJsonObject obj;
-    obj["range"] = QJsonObject{{"start", QJsonObject{{"line", 1}, {"character", 0}}},
-                                {"end", QJsonObject{{"line", 1}, {"character", 10}}}};
+    obj["range"] = QJsonObject{{"start", QJsonObject{{"line", 1}, {"character", 0}}}, {"end", QJsonObject{{"line", 1}, {"character", 10}}}};
     obj["message"] = QStringLiteral("Test warning");
     obj["severity"] = 2;
     obj["source"] = QStringLiteral("test");

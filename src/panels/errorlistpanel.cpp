@@ -1,19 +1,20 @@
 ﻿#include "errorlistpanel.h"
+
 #include "lsp/lsptypes.h"
 
-#include <QVBoxLayout>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QFileInfo>
+#include <QVBoxLayout>
 
-enum {
+enum
+{
     FILE_PATH_ROLE = Qt::UserRole + 100,
     LINE_ROLE = Qt::UserRole + 101,
     COLUMN_ROLE = Qt::UserRole + 102
 };
 
-ErrorListPanel::ErrorListPanel(QWidget* parent)
-    : QDockWidget(tr("Error List"), parent)
+ErrorListPanel::ErrorListPanel(QWidget* parent) : QDockWidget(tr("Error List"), parent)
 {
     setObjectName("ErrorListPanel");
     setupUI();
@@ -93,35 +94,59 @@ void ErrorListPanel::onFilterChanged(int index)
     int totalCount = 0;
     int shownCount = 0;
 
-    for (auto it = m_allDiagnostics.begin(); it != m_allDiagnostics.end(); ++it) {
+    for (auto it = m_allDiagnostics.begin(); it != m_allDiagnostics.end(); ++it)
+    {
         const QString& uri = it.key();
         const auto& diagnostics = it.value();
         QString filePath = lsp::pathFromUri(uri);
         QString fileName = QFileInfo(filePath).fileName();
 
-        for (const auto& d : diagnostics) {
+        for (const auto& d : diagnostics)
+        {
             totalCount++;
             bool show = false;
-            switch (index) {
-            case 0: show = true; break;
-            case 1: show = (d.severityLevel == 1); break;
-            case 2: show = (d.severityLevel == 2); break;
-            case 3: show = (d.severityLevel == 3); break;
-            case 4: show = (d.severityLevel == 4); break;
+            switch (index)
+            {
+            case 0:
+                show = true;
+                break;
+            case 1:
+                show = (d.severityLevel == 1);
+                break;
+            case 2:
+                show = (d.severityLevel == 2);
+                break;
+            case 3:
+                show = (d.severityLevel == 3);
+                break;
+            case 4:
+                show = (d.severityLevel == 4);
+                break;
             }
-            if (!show) continue;
+            if (!show)
+                continue;
 
             shownCount++;
 
             QList<QStandardItem*> row;
 
             QString icon;
-            switch (d.severityLevel) {
-            case 1: icon = QStringLiteral("\u2716"); break; // ✖ error
-            case 2: icon = QStringLiteral("\u26A0"); break; // ⚠ warning
-            case 3: icon = QStringLiteral("\u2139"); break; // ℹ info
-            case 4: icon = QStringLiteral("\u24D8"); break; // ⓘ hint
-            default: icon = QString();
+            switch (d.severityLevel)
+            {
+            case 1:
+                icon = QStringLiteral("\u2716");
+                break; // ✖ error
+            case 2:
+                icon = QStringLiteral("\u26A0");
+                break; // ⚠ warning
+            case 3:
+                icon = QStringLiteral("\u2139");
+                break; // ℹ info
+            case 4:
+                icon = QStringLiteral("\u24D8");
+                break; // ⓘ hint
+            default:
+                icon = QString();
             }
 
             auto* sevItem = new QStandardItem(icon + QStringLiteral(" ") + d.severity);

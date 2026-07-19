@@ -25,23 +25,30 @@
 #include <QString>
 #include <QVariant>
 
-class DialogSettings {
+class DialogSettings
+{
 public:
-    explicit DialogSettings(const QString &prefix) : m_prefix(prefix) {}
+    explicit DialogSettings(const QString& prefix) : m_prefix(prefix)
+    {
+    }
 
-    void save(const QString &key, const QVariant &value) const {
+    void save(const QString& key, const QVariant& value) const
+    {
         m_settings.setValue(m_prefix + "_" + key, value);
     }
 
-    QVariant load(const QString &key, const QVariant &defaultValue = QVariant()) const {
+    QVariant load(const QString& key, const QVariant& defaultValue = QVariant()) const
+    {
         return m_settings.value(m_prefix + "_" + key, defaultValue);
     }
 
-    void saveGeometry(QDialog *dialog) const {
+    void saveGeometry(QDialog* dialog) const
+    {
         save("Geometry", dialog->saveGeometry());
     }
 
-    void restoreGeometry(QDialog *dialog) const {
+    void restoreGeometry(QDialog* dialog) const
+    {
         QByteArray geo = load("Geometry").toByteArray();
         if (!geo.isEmpty())
             dialog->restoreGeometry(geo);

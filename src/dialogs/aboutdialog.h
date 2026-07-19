@@ -29,15 +29,16 @@ class QScrollArea;
 class QTimer;
 class QSoundEffect;
 
-class AboutDialog : public QDialog {
+class AboutDialog : public QDialog
+{
     Q_OBJECT
 
 public:
-    explicit AboutDialog(QWidget *parent = nullptr);
+    explicit AboutDialog(QWidget* parent = nullptr);
     ~AboutDialog() override;
 
 protected:
-    bool eventFilter(QObject *obj, QEvent *event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
 private slots:
     void openWebsite();
@@ -47,16 +48,16 @@ private slots:
 private:
     void setupUI();
     void startGoofyEffect();
-    QPixmap tintPixmap(const QPixmap &src, const QColor &tint) const;
+    QPixmap tintPixmap(const QPixmap& src, const QColor& tint) const;
 
-    QLabel *licenseText;
-    QScrollArea *licenseScrollArea;
-    QPushButton *licenseButton;
+    QLabel* licenseText;
+    QScrollArea* licenseScrollArea;
+    QPushButton* licenseButton;
 
-    QLabel *iconLabel;
+    QLabel* iconLabel;
     QPixmap m_originalPixmap;
-    QTimer *m_effectTimer;
-    QSoundEffect *m_soundEffect;
+    QTimer* m_effectTimer;
+    QSoundEffect* m_soundEffect;
     int m_effectStep;
 };
 

@@ -1,13 +1,10 @@
-#include "mainwindow.h"
 #include "codeeditor.h"
 #include "editorcontroller.h"
 #include "filemanager.h"
+#include "mainwindow.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
 #include "theme.h"
-
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
 
 #include <QApplication>
 #include <QFile>
@@ -15,6 +12,9 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTextStream>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 class MainWindowTest : public ::testing::Test
 {

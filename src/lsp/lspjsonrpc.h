@@ -1,14 +1,15 @@
 #ifndef LSPJSONRPC_H
 #define LSPJSONRPC_H
 
-#include <QObject>
 #include <QByteArray>
-#include <QJsonObject>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QObject>
 #include <QTimer>
 #include <functional>
 
-namespace lsp {
+namespace lsp
+{
 
 class LspJsonRpc : public QObject
 {

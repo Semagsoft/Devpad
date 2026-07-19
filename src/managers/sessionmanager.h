@@ -19,26 +19,28 @@
 #ifndef SESSIONMANAGER_H
 #define SESSIONMANAGER_H
 
-#include <QObject>
-#include <QString>
-#include <QStringList>
 #include <QHash>
 #include <QList>
 #include <QLockFile>
+#include <QObject>
 #include <QSettings>
+#include <QString>
+#include <QStringList>
 #include <functional>
 
 class TabManager;
 class ProjectPanel;
 class SplitView;
 
-class SessionManager : public QObject {
+class SessionManager : public QObject
+{
     Q_OBJECT
 
 public:
-    explicit SessionManager(QObject *parent = nullptr);
+    explicit SessionManager(QObject* parent = nullptr);
 
-    struct SessionData {
+    struct SessionData
+    {
         QStringList files;
         int activeIndex = 0;
         QString projectPath;
@@ -46,27 +48,19 @@ public:
         QHash<QString, QList<int>> bookmarks;
     };
 
-    SessionData restoreSession(
-        std::function<void(const QString &filePath)> loadFileFn,
-        SplitView *splitView,
-        ProjectPanel *projectPanel
-    );
+    SessionData restoreSession(std::function<void(const QString& filePath)> loadFileFn, SplitView* splitView, ProjectPanel* projectPanel);
 
-    void saveSession(
-        TabManager *tabManager,
-        ProjectPanel *projectPanel,
-        const QString &terminalWorkingDir
-    );
+    void saveSession(TabManager* tabManager, ProjectPanel* projectPanel, const QString& terminalWorkingDir);
 
     // ── Persistence ────────────────────────────────────────────
-    void saveSessionData(const QStringList &files, int activeIndex, const QString &projectPath, const QString &terminalWorkingDir = {});
+    void saveSessionData(const QStringList& files, int activeIndex, const QString& projectPath, const QString& terminalWorkingDir = {});
     QStringList sessionFiles();
     int sessionActiveIndex();
     QString sessionProjectPath();
     QString sessionTerminalWorkingDir();
-    void saveSessionBookmarks(const QHash<QString, QList<int>> &bookmarks);
+    void saveSessionBookmarks(const QHash<QString, QList<int>>& bookmarks);
     QHash<QString, QList<int>> loadSessionBookmarks();
-    void saveSessionPinnedFiles(const QStringList &pinnedFiles);
+    void saveSessionPinnedFiles(const QStringList& pinnedFiles);
     QStringList loadSessionPinnedFiles();
     void clearSession();
 

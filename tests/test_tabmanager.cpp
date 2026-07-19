@@ -1,11 +1,11 @@
-#include "tabmanager.h"
 #include "codeeditor.h"
 #include "settingsmanager.h"
-
-#include <gtest/gtest.h>
+#include "tabmanager.h"
 
 #include <QApplication>
 #include <QTabWidget>
+
+#include <gtest/gtest.h>
 
 class TabManagerTest : public ::testing::Test
 {

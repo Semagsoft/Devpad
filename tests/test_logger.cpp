@@ -1,35 +1,39 @@
-#include <gtest/gtest.h>
-#include <QTemporaryDir>
-#include <QFile>
-#include <QFileInfo>
-#include <QDir>
-#include <QStandardPaths>
 #include "logger.h"
 
-class LoggerTest : public ::testing::Test {
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
+#include <QTemporaryDir>
+
+#include <gtest/gtest.h>
+
+class LoggerTest : public ::testing::Test
+{
 protected:
     QTemporaryDir m_tempDir;
 
-    void SetUp() override {
+    void SetUp() override
+    {
         ASSERT_TRUE(m_tempDir.isValid());
         QString logPath = m_tempDir.filePath("test.log");
         Logger::instance().setLogFile(logPath);
         Logger::instance().setLevel(Logger::Debug);
     }
 
-    void TearDown() override {
-        Logger::instance().setLogFile(
-            QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
-            + "/devpad/devpad.log"
-        );
+    void TearDown() override
+    {
+        Logger::instance().setLogFile(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/devpad/devpad.log");
         Logger::instance().setLevel(Logger::Debug);
     }
 
-    QString logFilePath() const {
+    QString logFilePath() const
+    {
         return m_tempDir.filePath("test.log");
     }
 
-    QString readLog() const {
+    QString readLog() const
+    {
         QFile file(logFilePath());
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
             return {};
@@ -37,48 +41,55 @@ protected:
     }
 };
 
-TEST_F(LoggerTest, LogFileIsCreated) {
+TEST_F(LoggerTest, LogFileIsCreated)
+{
     Logger::instance().info("test message");
     QFileInfo fi(logFilePath());
     EXPECT_TRUE(fi.exists());
 }
 
-TEST_F(LoggerTest, InfoMessageAppearsInLog) {
+TEST_F(LoggerTest, InfoMessageAppearsInLog)
+{
     Logger::instance().info("hello world");
     QString content = readLog();
     EXPECT_TRUE(content.contains("hello world"));
     EXPECT_TRUE(content.contains("INFO"));
 }
 
-TEST_F(LoggerTest, DebugMessageAppearsAtDebugLevel) {
+TEST_F(LoggerTest, DebugMessageAppearsAtDebugLevel)
+{
     Logger::instance().debug("debug test");
     QString content = readLog();
     EXPECT_TRUE(content.contains("debug test"));
     EXPECT_TRUE(content.contains("DEBUG"));
 }
 
-TEST_F(LoggerTest, WarningMessageAppears) {
+TEST_F(LoggerTest, WarningMessageAppears)
+{
     Logger::instance().warning("warning test");
     QString content = readLog();
     EXPECT_TRUE(content.contains("warning test"));
     EXPECT_TRUE(content.contains("WARN"));
 }
 
-TEST_F(LoggerTest, ErrorMessageAppears) {
+TEST_F(LoggerTest, ErrorMessageAppears)
+{
     Logger::instance().error("error test");
     QString content = readLog();
     EXPECT_TRUE(content.contains("error test"));
     EXPECT_TRUE(content.contains("ERROR"));
 }
 
-TEST_F(LoggerTest, CriticalMessageAppears) {
+TEST_F(LoggerTest, CriticalMessageAppears)
+{
     Logger::instance().critical("critical test");
     QString content = readLog();
     EXPECT_TRUE(content.contains("critical test"));
     EXPECT_TRUE(content.contains("CRITICAL"));
 }
 
-TEST_F(LoggerTest, LevelFiltering_InfoOnlyHidesDebug) {
+TEST_F(LoggerTest, LevelFiltering_InfoOnlyHidesDebug)
+{
     Logger::instance().setLevel(Logger::Info);
     Logger::instance().debug("should be hidden");
     Logger::instance().info("should appear");
@@ -88,7 +99,8 @@ TEST_F(LoggerTest, LevelFiltering_InfoOnlyHidesDebug) {
     EXPECT_TRUE(content.contains("should appear"));
 }
 
-TEST_F(LoggerTest, LevelFiltering_WarningOnly) {
+TEST_F(LoggerTest, LevelFiltering_WarningOnly)
+{
     Logger::instance().setLevel(Logger::Warning);
     Logger::instance().info("hidden info");
     Logger::instance().warning("visible warning");
@@ -100,13 +112,15 @@ TEST_F(LoggerTest, LevelFiltering_WarningOnly) {
     EXPECT_TRUE(content.contains("visible error"));
 }
 
-TEST_F(LoggerTest, LogContainsTimestamp) {
+TEST_F(LoggerTest, LogContainsTimestamp)
+{
     Logger::instance().info("timestamp check");
     QString content = readLog();
     EXPECT_TRUE(content.contains(QDateTime::currentDateTime().toString("yyyy")));
 }
 
-TEST_F(LoggerTest, MultipleMessages) {
+TEST_F(LoggerTest, MultipleMessages)
+{
     Logger::instance().info("first");
     Logger::instance().warning("second");
     Logger::instance().error("third");
@@ -117,18 +131,21 @@ TEST_F(LoggerTest, MultipleMessages) {
     EXPECT_TRUE(content.contains("third"));
 }
 
-TEST_F(LoggerTest, SetLogFileChangesDestination) {
+TEST_F(LoggerTest, SetLogFileChangesDestination)
+{
     Logger::instance().info("original file");
 
     QString newPath = m_tempDir.filePath("newlog.log");
     Logger::instance().setLogFile(newPath);
     Logger::instance().info("new file");
 
-    QString originalContent = [&]() {
+    QString originalContent = [&]()
+    {
         QFile f(logFilePath());
         return f.open(QIODevice::ReadOnly | QIODevice::Text) ? f.readAll() : QString();
     }();
-    QString newContent = [&]() {
+    QString newContent = [&]()
+    {
         QFile f(newPath);
         return f.open(QIODevice::ReadOnly | QIODevice::Text) ? f.readAll() : QString();
     }();

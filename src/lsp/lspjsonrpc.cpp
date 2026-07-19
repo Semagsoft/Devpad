@@ -1,10 +1,11 @@
 #include "lspjsonrpc.h"
+
 #include <QJsonParseError>
 
-namespace lsp {
+namespace lsp
+{
 
-LspJsonRpc::LspJsonRpc(QObject* parent)
-    : QObject(parent)
+LspJsonRpc::LspJsonRpc(QObject* parent) : QObject(parent)
 {
 }
 
@@ -16,13 +17,17 @@ int LspJsonRpc::nextRequestId()
 void LspJsonRpc::registerPendingRequest(int id, ResponseCallback callback, int timeoutMs)
 {
     m_pendingRequests[id] = callback;
-    if (timeoutMs > 0) {
-        QTimer::singleShot(timeoutMs, this, [this, id]() {
-            auto it = m_pendingRequests.find(id);
-            if (it != m_pendingRequests.end()) {
-                m_pendingRequests.erase(it);
-            }
-        });
+    if (timeoutMs > 0)
+    {
+        QTimer::singleShot(timeoutMs, this,
+                           [this, id]()
+                           {
+                               auto it = m_pendingRequests.find(id);
+                               if (it != m_pendingRequests.end())
+                               {
+                                   m_pendingRequests.erase(it);
+                               }
+                           });
     }
 }
 
@@ -35,8 +40,10 @@ void LspJsonRpc::handleData(const QByteArray& data)
 {
     m_buffer.append(data);
 
-    while (true) {
-        if (m_contentLength < 0) {
+    while (true)
+    {
+        if (m_contentLength < 0)
+        {
             int headerEnd = m_buffer.indexOf("\r\n\r\n");
             if (headerEnd < 0)
                 return;
@@ -44,11 +51,15 @@ void LspJsonRpc::handleData(const QByteArray& data)
             QByteArray header = m_buffer.left(headerEnd);
             m_buffer.remove(0, headerEnd + 4);
 
-            for (const QByteArray& line : header.split('\n')) {
+            for (const QByteArray& line : header.split('\n'))
+            {
                 QByteArray l = line.trimmed();
-                if (l.startsWith("Content-Length:")) {
+                if (l.startsWith("Content-Length:"))
+                {
                     m_contentLength = l.mid(15).trimmed().toInt();
-                } else if (l.startsWith("Content-Type:")) {
+                }
+                else if (l.startsWith("Content-Type:"))
+                {
                     // Consume but ignore — we only support UTF-8 JSON-RPC
                 }
             }
@@ -78,29 +89,37 @@ void LspJsonRpc::processMessage(const QByteArray& message)
     QJsonValue resultVal = obj.value("result");
     QJsonObject errObj = obj.value("error").toObject();
 
-    if (obj.contains("method")) {
+    if (obj.contains("method"))
+    {
         QString method = obj["method"].toString();
         QJsonObject params = paramsVal.toObject();
 
-        if (obj.contains("id")) {
+        if (obj.contains("id"))
+        {
             int id = obj["id"].toInt();
             emit responseReceived(id, resultVal, errObj);
 
             auto it = m_pendingRequests.find(id);
-            if (it != m_pendingRequests.end()) {
+            if (it != m_pendingRequests.end())
+            {
                 if (it.value() && errObj.isEmpty())
                     it.value()(resultVal);
                 m_pendingRequests.erase(it);
             }
-        } else {
+        }
+        else
+        {
             emit notificationReceived(method, params);
         }
-    } else if (obj.contains("id")) {
+    }
+    else if (obj.contains("id"))
+    {
         int id = obj["id"].toInt();
         emit responseReceived(id, resultVal, errObj);
 
         auto it = m_pendingRequests.find(id);
-        if (it != m_pendingRequests.end()) {
+        if (it != m_pendingRequests.end())
+        {
             if (it.value() && errObj.isEmpty())
                 it.value()(resultVal);
             m_pendingRequests.erase(it);

@@ -22,20 +22,20 @@
 #include "actionmanager.h"
 #include "backupmanager.h"
 #include "codeeditor.h"
-#include "errorlistpanel.h"
-#include "findsymbolsdialog.h"
 #include "editorcontroller.h"
 #include "encodingmanager.h"
 #include "encodingutils.h"
+#include "errorlistpanel.h"
 #include "externaltoolmanager.h"
+#include "externaltoolsdialog.h"
 #include "filemanager.h"
 #include "filewatchermanager.h"
 #include "findinfilesdialog.h"
+#include "findsymbolsdialog.h"
 #include "logger.h"
-#include "externaltoolsdialog.h"
-#include "lsp/lsptypes.h"
-#include "lsp/lspservermanager.h"
 #include "lsp/lspclient.h"
+#include "lsp/lspservermanager.h"
+#include "lsp/lsptypes.h"
 #include "optionsdialog.h"
 #include "printmanager.h"
 #include "projectpanel.h"
@@ -53,32 +53,32 @@
 #include <QAction>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QDesktopServices>
 #include <QDialog>
 #include <QDir>
 #include <QEvent>
 #include <QFile>
-#include <QMenuBar>
-#include <QStatusBar>
-#include <QToolBar>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QDesktopServices>
-#include <QLocalSocket>
 #include <QIcon>
 #include <QInputDialog>
+#include <QLocalSocket>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeData>
-#include <QPointer>
 #include <QPageSetupDialog>
+#include <QPointer>
 #include <QPrintDialog>
 #include <QPrintPreviewDialog>
 #include <QPrinter>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QShortcut>
+#include <QStatusBar>
 #include <QStringConverter>
 #include <QTabBar>
 #include <QTextDocument>
+#include <QToolBar>
 #include <QToolButton>
 #ifndef Q_OS_WIN
 #include <qtermwidget.h>
@@ -109,12 +109,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     m_tabWidget->setDocumentMode(true);
     m_tabWidget->tabBar()->setExpanding(false);
 
-    m_splitView->setPaneCallbacks([this](QTabWidget* pane) { m_tabManager->addPane(pane); }, [this](QTabWidget* pane) { m_tabManager->removePane(pane); },
-                                [this](QTabWidget* pane, int index)
-                                {
-                                    m_tabManager->updateCloseButton(index, pane, SettingsManager::instance().closeButtonMode());
-                                    m_tabManager->updateTabBarVisibility();
-                                });
+    m_splitView->setPaneCallbacks([this](QTabWidget* pane) { m_tabManager->addPane(pane); },
+                                  [this](QTabWidget* pane) { m_tabManager->removePane(pane); },
+                                  [this](QTabWidget* pane, int index)
+                                  {
+                                      m_tabManager->updateCloseButton(index, pane, SettingsManager::instance().closeButtonMode());
+                                      m_tabManager->updateTabBarVisibility();
+                                  });
 
     connect(m_splitView, &SplitView::activeTabWidgetChanged, this,
             [this](QTabWidget* tw)
@@ -149,17 +150,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 }
             });
 
-    connect(m_splitView, &SplitView::externalTabDropped, this,
-            [this](const QString &filePath)
-            {
-                loadFile(filePath);
-            });
+    connect(m_splitView, &SplitView::externalTabDropped, this, [this](const QString& filePath) { loadFile(filePath); });
 
     m_projectPanel = new ProjectPanel(this);
     {
         auto pos = SettingsManager::instance().projectPanelPosition();
-        Qt::DockWidgetArea area = (pos == ProjectPanelPosition::Right)
-            ? Qt::RightDockWidgetArea : Qt::LeftDockWidgetArea;
+        Qt::DockWidgetArea area = (pos == ProjectPanelPosition::Right) ? Qt::RightDockWidgetArea : Qt::LeftDockWidgetArea;
         addDockWidget(area, m_projectPanel);
     }
     m_projectPanel->hide();
@@ -176,15 +172,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     // filters; disable acceptDrops on all terminal child widgets so that drag
     // events fall through to MainWindow where the SplitView's filter handles
     // them (cross-process acknowledgments, etc.)
-    connect(m_terminalPanel, &TerminalPanel::terminalStarted, this, [this]() {
-        auto disableDrops = [](auto &&self, QObject *obj) -> void {
-            if (auto *w = qobject_cast<QWidget*>(obj))
-                w->setAcceptDrops(false);
-            for (QObject *child : obj->children())
-                self(self, child);
-        };
-        disableDrops(disableDrops, m_terminalPanel);
-    });
+    connect(m_terminalPanel, &TerminalPanel::terminalStarted, this,
+            [this]()
+            {
+                auto disableDrops = [](auto&& self, QObject* obj) -> void
+                {
+                    if (auto* w = qobject_cast<QWidget*>(obj))
+                        w->setAcceptDrops(false);
+                    for (QObject* child : obj->children())
+                        self(self, child);
+                };
+                disableDrops(disableDrops, m_terminalPanel);
+            });
 
     m_tabManager = new TabManager(m_tabWidget, this);
     m_searchManager = new SearchManager(this, m_tabManager);
@@ -293,22 +292,24 @@ void MainWindow::setupUI()
     m_actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
     m_actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
 
-    auto *menuBarShortcut = new QShortcut(QKeySequence("Ctrl+Alt+M"), this);
-    connect(menuBarShortcut, &QShortcut::activated, this, [this]() {
-        bool visible = !menuBar()->isVisible();
-        menuBar()->setVisible(visible);
-        m_actionManager->menuBarAct()->setChecked(visible);
-        SettingsManager::instance().setShowMenuBar(visible);
-    });
+    auto* menuBarShortcut = new QShortcut(QKeySequence("Ctrl+Alt+M"), this);
+    connect(menuBarShortcut, &QShortcut::activated, this,
+            [this]()
+            {
+                bool visible = !menuBar()->isVisible();
+                menuBar()->setVisible(visible);
+                m_actionManager->menuBarAct()->setChecked(visible);
+                SettingsManager::instance().setShowMenuBar(visible);
+            });
 
-    auto *toolBarShortcut = new QShortcut(QKeySequence("Ctrl+Alt+T"), this);
+    auto* toolBarShortcut = new QShortcut(QKeySequence("Ctrl+Alt+T"), this);
     connect(toolBarShortcut, &QShortcut::activated, m_actionManager->toolBarAct(), &QAction::trigger);
 
-    auto *statusBarShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Alt+S"), this);
+    auto* statusBarShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Alt+S"), this);
     connect(statusBarShortcut, &QShortcut::activated, m_actionManager->statusBarAct(), &QAction::trigger);
 
     const auto shortcutActions = m_actionManager->actionsWithShortcuts();
-    for (QAction *act : shortcutActions)
+    for (QAction* act : shortcutActions)
         addAction(act);
 }
 
@@ -320,18 +321,20 @@ void MainWindow::wireActions()
     targets.splitView = m_splitView;
     targets.encodingManager = m_encodingManager;
     targets.mainWindow = this;
-    targets.openRecentFile = [this](const QString &filePath) { loadFile(filePath); };
+    targets.openRecentFile = [this](const QString& filePath) { loadFile(filePath); };
     targets.clearRecentFiles = [this]() { updateRecentFileActions(); };
     targets.updateRecentFileActions = [this]() { updateRecentFileActions(); };
-    targets.encodingSelected = [this](const QString &encoding, bool reopen) {
+    targets.encodingSelected = [this](const QString& encoding, bool reopen)
+    {
         if (reopen)
             reloadCurrentFileWithEncoding(encoding);
         else
             saveCurrentFileWithEncoding(encoding);
     };
-    targets.tabPinToggled = [this](int localIdx, QTabWidget *pane) {
-        auto *w = pane->widget(localIdx);
-        auto *editor = w ? w->findChild<CodeEditor*>() : nullptr;
+    targets.tabPinToggled = [this](int localIdx, QTabWidget* pane)
+    {
+        auto* w = pane->widget(localIdx);
+        auto* editor = w ? w->findChild<CodeEditor*>() : nullptr;
         if (editor)
             m_tabManager->setTabPinned(editor, !m_tabManager->isTabPinned(editor));
     };
@@ -340,7 +343,8 @@ void MainWindow::wireActions()
 
 void MainWindow::connectPanelSignals()
 {
-    connect(m_tabManager, &TabManager::editorCreated, this, [this](CodeEditor* editor)
+    connect(m_tabManager, &TabManager::editorCreated, this,
+            [this](CodeEditor* editor)
             {
                 onEditorCreated(editor);
                 connect(editor, &CodeEditor::findRequested, this, &MainWindow::find);
@@ -371,8 +375,10 @@ void MainWindow::connectPanelSignals()
     connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelAct(), &QAction::setChecked);
     connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelButton(), &QToolButton::setChecked);
     connect(m_terminalPanel, &QDockWidget::visibilityChanged, this,
-            [this](bool visible) {
-                if (SettingsManager::instance().terminalPanelPosition() != TerminalPanelPosition::Tab) {
+            [this](bool visible)
+            {
+                if (SettingsManager::instance().terminalPanelPosition() != TerminalPanelPosition::Tab)
+                {
                     m_actionManager->terminalPanelAct()->setChecked(visible);
                     m_actionManager->terminalPanelButton()->setChecked(visible);
                     SettingsManager::instance().setShowTerminalPanel(visible);
@@ -392,48 +398,59 @@ void MainWindow::setupEditorConnections()
                 connect(editor, &CodeEditor::replaceRequested, this, &MainWindow::replace);
                 connect(editor, &CodeEditor::goToLineRequested, this, &MainWindow::goToLine);
                 connect(editor, &CodeEditor::insertSnippetRequested, m_editorController, &EditorController::insertSnippet);
-                connect(editor, &CodeEditor::fileDropped, this, [this](const QString &path) {
-                    loadFile(path);
-                });
+                connect(editor, &CodeEditor::fileDropped, this, [this](const QString& path) { loadFile(path); });
                 connect(editor, &CodeEditor::navigateToLocation, this, &MainWindow::onNavigateToLocation);
-                connect(editor, &CodeEditor::diagnosticsChanged, this, [this](const QString& uri, const QList<lsp::Diagnostic>& diags) {
-                    m_errorListPanel->updateDiagnostics(uri, diags);
-                });
+                connect(editor, &CodeEditor::diagnosticsChanged, this,
+                        [this](const QString& uri, const QList<lsp::Diagnostic>& diags) { m_errorListPanel->updateDiagnostics(uri, diags); });
 
                 QString filePath = editor->fileName();
-                if (!filePath.isEmpty() && filePath != Strings::untitled()) {
+                if (!filePath.isEmpty() && filePath != Strings::untitled())
+                {
                     QString syntax = SettingsManager::instance().syntaxForFile(filePath);
-                    if (!syntax.isEmpty()) {
+                    if (!syntax.isEmpty())
+                    {
                         editor->setLspLanguage(syntax);
                         editor->setLspServerManager(m_lspServerManager);
                         QPointer<CodeEditor> guard(editor);
-                        QTimer::singleShot(200, this, [guard]() {
-                            if (guard) guard->sendDidOpen();
-                        });
+                        QTimer::singleShot(200, this,
+                                           [guard]()
+                                           {
+                                               if (guard)
+                                                   guard->sendDidOpen();
+                                           });
                     }
                 }
             });
 
     connect(m_editorController, &EditorController::fileSaved, this,
-            [this](const QString& fileName) {
-        CodeEditor* editor = m_editorController->findEditorByFileName(fileName);
-        if (!editor) return;
+            [this](const QString& fileName)
+            {
+                CodeEditor* editor = m_editorController->findEditorByFileName(fileName);
+                if (!editor)
+                    return;
 
-        if (!editor->lspActive()) {
-            QString syntax = SettingsManager::instance().syntaxForFile(fileName);
-            if (!syntax.isEmpty()) {
-                editor->setLspLanguage(syntax);
-                editor->setLspServerManager(m_lspServerManager);
-                QPointer<CodeEditor> guard(editor);
-                QTimer::singleShot(200, this, [guard]() {
-                    if (guard) guard->sendDidOpen();
-                });
-            }
-        } else {
-            QString uri = lsp::uriFromPath(fileName);
-            m_lspServerManager->saveDocument(uri);
-        }
-    });
+                if (!editor->lspActive())
+                {
+                    QString syntax = SettingsManager::instance().syntaxForFile(fileName);
+                    if (!syntax.isEmpty())
+                    {
+                        editor->setLspLanguage(syntax);
+                        editor->setLspServerManager(m_lspServerManager);
+                        QPointer<CodeEditor> guard(editor);
+                        QTimer::singleShot(200, this,
+                                           [guard]()
+                                           {
+                                               if (guard)
+                                                   guard->sendDidOpen();
+                                           });
+                    }
+                }
+                else
+                {
+                    QString uri = lsp::uriFromPath(fileName);
+                    m_lspServerManager->saveDocument(uri);
+                }
+            });
 
     m_autoSaveTimer = new QTimer(this);
     connect(m_autoSaveTimer, &QTimer::timeout, m_editorController, &EditorController::autoSave);
@@ -474,12 +491,15 @@ void MainWindow::setupLspConnections()
     connect(m_lspServerManager, &lsp::LspServerManager::codeActionReady, this,
             [this](const QString& uri, const QList<QJsonObject>& actions)
             {
-                if (actions.isEmpty()) return;
+                if (actions.isEmpty())
+                    return;
                 CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (!editor) return;
+                if (!editor)
+                    return;
 
                 QMenu menu(editor);
-                for (const auto& a : actions) {
+                for (const auto& a : actions)
+                {
                     QString title = a["title"].toString();
                     QAction* act = menu.addAction(title);
                     QJsonObject cmd = a["command"].toObject();
@@ -488,7 +508,8 @@ void MainWindow::setupLspConnections()
                     act->setData(command);
                 }
                 QAction* chosen = menu.exec(QCursor::pos());
-                if (chosen && !chosen->data().toString().isEmpty()) {
+                if (chosen && !chosen->data().toString().isEmpty())
+                {
 #ifdef QT_DEBUG
                     qDebug() << "Code action:" << chosen->data().toString();
 #endif
@@ -498,7 +519,8 @@ void MainWindow::setupLspConnections()
     connect(m_lspServerManager, &lsp::LspServerManager::referencesReady, this,
             [this](const QString&, const QList<lsp::Location>& locations)
             {
-                if (locations.isEmpty()) return;
+                if (locations.isEmpty())
+                    return;
                 const auto& loc = locations.first();
                 QString filePath = lsp::pathFromUri(loc.uri);
                 onNavigateToLocation(filePath, loc.range.start.line, loc.range.start.character);
@@ -509,7 +531,8 @@ void MainWindow::setupLspConnections()
             {
                 Q_UNUSED(uri)
                 CodeEditor* editor = m_tabManager->currentEditor();
-                if (editor && !contents.isEmpty()) {
+                if (editor && !contents.isEmpty())
+                {
                     int pos = editor->cursorPosition();
                     editor->showToolTip(pos, contents);
                 }
@@ -569,7 +592,8 @@ void MainWindow::setupLspConnections()
             [this](const QString& uri, const QJsonArray& highlights)
             {
                 CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (editor) {
+                if (editor)
+                {
                     editor->applyHighlights(highlights);
                 }
             });
@@ -578,7 +602,8 @@ void MainWindow::setupLspConnections()
             [this](const QString& uri, const QList<lsp::Diagnostic>& diagnostics)
             {
                 CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (editor) {
+                if (editor)
+                {
                     editor->applyDiagnostics(uri, diagnostics);
                 }
                 m_errorListPanel->updateDiagnostics(uri, diagnostics);
@@ -591,13 +616,15 @@ void MainWindow::setupLspConnections()
     connect(m_errorListPanel, &QDockWidget::visibilityChanged, m_actionManager->errorListPanelButton(), &QToolButton::setChecked);
 
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
-            [this]() {
-        for (const QString& lang : m_lspServerManager->languages()) {
-            auto* client = m_lspServerManager->clientForLanguage(lang);
-            if (client)
-                client->sendDidChangeConfiguration(QJsonObject());
-        }
-    });
+            [this]()
+            {
+                for (const QString& lang : m_lspServerManager->languages())
+                {
+                    auto* client = m_lspServerManager->clientForLanguage(lang);
+                    if (client)
+                        client->sendDidChangeConfiguration(QJsonObject());
+                }
+            });
 }
 
 void MainWindow::applyCloseButtonPosition()
@@ -893,10 +920,12 @@ void MainWindow::showOptions()
     QString originalTermFontFamily = SettingsManager::instance().terminalFontFamily();
     int originalTermFontSize = SettingsManager::instance().terminalFontSize();
 
-    connect(&dlg, &OptionsDialog::themeChanged, this, [this]() {
-        applySettings();
-        m_terminalPanel->refreshTheme();
-    });
+    connect(&dlg, &OptionsDialog::themeChanged, this,
+            [this]()
+            {
+                applySettings();
+                m_terminalPanel->refreshTheme();
+            });
 
     if (dlg.exec() == QDialog::Accepted)
     {
@@ -905,7 +934,7 @@ void MainWindow::showOptions()
         applyTabBarPosition();
         applyTerminalPanelPosition();
         m_terminalPanel->refreshTheme();
-    m_errorListPanel->setVisible(SettingsManager::instance().lspShowErrorList());
+        m_errorListPanel->setVisible(SettingsManager::instance().lspShowErrorList());
         m_tabManager->updateTabBarVisibility();
         updateRecentFileActions();
         applyAutoSaveSettings();
@@ -927,7 +956,8 @@ void MainWindow::runExternalTool(int index)
     QString filePath;
     int lineNumber = 1;
     QString selectedText;
-    if (editor) {
+    if (editor)
+    {
         filePath = editor->fileName();
         int dummyIndex;
         editor->getCursorPosition(&lineNumber, &dummyIndex);
@@ -939,14 +969,18 @@ void MainWindow::runExternalTool(int index)
     if (m_projectPanel->isVisible() && !m_projectPanel->rootPath().isEmpty())
         projectDir = m_projectPanel->rootPath();
 
-    m_externalToolManager->runTool(index, filePath, projectDir, selectedText, lineNumber,
-        [this](const QString& cmd) {
-            if (!m_terminalPanel->isVisible()) {
+    m_externalToolManager->runTool(
+        index, filePath, projectDir, selectedText, lineNumber,
+        [this](const QString& cmd)
+        {
+            if (!m_terminalPanel->isVisible())
+            {
                 m_terminalPanel->toggle(m_tabWidget, this);
                 m_terminalPanel->show();
             }
             m_terminalPanel->sendCommand(cmd);
-        }, this);
+        },
+        this);
 }
 
 void MainWindow::applySettings()
@@ -1201,7 +1235,8 @@ void MainWindow::toggleErrorListPanel()
 
 void MainWindow::findSymbols()
 {
-    if (!m_findSymbolsDialog) {
+    if (!m_findSymbolsDialog)
+    {
         m_findSymbolsDialog = new FindSymbolsDialog(m_lspServerManager, this);
         connect(m_findSymbolsDialog, &FindSymbolsDialog::navigateToSymbol, this, &MainWindow::onNavigateToLocation);
     }
@@ -1229,8 +1264,7 @@ void MainWindow::updateStatusBarLabelsVisibility()
 {
     bool hasEditor = m_tabManager->count() > 0;
     QTabWidget* activePane = m_tabManager->activePane();
-    bool isTerminalTab = (activePane != nullptr) &&
-                         (SettingsManager::instance().terminalPanelPosition() == TerminalPanelPosition::Tab) &&
+    bool isTerminalTab = (activePane != nullptr) && (SettingsManager::instance().terminalPanelPosition() == TerminalPanelPosition::Tab) &&
                          (activePane->currentWidget() == m_terminalPanel);
     bool shouldShow = hasEditor && !isTerminalTab;
     m_actionManager->lineColLabel()->setVisible(shouldShow);
@@ -1262,14 +1296,15 @@ bool MainWindow::signalOtherInstancesToQuit()
         return true;
 
     QList<qint64> pids;
-    for (const QString& line : QString::fromUtf8(pgrep.readAllStandardOutput())
-             .split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+    for (const QString& line : QString::fromUtf8(pgrep.readAllStandardOutput()).split(QLatin1Char('\n'), Qt::SkipEmptyParts))
+    {
         qint64 pid = line.trimmed().toLongLong();
         if (pid > 0 && pid != QCoreApplication::applicationPid())
             pids.append(pid);
     }
 
-    for (qint64 pid : pids) {
+    for (qint64 pid : pids)
+    {
         QLocalSocket socket;
         socket.connectToServer(QStringLiteral("devpad-%1").arg(pid));
         if (!socket.waitForConnected(1000))
@@ -1278,10 +1313,13 @@ bool MainWindow::signalOtherInstancesToQuit()
         socket.write("save_and_quit\n");
         socket.flush();
 
-        if (socket.waitForReadyRead(1000)) {
-            while (socket.canReadLine()) {
+        if (socket.waitForReadyRead(1000))
+        {
+            while (socket.canReadLine())
+            {
                 QString line = QString::fromUtf8(socket.readLine()).trimmed();
-                if (line == QStringLiteral("abort")) {
+                if (line == QStringLiteral("abort"))
+                {
                     m_quitRequested = false;
                     return false;
                 }
@@ -1296,9 +1334,11 @@ bool MainWindow::signalOtherInstancesToQuit()
 
 bool MainWindow::saveAllModifiedTabs()
 {
-    for (int i = m_tabManager->count() - 1; i >= 0; --i) {
+    for (int i = m_tabManager->count() - 1; i >= 0; --i)
+    {
         CodeEditor* editor = m_tabManager->editorAt(i);
-        if (!m_editorController->maybeSave(editor)) {
+        if (!m_editorController->maybeSave(editor))
+        {
             m_quitRequested = false;
             return false;
         }
@@ -1311,32 +1351,36 @@ void MainWindow::handleQuitRequest()
     QLocalSocket* client = m_localServer->nextPendingConnection();
     if (!client)
         return;
-    connect(client, &QLocalSocket::readyRead, this, [this, client]() {
-        if (!client->canReadLine())
-            return;
+    connect(client, &QLocalSocket::readyRead, this,
+            [this, client]()
+            {
+                if (!client->canReadLine())
+                    return;
 
-        QString command = QString::fromUtf8(client->readLine()).trimmed();
-        if (command != QStringLiteral("save_and_quit"))
-            return;
+                QString command = QString::fromUtf8(client->readLine()).trimmed();
+                if (command != QStringLiteral("save_and_quit"))
+                    return;
 
-        if (m_quitRequested) {
-            client->disconnectFromServer();
-            return;
-        }
-        m_quitRequested = true;
+                if (m_quitRequested)
+                {
+                    client->disconnectFromServer();
+                    return;
+                }
+                m_quitRequested = true;
 
-        if (!saveAllModifiedTabs()) {
-            client->write("abort\n");
-            client->flush();
-            client->disconnectFromServer();
-            return;
-        }
+                if (!saveAllModifiedTabs())
+                {
+                    client->write("abort\n");
+                    client->flush();
+                    client->disconnectFromServer();
+                    return;
+                }
 
-        SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
-        m_sessionManager->saveSession(m_tabManager, m_projectPanel, m_terminalPanel->workingDirectory());
-        client->disconnectFromServer();
-        QApplication::quit();
-    });
+                SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
+                m_sessionManager->saveSession(m_tabManager, m_projectPanel, m_terminalPanel->workingDirectory());
+                client->disconnectFromServer();
+                QApplication::quit();
+            });
     connect(client, &QLocalSocket::disconnected, client, &QObject::deleteLater);
 }
 
@@ -1376,7 +1420,8 @@ void MainWindow::changeEvent(QEvent* event)
             for (int i = 0; i < m_tabManager->count(); ++i)
             {
                 CodeEditor* editor = m_tabManager->editorAt(i);
-                if (editor) {
+                if (editor)
+                {
                     editor->applyTheme(ThemeId::System);
                 }
             }
@@ -1490,10 +1535,13 @@ void MainWindow::onNavigateToLocation(const QString& filePath, int line, int col
         return;
 
     CodeEditor* existing = m_tabManager->findEditorByFileName(filePath);
-    if (existing) {
-        for (QTabWidget* pane : m_tabManager->panes()) {
+    if (existing)
+    {
+        for (QTabWidget* pane : m_tabManager->panes())
+        {
             int idx = pane->indexOf(existing);
-            if (idx >= 0) {
+            if (idx >= 0)
+            {
                 pane->setCurrentIndex(idx);
                 m_tabManager->setActivePane(pane);
                 break;
@@ -1506,7 +1554,8 @@ void MainWindow::onNavigateToLocation(const QString& filePath, int line, int col
 
     loadFile(filePath);
     CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor) {
+    if (editor)
+    {
         editor->setCursorPosition(line, column);
     }
 }

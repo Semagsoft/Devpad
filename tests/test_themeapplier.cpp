@@ -1,14 +1,14 @@
-#include "themeapplier.h"
 #include "codeeditor.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
-
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include "themeapplier.h"
 
 #include <QApplication>
 #include <QMainWindow>
 #include <QTabWidget>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 class ThemeApplierTest : public ::testing::Test
 {
@@ -60,8 +60,7 @@ TEST_F(ThemeApplierTest, ApplyCustomThemeSetsOrClearsStylesheet)
     }
     else
     {
-        EXPECT_FALSE(window.styleSheet().isEmpty())
-            << "theme.qss was loaded and substitutions were applied";
+        EXPECT_FALSE(window.styleSheet().isEmpty()) << "theme.qss was loaded and substitutions were applied";
     }
 }
 
@@ -79,8 +78,7 @@ TEST_F(ThemeApplierTest, ApplyDarkThemeProducesDifferentStyle)
 
     if (!lightWin.styleSheet().isEmpty() && !darkWin.styleSheet().isEmpty())
     {
-        EXPECT_NE(lightWin.styleSheet(), darkWin.styleSheet())
-            << "light and dark stylesheets should differ";
+        EXPECT_NE(lightWin.styleSheet(), darkWin.styleSheet()) << "light and dark stylesheets should differ";
     }
 }
 
@@ -119,7 +117,6 @@ TEST_F(ThemeApplierTest, ApplyThemeDoesNotCrash)
     {
         ThemeId id = static_cast<ThemeId>(i);
         SettingsManager::instance().setTheme(id);
-        EXPECT_NO_THROW(applier.applyTheme(&window))
-            << "applyTheme crashed for theme " << themeDisplayName(id).toStdString();
+        EXPECT_NO_THROW(applier.applyTheme(&window)) << "applyTheme crashed for theme " << themeDisplayName(id).toStdString();
     }
 }

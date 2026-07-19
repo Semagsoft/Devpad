@@ -1,24 +1,23 @@
 #include "findsymbolsdialog.h"
-#include "lsp/lsptypes.h"
-#include "lsp/lspservermanager.h"
 
-#include <QLineEdit>
-#include <QTreeView>
-#include <QStandardItemModel>
-#include <QLabel>
-#include <QTimer>
-#include <QPushButton>
-#include <QVBoxLayout>
+#include "lsp/lspservermanager.h"
+#include "lsp/lsptypes.h"
+
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QStandardItemModel>
+#include <QTimer>
+#include <QTreeView>
+#include <QVBoxLayout>
 
-FindSymbolsDialog::FindSymbolsDialog(lsp::LspServerManager* lspManager, QWidget* parent)
-    : QDialog(parent)
-    , m_lspManager(lspManager)
+FindSymbolsDialog::FindSymbolsDialog(lsp::LspServerManager* lspManager, QWidget* parent) : QDialog(parent), m_lspManager(lspManager)
 {
     setWindowTitle(tr("Find Symbol"));
     setMinimumSize(400, 300);
@@ -30,8 +29,7 @@ FindSymbolsDialog::FindSymbolsDialog(lsp::LspServerManager* lspManager, QWidget*
     m_debounceTimer->setInterval(300);
     connect(m_debounceTimer, &QTimer::timeout, this, &FindSymbolsDialog::performSearch);
 
-    connect(m_lspManager, &lsp::LspServerManager::workspaceSymbolsReady,
-            this, &FindSymbolsDialog::onSymbolsReady);
+    connect(m_lspManager, &lsp::LspServerManager::workspaceSymbolsReady, this, &FindSymbolsDialog::onSymbolsReady);
 }
 
 FindSymbolsDialog::~FindSymbolsDialog() = default;
@@ -80,7 +78,8 @@ void FindSymbolsDialog::setupUI()
 
 void FindSymbolsDialog::onSearchTextChanged(const QString& text)
 {
-    if (text.isEmpty()) {
+    if (text.isEmpty())
+    {
         m_model->removeRows(0, m_model->rowCount());
         m_statusLabel->setText(tr("Type to search"));
         m_debounceTimer->stop();
@@ -92,13 +91,15 @@ void FindSymbolsDialog::onSearchTextChanged(const QString& text)
 void FindSymbolsDialog::performSearch()
 {
     QString query = m_searchEdit->text().trimmed();
-    if (query.isEmpty()) return;
+    if (query.isEmpty())
+        return;
 
     m_statusLabel->setText(tr("Searching..."));
     m_model->removeRows(0, m_model->rowCount());
 
     // Search across all languages
-    for (const QString& lang : m_lspManager->languages()) {
+    for (const QString& lang : m_lspManager->languages())
+    {
         auto* client = m_lspManager->clientForLanguage(lang);
         if (client)
             client->requestWorkspaceSymbols(query);
@@ -107,13 +108,15 @@ void FindSymbolsDialog::performSearch()
 
 void FindSymbolsDialog::onSymbolsReady(const QString& query, const QJsonArray& symbols)
 {
-    if (query != m_searchEdit->text().trimmed()) return;
+    if (query != m_searchEdit->text().trimmed())
+        return;
     populateResults(symbols);
 }
 
 void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
 {
-    for (const auto& s : symbols) {
+    for (const auto& s : symbols)
+    {
         QJsonObject obj = s.toObject();
         QString name = obj["name"].toString();
         QString kind = obj["kind"].toString();
@@ -121,7 +124,8 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
         QString location;
         QString filePath;
         int line = 0, col = 0;
-        if (obj.contains("location")) {
+        if (obj.contains("location"))
+        {
             auto loc = obj["location"].toObject();
             filePath = lsp::pathFromUri(loc["uri"].toString());
             location = QFileInfo(filePath).fileName();
@@ -131,13 +135,20 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
         }
 
         QString icon;
-        if (kind == "Function" || kind == "Method") icon = QStringLiteral("\u0192");
-        else if (kind == "Class" || kind == "Struct") icon = QStringLiteral("\u2299");
-        else if (kind == "Variable" || kind == "Field") icon = QStringLiteral("\u25CB");
-        else if (kind == "Interface") icon = QStringLiteral("\u2261");
-        else if (kind == "Module" || kind == "Namespace") icon = QStringLiteral("\u25A0");
-        else if (kind == "Enum") icon = QStringLiteral("\u2630");
-        else icon = QStringLiteral("\u2022");
+        if (kind == "Function" || kind == "Method")
+            icon = QStringLiteral("\u0192");
+        else if (kind == "Class" || kind == "Struct")
+            icon = QStringLiteral("\u2299");
+        else if (kind == "Variable" || kind == "Field")
+            icon = QStringLiteral("\u25CB");
+        else if (kind == "Interface")
+            icon = QStringLiteral("\u2261");
+        else if (kind == "Module" || kind == "Namespace")
+            icon = QStringLiteral("\u25A0");
+        else if (kind == "Enum")
+            icon = QStringLiteral("\u2630");
+        else
+            icon = QStringLiteral("\u2022");
 
         auto* nameItem = new QStandardItem(icon + QStringLiteral(" ") + name);
         nameItem->setEditable(false);
@@ -164,9 +175,11 @@ void FindSymbolsDialog::onItemDoubleClicked(const QModelIndex& index)
 
 void FindSymbolsDialog::onItemActivated(const QModelIndex& index)
 {
-    if (!index.isValid()) return;
+    if (!index.isValid())
+        return;
     QStandardItem* item = m_model->item(index.row(), 0);
-    if (!item) return;
+    if (!item)
+        return;
 
     QString filePath = item->data(Qt::UserRole + 1).toString();
     int line = item->data(Qt::UserRole + 2).toInt();
