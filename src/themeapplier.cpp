@@ -58,7 +58,7 @@ void ThemeApplier::applyTheme(QMainWindow* window)
             struct Mapping
             {
                 const char* key;
-                QColor ThemeColors::* member;
+                QColor ThemeColors::* member = nullptr;
             };
             static constexpr Mapping mappings[] = {
                 {"%background%", &ThemeColors::background},
