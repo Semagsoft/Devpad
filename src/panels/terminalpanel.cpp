@@ -115,7 +115,7 @@ void TerminalPanel::setupUI()
 void TerminalPanel::showEvent(QShowEvent* event)
 {
     QDockWidget::showEvent(event);
-    if (m_backend && !m_isRunning)
+    if (!m_backend || !m_isRunning)
     {
         startTerminal();
     }
