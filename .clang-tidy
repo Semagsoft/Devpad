@@ -22,6 +22,14 @@ Checks: >
   -performance-unnecessary-value-param,
   -performance-unnecessary-copy-initialization,
   -bugprone-throwing-static-initialization,
+  -readability-braces-around-statements,
+  -readability-implicit-bool-conversion,
+  -readability-math-missing-parentheses,
+  -readability-isolate-declaration,
+  -readability-redundant-access-specifiers,
+  -readability-enum-initial-value,
+  -readability-make-member-function-const,
+  -readability-function-cognitive-complexity,
 CheckOptions:
   readability-function-cognitive-complexity: IgnoreMacros
 WarningsAsErrors: 'modernize-*,performance-*,bugprone-*'

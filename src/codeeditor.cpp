@@ -40,15 +40,13 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QTimer>
-
-#include <array>
 #include <QToolTip>
+#include <array>
 
 #include <Qsci/qsciapis.h>
 
 namespace
 {
-constexpr int CARETSTYLE_LINE = 1;
 constexpr int CARETSTYLE_BLOCK = 2;
 constexpr int CARETSTYLE_UNDERLINE = 4;
 
@@ -106,7 +104,7 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
     SendScintilla(QsciScintillaBase::SCI_SETMOUSEDWELLTIME, 500);
 
     // Connect mouse dwell for hover
-    connect(this, static_cast<void (QsciScintillaBase::*)(int, int, int)>(&QsciScintillaBase::SCN_DWELLSTART), this,
+    connect(this, &QsciScintillaBase::SCN_DWELLSTART, this,
             [this](int position, int, int)
             {
                 if (!m_lspIntegration->isActive() || m_fileName.isEmpty())
@@ -123,11 +121,10 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 client->requestHover(uri, pos);
             });
 
-    connect(this, static_cast<void (QsciScintillaBase::*)(int, int, int)>(&QsciScintillaBase::SCN_DWELLEND), this,
-            [this](int, int, int) { QToolTip::hideText(); });
+    connect(this, &QsciScintillaBase::SCN_DWELLEND, this, [this](int, int, int) { QToolTip::hideText(); });
 
     // Connect char added signal for LSP completion trigger
-    connect(this, static_cast<void (QsciScintillaBase::*)(int)>(&QsciScintillaBase::SCN_CHARADDED), this, &CodeEditor::onCharAdded);
+    connect(this, &QsciScintillaBase::SCN_CHARADDED, this, &CodeEditor::onCharAdded);
 
     // Connect autocompletion selection signal to handle snippet expansion
     connect(this, static_cast<void (QsciScintillaBase::*)(const char*, int)>(&QsciScintillaBase::SCN_AUTOCSELECTION), this,
@@ -938,7 +935,11 @@ CodeEditor::BracketContext CodeEditor::contextAtPosition(int pos) const
 
 bool CodeEditor::handleAutoClose(QChar ch, int pos)
 {
-    struct Pair { QChar open; QChar close; };
+    struct Pair
+    {
+        QChar open;
+        QChar close;
+    };
     static constexpr std::array pairs{Pair{'(', ')'}, Pair{'[', ']'}, Pair{'{', '}'}, Pair{'"', '"'}, Pair{'\'', '\''}};
     BracketContext ctx = contextAtPosition(pos);
     if (ctx.inComment || ctx.inBlockComment || ctx.inCharLiteral)
