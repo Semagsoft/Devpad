@@ -122,6 +122,8 @@ void ErrorListPanel::onFilterChanged(int index)
             case 4:
                 show = (d.severityLevel == 4);
                 break;
+            default:
+                break;
             }
             if (!show)
                 continue;

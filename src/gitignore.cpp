@@ -5,9 +5,7 @@
 #include <QFileInfo>
 #include <QTextStream>
 
-GitIgnore::GitIgnore()
-{
-}
+GitIgnore::GitIgnore() = default;
 
 GitIgnore::GitIgnore(const QString& rootPath)
 {
@@ -229,23 +227,7 @@ bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
 
         for (const Pattern& p : it.value())
         {
-            QString matchTarget;
-            if (p.dirOnly)
-            {
-                matchTarget = relPath;
-            }
-            else if (p.anchored)
-            {
-                matchTarget = relPath;
-            }
-            else if (!relPath.contains('/'))
-            {
-                matchTarget = relPath;
-            }
-            else
-            {
-                matchTarget = relPath.section('/', -1);
-            }
+            QString matchTarget = (!p.dirOnly && !p.anchored && relPath.contains('/')) ? relPath.section('/', -1) : relPath;
 
             if (p.regex.match(matchTarget).hasMatch())
                 ignored = !p.negate;

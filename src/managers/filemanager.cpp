@@ -31,8 +31,8 @@
 namespace
 {
 
-constexpr qint64 MaxFileSize = 100 * 1024 * 1024;
-constexpr qint64 WarningFileSize = 50 * 1024 * 1024;
+constexpr qint64 MaxFileSize = 100LL * 1024 * 1024;
+constexpr qint64 WarningFileSize = 50LL * 1024 * 1024;
 } // namespace
 
 FileManager::FileManager(QObject* parent) : QObject(parent)
@@ -61,7 +61,7 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
     qint64 fileSize = file.size();
     if (fileSize > MaxFileSize)
     {
-        m_lastError = tr("File too large (%1 MB). Maximum size is %2 MB.").arg(fileSize / (1024 * 1024)).arg(MaxFileSize / (1024 * 1024));
+        m_lastError = tr("File too large (%1 MB). Maximum size is %2 MB.").arg(fileSize / (1024LL * 1024)).arg(MaxFileSize / (1024LL * 1024));
         Logger::instance().error(m_lastError);
         emit error(m_lastError);
         file.close();
@@ -70,7 +70,7 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
 
     if (fileSize > WarningFileSize)
     {
-        QString warnMsg = tr("File is large (%1 MB). Opening may take a moment.").arg(fileSize / (1024 * 1024));
+        QString warnMsg = tr("File is large (%1 MB). Opening may take a moment.").arg(fileSize / (1024LL * 1024));
         Logger::instance().warning(warnMsg);
     }
 

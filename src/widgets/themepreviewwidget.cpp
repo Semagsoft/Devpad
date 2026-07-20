@@ -1,6 +1,7 @@
 #include "themepreviewwidget.h"
 
 #include <QPainter>
+#include <array>
 
 ThemePreviewWidget::ThemePreviewWidget(QWidget* parent) : QWidget(parent)
 {
@@ -108,7 +109,7 @@ void ThemePreviewWidget::paintEvent(QPaintEvent*)
         QVector<Token> tokens;
     };
 
-    Line lines[7];
+    std::array<Line, 7> lines;
     lines[0] = {{{"use ", c.keyword}, {"std::io;\n", c.function}}};
     lines[1] = {{{"\n", c.foreground}}};
     lines[2] = {{{"fn ", c.keyword}, {"main", c.function}, {"() ", c.operator_}, {"{\n", c.operator_}}};

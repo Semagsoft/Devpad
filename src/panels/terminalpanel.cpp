@@ -119,10 +119,6 @@ void TerminalPanel::showEvent(QShowEvent* event)
     {
         startTerminal();
     }
-    else if (!m_backend)
-    {
-        startTerminal();
-    }
 }
 
 QString TerminalPanel::themeToColorScheme(ThemeId themeId) const

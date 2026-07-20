@@ -1,6 +1,7 @@
 #include "keywords.h"
 
 #include <QSet>
+#include <array>
 
 #include <gtest/gtest.h>
 
@@ -40,22 +41,22 @@ TEST_P(KeywordsParamTest, NoDuplicates)
     EXPECT_EQ(keywords.size(), unique.size()) << param.name.toStdString() << " has duplicate keywords";
 }
 
-static const LanguageKeywords kAllLanguages[] = {
-    {"C++", cppKeywords, {"int", "class", "constexpr", "nullptr", "auto"}},
-    {"C#", csharpKeywords, {"class", "async", "await"}},
-    {"Java", javaKeywords, {"class", "interface", "extends"}},
-    {"Python", pythonKeywords, {"def", "class", "async", "await"}},
-    {"JavaScript", javascriptKeywords, {"function", "const", "let", "async"}},
-    {"TypeScript", typescriptKeywords, {"interface", "type", "any"}},
-    {"Rust", rustKeywords, {"fn", "let", "match", "impl"}},
-    {"Go", goKeywords, {"func", "defer", "go", "range"}},
-    {"HTML", htmlKeywords, {"div", "html", "body"}},
-    {"CSS", cssKeywords, {"color", "display", "flex"}},
-    {"XML", xmlKeywords, {"xml", "version"}},
-    {"SQL", sqlKeywords, {"SELECT", "FROM", "WHERE"}},
-    {"Bash", bashKeywords, {"if", "then", "fi", "echo"}},
-    {"CMake", cmakeKeywords, {"add_executable", "target_link_libraries", "cmake_minimum_required", "CMAKE_CURRENT_SOURCE_DIR"}},
-    {"Markdown", markdownKeywords, {}},
+static const std::array kAllLanguages = {
+    LanguageKeywords{"C++", cppKeywords, {"int", "class", "constexpr", "nullptr", "auto"}},
+    LanguageKeywords{"C#", csharpKeywords, {"class", "async", "await"}},
+    LanguageKeywords{"Java", javaKeywords, {"class", "interface", "extends"}},
+    LanguageKeywords{"Python", pythonKeywords, {"def", "class", "async", "await"}},
+    LanguageKeywords{"JavaScript", javascriptKeywords, {"function", "const", "let", "async"}},
+    LanguageKeywords{"TypeScript", typescriptKeywords, {"interface", "type", "any"}},
+    LanguageKeywords{"Rust", rustKeywords, {"fn", "let", "match", "impl"}},
+    LanguageKeywords{"Go", goKeywords, {"func", "defer", "go", "range"}},
+    LanguageKeywords{"HTML", htmlKeywords, {"div", "html", "body"}},
+    LanguageKeywords{"CSS", cssKeywords, {"color", "display", "flex"}},
+    LanguageKeywords{"XML", xmlKeywords, {"xml", "version"}},
+    LanguageKeywords{"SQL", sqlKeywords, {"SELECT", "FROM", "WHERE"}},
+    LanguageKeywords{"Bash", bashKeywords, {"if", "then", "fi", "echo"}},
+    LanguageKeywords{"CMake", cmakeKeywords, {"add_executable", "target_link_libraries", "cmake_minimum_required", "CMAKE_CURRENT_SOURCE_DIR"}},
+    LanguageKeywords{"Markdown", markdownKeywords, {}},
 };
 
 INSTANTIATE_TEST_SUITE_P(AllLanguages, KeywordsParamTest, ::testing::ValuesIn(kAllLanguages),

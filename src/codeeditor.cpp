@@ -41,16 +41,16 @@
 #include <QMimeData>
 #include <QTimer>
 #include <QToolTip>
+#include <array>
 
 #include <Qsci/qsciapis.h>
 
 namespace
 {
-constexpr int CARETSTYLE_LINE = 1;
 constexpr int CARETSTYLE_BLOCK = 2;
 constexpr int CARETSTYLE_UNDERLINE = 4;
 
-const QString SNIPPET_MARKER = QStringLiteral("\u00ABsnip\u00BB");
+constexpr const char* SNIPPET_MARKER = "\u00ABsnip\u00BB";
 } // namespace
 
 CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF-8"), m_themeId(ThemeId::Light), m_lineNumbersVisible(true)
@@ -104,7 +104,7 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
     SendScintilla(QsciScintillaBase::SCI_SETMOUSEDWELLTIME, 500);
 
     // Connect mouse dwell for hover
-    connect(this, static_cast<void (QsciScintillaBase::*)(int, int, int)>(&QsciScintillaBase::SCN_DWELLSTART), this,
+    connect(this, &QsciScintillaBase::SCN_DWELLSTART, this,
             [this](int position, int, int)
             {
                 if (!m_lspIntegration->isActive() || m_fileName.isEmpty())
@@ -121,11 +121,10 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 client->requestHover(uri, pos);
             });
 
-    connect(this, static_cast<void (QsciScintillaBase::*)(int, int, int)>(&QsciScintillaBase::SCN_DWELLEND), this,
-            [this](int, int, int) { QToolTip::hideText(); });
+    connect(this, &QsciScintillaBase::SCN_DWELLEND, this, [this](int, int, int) { QToolTip::hideText(); });
 
     // Connect char added signal for LSP completion trigger
-    connect(this, static_cast<void (QsciScintillaBase::*)(int)>(&QsciScintillaBase::SCN_CHARADDED), this, &CodeEditor::onCharAdded);
+    connect(this, &QsciScintillaBase::SCN_CHARADDED, this, &CodeEditor::onCharAdded);
 
     // Connect autocompletion selection signal to handle snippet expansion
     connect(this, static_cast<void (QsciScintillaBase::*)(const char*, int)>(&QsciScintillaBase::SCN_AUTOCSELECTION), this,
@@ -199,11 +198,7 @@ void CodeEditor::dragEnterEvent(QDragEnterEvent* event)
     if (event->mimeData()->hasFormat("application/x-devpad-tab"))
         return;
 
-    if (event->mimeData()->hasUrls())
-    {
-        event->acceptProposedAction();
-    }
-    else if (event->mimeData()->hasText())
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText())
     {
         event->acceptProposedAction();
     }
@@ -377,7 +372,7 @@ void CodeEditor::registerSnippetAutoCompletion(const QList<Snippet>& snippets)
 
     for (const Snippet& s : snippets)
     {
-        m_apis->add(s.prefix + SNIPPET_MARKER);
+        m_apis->add(s.prefix + QLatin1String(SNIPPET_MARKER));
     }
     m_apis->prepare();
     if (m_lexer)
@@ -940,11 +935,12 @@ CodeEditor::BracketContext CodeEditor::contextAtPosition(int pos) const
 
 bool CodeEditor::handleAutoClose(QChar ch, int pos)
 {
-    static const struct
+    struct Pair
     {
         QChar open;
         QChar close;
-    } pairs[] = {{'(', ')'}, {'[', ']'}, {'{', '}'}, {'"', '"'}, {'\'', '\''}};
+    };
+    static constexpr std::array pairs{Pair{'(', ')'}, Pair{'[', ']'}, Pair{'{', '}'}, Pair{'"', '"'}, Pair{'\'', '\''}};
     BracketContext ctx = contextAtPosition(pos);
     if (ctx.inComment || ctx.inBlockComment || ctx.inCharLiteral)
         return false;
@@ -970,7 +966,7 @@ bool CodeEditor::handleAutoClose(QChar ch, int pos)
 
 bool CodeEditor::handleBracketSkip(QChar ch, int pos)
 {
-    static const QChar closers[] = {')', ']', '}', '"', '\''};
+    static constexpr std::array closers{QChar(')'), QChar(']'), QChar('}'), QChar('"'), QChar('\'')};
     BracketContext ctx = contextAtPosition(pos);
 
     // Never skip brackets inside comments
@@ -1419,6 +1415,8 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
         case 3:
         case 4:
             indicatorId = lsp::LSP_INDICATOR_INFO;
+            break;
+        default:
             break;
         }
 

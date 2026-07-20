@@ -77,7 +77,7 @@ TEST(SnippetTest, ParseBodyMixedStops)
 
 TEST(SnippetTest, ParseBodyEscapeSequences)
 {
-    QStringList body = {"\\n\\t\\\\\\$\\}"};
+    QStringList body = {R"(\n\t\\\$\})"};
     Snippet::ExpandedSnippet result = Snippet::parseBody(body);
 
     EXPECT_EQ(result.text, "\n\t\\$}");

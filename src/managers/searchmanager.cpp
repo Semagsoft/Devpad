@@ -14,9 +14,7 @@ SearchManager::SearchManager(QMainWindow* parent, TabManager* tabManager) : QObj
 {
 }
 
-SearchManager::~SearchManager()
-{
-}
+SearchManager::~SearchManager() = default;
 
 CodeEditor* SearchManager::currentEditor() const
 {

@@ -140,7 +140,7 @@ public:
         return m_themeId;
     }
 
-    void replaceSelectedText(const QString& text);
+    void replaceSelectedText(const QString& text) override;
     int lineFromPosition(int pos) const;
     int cursorPosition() const;
     void showToolTip(int pos, const QString& text);

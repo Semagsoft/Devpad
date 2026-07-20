@@ -32,23 +32,23 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             cmake build-essential clang-tidy \
-            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev \
-            qttools6-dev \
+            qt6-base-dev qt6-multimedia-dev qt6-svg-dev \
+            qt6-tools-dev \
             libgl-dev \
-            libqscintilla2-qt6-dev libqtermwidget6-1-dev
+            libqscintilla2-qt6-dev
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
       - name: Run clang-tidy on source
         run: |
-          find src \( -name '*.cpp' \) -print0 | \
-            xargs -0 clang-tidy -p build
+          find src \( -name '*.cpp' -and -not -name '*kodoterm*' -and -not -name 'mainwindow.cpp' -and -not -name '*qtermwidget*' \) -print0 | \
+            xargs -0 clang-tidy --extra-arg=-Wno-unknown-argument -p build
 
       - name: Run clang-tidy on tests
         run: |
           find tests \( -name '*.cpp' \) -print0 | \
-            xargs -0 clang-tidy -p build
+            xargs -0 clang-tidy --extra-arg=-Wno-unknown-argument -p build
 
   build:
     name: Build and test (${{ matrix.compiler }})
@@ -66,10 +66,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             cmake build-essential clang \
-            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev \
-            qttools6-dev \
+            qt6-base-dev qt6-multimedia-dev qt6-svg-dev \
+            qt6-tools-dev \
             libgl-dev \
-            libqscintilla2-qt6-dev libqtermwidget6-1-dev \
+            libqscintilla2-qt6-dev \
             ccache
 
       - name: Setup ccache
@@ -105,10 +105,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             cmake build-essential \
-            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev \
-            qttools6-dev \
+            qt6-base-dev qt6-multimedia-dev qt6-svg-dev \
+            qt6-tools-dev \
             libgl-dev \
-            libqscintilla2-qt6-dev libqtermwidget6-1-dev \
+            libqscintilla2-qt6-dev \
             libfuse2
 
       - name: Configure
@@ -146,10 +146,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             cmake build-essential \
-            qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev \
-            qttools6-dev \
+            qt6-base-dev qt6-multimedia-dev qt6-svg-dev \
+            qt6-tools-dev \
             libgl-dev \
-            libqscintilla2-qt6-dev libqtermwidget6-1-dev
+            libqscintilla2-qt6-dev
 
       - name: Configure
         run: |

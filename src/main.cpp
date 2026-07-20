@@ -24,6 +24,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <array>
 #include <cstdlib>
 #include <iostream>
 
@@ -61,16 +62,16 @@ static void crashHandler(int sig, siginfo_t* info, void*)
     {
         const char* addrMsg = "\nFault address: ";
         write(STDERR_FILENO, addrMsg, strlen(addrMsg));
-        char addr[32];
-        int len = snprintf(addr, sizeof(addr), "%p", info->si_addr);
-        write(STDERR_FILENO, addr, len);
+        std::array<char, 32> addr;
+        int len = snprintf(addr.data(), addr.size(), "%p", info->si_addr);
+        write(STDERR_FILENO, addr.data(), len);
     }
 
     write(STDERR_FILENO, "\n\nBacktrace:\n", 12);
 
-    void* buffer[64];
-    int frames = backtrace(buffer, 64);
-    backtrace_symbols_fd(buffer, frames, STDERR_FILENO);
+    std::array<void*, 64> buffer;
+    int frames = backtrace(buffer.data(), static_cast<int>(buffer.size()));
+    backtrace_symbols_fd(buffer.data(), frames, STDERR_FILENO);
 
     write(STDERR_FILENO, "\nRun with: ulimit -c unlimited && gdb ./build/Devpad core\n", 59);
 

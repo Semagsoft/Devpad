@@ -18,6 +18,8 @@
  */
 #include "lsptypes.h"
 
+#include <array>
+
 namespace lsp
 {
 
@@ -106,10 +108,10 @@ CompletionItem CompletionItem::fromJson(const QJsonObject& obj)
     CompletionItem item;
     item.label = obj["label"].toString();
     int k = obj["kind"].toInt(0);
-    static const char* kindNames[] = {"Text",      "Method", "Function", "Constructor",  "Field",  "Variable",   "Class",
-                                      "Interface", "Module", "Property", "Unit",         "Value",  "Enum",       "Keyword",
-                                      "Snippet",   "Color",  "File",     "Reference",    "Folder", "EnumMember", "Constant",
-                                      "Struct",    "Event",  "Operator", "TypeParameter"};
+    static constexpr std::array kindNames{"Text",      "Method", "Function", "Constructor",  "Field",  "Variable",   "Class",
+                                          "Interface", "Module", "Property", "Unit",         "Value",  "Enum",       "Keyword",
+                                          "Snippet",   "Color",  "File",     "Reference",    "Folder", "EnumMember", "Constant",
+                                          "Struct",    "Event",  "Operator", "TypeParameter"};
     if (k >= 0 && k <= 25)
         item.kind = QString::fromLatin1(kindNames[k]);
     item.detail = obj["detail"].toString();

@@ -24,7 +24,7 @@
 
 namespace
 {
-constexpr qint64 MaxLogSize = 1 * 1024 * 1024; // 1 MB
+constexpr qint64 MaxLogSize = 1LL * 1024 * 1024; // 1 MB
 constexpr int MaxRotatedLogs = 3;
 } // namespace
 
