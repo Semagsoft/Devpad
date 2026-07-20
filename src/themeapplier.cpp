@@ -26,6 +26,8 @@
 #include <QFile>
 #include <QMainWindow>
 
+#include <array>
+
 ThemeApplier::ThemeApplier(QObject* parent) : QObject(parent)
 {
 }
@@ -60,7 +62,7 @@ void ThemeApplier::applyTheme(QMainWindow* window)
                 const char* key;
                 QColor ThemeColors::*member;
             };
-            static constexpr Mapping mappings[] = {
+            static constexpr std::array<Mapping, 24> mappings = {{
                 {"%background%", &ThemeColors::background},
                 {"%foreground%", &ThemeColors::foreground},
                 {"%menuBg%", &ThemeColors::menuBg},
@@ -85,7 +87,7 @@ void ThemeApplier::applyTheme(QMainWindow* window)
                 {"%scrollbarBg%", &ThemeColors::scrollbarBg},
                 {"%scrollbarHandle%", &ThemeColors::scrollbarHandle},
                 {"%scrollbarHandleHover%", &ThemeColors::scrollbarHandleHover},
-            };
+            }};
             for (const auto& m : mappings)
             {
                 ss.replace(QLatin1String(m.key), (colors.*(m.member)).name());

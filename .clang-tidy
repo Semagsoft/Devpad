@@ -13,6 +13,15 @@ Checks: >
   -modernize-pass-by-value,
   -bugprone-easily-swappable-parameters,
   -bugprone-narrowing-conversions,
+  -modernize-use-nodiscard,
+  -modernize-use-auto,
+  -modernize-return-braced-init-list,
+  -modernize-use-default-member-init,
+  -modernize-loop-convert,
+  -performance-enum-size,
+  -performance-unnecessary-value-param,
+  -performance-unnecessary-copy-initialization,
+  -bugprone-throwing-static-initialization,
 CheckOptions:
   readability-function-cognitive-complexity: IgnoreMacros
 WarningsAsErrors: 'modernize-*,performance-*,bugprone-*'

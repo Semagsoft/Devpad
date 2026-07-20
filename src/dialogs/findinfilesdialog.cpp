@@ -108,7 +108,7 @@ void FindInFilesWorker::searchFile(const QString& filePath)
     if (!file.open(QIODevice::ReadOnly))
         return;
 
-    if (file.size() > 10 * 1024 * 1024)
+    if (file.size() > 10LL * 1024 * 1024)
         return;
 
     QByteArray rawData = file.readAll();

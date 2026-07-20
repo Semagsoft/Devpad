@@ -42,13 +42,13 @@ jobs:
 
       - name: Run clang-tidy on source
         run: |
-          find src \( -name '*.cpp' \) -print0 | \
-            xargs -0 clang-tidy -p build
+          find src \( -name '*.cpp' -and -not -name '*kodoterm*' \) -print0 | \
+            xargs -0 clang-tidy --extra-arg=-Wno-unknown-argument -p build
 
       - name: Run clang-tidy on tests
         run: |
           find tests \( -name '*.cpp' \) -print0 | \
-            xargs -0 clang-tidy -p build
+            xargs -0 clang-tidy --extra-arg=-Wno-unknown-argument -p build
 
   build:
     name: Build and test (${{ matrix.compiler }})

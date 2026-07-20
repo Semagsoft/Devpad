@@ -743,21 +743,9 @@ void ProjectPanel::openInTerminal(const QString& dirPath)
 
     QStringList termArgs;
     QString terminalBase = QFileInfo(terminal).baseName();
-    if (terminalBase == "gnome-terminal" || terminalBase == "kgx")
-    {
-        termArgs << "--working-directory" << dirPath;
-    }
-    else if (terminalBase == "konsole")
+    if (terminalBase == "konsole")
     {
         termArgs << "--workdir" << dirPath;
-    }
-    else if (terminalBase == "xfce4-terminal")
-    {
-        termArgs << "--working-directory" << dirPath;
-    }
-    else if (terminalBase == "alacritty" || terminalBase == "kitty" || terminalBase == "ghostty")
-    {
-        termArgs << "--working-directory" << dirPath;
     }
     else if (terminalBase == "urxvt" || terminalBase == "xterm")
     {
@@ -765,11 +753,10 @@ void ProjectPanel::openInTerminal(const QString& dirPath)
         escapedDir.replace('\'', "'\\''");
         termArgs << "-e" << QString("cd '%1' && exec $SHELL").arg(escapedDir);
     }
-    else if (terminalBase == "lxterminal")
-    {
-        termArgs << "--working-directory" << dirPath;
-    }
-    else if (terminalBase == "foot")
+    else if (terminalBase == "gnome-terminal" || terminalBase == "kgx"
+             || terminalBase == "xfce4-terminal"
+             || terminalBase == "alacritty" || terminalBase == "kitty" || terminalBase == "ghostty"
+             || terminalBase == "lxterminal" || terminalBase == "foot")
     {
         termArgs << "--working-directory" << dirPath;
     }

@@ -40,6 +40,8 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QTimer>
+
+#include <array>
 #include <QToolTip>
 
 #include <Qsci/qsciapis.h>
@@ -50,7 +52,7 @@ constexpr int CARETSTYLE_LINE = 1;
 constexpr int CARETSTYLE_BLOCK = 2;
 constexpr int CARETSTYLE_UNDERLINE = 4;
 
-const QString SNIPPET_MARKER = QStringLiteral("\u00ABsnip\u00BB");
+constexpr const char* SNIPPET_MARKER = "\u00ABsnip\u00BB";
 } // namespace
 
 CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF-8"), m_themeId(ThemeId::Light), m_lineNumbersVisible(true)
@@ -199,11 +201,7 @@ void CodeEditor::dragEnterEvent(QDragEnterEvent* event)
     if (event->mimeData()->hasFormat("application/x-devpad-tab"))
         return;
 
-    if (event->mimeData()->hasUrls())
-    {
-        event->acceptProposedAction();
-    }
-    else if (event->mimeData()->hasText())
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText())
     {
         event->acceptProposedAction();
     }
@@ -377,7 +375,7 @@ void CodeEditor::registerSnippetAutoCompletion(const QList<Snippet>& snippets)
 
     for (const Snippet& s : snippets)
     {
-        m_apis->add(s.prefix + SNIPPET_MARKER);
+        m_apis->add(s.prefix + QLatin1String(SNIPPET_MARKER));
     }
     m_apis->prepare();
     if (m_lexer)
@@ -940,11 +938,8 @@ CodeEditor::BracketContext CodeEditor::contextAtPosition(int pos) const
 
 bool CodeEditor::handleAutoClose(QChar ch, int pos)
 {
-    static const struct
-    {
-        QChar open;
-        QChar close;
-    } pairs[] = {{'(', ')'}, {'[', ']'}, {'{', '}'}, {'"', '"'}, {'\'', '\''}};
+    struct Pair { QChar open; QChar close; };
+    static constexpr std::array pairs{Pair{'(', ')'}, Pair{'[', ']'}, Pair{'{', '}'}, Pair{'"', '"'}, Pair{'\'', '\''}};
     BracketContext ctx = contextAtPosition(pos);
     if (ctx.inComment || ctx.inBlockComment || ctx.inCharLiteral)
         return false;
@@ -970,7 +965,7 @@ bool CodeEditor::handleAutoClose(QChar ch, int pos)
 
 bool CodeEditor::handleBracketSkip(QChar ch, int pos)
 {
-    static const QChar closers[] = {')', ']', '}', '"', '\''};
+    static constexpr std::array closers{QChar(')'), QChar(']'), QChar('}'), QChar('"'), QChar('\'')};
     BracketContext ctx = contextAtPosition(pos);
 
     // Never skip brackets inside comments
@@ -1419,6 +1414,8 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
         case 3:
         case 4:
             indicatorId = lsp::LSP_INDICATOR_INFO;
+            break;
+        default:
             break;
         }
 
