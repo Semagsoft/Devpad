@@ -47,7 +47,6 @@
 
 namespace
 {
-constexpr int CARETSTYLE_BLOCK = 2;
 constexpr int CARETSTYLE_UNDERLINE = 4;
 
 constexpr const char* SNIPPET_MARKER = "\u00ABsnip\u00BB";
