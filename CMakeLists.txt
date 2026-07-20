@@ -36,6 +36,7 @@ else()
             GIT_REPOSITORY https://github.com/lxqt/lxqt-build-tools.git
             GIT_TAG 2.1.0
             PREFIX ${DEPS_PREFIX}/lxqt-build-tools
+            PATCH_COMMAND sh -c "sed -i 's/set(LXQT_MIN_LINGUIST_VERSION \"6.6\")/set(LXQT_MIN_LINGUIST_VERSION \"6.2\")/' CMakeLists.txt"
             CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
             BUILD_COMMAND ""
             INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
