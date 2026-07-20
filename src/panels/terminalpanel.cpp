@@ -159,6 +159,8 @@ QString TerminalPanel::themeToColorScheme(ThemeId themeId) const
         return "DevpadAyuDark";
     case ThemeId::System:
         return SettingsManager::instance().isDarkTheme() ? "DevpadDark" : "DevpadLight";
+    default:
+        break;
     }
     return "DevpadDark";
 }
