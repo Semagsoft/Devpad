@@ -66,7 +66,6 @@ TEST_F(ActionManagerTest, WireConnectionsWithTerminalPanel)
     manager.buildMenus(&menuBar);
 
     ActionTargets targets;
-    bool triggered = false;
     targets.terminalPanel = nullptr;
     targets.splitView = nullptr;
     targets.encodingManager = nullptr;
