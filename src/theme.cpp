@@ -826,10 +826,12 @@ static bool systemIsDarkImpl()
     auto* hints = QApplication::styleHints();
     if (hints)
     {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
         if (hints->colorScheme() == Qt::ColorScheme::Dark)
             return true;
         if (hints->colorScheme() == Qt::ColorScheme::Light)
             return false;
+#endif
     }
     QColor windowColor = QApplication::palette().color(QPalette::Window);
     return windowColor.lightness() < 128;
