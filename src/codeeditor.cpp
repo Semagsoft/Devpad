@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -121,7 +121,7 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 client->requestHover(uri, pos);
             });
 
-    connect(this, &QsciScintillaBase::SCN_DWELLEND, this, [this](int, int, int) { QToolTip::hideText(); });
+    connect(this, &QsciScintillaBase::SCN_DWELLEND, this, [](int, int, int) { QToolTip::hideText(); });
 
     // Connect char added signal for LSP completion trigger
     connect(this, &QsciScintillaBase::SCN_CHARADDED, this, &CodeEditor::onCharAdded);
