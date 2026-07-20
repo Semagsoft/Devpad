@@ -107,7 +107,7 @@ public:
         repaint();
     }
 
-    void updateGeometry()
+    void updateOverlayPosition()
     {
         if (m_viewWidget)
         {
@@ -226,7 +226,7 @@ SplitView::SplitView(QWidget* parent) : QWidget(parent)
     m_panes.append(m_primaryWidget);
     m_activeWidget = m_primaryWidget;
 
-    QVBoxLayout* layout = new QVBoxLayout(this);
+    auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_splitter);
 }
@@ -382,7 +382,7 @@ void SplitView::collapseSplitter(QSplitter* splitter)
     if (!splitter || splitter == m_splitter)
         return;
 
-    QSplitter* parentSplit = qobject_cast<QSplitter*>(splitter->parentWidget());
+    auto* parentSplit = qobject_cast<QSplitter*>(splitter->parentWidget());
     if (!parentSplit)
         return;
 

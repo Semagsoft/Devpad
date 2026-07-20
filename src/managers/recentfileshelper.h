@@ -5,6 +5,8 @@
 #include <QMenu>
 #include <QObject>
 
+#include <array>
+
 class RecentFilesHelper : public QObject
 {
     Q_OBJECT
@@ -29,7 +31,7 @@ signals:
 
 private:
     QMenu* m_menu = nullptr;
-    QAction* m_fileActions[10] = {};
+    std::array<QAction*, 10> m_fileActions = {};
     QAction* m_clearAction = nullptr;
 };
 

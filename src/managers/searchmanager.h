@@ -17,7 +17,7 @@ class SearchManager : public QObject
 
 public:
     explicit SearchManager(QMainWindow* parent, TabManager* tabManager);
-    ~SearchManager();
+    ~SearchManager() override;
 
     void showFindDialog();
     void showReplaceDialog();

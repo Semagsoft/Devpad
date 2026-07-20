@@ -84,14 +84,7 @@
 #include <qtermwidget.h>
 #endif
 
-MainWindow::~MainWindow()
-{
-    // Natural QObject child destruction order (reverse creation) is correct:
-    //   m_editorController (created last)  → destroyed first  → m_tabManager alive ✓
-    //   m_tabManager       (created second) → destroyed second → m_splitView alive ✓
-    //   m_splitView        (created first)  → destroyed last
-    // No manual delete ordering needed.
-}
+MainWindow::~MainWindow() = default;
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
@@ -354,7 +347,7 @@ void MainWindow::connectPanelSignals()
     connect(m_tabManager, &TabManager::editorClosed, this,
             [this](CodeEditor* editor)
             {
-                QString filePath = editor->fileName();
+                const QString& filePath = editor->fileName();
                 if (!filePath.isEmpty() && filePath != Strings::untitled())
                     m_lspServerManager->closeDocument(lsp::uriFromPath(filePath));
                 updateSplitViewVisibility();
@@ -1004,7 +997,7 @@ void MainWindow::applyStartupMode()
         QStringList recentFiles = SettingsManager::instance().recentFiles();
         if (!recentFiles.isEmpty())
         {
-            QString lastFile = recentFiles.first();
+            const QString& lastFile = recentFiles.first();
             if (QFile::exists(lastFile))
             {
                 loadFile(lastFile);
@@ -1091,7 +1084,7 @@ void MainWindow::onEditorCreated(CodeEditor* editor)
 void MainWindow::updateRecentFileActions()
 {
     QStringList recentFiles = SettingsManager::instance().recentFiles();
-    int numRecentFiles = qMin(recentFiles.size(), (qsizetype)10);
+    int numRecentFiles = qMin(recentFiles.size(), static_cast<qsizetype>(10));
 
     for (int i = 0; i < numRecentFiles; ++i)
     {

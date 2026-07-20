@@ -31,7 +31,7 @@ class FileManager : public QObject
 
 public:
     explicit FileManager(QObject* parent = nullptr);
-    ~FileManager() = default;
+    ~FileManager() override = default;
 
     bool loadFile(const QString& fileName, CodeEditor* editor, const QString& encoding = QString());
     bool saveFile(const QString& fileName, CodeEditor* editor, const QString& encoding = QString());

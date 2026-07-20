@@ -24,7 +24,7 @@ static int clamp(int v, int lo, int hi)
 
 static QColor shiftRgb(const QColor& c, int delta)
 {
-    return QColor(clamp(c.red() + delta, 0, 255), clamp(c.green() + delta, 0, 255), clamp(c.blue() + delta, 0, 255));
+    return QColor{clamp(c.red() + delta, 0, 255), clamp(c.green() + delta, 0, 255), clamp(c.blue() + delta, 0, 255)};
 }
 
 static QColor dimToGray(const QColor& c, double amount)
@@ -33,7 +33,7 @@ static QColor dimToGray(const QColor& c, double amount)
     int r = qRound(c.red() * (1.0 - amount) + gray * amount);
     int g = qRound(c.green() * (1.0 - amount) + gray * amount);
     int b = qRound(c.blue() * (1.0 - amount) + gray * amount);
-    return QColor(clamp(r, 0, 255), clamp(g, 0, 255), clamp(b, 0, 255));
+    return QColor{clamp(r, 0, 255), clamp(g, 0, 255), clamp(b, 0, 255)};
 }
 
 static QColor blend(const QColor& a, const QColor& b, double t)
@@ -41,7 +41,7 @@ static QColor blend(const QColor& a, const QColor& b, double t)
     int r = qRound(a.red() * (1.0 - t) + b.red() * t);
     int g = qRound(a.green() * (1.0 - t) + b.green() * t);
     int bl = qRound(a.blue() * (1.0 - t) + b.blue() * t);
-    return QColor(clamp(r, 0, 255), clamp(g, 0, 255), clamp(bl, 0, 255));
+    return QColor{clamp(r, 0, 255), clamp(g, 0, 255), clamp(bl, 0, 255)};
 }
 
 static QColor accentFgFor(const QColor& accent)
@@ -92,8 +92,8 @@ static QColor dimSaturated(const QColor& c, double amount, bool preserveHue = tr
         return dimToGray(c, amount);
     int gray = qRound(c.red() * 0.299 + c.green() * 0.587 + c.blue() * 0.114);
     double s = 1.0 - amount;
-    return QColor(clamp(qRound(c.red() * s + gray * amount), 0, 255), clamp(qRound(c.green() * s + gray * amount), 0, 255),
-                  clamp(qRound(c.blue() * s + gray * amount), 0, 255));
+    return QColor{clamp(qRound(c.red() * s + gray * amount), 0, 255), clamp(qRound(c.green() * s + gray * amount), 0, 255),
+                  clamp(qRound(c.blue() * s + gray * amount), 0, 255)};
 }
 
 // ── Theme polish: per-theme overrides after resolve() ────────────
@@ -1006,7 +1006,7 @@ bool isThemeDark(ThemeId themeId)
 {
     if (themeId == ThemeId::System)
         return systemIsDark();
-    static constexpr bool darkMap[] = {
+    static constexpr std::array<bool, 17> darkMap = {
         false, // Light
         true,  // Dark
         false, // System (unused, resolved above)
@@ -1028,7 +1028,7 @@ bool isThemeDark(ThemeId themeId)
     int idx = static_cast<int>(themeId);
     if (idx < 0 || idx >= static_cast<int>(ThemeId::Count))
         return false;
-    return darkMap[idx];
+    return darkMap[static_cast<size_t>(idx)];
 }
 
 bool prefersNativeStyling(ThemeId themeId)
