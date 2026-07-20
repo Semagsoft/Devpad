@@ -104,6 +104,8 @@ WRAPPER
 chmod 755 "${APPDIR}/AppRun"
 
 # Copy desktop file and icon to root for AppImage discovery
+# Remove symlinks created by linuxdeploy first (they resolve to the same file, breaking cp)
+rm -f "${APPDIR}/com.semagsoft.Devpad.desktop" "${APPDIR}/com.semagsoft.Devpad.svg"
 cp "${APPDIR}/usr/share/applications/com.semagsoft.Devpad.desktop" \
    "${APPDIR}/"
 cp "${APPDIR}/usr/share/icons/hicolor/scalable/apps/com.semagsoft.Devpad.svg" \
