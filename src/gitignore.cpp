@@ -190,6 +190,7 @@ QRegularExpression GitIgnore::patternToRegex(const QString& pattern, bool anchor
 
 bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
 {
+    Q_UNUSED(isDir)
     if (m_patterns.isEmpty())
         return false;
 

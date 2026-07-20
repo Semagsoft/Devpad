@@ -441,7 +441,7 @@ TEST_F(EditorControllerTest, FileWatcherFiresAfterSave)
     // Connect fileModifiedExternally like MainWindow does
     QPointer<CodeEditor> editorPtr = editor;
     QObject::connect(fileWatcherManager, &FileWatcherManager::fileModifiedExternally, fileWatcherManager,
-                     [editorPtr](const QString& filePath)
+                     [editorPtr](const QString&)
                      {
                          // This simulates the MainWindow::onFileModifiedExternally behavior
                          if (!editorPtr)

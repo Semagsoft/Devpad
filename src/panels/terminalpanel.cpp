@@ -115,7 +115,7 @@ void TerminalPanel::setupUI()
 void TerminalPanel::showEvent(QShowEvent* event)
 {
     QDockWidget::showEvent(event);
-    if (m_backend && !m_isRunning)
+    if (!m_backend || !m_isRunning)
     {
         startTerminal();
     }
@@ -159,6 +159,8 @@ QString TerminalPanel::themeToColorScheme(ThemeId themeId) const
         return "DevpadAyuDark";
     case ThemeId::System:
         return SettingsManager::instance().isDarkTheme() ? "DevpadDark" : "DevpadLight";
+    default:
+        break;
     }
     return "DevpadDark";
 }

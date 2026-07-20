@@ -119,6 +119,7 @@ public:
 protected:
     void paintEvent(QPaintEvent* event) override
     {
+        Q_UNUSED(event)
         if (m_zone == SplitView::DropZone::None || !m_paneRect.isValid())
             return;
 
