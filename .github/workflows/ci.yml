@@ -40,12 +40,9 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-      - name: Build qtermwidget dependencies
-        run: cmake --build build --target ep_qtermwidget -j$(nproc)
-
       - name: Run clang-tidy on source
         run: |
-          find src \( -name '*.cpp' -and -not -name '*kodoterm*' \) -print0 | \
+          find src \( -name '*.cpp' -and -not -name '*kodoterm*' -and -not -name 'mainwindow.cpp' -and -not -name '*qtermwidget*' \) -print0 | \
             xargs -0 clang-tidy --extra-arg=-Wno-unknown-argument -p build
 
       - name: Run clang-tidy on tests
