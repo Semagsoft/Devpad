@@ -112,7 +112,7 @@ TEST_F(ExternalToolManagerTest, ParseArgumentsBackslashEscape)
 
 TEST_F(ExternalToolManagerTest, ParseArgumentsMixedQuotes)
 {
-    QStringList result = ExternalToolManager::parseArguments("program 'single \"quote\"' \"double 'quote'\"");
+    QStringList result = ExternalToolManager::parseArguments(R"(program 'single "quote"' "double 'quote'")");
     ASSERT_EQ(result.size(), 3);
     EXPECT_EQ(result[0], "program");
 }
