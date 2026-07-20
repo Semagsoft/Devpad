@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -47,7 +47,6 @@
 
 namespace
 {
-constexpr int CARETSTYLE_BLOCK = 2;
 constexpr int CARETSTYLE_UNDERLINE = 4;
 
 constexpr const char* SNIPPET_MARKER = "\u00ABsnip\u00BB";
@@ -121,7 +120,7 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 client->requestHover(uri, pos);
             });
 
-    connect(this, &QsciScintillaBase::SCN_DWELLEND, this, [this](int, int, int) { QToolTip::hideText(); });
+    connect(this, &QsciScintillaBase::SCN_DWELLEND, this, [](int, int, int) { QToolTip::hideText(); });
 
     // Connect char added signal for LSP completion trigger
     connect(this, &QsciScintillaBase::SCN_CHARADDED, this, &CodeEditor::onCharAdded);

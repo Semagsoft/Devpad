@@ -734,13 +734,13 @@ void ActionManager::wireConnections(const ActionTargets& t)
     connect(m_recentFilesHelper, &RecentFilesHelper::clearRecentFilesTriggered, this, &ActionManager::clearRecentFilesTriggered);
 
     connect(this, &ActionManager::openRecentFileTriggered, this,
-            [this, t](const QString& filePath)
+            [t](const QString& filePath)
             {
                 if (t.openRecentFile && !filePath.isEmpty() && QFile::exists(filePath))
                     t.openRecentFile(filePath);
             });
     connect(this, &ActionManager::clearRecentFilesTriggered, this,
-            [this, t]()
+            [t]()
             {
                 SettingsManager::instance().clearRecentFiles();
                 if (t.updateRecentFileActions)
