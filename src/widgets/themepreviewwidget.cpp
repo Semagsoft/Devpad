@@ -1,7 +1,6 @@
 #include "themepreviewwidget.h"
 
 #include <QPainter>
-
 #include <array>
 
 ThemePreviewWidget::ThemePreviewWidget(QWidget* parent) : QWidget(parent)

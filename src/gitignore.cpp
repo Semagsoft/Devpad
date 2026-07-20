@@ -227,9 +227,7 @@ bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
 
         for (const Pattern& p : it.value())
         {
-            QString matchTarget = (!p.dirOnly && !p.anchored && relPath.contains('/'))
-                ? relPath.section('/', -1)
-                : relPath;
+            QString matchTarget = (!p.dirOnly && !p.anchored && relPath.contains('/')) ? relPath.section('/', -1) : relPath;
 
             if (p.regex.match(matchTarget).hasMatch())
                 ignored = !p.negate;

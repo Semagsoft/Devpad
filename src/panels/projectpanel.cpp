@@ -753,10 +753,8 @@ void ProjectPanel::openInTerminal(const QString& dirPath)
         escapedDir.replace('\'', "'\\''");
         termArgs << "-e" << QString("cd '%1' && exec $SHELL").arg(escapedDir);
     }
-    else if (terminalBase == "gnome-terminal" || terminalBase == "kgx"
-             || terminalBase == "xfce4-terminal"
-             || terminalBase == "alacritty" || terminalBase == "kitty" || terminalBase == "ghostty"
-             || terminalBase == "lxterminal" || terminalBase == "foot")
+    else if (terminalBase == "gnome-terminal" || terminalBase == "kgx" || terminalBase == "xfce4-terminal" || terminalBase == "alacritty" ||
+             terminalBase == "kitty" || terminalBase == "ghostty" || terminalBase == "lxterminal" || terminalBase == "foot")
     {
         termArgs << "--working-directory" << dirPath;
     }
