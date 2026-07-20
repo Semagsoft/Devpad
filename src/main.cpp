@@ -38,7 +38,7 @@
 static void crashHandler(int sig, siginfo_t* info, void*)
 {
     const char* msg = "\n=== CRASH ===\nSignal: ";
-    (void)write(STDERR_FILENO, msg, strlen(msg));
+    if (write(STDERR_FILENO, msg, strlen(msg)) == -1) {}
 
     const char* sigName = nullptr;
     switch (sig)
@@ -56,24 +56,24 @@ static void crashHandler(int sig, siginfo_t* info, void*)
         sigName = "Unknown";
         break;
     }
-    (void)write(STDERR_FILENO, sigName, strlen(sigName));
+    if (write(STDERR_FILENO, sigName, strlen(sigName)) == -1) {}
 
     if (info && sig == SIGSEGV)
     {
         const char* addrMsg = "\nFault address: ";
-        (void)write(STDERR_FILENO, addrMsg, strlen(addrMsg));
+        if (write(STDERR_FILENO, addrMsg, strlen(addrMsg)) == -1) {}
         std::array<char, 32> addr;
         int len = snprintf(addr.data(), addr.size(), "%p", info->si_addr);
-        (void)write(STDERR_FILENO, addr.data(), len);
+        if (write(STDERR_FILENO, addr.data(), static_cast<size_t>(len)) == -1) {}
     }
 
-    (void)write(STDERR_FILENO, "\n\nBacktrace:\n", 12);
+    if (write(STDERR_FILENO, "\n\nBacktrace:\n", 12) == -1) {}
 
     std::array<void*, 64> buffer;
     int frames = backtrace(buffer.data(), static_cast<int>(buffer.size()));
     backtrace_symbols_fd(buffer.data(), frames, STDERR_FILENO);
 
-    (void)write(STDERR_FILENO, "\nRun with: ulimit -c unlimited && gdb ./build/Devpad core\n", 59);
+    if (write(STDERR_FILENO, "\nRun with: ulimit -c unlimited && gdb ./build/Devpad core\n", 59) == -1) {}
 
     _Exit(EXIT_FAILURE);
 }
