@@ -27,12 +27,14 @@
 #define REMOTEFILESERVICE_H
 
 #include <QByteArray>
+#include <QList>
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QString>
 #include <memory>
 
 class QTemporaryFile;
+class QNetworkReply;
 
 class RemoteFileService : public QObject
 {
@@ -40,6 +42,7 @@ class RemoteFileService : public QObject
 
 public:
     explicit RemoteFileService(QObject* parent = nullptr);
+    ~RemoteFileService() override;
 
     void openRemote(const QString& urlStr);
 
@@ -54,6 +57,7 @@ private:
     void downloadSsh(const QUrl& url, const QString& urlStr);
 
     QNetworkAccessManager m_networkManager;
+    QList<QNetworkReply*> m_pendingReplies;
 };
 
 #endif // REMOTEFILESERVICE_H

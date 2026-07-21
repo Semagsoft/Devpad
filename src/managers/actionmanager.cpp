@@ -747,7 +747,12 @@ void ActionManager::wireConnections(const ActionTargets& t)
                     t.updateRecentFileActions();
             });
 
-    connect(t.encodingManager, &EncodingManager::encodingSelected, this, t.encodingSelected);
+    if (t.encodingManager)
+    {
+        connect(t.encodingManager, &EncodingManager::encodingSelected, this, t.encodingSelected);
+        t.encodingManager->populateEncodingMenu(m_encodingHelper->reopenMenu(), true);
+        t.encodingManager->populateEncodingMenu(m_encodingHelper->saveMenu(), false);
+    }
 
     connect(ec, &EditorController::fileSaved, this,
             [t](const QString&)
@@ -755,9 +760,6 @@ void ActionManager::wireConnections(const ActionTargets& t)
                 if (t.updateRecentFileActions)
                     t.updateRecentFileActions();
             });
-
-    t.encodingManager->populateEncodingMenu(m_encodingHelper->reopenMenu(), true);
-    t.encodingManager->populateEncodingMenu(m_encodingHelper->saveMenu(), false);
 
     connect(this, &ActionManager::actionsWithShortcutsChanged, this, [this, mw]() { mw->addActions(actionsWithShortcuts()); });
 }

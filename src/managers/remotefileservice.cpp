@@ -34,6 +34,17 @@ RemoteFileService::RemoteFileService(QObject* parent) : QObject(parent)
 {
 }
 
+RemoteFileService::~RemoteFileService()
+{
+    auto replies = std::move(m_pendingReplies);
+    for (QNetworkReply* reply : replies)
+    {
+        reply->disconnect();
+        reply->abort();
+        delete reply;
+    }
+}
+
 void RemoteFileService::openRemote(const QString& urlStr)
 {
     QUrl url(urlStr);
@@ -63,10 +74,13 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
 
     QNetworkReply* reply = m_networkManager.get(request);
     reply->setProperty("remoteUrl", urlStr);
+    m_pendingReplies.append(reply);
 
     connect(reply, &QNetworkReply::finished, this,
             [this, reply]()
             {
+                m_pendingReplies.removeOne(reply);
+
                 QString urlStr = reply->property("remoteUrl").toString();
 
                 if (reply->error() != QNetworkReply::NoError)
