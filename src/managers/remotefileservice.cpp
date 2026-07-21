@@ -36,12 +36,13 @@ RemoteFileService::RemoteFileService(QObject* parent) : QObject(parent)
 
 RemoteFileService::~RemoteFileService()
 {
-    for (QNetworkReply* reply : std::as_const(m_pendingReplies))
+    auto replies = std::move(m_pendingReplies);
+    for (QNetworkReply* reply : replies)
     {
+        reply->disconnect();
         reply->abort();
-        reply->deleteLater();
+        delete reply;
     }
-    m_pendingReplies.clear();
 }
 
 void RemoteFileService::openRemote(const QString& urlStr)
