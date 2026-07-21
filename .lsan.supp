@@ -1,0 +1,9 @@
+# LeakSanitizer suppressions for known external library leaks
+#
+# QtNetwork triggers libproxy proxy resolution during QNetworkAccessManager::get(),
+# which allocates GLib objects that persist as cached state. These are not real
+# leaks in application code — they are semi-global caches inside libproxy/glib
+# that LSAN reports at process exit.
+leak:libproxy
+leak:libpxbackend
+leak:g_list_append
