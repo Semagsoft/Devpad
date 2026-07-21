@@ -164,5 +164,5 @@ jobs:
 
       - name: Test
         env:
-          LSAN_OPTIONS: suppressions=.lsan.supp
+          LSAN_OPTIONS: suppressions=${{ github.workspace }}/.lsan.supp
         run: ctest --test-dir build --output-on-failure
