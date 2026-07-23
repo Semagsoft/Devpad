@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "aboutdialog.h"
+#include "devpad_version.h"
 
 #include <QDate>
 #include <QDesktopServices>
@@ -78,7 +79,7 @@ void AboutDialog::setupUI()
     iconLabel->installEventFilter(this);
     mainLayout->addWidget(iconLabel);
 
-    QLabel* versionLabel = new QLabel(tr("Version 1.0 (C++/Qt6)"), this);
+    QLabel* versionLabel = new QLabel(tr("Version %1 (C++/Qt6)").arg(DEVPAD_VERSION), this);
     versionLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(versionLabel);
 
