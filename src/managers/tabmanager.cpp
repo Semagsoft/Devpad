@@ -64,6 +64,11 @@ CodeEditor* TabManager::editorAt(int index) const
 
 CodeEditor* TabManager::findEditorByFileName(const QString& fileName) const
 {
+    QFileInfo targetInfo(fileName);
+    QString targetAbs = targetInfo.canonicalFilePath();
+    if (targetAbs.isEmpty())
+        targetAbs = targetInfo.absoluteFilePath();
+
     for (QTabWidget* pane : m_panes)
     {
         for (int i = 0; i < pane->count(); ++i)
@@ -72,7 +77,15 @@ CodeEditor* TabManager::findEditorByFileName(const QString& fileName) const
             if (!w)
                 continue;
             CodeEditor* editor = w->findChild<CodeEditor*>();
-            if (editor && editor->fileName() == fileName)
+            if (!editor || editor->fileName().isEmpty())
+                continue;
+
+            QFileInfo editorInfo(editor->fileName());
+            QString editorAbs = editorInfo.canonicalFilePath();
+            if (editorAbs.isEmpty())
+                editorAbs = editorInfo.absoluteFilePath();
+
+            if (editorAbs == targetAbs)
             {
                 return editor;
             }

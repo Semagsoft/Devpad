@@ -767,15 +767,19 @@ void MainWindow::loadFile(const QString& fileName, const QString& encoding)
     CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName);
     if (existingEditor)
     {
-        for (QTabWidget* pane : m_tabManager->panes())
+        auto* container = m_tabManager->containerFor(existingEditor);
+        if (container)
         {
-            int index = pane->indexOf(existingEditor);
-            if (index >= 0)
+            for (QTabWidget* pane : m_tabManager->panes())
             {
-                pane->setCurrentIndex(index);
-                existingEditor->setFocus();
-                m_tabManager->setActivePane(pane);
-                return;
+                int index = pane->indexOf(container);
+                if (index >= 0)
+                {
+                    pane->setCurrentIndex(index);
+                    existingEditor->setFocus();
+                    m_tabManager->setActivePane(pane);
+                    return;
+                }
             }
         }
         return;
