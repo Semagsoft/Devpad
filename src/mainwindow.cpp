@@ -251,9 +251,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     m_actionManager->errorListPanelAct()->setChecked(showErrorList);
     m_actionManager->errorListPanelButton()->setChecked(showErrorList);
 
-    applyStartupMode();
-    updateRecentFileActions();
-
     if (SettingsManager::instance().showTerminalPanel())
     {
         m_terminalPanel->toggle(m_tabWidget, this);
@@ -264,6 +261,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     {
         m_terminalPanel->applyPosition(SettingsManager::instance().terminalPanelPosition(), m_tabWidget, this);
     }
+
+    applyStartupMode();
+    updateRecentFileActions();
 
     applySettings();
 
