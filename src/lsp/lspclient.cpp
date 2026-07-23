@@ -127,13 +127,11 @@ void LspClient::sendInitialize()
     QJsonObject sync;
     sync["textDocumentSync"] = 1; // Full document sync
     textDocument["synchronization"] = sync;
-    QJsonObject completion;
-    completion["completionItem"] = QJsonObject();
     QJsonArray docFormats;
     docFormats.append(QStringLiteral("plaintext"));
-    completion["completionItem"] = QJsonObject();
     QJsonObject completionItem;
     completionItem["documentationFormat"] = docFormats;
+    QJsonObject completion;
     completion["completionItem"] = completionItem;
     textDocument["completion"] = completion;
     textDocument["definition"] = QJsonObject();

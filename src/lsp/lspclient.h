@@ -128,13 +128,6 @@ private:
     void handleResponse(int id, const QJsonValue& result, const QJsonObject& error);
     QString methodName(const QString& method) const;
 
-    struct DocumentState
-    {
-        int version = 0;
-        QString uri;
-        QString text;
-    };
-
     void tryRestart();
 
     QProcess* m_process = nullptr;

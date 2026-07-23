@@ -196,39 +196,6 @@ void TabManager::setPinnedFiles(const QStringList& files)
     }
 }
 
-void TabManager::removeEditor(int index)
-{
-    int globalIdx = 0;
-    for (QTabWidget* pane : m_panes)
-    {
-        if (index < globalIdx + pane->count())
-        {
-            int localIdx = index - globalIdx;
-            auto* w = pane->widget(localIdx);
-            if (!w)
-                return;
-            auto* editor = w->findChild<CodeEditor*>();
-            if (!editor)
-                return;
-            if (m_pinnedEditors.contains(editor))
-                return;
-            removeCloseButtons(localIdx, pane);
-            m_pinnedEditors.remove(editor);
-            m_containers.remove(editor);
-            pane->removeTab(localIdx);
-            for (int i = localIdx; i < pane->count(); ++i)
-            {
-                updateCloseButton(i, pane, SettingsManager::instance().closeButtonMode());
-            }
-            emit editorClosed(editor);
-            w->deleteLater(); // container deletion cascades to editor
-            updateTabBarVisibility();
-            return;
-        }
-        globalIdx += pane->count();
-    }
-}
-
 bool TabManager::closeEditor(int index)
 {
     int globalIdx = 0;

@@ -340,9 +340,6 @@ void MainWindow::connectPanelSignals()
             [this](CodeEditor* editor)
             {
                 onEditorCreated(editor);
-                connect(editor, &CodeEditor::findRequested, this, &MainWindow::find);
-                connect(editor, &CodeEditor::replaceRequested, this, &MainWindow::replace);
-                connect(editor, &CodeEditor::goToLineRequested, this, &MainWindow::goToLine);
             });
     connect(m_tabManager, &TabManager::editorClosed, this,
             [this](CodeEditor* editor)

@@ -546,24 +546,24 @@ void CodeEditor::setAutoCloseBrackets(bool enabled)
 
 void CodeEditor::setupLspIndicators()
 {
-    // Error indicator: red squiggle
+    // Error indicator: red squiggle underline
     indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_ERROR);
     setIndicatorForegroundColor(QColor(255, 0, 0), lsp::LSP_INDICATOR_ERROR);
 
-    // Warning indicator: orange squiggle
-    indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_WARNING);
+    // Warning indicator: orange straight underline
+    indicatorDefine(QsciScintilla::PlainIndicator, lsp::LSP_INDICATOR_WARNING);
     setIndicatorForegroundColor(QColor(255, 165, 0), lsp::LSP_INDICATOR_WARNING);
 
-    // Info indicator: blue squiggle
-    indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_INFO);
+    // Info indicator: blue dotted underline
+    indicatorDefine(QsciScintilla::DotsIndicator, lsp::LSP_INDICATOR_INFO);
     setIndicatorForegroundColor(QColor(0, 170, 255), lsp::LSP_INDICATOR_INFO);
 
-    // Semantic token indicator: gray squiggle
-    indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_SEMANTIC);
+    // Semantic token indicator: gray dashed underline
+    indicatorDefine(QsciScintilla::StraightBoxIndicator, lsp::LSP_INDICATOR_SEMANTIC);
     setIndicatorForegroundColor(QColor(180, 180, 180), lsp::LSP_INDICATOR_SEMANTIC);
 
-    // Highlight indicator: dark yellow squiggle (for document highlights)
-    indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_HIGHLIGHT);
+    // Highlight indicator: dark yellow rounded box (for document highlights)
+    indicatorDefine(QsciScintilla::RoundBoxIndicator, lsp::LSP_INDICATOR_HIGHLIGHT);
     setIndicatorForegroundColor(QColor(200, 180, 0), lsp::LSP_INDICATOR_HIGHLIGHT);
 }
 
@@ -818,77 +818,48 @@ CodeEditor::BracketContext CodeEditor::contextAtPosition(int pos) const
     if (pos <= 0)
         return ctx;
 
-    // Fast path: use Scintilla styling to determine context at position
-    // If the character before pos has default style (0), we're in code
     int prevStyle = static_cast<int>(SendScintilla(SCI_GETSTYLEAT, pos - 1));
     if (prevStyle == 0)
+        return ctx;
+
+    auto* lexer = this->lexer();
+    if (!lexer)
+        return ctx;
+
+    int line = SendScintilla(SCI_LINEFROMPOSITION, pos);
+    int lineStart = SendScintilla(SCI_POSITIONFROMLINE, line);
+
+    int commentStyleCount = 0;
+    for (int s = 1; s < 32; ++s)
     {
-        // Quick check: if prev char is a line comment opener, we're in a comment
-        int line = SendScintilla(SCI_LINEFROMPOSITION, pos);
-        int lineStart = SendScintilla(SCI_POSITIONFROMLINE, line);
-        int col = pos - lineStart;
-        if (col >= 2)
+        QString desc = lexer->description(s);
+        if (desc.isEmpty())
+            continue;
+        if (commentStyleCount == 0 && desc.contains(QStringLiteral("Comment"), Qt::CaseInsensitive))
         {
-            char c1 = static_cast<char>(SendScintilla(SCI_GETCHARAT, pos - 2));
-            char c2 = static_cast<char>(SendScintilla(SCI_GETCHARAT, pos - 1));
-            if (c1 == '/' && c2 == '/')
+            if (prevStyle == s)
             {
                 ctx.inComment = true;
                 return ctx;
             }
+            ++commentStyleCount;
         }
-        // Default style means we're in plain code — no comment/string context
-        return ctx;
-    }
-
-    // Slow path: scan backwards to determine context using style categories
-    // Check the style at pos-1 against known comment and string ranges
-    // For QScintilla lexers, styles above 0 are categorized as:
-    //   Comment styles: typically 1-3
-    //   String styles: typically 6-7 (but varies by lexer)
-    // We use a bounded scan for block comment detection as fallback
-
-    int line = SendScintilla(SCI_LINEFROMPOSITION, pos);
-    int col = pos - SendScintilla(SCI_POSITIONFROMLINE, line);
-
-    // Bounded scan: at most 500 lines back for block comment detection
-    constexpr int MAX_SCAN_LINES = 500;
-    int scanStart = std::max(0, line - MAX_SCAN_LINES);
-
-    bool inBlockComment = false;
-    for (int l = scanStart; l < line; ++l)
-    {
-        int lStart = SendScintilla(SCI_POSITIONFROMLINE, l);
-        int lEnd = SendScintilla(SCI_GETLINEENDPOSITION, l);
-        QString lText = QsciScintilla::text(lStart, lEnd);
-
-        for (int i = 0; i < lText.length(); ++i)
+        if (desc.contains(QStringLiteral("String"), Qt::CaseInsensitive))
         {
-            QChar c = lText[i];
-            if (!inBlockComment)
+            if (prevStyle == s)
             {
-                if (c == '/' && i + 1 < lText.length() && lText[i + 1] == '*')
-                {
-                    inBlockComment = true;
-                    ++i;
-                }
-            }
-            else
-            {
-                if (c == '*' && i + 1 < lText.length() && lText[i + 1] == '/')
-                {
-                    inBlockComment = false;
-                    ++i;
-                }
+                ctx.inString = true;
+                return ctx;
             }
         }
     }
 
-    // Scan current line up to the cursor position
-    int lineStart = SendScintilla(SCI_POSITIONFROMLINE, line);
+    // Fallback: scan current line only for context
     int lineLength = SendScintilla(SCI_GETLINEENDPOSITION, line);
     QString lineText = QsciScintilla::text(lineStart, lineLength);
+    int col = pos - lineStart;
 
+    bool inBlockComment = false;
     for (int i = 0; i < col && i < lineText.length(); ++i)
     {
         QChar c = lineText[i];

@@ -334,6 +334,8 @@ if(BUILD_TESTS)
         tests/test_printmanager.cpp
         tests/test_filewatchermanager.cpp
         tests/test_lsptypes.cpp
+        tests/test_lspjsonrpc.cpp
+        tests/test_splitview.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)

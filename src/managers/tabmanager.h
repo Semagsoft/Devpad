@@ -53,7 +53,6 @@ public:
 
     CodeEditor* createEditor();
     void addEditor(CodeEditor* editor, const QString& title);
-    void removeEditor(int index);
     bool closeEditor(int index);
 
     void addPane(QTabWidget* pane);

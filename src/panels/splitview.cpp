@@ -21,6 +21,7 @@
 #include "appstrings.h"
 #include "codeeditor.h"
 #include "draggabletabbar.h"
+#include "widgets/editorcontainer.h"
 #include "settingsmanager.h"
 
 #include <QApplication>
@@ -1202,7 +1203,11 @@ void SplitView::detachTabToWindow(int tabIndex, QTabWidget* source)
     if (!source || tabIndex < 0 || tabIndex >= source->count())
         return;
 
-    auto* editor = qobject_cast<CodeEditor*>(source->widget(tabIndex));
+    auto* container = qobject_cast<EditorContainer*>(source->widget(tabIndex));
+    if (!container)
+        return;
+
+    auto* editor = container->editor();
     if (!editor)
         return;
 
