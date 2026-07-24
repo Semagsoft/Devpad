@@ -582,7 +582,8 @@ void ProjectPanel::onContextMenu(const QPoint& pos)
         menu.addSeparator();
 
         bool hiddenVisible = SettingsManager::instance().showHiddenFiles();
-        QAction* showHiddenAct = menu.addAction(QIcon(":/icons/Common/hiddenfolder.svg"), hiddenVisible ? tr("Hide Hidden Files and Folders") : tr("Show Hidden Files and Folders"));
+        QAction* showHiddenAct = menu.addAction(
+        QIcon(":/icons/Common/hiddenfolder.svg"), hiddenVisible ? tr("Hide Hidden Files and Folders") : tr("Show Hidden Files and Folders"));
         connect(showHiddenAct, &QAction::triggered, this,
                 [this, hiddenVisible]()
                 {
