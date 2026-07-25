@@ -592,7 +592,7 @@ void ProjectPanel::onContextMenu(const QPoint& pos)
                 });
 
         bool gitIgnoreEnabled = SettingsManager::instance().useGitIgnore();
-        QAction* gitIgnoreAct = menu.addAction(gitIgnoreEnabled ? tr("Disable .gitignore Filtering") : tr("Enable .gitignore Filtering"));
+        QAction* gitIgnoreAct = menu.addAction(QIcon(":/icons/Common/filter.svg"), gitIgnoreEnabled ? tr("Disable .gitignore Filtering") : tr("Enable .gitignore Filtering"));
         gitIgnoreAct->setCheckable(true);
         gitIgnoreAct->setChecked(gitIgnoreEnabled);
         connect(gitIgnoreAct, &QAction::triggered, this,
