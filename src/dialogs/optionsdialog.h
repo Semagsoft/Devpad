@@ -105,7 +105,6 @@ private:
 
     // LSP settings
     QCheckBox* lspEnabledCheckBox = nullptr;
-    QCheckBox* lspShowErrorListCheckBox = nullptr;
     QSpinBox* lspCompletionTriggerSpin = nullptr;
     QTableWidget* lspServerTable = nullptr;
 };

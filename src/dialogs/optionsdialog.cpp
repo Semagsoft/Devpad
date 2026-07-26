@@ -139,8 +139,6 @@ void OptionsDialog::setupGeneralTab()
     QVBoxLayout* lspGeneralLayout = new QVBoxLayout(lspGeneralGroup);
     lspEnabledCheckBox = new QCheckBox(tr("Enable LSP (Language Server Protocol)"), lspGeneralGroup);
     lspGeneralLayout->addWidget(lspEnabledCheckBox);
-    lspShowErrorListCheckBox = new QCheckBox(tr("Show error list"), lspGeneralGroup);
-    lspGeneralLayout->addWidget(lspShowErrorListCheckBox);
     QFormLayout* thresholdLayout = new QFormLayout();
     lspCompletionTriggerSpin = new QSpinBox(lspGeneralGroup);
     lspCompletionTriggerSpin->setRange(1, 10);
@@ -534,7 +532,6 @@ void OptionsDialog::loadSettings()
     autoSaveIntervalSpin->setEnabled(autoSaveCheckBox->isChecked());
 
     lspEnabledCheckBox->setChecked(s.lspEnabled());
-    lspShowErrorListCheckBox->setChecked(s.lspShowErrorList());
     lspCompletionTriggerSpin->setValue(s.lspCompletionTriggerChars());
 
     // Populate LSP server table with default + custom entries
@@ -608,7 +605,6 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setDefaultEncoding(defaultEncodingComboBox->currentIndex());
 
     SettingsManager::instance().setLspEnabled(lspEnabledCheckBox->isChecked());
-    SettingsManager::instance().setLspShowErrorList(lspShowErrorListCheckBox->isChecked());
     SettingsManager::instance().setLspCompletionTriggerChars(lspCompletionTriggerSpin->value());
 
     // Save LSP server table

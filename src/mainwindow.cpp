@@ -928,7 +928,6 @@ void MainWindow::showOptions()
         applyTabBarPosition();
         applyTerminalPanelPosition();
         m_terminalPanel->refreshTheme();
-        m_errorListPanel->setVisible(SettingsManager::instance().lspShowErrorList());
         m_tabManager->updateTabBarVisibility();
         updateRecentFileActions();
         applyAutoSaveSettings();
