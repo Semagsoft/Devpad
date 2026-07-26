@@ -55,7 +55,6 @@ private:
     void setupAppearanceTab();
     void setupEditorTab();
     void setupPanelsTab();
-    void setupLspTab();
     void loadSettings();
     void saveSettings();
     void updateThemePreview();
