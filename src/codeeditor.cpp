@@ -1472,10 +1472,7 @@ void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& token
         }
 
         if (length > 0 && line >= 0 && line < lines())
-        {
-            for (int c = 0; c < length; ++c)
-                fillIndicatorRange(line, col + c, line, col + c + 1, lsp::LSP_INDICATOR_SEMANTIC);
-        }
+            fillIndicatorRange(line, col, line, col + length, lsp::LSP_INDICATOR_SEMANTIC);
     }
 }
 
