@@ -1,13 +1,11 @@
 #include "codeeditor.h"
-#include "widgets/inlinefindbar.h"
 #include "settingsmanager.h"
 #include "theme.h"
-
-
+#include "widgets/inlinefindbar.h"
 
 #include <QLineEdit>
-#include <QToolButton>
 #include <QPushButton>
+#include <QToolButton>
 
 #include <gtest/gtest.h>
 

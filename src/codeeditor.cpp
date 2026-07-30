@@ -26,6 +26,7 @@
 #include "settingsmanager.h"
 #include "snippetmanager.h"
 #include "theme.h"
+#include "widgets/brackethelper.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -811,170 +812,14 @@ void CodeEditor::toggleComment()
     replaceSelectedText(joined);
 }
 
-CodeEditor::BracketContext CodeEditor::contextAtPosition(int pos) const
-{
-    BracketContext ctx;
-    if (pos <= 0)
-        return ctx;
-
-    int prevStyle = static_cast<int>(SendScintilla(SCI_GETSTYLEAT, pos - 1));
-    if (prevStyle == 0)
-        return ctx;
-
-    auto* lexer = this->lexer();
-    if (!lexer)
-        return ctx;
-
-    int line = SendScintilla(SCI_LINEFROMPOSITION, pos);
-    int lineStart = SendScintilla(SCI_POSITIONFROMLINE, line);
-
-    int commentStyleCount = 0;
-    for (int s = 1; s < 32; ++s)
-    {
-        QString desc = lexer->description(s);
-        if (desc.isEmpty())
-            continue;
-        if (commentStyleCount == 0 && desc.contains(QStringLiteral("Comment"), Qt::CaseInsensitive))
-        {
-            if (prevStyle == s)
-            {
-                ctx.inComment = true;
-                return ctx;
-            }
-            ++commentStyleCount;
-        }
-        if (desc.contains(QStringLiteral("String"), Qt::CaseInsensitive))
-        {
-            if (prevStyle == s)
-            {
-                ctx.inString = true;
-                return ctx;
-            }
-        }
-    }
-
-    // Fallback: scan current line only for context
-    int lineLength = SendScintilla(SCI_GETLINEENDPOSITION, line);
-    QString lineText = QsciScintilla::text(lineStart, lineLength);
-    int col = pos - lineStart;
-
-    bool inBlockComment = false;
-    for (int i = 0; i < col && i < lineText.length(); ++i)
-    {
-        QChar c = lineText[i];
-        if (inBlockComment)
-        {
-            if (c == '*' && i + 1 < lineText.length() && lineText[i + 1] == '/')
-            {
-                inBlockComment = false;
-                ++i;
-            }
-            continue;
-        }
-        if (ctx.inComment)
-            continue;
-        if (c == '/' && i + 1 < lineText.length())
-        {
-            if (lineText[i + 1] == '*')
-            {
-                inBlockComment = true;
-                ++i;
-                continue;
-            }
-            if (lineText[i + 1] == '/')
-            {
-                ctx.inComment = true;
-                continue;
-            }
-        }
-        if (c == '\\' && (ctx.inString || ctx.inCharLiteral))
-        {
-            ++i;
-            continue;
-        }
-        if (c == '"' && !ctx.inCharLiteral)
-            ctx.inString = !ctx.inString;
-        else if (c == '\'' && !ctx.inString)
-            ctx.inCharLiteral = !ctx.inCharLiteral;
-    }
-
-    ctx.inBlockComment = inBlockComment;
-    return ctx;
-}
-
 bool CodeEditor::handleAutoClose(QChar ch, int pos)
 {
-    struct Pair
-    {
-        QChar open;
-        QChar close;
-    };
-    static constexpr std::array pairs{Pair{'(', ')'}, Pair{'[', ']'}, Pair{'{', '}'}, Pair{'"', '"'}, Pair{'\'', '\''}};
-    BracketContext ctx = contextAtPosition(pos);
-    if (ctx.inComment || ctx.inBlockComment || ctx.inCharLiteral)
-        return false;
-
-    for (const auto& pair : pairs)
-    {
-        if (ch != pair.open)
-            continue;
-        if (ch == '"' && ctx.inString)
-            continue;
-        if (ch == '\'' && ctx.inCharLiteral)
-            continue;
-        beginUndoAction();
-        insert(QString(pair.open) + pair.close);
-        int l, c;
-        lineIndexFromPosition(pos + 1, &l, &c);
-        setCursorPosition(l, c);
-        endUndoAction();
-        return true;
-    }
-    return false;
+    return BracketHelper::handleAutoClose(this, ch, pos);
 }
 
 bool CodeEditor::handleBracketSkip(QChar ch, int pos)
 {
-    static constexpr std::array closers{QChar(')'), QChar(']'), QChar('}'), QChar('"'), QChar('\'')};
-    BracketContext ctx = contextAtPosition(pos);
-
-    // Never skip brackets inside comments
-    if (ctx.inComment || ctx.inBlockComment)
-        return false;
-
-    bool isQuote = (ch == '"' || ch == '\'');
-    if (isQuote)
-    {
-        // Inside a string, typing the matching quote should skip the next one
-        // to end the string without inserting a duplicate
-        bool inRelevantString = (ch == '"' && ctx.inString) || (ch == '\'' && ctx.inCharLiteral);
-        if (!inRelevantString)
-            return false;
-    }
-    else
-    {
-        // For non-quote brackets, no skipping inside strings
-        if (ctx.inString || ctx.inCharLiteral)
-            return false;
-    }
-
-    for (QChar closer : closers)
-    {
-        if (ch != closer)
-            continue;
-        int nextPos = pos + 1;
-        if (nextPos >= length())
-            return false;
-        int nextChar = SendScintilla(SCI_GETCHARAT, nextPos);
-        if (nextChar == static_cast<int>(closer.toLatin1()))
-        {
-            int nl, nc;
-            lineIndexFromPosition(nextPos, &nl, &nc);
-            setCursorPosition(nl, nc);
-            return true;
-        }
-    }
-    return false;
+    return BracketHelper::handleBracketSkip(this, ch, pos);
 }
 
 void CodeEditor::keyPressEvent(QKeyEvent* event)

@@ -3,6 +3,7 @@
 
 #include <QJsonArray>
 #include <QSignalSpy>
+
 #include <gtest/gtest.h>
 
 using namespace lsp;
@@ -65,7 +66,8 @@ TEST(LspJsonRpcTest, HandleDataNotification)
     LspJsonRpc rpc;
     QSignalSpy spy(&rpc, &LspJsonRpc::notificationReceived);
 
-    QByteArray msg = rpc.createNotification(QStringLiteral("textDocument/publishDiagnostics"), QJsonObject{{QStringLiteral("uri"), QStringLiteral("file:///test.cpp")}});
+    QByteArray msg = rpc.createNotification(QStringLiteral("textDocument/publishDiagnostics"),
+                                            QJsonObject{{QStringLiteral("uri"), QStringLiteral("file:///test.cpp")}});
     rpc.handleData(msg);
 
     ASSERT_EQ(spy.count(), 1);
@@ -81,11 +83,11 @@ TEST(LspJsonRpcTest, HandleDataResponseWithCallback)
     bool callbackCalled = false;
     int requestId = rpc.nextRequestId();
     rpc.registerPendingRequest(requestId,
-                                [&callbackCalled](const QJsonValue& result)
-                                {
-                                    callbackCalled = true;
-                                    EXPECT_EQ(result.toObject()["value"].toInt(), 42);
-                                });
+                               [&callbackCalled](const QJsonValue& result)
+                               {
+                                   callbackCalled = true;
+                                   EXPECT_EQ(result.toObject()["value"].toInt(), 42);
+                               });
 
     QByteArray msg = rpc.createRequest(requestId, QStringLiteral("custom/request"), QJsonObject());
     // Replace the request with a response message by stripping the header and rebuilding
@@ -103,11 +105,7 @@ TEST(LspJsonRpcTest, CancelRequest)
     LspJsonRpc rpc;
     int id = rpc.nextRequestId();
     bool called = false;
-    rpc.registerPendingRequest(id,
-                                [&called](const QJsonValue&)
-                                {
-                                    called = true;
-                                });
+    rpc.registerPendingRequest(id, [&called](const QJsonValue&) { called = true; });
     rpc.cancelRequest(id);
 
     QByteArray body = "{\"jsonrpc\":\"2.0\",\"id\":" + QByteArray::number(id) + ",\"result\":{}}";

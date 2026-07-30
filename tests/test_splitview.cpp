@@ -1,9 +1,10 @@
 #include "codeeditor.h"
-#include "widgets/editorcontainer.h"
 #include "panels/splitview.h"
+#include "widgets/editorcontainer.h"
 
 #include <QSignalSpy>
 #include <QTabWidget>
+
 #include <gtest/gtest.h>
 
 static const int PANE_TIMEOUT = 200;

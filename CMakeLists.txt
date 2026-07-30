@@ -178,15 +178,18 @@ add_library(Devpad_lib STATIC
     src/panels/terminalpanel.cpp
     src/panels/terminalbackend.cpp
     src/panels/splitview.cpp
+    src/panels/dropzoneoverlay.cpp
     $<$<NOT:$<BOOL:${TERMINAL_HAS_KODOTERM}>>:src/panels/terminalbackend_qtermwidget.cpp>
     $<$<BOOL:${TERMINAL_HAS_KODOTERM}>:src/panels/terminalbackend_kodoterm.cpp>
     src/panels/draggabletabbar.cpp
     src/panels/errorlistpanel.cpp
+    src/widgets/brackethelper.cpp
     src/widgets/themepreviewwidget.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/editorcontainer.cpp
     src/lsp/lspjsonrpc.cpp
     src/lsp/lspclient.cpp
+    src/lsp/lspconnectionhelper.cpp
     src/lsp/lspservermanager.cpp
     src/lsp/lsptypes.cpp
     src/lsp/lspeditorintegration.cpp
@@ -266,6 +269,16 @@ target_sources(Devpad PRIVATE ${qm_files})
 
 # ── Tests ─────────────────────────────────────────────────────
 option(BUILD_TESTS "Build unit tests" ON)
+
+# ── Translations ──────────────────────────────────────────────
+find_program(QT_LUPDATE NAMES lupdate-qt6 lupdate HINTS ${Qt6_DIR}/../../../bin /usr/lib/qt6/bin)
+if(QT_LUPDATE)
+    add_custom_target(update-translations
+        COMMAND ${QT_LUPDATE} -no-obsolete src/ -ts ${TS_FILES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Updating translation .ts files from source"
+    )
+endif()
 
 # ── Formatting ────────────────────────────────────────────────
 find_program(CLANG_FORMAT clang-format)

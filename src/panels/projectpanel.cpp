@@ -582,8 +582,8 @@ void ProjectPanel::onContextMenu(const QPoint& pos)
         menu.addSeparator();
 
         bool hiddenVisible = SettingsManager::instance().showHiddenFiles();
-        QAction* showHiddenAct = menu.addAction(
-                QIcon(":/icons/Common/hiddenfolder.svg"), hiddenVisible ? tr("Hide Hidden Files and Folders") : tr("Show Hidden Files and Folders"));
+        QAction* showHiddenAct = menu.addAction(QIcon(":/icons/Common/hiddenfolder.svg"),
+                                                hiddenVisible ? tr("Hide Hidden Files and Folders") : tr("Show Hidden Files and Folders"));
         connect(showHiddenAct, &QAction::triggered, this,
                 [this, hiddenVisible]()
                 {
@@ -592,8 +592,8 @@ void ProjectPanel::onContextMenu(const QPoint& pos)
                 });
 
         bool gitIgnoreEnabled = SettingsManager::instance().useGitIgnore();
-        QAction* gitIgnoreAct = menu.addAction(
-                QIcon(":/icons/Common/filter.svg"), gitIgnoreEnabled ? tr("Disable .gitignore Filtering") : tr("Enable .gitignore Filtering"));
+        QAction* gitIgnoreAct = menu.addAction(QIcon(":/icons/Common/filter.svg"),
+                                               gitIgnoreEnabled ? tr("Disable .gitignore Filtering") : tr("Enable .gitignore Filtering"));
         gitIgnoreAct->setCheckable(true);
         gitIgnoreAct->setChecked(gitIgnoreEnabled);
         connect(gitIgnoreAct, &QAction::triggered, this,

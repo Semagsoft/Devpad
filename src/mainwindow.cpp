@@ -34,6 +34,7 @@
 #include "findsymbolsdialog.h"
 #include "logger.h"
 #include "lsp/lspclient.h"
+#include "lsp/lspconnectionhelper.h"
 #include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
 #include "optionsdialog.h"
@@ -352,11 +353,7 @@ void MainWindow::wireActions()
 
 void MainWindow::connectPanelSignals()
 {
-    connect(m_tabManager, &TabManager::editorCreated, this,
-            [this](CodeEditor* editor)
-            {
-                onEditorCreated(editor);
-            });
+    connect(m_tabManager, &TabManager::editorCreated, this, [this](CodeEditor* editor) { onEditorCreated(editor); });
     connect(m_tabManager, &TabManager::editorClosed, this,
             [this](CodeEditor* editor)
             {
@@ -464,173 +461,9 @@ void MainWindow::setupEditorConnections()
 
 void MainWindow::setupLspConnections()
 {
-    connect(m_lspServerManager, &lsp::LspServerManager::definitionReady, this,
-            [this](const QString&, const lsp::Location& location)
-            {
-                QString filePath = lsp::pathFromUri(location.uri);
-                onNavigateToLocation(filePath, location.range.start.line, location.range.start.character);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::completionReady, this,
-            [this](const QString& uri, const lsp::CompletionList& completions)
-            {
-                Q_UNUSED(uri)
-                CodeEditor* editor = m_tabManager->currentEditor();
-                if (editor)
-                    editor->showCompletion(completions);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::typeDefinitionReady, this,
-            [this](const QString&, const lsp::Location& location)
-            {
-                QString filePath = lsp::pathFromUri(location.uri);
-                onNavigateToLocation(filePath, location.range.start.line, location.range.start.character);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::declarationReady, this,
-            [this](const QString&, const lsp::Location& location)
-            {
-                QString filePath = lsp::pathFromUri(location.uri);
-                onNavigateToLocation(filePath, location.range.start.line, location.range.start.character);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::codeActionReady, this,
-            [this](const QString& uri, const QList<QJsonObject>& actions)
-            {
-                if (actions.isEmpty())
-                    return;
-                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (!editor)
-                    return;
-
-                QMenu menu(editor);
-                for (const auto& a : actions)
-                {
-                    QString title = a["title"].toString();
-                    QAction* act = menu.addAction(title);
-                    QJsonObject cmd = a["command"].toObject();
-                    QString command = cmd["command"].toString();
-                    QJsonArray args = cmd["arguments"].toArray();
-                    act->setData(command);
-                }
-                QAction* chosen = menu.exec(QCursor::pos());
-                if (chosen && !chosen->data().toString().isEmpty())
-                {
-#ifdef QT_DEBUG
-                    qDebug() << "Code action:" << chosen->data().toString();
-#endif
-                }
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::referencesReady, this,
-            [this](const QString&, const QList<lsp::Location>& locations)
-            {
-                if (locations.isEmpty())
-                    return;
-                const auto& loc = locations.first();
-                QString filePath = lsp::pathFromUri(loc.uri);
-                onNavigateToLocation(filePath, loc.range.start.line, loc.range.start.character);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::hoverReady, this,
-            [this](const QString& uri, const QString& contents)
-            {
-                Q_UNUSED(uri)
-                CodeEditor* editor = m_tabManager->currentEditor();
-                if (editor && !contents.isEmpty())
-                {
-                    int pos = editor->cursorPosition();
-                    editor->showToolTip(pos, contents);
-                }
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::selectionRangesReady, this,
-            [this](const QString& uri, const QJsonArray& ranges)
-            {
-                Q_UNUSED(uri)
-                CodeEditor* editor = m_tabManager->currentEditor();
-                if (editor)
-                    editor->setSelectionRanges(ranges);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::semanticTokensFullReady, this,
-            [this](const QString& uri, const QJsonArray& tokens)
-            {
-                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (editor)
-                    editor->applySemanticTokens(uri, tokens);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::linkedEditingRangeReady, this,
-            [this](const QString& uri, const QJsonObject& result)
-            {
-                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (editor)
-                    editor->setLinkedEditingRanges(result);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::formattingReady, this,
-            [this](const QString& uri, const QList<QJsonObject>& edits)
-            {
-                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (editor)
-                    editor->applyFormattingEdits(edits);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::rangeFormattingReady, this,
-            [this](const QString& uri, const QList<QJsonObject>& edits)
-            {
-                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (editor)
-                    editor->applyFormattingEdits(edits);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::signatureHelpReady, this,
-            [this](const QString& uri, const QJsonObject& info)
-            {
-                Q_UNUSED(uri)
-                CodeEditor* editor = m_tabManager->currentEditor();
-                if (editor)
-                    editor->showSignatureHelp(info);
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::documentHighlightReady, this,
-            [this](const QString& uri, const QJsonArray& highlights)
-            {
-                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (editor)
-                {
-                    editor->applyHighlights(highlights);
-                }
-            });
-
-    connect(m_lspServerManager, &lsp::LspServerManager::diagnosticsReady, this,
-            [this](const QString& uri, const QList<lsp::Diagnostic>& diagnostics)
-            {
-                CodeEditor* editor = m_tabManager->findEditorByFileName(lsp::pathFromUri(uri));
-                if (editor)
-                {
-                    editor->applyDiagnostics(uri, diagnostics);
-                }
-                m_errorListPanel->updateDiagnostics(uri, diagnostics);
-            });
-
-    connect(m_errorListPanel, &ErrorListPanel::navigateToLocation, this, &MainWindow::onNavigateToLocation);
-
-    if (m_actionManager->errorListPanelAct())
-        connect(m_errorListPanel, &QDockWidget::visibilityChanged, m_actionManager->errorListPanelAct(), &QAction::setChecked);
-    connect(m_errorListPanel, &QDockWidget::visibilityChanged, m_actionManager->errorListPanelButton(), &QToolButton::setChecked);
-
-    connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
-            [this]()
-            {
-                for (const QString& lang : m_lspServerManager->languages())
-                {
-                    auto* client = m_lspServerManager->clientForLanguage(lang);
-                    if (client)
-                        client->sendDidChangeConfiguration(QJsonObject());
-                }
-            });
+    lsp::setupLspConnections(m_lspServerManager, m_tabManager, m_errorListPanel, m_actionManager,
+                             [this](const QString& filePath, int line, int column)
+                             { onNavigateToLocation(filePath, line, column); });
 }
 
 void MainWindow::applyCloseButtonPosition()
@@ -1261,9 +1094,15 @@ void MainWindow::findSymbols()
     m_findSymbolsDialog->setFocus();
 }
 
-void MainWindow::expandSelection() { invokeOnEditor(&CodeEditor::expandSelection); }
+void MainWindow::expandSelection()
+{
+    invokeOnEditor(&CodeEditor::expandSelection);
+}
 
-void MainWindow::shrinkSelection() { invokeOnEditor(&CodeEditor::shrinkSelection); }
+void MainWindow::shrinkSelection()
+{
+    invokeOnEditor(&CodeEditor::shrinkSelection);
+}
 
 void MainWindow::updateStatusBarLabelsVisibility()
 {
@@ -1492,19 +1331,40 @@ void MainWindow::invokeOnEditor(void (CodeEditor::*method)())
         (editor->*method)();
 }
 
-void MainWindow::goToDefinition() { invokeOnEditor(&CodeEditor::goToDefinition); }
+void MainWindow::goToDefinition()
+{
+    invokeOnEditor(&CodeEditor::goToDefinition);
+}
 
-void MainWindow::formatSelection() { invokeOnEditor(&CodeEditor::formatSelection); }
+void MainWindow::formatSelection()
+{
+    invokeOnEditor(&CodeEditor::formatSelection);
+}
 
-void MainWindow::goToTypeDefinition() { invokeOnEditor(&CodeEditor::goToTypeDefinition); }
+void MainWindow::goToTypeDefinition()
+{
+    invokeOnEditor(&CodeEditor::goToTypeDefinition);
+}
 
-void MainWindow::goToDeclaration() { invokeOnEditor(&CodeEditor::goToDeclaration); }
+void MainWindow::goToDeclaration()
+{
+    invokeOnEditor(&CodeEditor::goToDeclaration);
+}
 
-void MainWindow::renameSymbol() { invokeOnEditor(&CodeEditor::requestRename); }
+void MainWindow::renameSymbol()
+{
+    invokeOnEditor(&CodeEditor::requestRename);
+}
 
-void MainWindow::findReferences() { invokeOnEditor(&CodeEditor::findReferences); }
+void MainWindow::findReferences()
+{
+    invokeOnEditor(&CodeEditor::findReferences);
+}
 
-void MainWindow::triggerCompletion() { invokeOnEditor(&CodeEditor::triggerCompletion); }
+void MainWindow::triggerCompletion()
+{
+    invokeOnEditor(&CodeEditor::triggerCompletion);
+}
 
 void MainWindow::onNavigateToLocation(const QString& filePath, int line, int column)
 {

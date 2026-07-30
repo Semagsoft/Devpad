@@ -1,7 +1,7 @@
 #include "codeeditor.h"
+#include "settingsmanager.h"
 #include "widgets/editorcontainer.h"
 #include "widgets/inlinefindbar.h"
-#include "settingsmanager.h"
 
 #include <gtest/gtest.h>
 
