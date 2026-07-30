@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -79,11 +79,11 @@ void AboutDialog::setupUI()
     iconLabel->installEventFilter(this);
     mainLayout->addWidget(iconLabel);
 
-    QLabel* versionLabel = new QLabel(tr("Version %1 (C++/Qt6)").arg(DEVPAD_VERSION), this);
+    QLabel* versionLabel = new QLabel(tr("Version %1").arg(DEVPAD_VERSION), this);
     versionLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(versionLabel);
 
-    QLabel* copyrightLabel = new QLabel(tr("Copyright %1 - A C++/Qt text editor").arg(QDate::currentDate().year()), this);
+    QLabel* copyrightLabel = new QLabel(tr("Copyright 2008-%1 \n An open source, cross-platform code editor").arg(QDate::currentDate().year()), this);
     copyrightLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(copyrightLabel);
 
