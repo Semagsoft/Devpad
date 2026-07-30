@@ -98,6 +98,8 @@ public slots:
     void printPreview();
     void pageSetup();
     void quitDevpad();
+    void paste();
+    void copy();
 
 private slots:
     void updateStatusBar();

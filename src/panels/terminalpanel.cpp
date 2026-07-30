@@ -28,6 +28,8 @@
 #endif
 #include <QApplication>
 #include <QClipboard>
+#include <QDebug>
+#include <QKeyEvent>
 #include <QContextMenuEvent>
 #include <QDesktopServices>
 #include <QDir>
@@ -36,7 +38,6 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QPointer>
-#include <QShortcut>
 #include <QStandardPaths>
 
 TerminalPanel::TerminalPanel(QWidget* parent) : QDockWidget(tr("Terminal"), parent), m_backend(nullptr), m_isRunning(false)
@@ -53,9 +54,14 @@ TerminalPanel::TerminalPanel(QWidget* parent) : QDockWidget(tr("Terminal"), pare
 #endif
 
     setupUI();
+
+    QApplication::instance()->installEventFilter(this);
 }
 
-TerminalPanel::~TerminalPanel() = default;
+TerminalPanel::~TerminalPanel()
+{
+    QApplication::instance()->removeEventFilter(this);
+}
 
 #ifndef Q_OS_WIN
 void TerminalPanel::extractColorSchemes()
@@ -184,26 +190,56 @@ void TerminalPanel::ensureTerminalWidget()
     connect(m_backend, &TerminalBackend::finished, this, &TerminalPanel::onSessionFinished);
 
     mainLayout->addWidget(m_backend, 1);
+}
 
-    auto copyAction = new QShortcut(QKeySequence::Copy, this);
-    connect(copyAction, &QShortcut::activated,
-            [this]()
-            {
-                if (m_backend && m_backend->hasFocus())
-                {
-                    m_backend->copyClipboard();
-                }
-            });
+bool TerminalPanel::terminalHasFocus() const
+{
+    auto* fw = QApplication::focusWidget();
+    return fw && m_backend && (fw == m_backend || m_backend->isAncestorOf(fw));
+}
 
-    auto pasteAction = new QShortcut(QKeySequence::Paste, this);
-    connect(pasteAction, &QShortcut::activated,
-            [this]()
+void TerminalPanel::pasteToTerminal()
+{
+    if (m_backend)
+        m_backend->pasteClipboard();
+}
+
+void TerminalPanel::copyFromTerminal()
+{
+    if (m_backend)
+        m_backend->copyClipboard();
+}
+
+bool TerminalPanel::eventFilter(QObject* obj, QEvent* event)
+{
+    if (event->type() == QEvent::KeyPress)
+    {
+        auto* ke = static_cast<QKeyEvent*>(event);
+        auto* tw = m_backend ? m_backend->terminalWidget() : nullptr;
+        if (tw && (obj == tw || tw->isAncestorOf(qobject_cast<QWidget*>(obj))))
+        {
+            if (ke->key() == Qt::Key_PageUp)
             {
-                if (m_backend && m_backend->hasFocus())
-                {
-                    m_backend->pasteClipboard();
-                }
-            });
+                if (ke->modifiers().testFlag(Qt::ControlModifier))
+                    copyFromTerminal();
+                else if (ke->modifiers().testFlag(Qt::ShiftModifier))
+                    pasteToTerminal();
+                event->accept();
+                return true;
+            }
+
+            if (ke->key() == Qt::Key_Insert)
+            {
+                if (ke->modifiers().testFlag(Qt::ShiftModifier))
+                    pasteToTerminal();
+                else if (ke->modifiers().testFlag(Qt::ControlModifier))
+                    copyFromTerminal();
+                event->accept();
+                return true;
+            }
+        }
+    }
+    return QDockWidget::eventFilter(obj, event);
 }
 
 void TerminalPanel::startTerminal()
@@ -225,6 +261,8 @@ void TerminalPanel::stopTerminal()
 {
     if (!m_backend)
         return;
+
+    QApplication::instance()->removeEventFilter(this);
 
     mainLayout->removeWidget(m_backend);
     delete m_backend;

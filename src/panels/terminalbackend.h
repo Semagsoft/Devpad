@@ -22,6 +22,10 @@ public:
     virtual void pasteClipboard() = 0;
     virtual void sendText(const QString& text) = 0;
     virtual bool isRunning() const = 0;
+    virtual QWidget* terminalWidget() const
+    {
+        return nullptr;
+    }
 
 signals:
     void finished(int exitCode, int exitStatus);

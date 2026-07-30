@@ -99,3 +99,8 @@ bool TerminalBackendQTermWidget::isRunning() const
 {
     return m_running;
 }
+
+QWidget* TerminalBackendQTermWidget::terminalWidget() const
+{
+    return m_term;
+}

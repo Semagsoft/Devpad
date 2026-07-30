@@ -318,6 +318,12 @@ void MainWindow::setupUI()
     auto* statusBarShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Alt+S"), this);
     connect(statusBarShortcut, &QShortcut::activated, m_actionManager->statusBarAct(), &QAction::trigger);
 
+    auto* winCopyShortcut = new QShortcut(QKeySequence("Meta+C"), this);
+    connect(winCopyShortcut, &QShortcut::activated, this, &MainWindow::copy);
+
+    auto* winPasteShortcut = new QShortcut(QKeySequence("Meta+V"), this);
+    connect(winPasteShortcut, &QShortcut::activated, this, &MainWindow::paste);
+
     const auto shortcutActions = m_actionManager->actionsWithShortcuts();
     for (QAction* act : shortcutActions)
         addAction(act);
@@ -1030,6 +1036,22 @@ void MainWindow::pageSetup()
     QPrinter printer(QPrinter::HighResolution);
     QPageSetupDialog dlg(&printer, this);
     dlg.exec();
+}
+
+void MainWindow::paste()
+{
+    if (m_terminalPanel && m_terminalPanel->terminalHasFocus())
+        m_terminalPanel->pasteToTerminal();
+    else if (m_editorController)
+        m_editorController->paste();
+}
+
+void MainWindow::copy()
+{
+    if (m_terminalPanel && m_terminalPanel->terminalHasFocus())
+        m_terminalPanel->copyFromTerminal();
+    else if (m_editorController)
+        m_editorController->copy();
 }
 
 void MainWindow::toggleFullScreen()
