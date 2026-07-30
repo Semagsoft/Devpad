@@ -1232,6 +1232,12 @@ void MainWindow::findSymbols()
     {
         m_findSymbolsDialog = new FindSymbolsDialog(m_lspServerManager, this);
         connect(m_findSymbolsDialog, &FindSymbolsDialog::navigateToSymbol, this, &MainWindow::onNavigateToLocation);
+        connect(m_findSymbolsDialog, &QDialog::finished, this,
+                [this]()
+                {
+                    m_findSymbolsDialog->deleteLater();
+                    m_findSymbolsDialog = nullptr;
+                });
     }
     m_findSymbolsDialog->show();
     m_findSymbolsDialog->raise();

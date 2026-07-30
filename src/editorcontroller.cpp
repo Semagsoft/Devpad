@@ -107,7 +107,8 @@ bool EditorController::saveFileAs()
 
     editor->setFileName(fileName);
     saveEditor(editor.data(), fileName);
-    m_tabManager->updateTabTitle(editor);
+    if (editor)
+        m_tabManager->updateTabTitle(editor);
     return true;
 }
 

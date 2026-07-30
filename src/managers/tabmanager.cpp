@@ -135,6 +135,13 @@ void TabManager::addEditor(CodeEditor* editor, const QString& title)
 {
     auto* container = new EditorContainer(editor, m_activePane);
     m_containers.insert(editor, container);
+    connect(editor, &QObject::destroyed, this,
+            [this](QObject* obj)
+            {
+                auto* ed = static_cast<CodeEditor*>(obj);
+                m_containers.remove(ed);
+                m_pinnedEditors.remove(ed);
+            });
     m_activePane->addTab(container, title);
     int idx = m_activePane->indexOf(container);
     updateCloseButton(idx, m_activePane, SettingsManager::instance().closeButtonMode());

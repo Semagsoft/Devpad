@@ -148,7 +148,6 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                                 int triggerStart = position - triggerLen;
                                 if (triggerStart >= 0)
                                 {
-                                    Snippet::ExpandedSnippet expanded = snip.expand();
                                     m_snippetEngine->insertSnippet(snip);
                                 }
                                 return;
@@ -1302,7 +1301,7 @@ void CodeEditor::requestRename()
         return;
 
     bool ok = false;
-    QString newName = QInputDialog::getText(nullptr, tr("Rename Symbol"), tr("New name:"), QLineEdit::Normal, QString(), &ok);
+    QString newName = QInputDialog::getText(this, tr("Rename Symbol"), tr("New name:"), QLineEdit::Normal, QString(), &ok);
     if (!ok || newName.isEmpty())
         return;
 

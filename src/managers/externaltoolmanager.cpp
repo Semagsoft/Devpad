@@ -8,6 +8,7 @@
 #include <QFontDatabase>
 #include <QFormLayout>
 #include <QHBoxLayout>
+#include <QPointer>
 #include <QProcess>
 #include <QPushButton>
 #include <QTextEdit>
@@ -189,30 +190,40 @@ bool ExternalToolManager::runTool(int index, const QString& filePath, const QStr
     else
     {
         // Background QProcess path with output dialog
-        auto* process = new QProcess(parent);
-        process->setWorkingDirectory(resolvedWorkDir);
-        process->setProcessChannelMode(QProcess::MergedChannels);
-
         auto* outputDialog = new QDialog(parent);
         outputDialog->setWindowTitle(tool.name + ExternalToolManager::tr(" - Output"));
         outputDialog->setMinimumSize(500, 300);
         auto* layout = new QVBoxLayout(outputDialog);
+
+        auto* process = new QProcess(outputDialog);
+        process->setWorkingDirectory(resolvedWorkDir);
+        process->setProcessChannelMode(QProcess::MergedChannels);
+
         auto* outputText = new QTextEdit(outputDialog);
         outputText->setReadOnly(true);
         outputText->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
         layout->addWidget(outputText);
+
         auto* closeBtn = new QPushButton(ExternalToolManager::tr("Close"), outputDialog);
         layout->addWidget(closeBtn);
 
+        QPointer<QTextEdit> textGuard(outputText);
         QObject::connect(closeBtn, &QPushButton::clicked, outputDialog, &QDialog::accept);
         QObject::connect(process, &QProcess::readyReadStandardOutput, outputDialog,
-                         [process, outputText]() { outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput())); });
-        QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), outputDialog,
-                         [outputText, process](int, QProcess::ExitStatus)
+                         [process, textGuard]()
                          {
-                             outputText->append(ExternalToolManager::tr("\n--- Process exited ---"));
-                             outputText->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
+                             if (textGuard)
+                                 textGuard->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
                          });
+        QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), outputDialog,
+                         [textGuard, process](int, QProcess::ExitStatus)
+                         {
+                             if (!textGuard)
+                                 return;
+                             textGuard->append(ExternalToolManager::tr("\n--- Process exited ---"));
+                             textGuard->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
+                         });
+        QObject::connect(outputDialog, &QDialog::finished, process, &QProcess::kill);
         outputDialog->setAttribute(Qt::WA_DeleteOnClose);
         outputDialog->show();
 
