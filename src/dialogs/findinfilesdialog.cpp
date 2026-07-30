@@ -155,42 +155,41 @@ void FindInFilesWorker::searchFile(const QString& filePath)
         QString line = in.readLine();
         lineNumber++;
 
-        QString compareLine = (m_matchCase || m_useRegex) ? line : line.toLower();
-        QString compareSearch = (m_matchCase || m_useRegex) ? m_searchText : m_searchText.toLower();
-
         bool matched = false;
 
         if (m_useRegex)
         {
             QRegularExpression::PatternOption opt = m_matchCase ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption;
-            QRegularExpression re(compareSearch, opt);
+            QRegularExpression re(m_searchText, opt);
             if (!re.isValid())
             {
                 emit searchError(tr("Invalid regex: %1").arg(re.errorString()));
                 m_hasError = true;
                 return;
             }
-            matched = re.match(compareLine).hasMatch();
+            matched = re.match(line).hasMatch();
         }
         else if (m_wholeWord)
         {
-            int idx = compareLine.indexOf(compareSearch);
+            Qt::CaseSensitivity cs = m_matchCase ? Qt::CaseSensitive : Qt::CaseInsensitive;
+            int idx = line.indexOf(m_searchText, 0, cs);
             while (idx >= 0)
             {
-                bool leftBoundary = (idx == 0) || !compareLine[idx - 1].isLetterOrNumber();
-                int end = idx + compareSearch.length();
-                bool rightBoundary = (end >= compareLine.length()) || !compareLine[end].isLetterOrNumber();
+                bool leftBoundary = (idx == 0) || !line[idx - 1].isLetterOrNumber();
+                int end = idx + m_searchText.length();
+                bool rightBoundary = (end >= line.length()) || !line[end].isLetterOrNumber();
                 if (leftBoundary && rightBoundary)
                 {
                     matched = true;
                     break;
                 }
-                idx = compareLine.indexOf(compareSearch, idx + 1);
+                idx = line.indexOf(m_searchText, idx + 1, cs);
             }
         }
         else
         {
-            matched = compareLine.contains(compareSearch);
+            Qt::CaseSensitivity cs = m_matchCase ? Qt::CaseSensitive : Qt::CaseInsensitive;
+            matched = line.contains(m_searchText, cs);
         }
 
         if (matched)
