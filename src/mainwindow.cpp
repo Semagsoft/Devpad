@@ -88,14 +88,7 @@ MainWindow::~MainWindow() = default;
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
-    setWindowTitle(Strings::AppName());
-    setMinimumSize(800, 600);
-    QIcon windowIcon(":/icons/devpad.svg");
-    if (!windowIcon.isNull())
-    {
-        setWindowIcon(windowIcon);
-    }
-    setAcceptDrops(true);
+    setupWindow();
 
     m_splitView = new SplitView(this);
     m_tabWidget = m_splitView->primaryTabWidget();
@@ -145,6 +138,37 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     connect(m_splitView, &SplitView::externalTabDropped, this, [this](const QString& filePath) { loadFile(filePath); });
 
+    setupDockWidgets();
+    createManagers();
+    connectRemoteService();
+
+    setupUI();
+    wireActions();
+    connectPanelSignals();
+
+    setCentralWidget(m_splitView);
+
+    applyInitialSettings();
+
+    setupEditorConnections();
+    setupLspConnections();
+
+    applyAutoSaveSettings();
+    updateSplitViewVisibility();
+}
+
+void MainWindow::setupWindow()
+{
+    setWindowTitle(Strings::AppName());
+    setMinimumSize(800, 600);
+    QIcon windowIcon(":/icons/devpad.svg");
+    if (!windowIcon.isNull())
+        setWindowIcon(windowIcon);
+    setAcceptDrops(true);
+}
+
+void MainWindow::setupDockWidgets()
+{
     m_projectPanel = new ProjectPanel(this);
     {
         auto pos = SettingsManager::instance().projectPanelPosition();
@@ -157,14 +181,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     addDockWidget(Qt::BottomDockWidgetArea, m_terminalPanel);
     m_terminalPanel->hide();
 
-    // Install SplitView's event filter on MainWindow to catch drag events over
-    // dock widgets and other areas where no child widget accepts drops
     installEventFilter(m_splitView);
 
-    // QTermWidget's internal drag handling intercepts events before our
-    // filters; disable acceptDrops on all terminal child widgets so that drag
-    // events fall through to MainWindow where the SplitView's filter handles
-    // them (cross-process acknowledgments, etc.)
     connect(m_terminalPanel, &TerminalPanel::terminalStarted, this,
             [this]()
             {
@@ -177,7 +195,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 };
                 disableDrops(disableDrops, m_terminalPanel);
             });
+}
 
+void MainWindow::createManagers()
+{
     m_tabManager = new TabManager(m_tabWidget, this);
     m_searchManager = new SearchManager(this, m_tabManager);
 
@@ -208,7 +229,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     m_errorListPanel->setVisible(showErrorList);
 
     connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
+}
 
+void MainWindow::connectRemoteService()
+{
     connect(m_remoteFileService, &RemoteFileService::fileDownloaded, this,
             [this](const QString& url, const QString& fileName, const QByteArray& data)
             {
@@ -231,12 +255,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 }
             });
     connect(m_remoteFileService, &RemoteFileService::statusMessage, this, [this](const QString& message) { statusBar()->showMessage(message); });
+}
 
-    setupUI();
-    wireActions();
-    connectPanelSignals();
-
-    setCentralWidget(m_splitView);
+void MainWindow::applyInitialSettings()
+{
+    bool showErrorList = SettingsManager::instance().lspShowErrorList();
 
     m_actionManager->menuBarAct()->setChecked(SettingsManager::instance().showMenuBar());
     m_actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
@@ -264,14 +287,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     applyStartupMode();
     updateRecentFileActions();
-
     applySettings();
-
-    setupEditorConnections();
-    setupLspConnections();
-
-    applyAutoSaveSettings();
-    updateSplitViewVisibility();
 }
 
 void MainWindow::setupUI()
@@ -1245,19 +1261,9 @@ void MainWindow::findSymbols()
     m_findSymbolsDialog->setFocus();
 }
 
-void MainWindow::expandSelection()
-{
-    CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor)
-        editor->expandSelection();
-}
+void MainWindow::expandSelection() { invokeOnEditor(&CodeEditor::expandSelection); }
 
-void MainWindow::shrinkSelection()
-{
-    CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor)
-        editor->shrinkSelection();
-}
+void MainWindow::shrinkSelection() { invokeOnEditor(&CodeEditor::shrinkSelection); }
 
 void MainWindow::updateStatusBarLabelsVisibility()
 {
@@ -1479,54 +1485,26 @@ void MainWindow::saveCurrentFileWithEncoding(const QString& encoding)
     updateEncodingSelector();
 }
 
-void MainWindow::goToDefinition()
+void MainWindow::invokeOnEditor(void (CodeEditor::*method)())
 {
     CodeEditor* editor = m_tabManager->currentEditor();
     if (editor)
-        editor->goToDefinition();
+        (editor->*method)();
 }
 
-void MainWindow::formatSelection()
-{
-    CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor)
-        editor->formatSelection();
-}
+void MainWindow::goToDefinition() { invokeOnEditor(&CodeEditor::goToDefinition); }
 
-void MainWindow::goToTypeDefinition()
-{
-    CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor)
-        editor->goToTypeDefinition();
-}
+void MainWindow::formatSelection() { invokeOnEditor(&CodeEditor::formatSelection); }
 
-void MainWindow::goToDeclaration()
-{
-    CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor)
-        editor->goToDeclaration();
-}
+void MainWindow::goToTypeDefinition() { invokeOnEditor(&CodeEditor::goToTypeDefinition); }
 
-void MainWindow::renameSymbol()
-{
-    CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor)
-        editor->requestRename();
-}
+void MainWindow::goToDeclaration() { invokeOnEditor(&CodeEditor::goToDeclaration); }
 
-void MainWindow::findReferences()
-{
-    CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor)
-        editor->findReferences();
-}
+void MainWindow::renameSymbol() { invokeOnEditor(&CodeEditor::requestRename); }
 
-void MainWindow::triggerCompletion()
-{
-    CodeEditor* editor = m_tabManager->currentEditor();
-    if (editor)
-        editor->triggerCompletion();
-}
+void MainWindow::findReferences() { invokeOnEditor(&CodeEditor::findReferences); }
+
+void MainWindow::triggerCompletion() { invokeOnEditor(&CodeEditor::triggerCompletion); }
 
 void MainWindow::onNavigateToLocation(const QString& filePath, int line, int column)
 {
