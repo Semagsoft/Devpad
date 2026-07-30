@@ -330,9 +330,14 @@ if(BUILD_TESTS)
         tests/test_sessionmanager.cpp
         tests/test_snippet.cpp
         tests/test_snippetmanager.cpp
+        tests/test_editorcontainer.cpp
+        tests/test_encodingmenuhelper.cpp
         tests/test_externaltoolmanager.cpp
-        tests/test_printmanager.cpp
         tests/test_filewatchermanager.cpp
+        tests/test_gitignore.cpp
+        tests/test_inlinefindbar.cpp
+        tests/test_printmanager.cpp
+        tests/test_recentfileshelper.cpp
         tests/test_lsptypes.cpp
         tests/test_lspjsonrpc.cpp
         tests/test_splitview.cpp
