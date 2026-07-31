@@ -164,6 +164,7 @@ TEST_F(LanguageInfoTest, APIsConstructionDoesNotCrash)
         {
             apis->add(kw);
         }
+        delete apis;
         delete lexer;
     }
 }

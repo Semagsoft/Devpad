@@ -92,7 +92,7 @@ TEST(LspJsonRpcTest, HandleDataResponseWithCallback)
     QByteArray msg = rpc.createRequest(requestId, QStringLiteral("custom/request"), QJsonObject());
     // Replace the request with a response message by stripping the header and rebuilding
     QByteArray body;
-    body = "{\"jsonrpc\":\"2.0\",\"id\":" + QByteArray::number(requestId) + ",\"result\":{\"value\":42}}";
+    body = R"({"jsonrpc":"2.0","id":)" + QByteArray::number(requestId) + R"(,"result":{"value":42}})";
     QByteArray header = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n";
     rpc.handleData(header + body);
 
@@ -108,7 +108,7 @@ TEST(LspJsonRpcTest, CancelRequest)
     rpc.registerPendingRequest(id, [&called](const QJsonValue&) { called = true; });
     rpc.cancelRequest(id);
 
-    QByteArray body = "{\"jsonrpc\":\"2.0\",\"id\":" + QByteArray::number(id) + ",\"result\":{}}";
+    QByteArray body = R"({"jsonrpc":"2.0","id":)" + QByteArray::number(id) + R"(,"result":{}})";
     QByteArray header = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n";
     rpc.handleData(header + body);
 
@@ -168,7 +168,7 @@ TEST(LspJsonRpcTest, ResponseForUnknownIdIsIgnored)
     LspJsonRpc rpc;
     QSignalSpy spy(&rpc, &LspJsonRpc::responseReceived);
 
-    QByteArray body = "{\"jsonrpc\":\"2.0\",\"id\":9999,\"result\":{}}";
+    QByteArray body = R"({"jsonrpc":"2.0","id":9999,"result":{}})";
     QByteArray header = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n";
     rpc.handleData(header + body);
 

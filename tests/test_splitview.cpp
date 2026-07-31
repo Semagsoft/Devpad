@@ -7,8 +7,6 @@
 
 #include <gtest/gtest.h>
 
-static const int PANE_TIMEOUT = 200;
-
 TEST(SplitViewTest, InitialState)
 {
     SplitView splitView;
