@@ -136,11 +136,10 @@ void TabManager::addEditor(CodeEditor* editor, const QString& title)
     auto* container = new EditorContainer(editor, m_activePane);
     m_containers.insert(editor, container);
     connect(editor, &QObject::destroyed, this,
-            [this](QObject* obj)
+            [this, editor]()
             {
-                auto* ed = static_cast<CodeEditor*>(obj);
-                m_containers.remove(ed);
-                m_pinnedEditors.remove(ed);
+                m_containers.remove(editor);
+                m_pinnedEditors.remove(editor);
             });
     m_activePane->addTab(container, title);
     int idx = m_activePane->indexOf(container);
