@@ -249,6 +249,65 @@ jobs:
             Devpad-*.msi
           fail_on_unmatched_files: false
 
+  macos:
+    name: Build and test (macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          brew install qt qscintilla2 googletest ccache
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: macos
+
+      - name: Configure
+        run: |
+          export CCACHE_BASEDIR=${{ github.workspace }}
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_CXX_FLAGS="-Werror" \
+            -DBUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build -j$(sysctl -n hw.logicalcpu)
+
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package macOS app (.app/.dmg)
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        env:
+          BUILD_DIR: build-release-macos
+          CMAKE_PREFIX_PATH: /opt/homebrew
+          PATH: /opt/homebrew/bin:/opt/homebrew/opt/qt/bin:/opt/homebrew/opt/qttools/bin:$PATH
+        run: |
+          bash scripts/package-macos.sh
+
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          name: Devpad-macOS-${{ github.ref_name }}
+          path: |
+            Devpad-*.dmg
+            Devpad-*.tar.gz
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Devpad-*.dmg
+            Devpad-*.tar.gz
+          fail_on_unmatched_files: false
+
   sanitize:
     name: Sanitizers (ASan+UBSan)
     runs-on: ubuntu-24.04
