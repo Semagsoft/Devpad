@@ -164,3 +164,8 @@ bool TerminalBackendKodoTerm::isRunning() const
 {
     return m_running;
 }
+
+QWidget* TerminalBackendKodoTerm::terminalWidget() const
+{
+    return m_term;
+}
