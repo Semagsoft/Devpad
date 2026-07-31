@@ -274,7 +274,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
-          archives: 'qtbase qtsvg qttools qtmultimedia'
+          modules: 'qtmultimedia'
           cache: true
 
       - name: Set Qt prefix
