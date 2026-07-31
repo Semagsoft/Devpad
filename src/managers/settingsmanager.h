@@ -310,6 +310,7 @@ signals:
 
 private:
     SettingsManager();
+    explicit SettingsManager(const QString& settingsPath);
     Q_DISABLE_COPY(SettingsManager)
 
     ~SettingsManager() override = default;

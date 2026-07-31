@@ -109,8 +109,6 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
 
 void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
 {
-    emit statusMessage(tr("Downloading %1 via SSH...").arg(urlStr));
-
     QString user = url.userName();
     QString host = url.host();
     int port = url.port(22);
@@ -142,6 +140,8 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
     {
         user = QDir::home().dirName();
     }
+
+    emit statusMessage(tr("Downloading %1 via SSH...").arg(urlStr));
 
     auto tmpFile = std::make_unique<QTemporaryFile>(QDir::temp().filePath("devpad_remote_XXXXXX"));
     tmpFile->setAutoRemove(true);

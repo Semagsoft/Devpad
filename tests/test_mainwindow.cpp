@@ -46,7 +46,7 @@ protected:
     void createFile(const QString& path, const QString& content = "test content")
     {
         QFile file(path);
-        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly));
         QTextStream out(&file);
         out << content;
     }
