@@ -73,11 +73,13 @@
                 <Shortcut Id="StartMenuShortcut"
                           Directory="ProgramMenuDir"
                           Name="Devpad"
+                          Target="[#Devpad.exe]"
                           WorkingDirectory="INSTALLDIR"
                           Icon="app.ico" />
                 <Shortcut Id="DesktopShortcut"
                           Directory="DesktopFolder"
                           Name="Devpad"
+                          Target="[#Devpad.exe]"
                           WorkingDirectory="INSTALLDIR"
                           Icon="app.ico" />
                 <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
