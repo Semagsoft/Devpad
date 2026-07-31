@@ -55,7 +55,6 @@ private:
     void setupAppearanceTab();
     void setupEditorTab();
     void setupPanelsTab();
-    void setupLspTab();
     void loadSettings();
     void saveSettings();
     void updateThemePreview();
@@ -106,7 +105,6 @@ private:
 
     // LSP settings
     QCheckBox* lspEnabledCheckBox = nullptr;
-    QCheckBox* lspShowErrorListCheckBox = nullptr;
     QSpinBox* lspCompletionTriggerSpin = nullptr;
     QTableWidget* lspServerTable = nullptr;
 };

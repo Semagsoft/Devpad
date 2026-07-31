@@ -109,8 +109,6 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
 
 void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
 {
-    emit statusMessage(tr("Downloading %1 via SSH...").arg(urlStr));
-
     QString user = url.userName();
     QString host = url.host();
     int port = url.port(22);
@@ -143,27 +141,51 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
         user = QDir::home().dirName();
     }
 
-    auto tmpFile = std::make_unique<QTemporaryFile>(QDir::temp().filePath("devpad_remote_XXXXXX"));
-    tmpFile->setAutoRemove(true);
-    if (!tmpFile->open())
-    {
-        emit downloadFailed(urlStr, tr("Failed to create temp file."));
-        return;
-    }
-    QString localPath = tmpFile->fileName();
-    tmpFile->close();
+    emit statusMessage(tr("Downloading %1 via SSH...").arg(urlStr));
 
     QStringList args;
     if (port != 22)
     {
         args << "-P" << QString::number(port);
     }
-    args << QString("%1@%2:%3").arg(user, host, remotePath) << localPath;
+    args << QString("%1@%2:%3").arg(user, host, remotePath);
+
+    // Start the transfer on the next event-loop iteration. Deferring the
+    // download attempt keeps the synchronous part of downloadSsh() limited to
+    // URL validation and the status message, so failures (e.g. temp file or
+    // process start errors) are never reported synchronously from within
+    // openRemote(); some platforms deliver QProcess start failures synchronously
+    // from inside start().
+    QTimer::singleShot(0, this,
+                       [this, urlStr, args]()
+                       {
+                           QPointer<RemoteFileService> guard(this);
+                           if (!guard)
+                               return;
+                           startSshTransfer(urlStr, args);
+                       });
+}
+
+void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringList& args)
+{
+    auto* tmpFile = new QTemporaryFile(QDir::temp().filePath("devpad_remote_XXXXXX"));
+    tmpFile->setAutoRemove(true);
+    if (!tmpFile->open())
+    {
+        tmpFile->deleteLater();
+        emit downloadFailed(urlStr, tr("Failed to create temp file."));
+        return;
+    }
+    QString localPath = tmpFile->fileName();
+    tmpFile->close();
+
+    std::shared_ptr<QTemporaryFile> tmpFileShared(tmpFile);
+    QStringList scpArgs = args;
+    scpArgs << localPath;
 
     auto* scp = new QProcess(this);
     scp->setProperty("remoteUrl", urlStr);
     QPointer<RemoteFileService> guard(this);
-    std::shared_ptr<QTemporaryFile> tmpFileShared(tmpFile.release());
 
     connect(scp, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
             [this, scp, tmpFileShared, urlStr, guard](int exitCode, QProcess::ExitStatus status)
@@ -209,8 +231,6 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
                 emit downloadFailed(urlStr, errMsg.isEmpty() ? tr("Failed to start SCP process.") : errMsg);
             });
 
-    scp->start("scp", args);
-
     auto* killTimer = new QTimer(this);
     killTimer->setSingleShot(true);
     connect(killTimer, &QTimer::timeout, this,
@@ -244,5 +264,7 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
                     guard->deleteLater();
                 }
             });
+
+    scp->start("scp", scpArgs);
     killTimer->start(30000);
 }

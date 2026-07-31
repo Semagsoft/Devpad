@@ -21,6 +21,8 @@
 #include "codeeditor.h"
 #include "theme.h"
 
+#include <QCoreApplication>
+#include <QDir>
 #include <QFileInfo>
 
 #include <Qsci/qsciscintilla.h>
@@ -103,7 +105,9 @@ void SettingsManager::setTestingInstance(SettingsManager* instance)
 
 std::unique_ptr<SettingsManager> SettingsManager::createForTesting()
 {
-    return std::unique_ptr<SettingsManager>(new SettingsManager());
+    static int counter = 0;
+    QString path = QDir::temp().filePath(QString("devpad_test_settings_%1_%2.ini").arg(QCoreApplication::applicationPid()).arg(counter++));
+    return std::unique_ptr<SettingsManager>(new SettingsManager(path));
 }
 
 SettingsManager& SettingsManager::instance()
@@ -117,6 +121,12 @@ SettingsManager& SettingsManager::instance()
 }
 
 SettingsManager::SettingsManager() : QObject(nullptr)
+{
+    ensureSettingsVersion();
+    loadCache();
+}
+
+SettingsManager::SettingsManager(const QString& settingsPath) : QObject(nullptr), m_settings(settingsPath, QSettings::IniFormat)
 {
     ensureSettingsVersion();
     loadCache();

@@ -1,5 +1,7 @@
 !define PRODUCT_NAME "Devpad"
-!define PRODUCT_VERSION "1.0"
+!ifndef PRODUCT_VERSION
+!define PRODUCT_VERSION "1.01"
+!endif
 !define PRODUCT_PUBLISHER "Semagsoft"
 !define PRODUCT_WEB_SITE "https://semagsoft.com"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\Devpad.exe"
@@ -58,7 +60,7 @@ Section "Devpad" SecCore
     SectionIn RO
     SetOutPath "$INSTDIR"
     ; Main executable
-    File "..\build\Devpad.exe"
+    File "..\build\dist\Devpad.exe"
     File "devpad.ico"
 
     ; All DLLs
@@ -69,7 +71,7 @@ Section "Devpad" SecCore
     File "..\build\dist\platforms\qwindows.dll"
 
     SetOutPath "$INSTDIR\styles"
-    File "..\build\dist\styles\qmodernwindowsstyle.dll"
+    File /nonfatal "..\build\dist\styles\qmodernwindowsstyle.dll"
 
     SetOutPath "$INSTDIR\imageformats"
     File "..\build\dist\imageformats\qgif.dll"
@@ -101,7 +103,7 @@ Section "Devpad" SecCore
 
     ; Devpad translations
     SetOutPath "$INSTDIR"
-    File /nonfatal "..\build\devpad_*.qm"
+    File /nonfatal "..\build\dist\devpad_*.qm"
 
     ; License
     SetOutPath "$INSTDIR"

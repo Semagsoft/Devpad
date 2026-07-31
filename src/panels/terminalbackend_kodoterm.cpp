@@ -134,27 +134,38 @@ void TerminalBackendKodoTerm::sendText(const QString& text)
 {
     if (!m_term || !m_running)
         return;
-    for (int i = 0; i < text.size(); ++i)
+    QString batch;
+    for (const QChar& ch : text)
     {
-        QChar ch = text[i];
         if (ch == QLatin1Char('\n'))
         {
+            if (!batch.isEmpty())
+            {
+                QKeyEvent press(QEvent::KeyPress, -1, Qt::NoModifier, batch);
+                QCoreApplication::sendEvent(m_term, &press);
+                batch.clear();
+            }
             QKeyEvent press(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
-            QKeyEvent release(QEvent::KeyRelease, Qt::Key_Return, Qt::NoModifier);
             QCoreApplication::sendEvent(m_term, &press);
-            QCoreApplication::sendEvent(m_term, &release);
         }
         else
         {
-            QKeyEvent press(QEvent::KeyPress, -1, Qt::NoModifier, QString(ch));
-            QKeyEvent release(QEvent::KeyRelease, -1, Qt::NoModifier, QString(ch));
-            QCoreApplication::sendEvent(m_term, &press);
-            QCoreApplication::sendEvent(m_term, &release);
+            batch += ch;
         }
+    }
+    if (!batch.isEmpty())
+    {
+        QKeyEvent press(QEvent::KeyPress, -1, Qt::NoModifier, batch);
+        QCoreApplication::sendEvent(m_term, &press);
     }
 }
 
 bool TerminalBackendKodoTerm::isRunning() const
 {
     return m_running;
+}
+
+QWidget* TerminalBackendKodoTerm::terminalWidget() const
+{
+    return m_term;
 }

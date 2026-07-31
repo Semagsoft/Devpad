@@ -1,6 +1,8 @@
 #include "externaltoolmanager.h"
 #include "settingsmanager.h"
 
+#include <QFileInfo>
+
 #include <gtest/gtest.h>
 
 class ExternalToolManagerTest : public ::testing::Test
@@ -34,7 +36,8 @@ TEST_F(ExternalToolManagerTest, ResolveVariablesBaseName)
 
 TEST_F(ExternalToolManagerTest, ResolveVariablesDirectory)
 {
-    EXPECT_EQ(manager.resolveVariables("%d", "/home/user/file.cpp", "", "", 0), "/home/user");
+    QFileInfo fi("/home/user/file.cpp");
+    EXPECT_EQ(manager.resolveVariables("%d", "/home/user/file.cpp", "", "", 0), fi.absolutePath());
 }
 
 TEST_F(ExternalToolManagerTest, ResolveVariablesExtension)
@@ -64,8 +67,9 @@ TEST_F(ExternalToolManagerTest, ResolveVariablesPercentEscape)
 
 TEST_F(ExternalToolManagerTest, ResolveVariablesComplexTemplate)
 {
+    QFileInfo fi("/path/to/script.py");
     // %e expands with leading dot, so %n.%e → "script" + "." + ".py" = "script..py"
-    EXPECT_EQ(manager.resolveVariables("%n at %d", "/path/to/script.py", "", "", 0), "script at /path/to");
+    EXPECT_EQ(manager.resolveVariables("%n at %d", "/path/to/script.py", "", "", 0), fi.completeBaseName() + " at " + fi.absolutePath());
 }
 
 TEST_F(ExternalToolManagerTest, ResolveVariablesExtensionEmptyWhenNoExt)
@@ -145,7 +149,7 @@ TEST_F(ExternalToolManagerTest, WorkingDirWithFilePath)
     ExternalTool tool;
     tool.workingDir = "";
     QString result = manager.workingDirForTool(tool, "/path/to/file.txt", "");
-    EXPECT_EQ(result, "/path/to");
+    EXPECT_EQ(result, QFileInfo("/path/to/file.txt").absolutePath());
 }
 
 TEST_F(ExternalToolManagerTest, WorkingDirFallbackToHome)
@@ -161,7 +165,7 @@ TEST_F(ExternalToolManagerTest, WorkingDirResolvedFromTemplate)
     ExternalTool tool;
     tool.workingDir = "%d";
     QString result = manager.workingDirForTool(tool, "/custom/dir/file.txt", "/project");
-    EXPECT_EQ(result, "/custom/dir");
+    EXPECT_EQ(result, QFileInfo("/custom/dir/file.txt").absolutePath());
 }
 
 TEST_F(ExternalToolManagerTest, SetToolsAndRetrieve)

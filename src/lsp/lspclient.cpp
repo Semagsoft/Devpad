@@ -26,6 +26,7 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QPointer>
 #include <QProcess>
 
 namespace lsp
@@ -47,14 +48,13 @@ LspClient::~LspClient()
 void LspClient::startServer(const QString& command, const QStringList& args, const QString& rootUri)
 {
     if (m_process && m_process->state() != QProcess::NotRunning)
-    {
         stopServer();
-    }
 
     m_command = command;
     m_args = args;
     m_rootUri = rootUri;
     m_initialized = false;
+    m_starting = true;
 
     m_process = new QProcess(this);
     m_process->setProcessChannelMode(QProcess::SeparateChannels);
@@ -63,15 +63,27 @@ void LspClient::startServer(const QString& command, const QStringList& args, con
     connect(m_process, &QProcess::readyReadStandardError, this, &LspClient::onReadyReadStderr);
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &LspClient::onProcessFinished);
     connect(m_process, &QProcess::errorOccurred, this, &LspClient::onProcessError);
+    connect(m_process, &QProcess::started, this, &LspClient::onProcessStarted);
 
     m_process->start(command, args);
 
-    if (!m_process->waitForStarted(5000))
-    {
-        emit serverError(tr("Failed to start language server: %1").arg(command));
-        return;
-    }
+    QPointer<QProcess> guard(m_process);
+    QTimer::singleShot(START_TIMEOUT_MS, this,
+                       [this, guard]()
+                       {
+                           if (!m_starting || !guard || guard != m_process)
+                               return;
+                           m_starting = false;
+                           emit serverError(tr("Language server timed out starting: %1").arg(m_command));
+                           stopServer();
+                       });
+}
 
+void LspClient::onProcessStarted()
+{
+    if (!m_process)
+        return;
+    m_starting = false;
     sendInitialize();
     emit serverStarted();
 }
@@ -81,30 +93,41 @@ void LspClient::stopServer()
     if (!m_process)
         return;
 
+    m_starting = false;
+    m_stopping = true;
+
     if (m_process->state() != QProcess::NotRunning)
     {
-        // Send shutdown request
         QByteArray shutdown = m_jsonRpc->createRequest(m_jsonRpc->nextRequestId(), "shutdown", QJsonObject());
         m_process->write(shutdown);
-        m_process->waitForBytesWritten(1000);
 
-        // Send exit notification
         QByteArray exit = m_jsonRpc->createNotification("exit", QJsonObject());
         m_process->write(exit);
-        m_process->waitForBytesWritten(1000);
 
-        if (!m_process->waitForFinished(3000))
-        {
-            m_process->terminate();
-            if (!m_process->waitForFinished(2000))
-                m_process->kill();
-        }
+        QPointer<QProcess> guard(m_process);
+        QTimer::singleShot(SHUTDOWN_TIMEOUT_MS, this,
+                           [this, guard]()
+                           {
+                               if (!guard || guard != m_process || !m_stopping)
+                                   return;
+                               if (m_process->state() != QProcess::NotRunning)
+                               {
+                                   m_process->terminate();
+                                   QTimer::singleShot(KILL_TIMEOUT_MS, this,
+                                                      [this, guard]()
+                                                      {
+                                                          if (!guard || guard != m_process || !m_stopping)
+                                                              return;
+                                                          if (m_process->state() != QProcess::NotRunning)
+                                                              m_process->kill();
+                                                      });
+                               }
+                           });
     }
-
-    delete m_process;
-    m_process = nullptr;
-    m_initialized = false;
-    emit serverStopped();
+    else
+    {
+        cleanupProcess();
+    }
 }
 
 bool LspClient::isRunning() const
@@ -127,13 +150,11 @@ void LspClient::sendInitialize()
     QJsonObject sync;
     sync["textDocumentSync"] = 1; // Full document sync
     textDocument["synchronization"] = sync;
-    QJsonObject completion;
-    completion["completionItem"] = QJsonObject();
     QJsonArray docFormats;
     docFormats.append(QStringLiteral("plaintext"));
-    completion["completionItem"] = QJsonObject();
     QJsonObject completionItem;
     completionItem["documentationFormat"] = docFormats;
+    QJsonObject completion;
     completion["completionItem"] = completionItem;
     textDocument["completion"] = completion;
     textDocument["definition"] = QJsonObject();
@@ -173,6 +194,7 @@ void LspClient::sendInitialize()
                                           QByteArray notification = m_jsonRpc->createNotification("initialized", QJsonObject());
                                           if (m_process)
                                               m_process->write(notification);
+                                          flushPendingDocOps();
                                       });
 
     QByteArray request = m_jsonRpc->createRequest(id, "initialize", params);
@@ -185,7 +207,10 @@ void LspClient::sendInitialize()
 void LspClient::openDocument(const QString& uri, const QString& text, int version)
 {
     if (!isRunning() || !m_initialized)
+    {
+        m_pendingDocOps.append({PendingDocOp::Open, uri, text, version});
         return;
+    }
 
     QJsonObject params;
     QJsonObject textDoc;
@@ -202,7 +227,10 @@ void LspClient::openDocument(const QString& uri, const QString& text, int versio
 void LspClient::changeDocument(const QString& uri, const QString& text, int version)
 {
     if (!isRunning() || !m_initialized)
+    {
+        m_pendingDocOps.append({PendingDocOp::Change, uri, text, version});
         return;
+    }
 
     QJsonObject params;
     QJsonObject textDoc;
@@ -223,7 +251,18 @@ void LspClient::changeDocument(const QString& uri, const QString& text, int vers
 void LspClient::closeDocument(const QString& uri)
 {
     if (!isRunning() || !m_initialized)
+    {
+        // Only queue if the doc was actually opened (avoid queuing close for never-opened docs)
+        for (const auto& op : m_pendingDocOps)
+        {
+            if (op.type == PendingDocOp::Open && op.uri == uri)
+            {
+                m_pendingDocOps.append({PendingDocOp::Close, uri, {}, 0});
+                return;
+            }
+        }
         return;
+    }
 
     QJsonObject params;
     QJsonObject textDoc;
@@ -237,7 +276,10 @@ void LspClient::closeDocument(const QString& uri)
 void LspClient::saveDocument(const QString& uri)
 {
     if (!isRunning() || !m_initialized)
+    {
+        m_pendingDocOps.append({PendingDocOp::Save, uri, {}, 0});
         return;
+    }
 
     QJsonObject params;
     QJsonObject textDoc;
@@ -872,6 +914,14 @@ void LspClient::onReadyReadStderr()
 void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
 {
     m_initialized = false;
+
+    if (m_stopping)
+    {
+        m_stopping = false;
+        cleanupProcess();
+        return;
+    }
+
     emit serverStopped();
 
     if (status == QProcess::CrashExit && m_retryCount < MAX_RETRIES)
@@ -885,6 +935,42 @@ void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
     }
 }
 
+void LspClient::cleanupProcess()
+{
+    if (m_process)
+    {
+        m_process->disconnect();
+        m_process->deleteLater();
+        m_process = nullptr;
+    }
+    m_starting = false;
+    m_stopping = false;
+    emit serverStopped();
+}
+
+void LspClient::flushPendingDocOps()
+{
+    auto ops = std::move(m_pendingDocOps);
+    for (const auto& op : ops)
+    {
+        switch (op.type)
+        {
+        case PendingDocOp::Open:
+            openDocument(op.uri, op.text, op.version);
+            break;
+        case PendingDocOp::Change:
+            changeDocument(op.uri, op.text, op.version);
+            break;
+        case PendingDocOp::Close:
+            closeDocument(op.uri);
+            break;
+        case PendingDocOp::Save:
+            saveDocument(op.uri);
+            break;
+        }
+    }
+}
+
 void LspClient::tryRestart()
 {
     if (!m_command.isEmpty())
@@ -893,10 +979,13 @@ void LspClient::tryRestart()
 
 void LspClient::onProcessError(QProcess::ProcessError error)
 {
+    m_starting = false;
+
     switch (error)
     {
     case QProcess::FailedToStart:
         emit serverError(tr("Language server failed to start for %1").arg(m_language));
+        cleanupProcess();
         break;
     case QProcess::Timedout:
         emit serverError(tr("Language server timed out for %1").arg(m_language));

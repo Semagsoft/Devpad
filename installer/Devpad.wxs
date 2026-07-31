@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <?ifndef ProductVersion ?>
+    <?define ProductVersion = "1.01" ?>
+    <?endif?>
     <Product Id="*"
              Name="Devpad"
              Language="1033"
-             Version="1.0"
+             Version="$(var.ProductVersion)"
              Manufacturer="Semagsoft"
              UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
 
@@ -70,11 +73,13 @@
                 <Shortcut Id="StartMenuShortcut"
                           Directory="ProgramMenuDir"
                           Name="Devpad"
+                          Target="[#Devpad.exe]"
                           WorkingDirectory="INSTALLDIR"
                           Icon="app.ico" />
                 <Shortcut Id="DesktopShortcut"
                           Directory="DesktopFolder"
                           Name="Devpad"
+                          Target="[#Devpad.exe]"
                           WorkingDirectory="INSTALLDIR"
                           Icon="app.ico" />
                 <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
@@ -92,7 +97,7 @@
                 <RegistryKey Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\Devpad">
                     <RegistryValue Type="string" Name="DisplayName" Value="Devpad" />
                     <RegistryValue Type="string" Name="UninstallString" Value="[System64Folder]msiexec.exe /x [ProductCode]" />
-                    <RegistryValue Type="string" Name="DisplayVersion" Value="1.0" />
+                    <RegistryValue Type="string" Name="DisplayVersion" Value="$(var.ProductVersion)" />
                     <RegistryValue Type="string" Name="Publisher" Value="Semagsoft" />
                     <RegistryValue Type="string" Name="URLInfoAbout" Value="https://semagsoft.com" />
                     <RegistryValue Type="integer" Name="NoModify" Value="1" />

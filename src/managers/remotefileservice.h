@@ -55,6 +55,7 @@ signals:
 private:
     void downloadHttp(const QUrl& url, const QString& urlStr);
     void downloadSsh(const QUrl& url, const QString& urlStr);
+    void startSshTransfer(const QString& urlStr, const QStringList& args);
 
     QNetworkAccessManager m_networkManager;
     QList<QNetworkReply*> m_pendingReplies;

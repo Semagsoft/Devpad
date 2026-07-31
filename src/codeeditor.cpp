@@ -26,6 +26,7 @@
 #include "settingsmanager.h"
 #include "snippetmanager.h"
 #include "theme.h"
+#include "widgets/brackethelper.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -148,7 +149,6 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                                 int triggerStart = position - triggerLen;
                                 if (triggerStart >= 0)
                                 {
-                                    Snippet::ExpandedSnippet expanded = snip.expand();
                                     m_snippetEngine->insertSnippet(snip);
                                 }
                                 return;
@@ -546,24 +546,24 @@ void CodeEditor::setAutoCloseBrackets(bool enabled)
 
 void CodeEditor::setupLspIndicators()
 {
-    // Error indicator: red squiggle
+    // Error indicator: red squiggle underline
     indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_ERROR);
     setIndicatorForegroundColor(QColor(255, 0, 0), lsp::LSP_INDICATOR_ERROR);
 
-    // Warning indicator: orange squiggle
-    indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_WARNING);
+    // Warning indicator: orange straight underline
+    indicatorDefine(QsciScintilla::PlainIndicator, lsp::LSP_INDICATOR_WARNING);
     setIndicatorForegroundColor(QColor(255, 165, 0), lsp::LSP_INDICATOR_WARNING);
 
-    // Info indicator: blue squiggle
-    indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_INFO);
+    // Info indicator: blue dotted underline
+    indicatorDefine(QsciScintilla::DotsIndicator, lsp::LSP_INDICATOR_INFO);
     setIndicatorForegroundColor(QColor(0, 170, 255), lsp::LSP_INDICATOR_INFO);
 
-    // Semantic token indicator: gray squiggle
-    indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_SEMANTIC);
+    // Semantic token indicator: gray dashed underline
+    indicatorDefine(QsciScintilla::StraightBoxIndicator, lsp::LSP_INDICATOR_SEMANTIC);
     setIndicatorForegroundColor(QColor(180, 180, 180), lsp::LSP_INDICATOR_SEMANTIC);
 
-    // Highlight indicator: dark yellow squiggle (for document highlights)
-    indicatorDefine(QsciScintilla::SquiggleIndicator, lsp::LSP_INDICATOR_HIGHLIGHT);
+    // Highlight indicator: dark yellow rounded box (for document highlights)
+    indicatorDefine(QsciScintilla::RoundBoxIndicator, lsp::LSP_INDICATOR_HIGHLIGHT);
     setIndicatorForegroundColor(QColor(200, 180, 0), lsp::LSP_INDICATOR_HIGHLIGHT);
 }
 
@@ -812,199 +812,14 @@ void CodeEditor::toggleComment()
     replaceSelectedText(joined);
 }
 
-CodeEditor::BracketContext CodeEditor::contextAtPosition(int pos) const
-{
-    BracketContext ctx;
-    if (pos <= 0)
-        return ctx;
-
-    // Fast path: use Scintilla styling to determine context at position
-    // If the character before pos has default style (0), we're in code
-    int prevStyle = static_cast<int>(SendScintilla(SCI_GETSTYLEAT, pos - 1));
-    if (prevStyle == 0)
-    {
-        // Quick check: if prev char is a line comment opener, we're in a comment
-        int line = SendScintilla(SCI_LINEFROMPOSITION, pos);
-        int lineStart = SendScintilla(SCI_POSITIONFROMLINE, line);
-        int col = pos - lineStart;
-        if (col >= 2)
-        {
-            char c1 = static_cast<char>(SendScintilla(SCI_GETCHARAT, pos - 2));
-            char c2 = static_cast<char>(SendScintilla(SCI_GETCHARAT, pos - 1));
-            if (c1 == '/' && c2 == '/')
-            {
-                ctx.inComment = true;
-                return ctx;
-            }
-        }
-        // Default style means we're in plain code — no comment/string context
-        return ctx;
-    }
-
-    // Slow path: scan backwards to determine context using style categories
-    // Check the style at pos-1 against known comment and string ranges
-    // For QScintilla lexers, styles above 0 are categorized as:
-    //   Comment styles: typically 1-3
-    //   String styles: typically 6-7 (but varies by lexer)
-    // We use a bounded scan for block comment detection as fallback
-
-    int line = SendScintilla(SCI_LINEFROMPOSITION, pos);
-    int col = pos - SendScintilla(SCI_POSITIONFROMLINE, line);
-
-    // Bounded scan: at most 500 lines back for block comment detection
-    constexpr int MAX_SCAN_LINES = 500;
-    int scanStart = std::max(0, line - MAX_SCAN_LINES);
-
-    bool inBlockComment = false;
-    for (int l = scanStart; l < line; ++l)
-    {
-        int lStart = SendScintilla(SCI_POSITIONFROMLINE, l);
-        int lEnd = SendScintilla(SCI_GETLINEENDPOSITION, l);
-        QString lText = QsciScintilla::text(lStart, lEnd);
-
-        for (int i = 0; i < lText.length(); ++i)
-        {
-            QChar c = lText[i];
-            if (!inBlockComment)
-            {
-                if (c == '/' && i + 1 < lText.length() && lText[i + 1] == '*')
-                {
-                    inBlockComment = true;
-                    ++i;
-                }
-            }
-            else
-            {
-                if (c == '*' && i + 1 < lText.length() && lText[i + 1] == '/')
-                {
-                    inBlockComment = false;
-                    ++i;
-                }
-            }
-        }
-    }
-
-    // Scan current line up to the cursor position
-    int lineStart = SendScintilla(SCI_POSITIONFROMLINE, line);
-    int lineLength = SendScintilla(SCI_GETLINEENDPOSITION, line);
-    QString lineText = QsciScintilla::text(lineStart, lineLength);
-
-    for (int i = 0; i < col && i < lineText.length(); ++i)
-    {
-        QChar c = lineText[i];
-        if (inBlockComment)
-        {
-            if (c == '*' && i + 1 < lineText.length() && lineText[i + 1] == '/')
-            {
-                inBlockComment = false;
-                ++i;
-            }
-            continue;
-        }
-        if (ctx.inComment)
-            continue;
-        if (c == '/' && i + 1 < lineText.length())
-        {
-            if (lineText[i + 1] == '*')
-            {
-                inBlockComment = true;
-                ++i;
-                continue;
-            }
-            if (lineText[i + 1] == '/')
-            {
-                ctx.inComment = true;
-                continue;
-            }
-        }
-        if (c == '\\' && (ctx.inString || ctx.inCharLiteral))
-        {
-            ++i;
-            continue;
-        }
-        if (c == '"' && !ctx.inCharLiteral)
-            ctx.inString = !ctx.inString;
-        else if (c == '\'' && !ctx.inString)
-            ctx.inCharLiteral = !ctx.inCharLiteral;
-    }
-
-    ctx.inBlockComment = inBlockComment;
-    return ctx;
-}
-
 bool CodeEditor::handleAutoClose(QChar ch, int pos)
 {
-    struct Pair
-    {
-        QChar open;
-        QChar close;
-    };
-    static constexpr std::array pairs{Pair{'(', ')'}, Pair{'[', ']'}, Pair{'{', '}'}, Pair{'"', '"'}, Pair{'\'', '\''}};
-    BracketContext ctx = contextAtPosition(pos);
-    if (ctx.inComment || ctx.inBlockComment || ctx.inCharLiteral)
-        return false;
-
-    for (const auto& pair : pairs)
-    {
-        if (ch != pair.open)
-            continue;
-        if (ch == '"' && ctx.inString)
-            continue;
-        if (ch == '\'' && ctx.inCharLiteral)
-            continue;
-        beginUndoAction();
-        insert(QString(pair.open) + pair.close);
-        int l, c;
-        lineIndexFromPosition(pos + 1, &l, &c);
-        setCursorPosition(l, c);
-        endUndoAction();
-        return true;
-    }
-    return false;
+    return BracketHelper::handleAutoClose(this, ch, pos);
 }
 
 bool CodeEditor::handleBracketSkip(QChar ch, int pos)
 {
-    static constexpr std::array closers{QChar(')'), QChar(']'), QChar('}'), QChar('"'), QChar('\'')};
-    BracketContext ctx = contextAtPosition(pos);
-
-    // Never skip brackets inside comments
-    if (ctx.inComment || ctx.inBlockComment)
-        return false;
-
-    bool isQuote = (ch == '"' || ch == '\'');
-    if (isQuote)
-    {
-        // Inside a string, typing the matching quote should skip the next one
-        // to end the string without inserting a duplicate
-        bool inRelevantString = (ch == '"' && ctx.inString) || (ch == '\'' && ctx.inCharLiteral);
-        if (!inRelevantString)
-            return false;
-    }
-    else
-    {
-        // For non-quote brackets, no skipping inside strings
-        if (ctx.inString || ctx.inCharLiteral)
-            return false;
-    }
-
-    for (QChar closer : closers)
-    {
-        if (ch != closer)
-            continue;
-        int nextPos = pos + 1;
-        if (nextPos >= length())
-            return false;
-        int nextChar = SendScintilla(SCI_GETCHARAT, nextPos);
-        if (nextChar == static_cast<int>(closer.toLatin1()))
-        {
-            int nl, nc;
-            lineIndexFromPosition(nextPos, &nl, &nc);
-            setCursorPosition(nl, nc);
-            return true;
-        }
-    }
-    return false;
+    return BracketHelper::handleBracketSkip(this, ch, pos);
 }
 
 void CodeEditor::keyPressEvent(QKeyEvent* event)
@@ -1331,7 +1146,7 @@ void CodeEditor::requestRename()
         return;
 
     bool ok = false;
-    QString newName = QInputDialog::getText(nullptr, tr("Rename Symbol"), tr("New name:"), QLineEdit::Normal, QString(), &ok);
+    QString newName = QInputDialog::getText(this, tr("Rename Symbol"), tr("New name:"), QLineEdit::Normal, QString(), &ok);
     if (!ok || newName.isEmpty())
         return;
 
@@ -1501,10 +1316,7 @@ void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& token
         }
 
         if (length > 0 && line >= 0 && line < lines())
-        {
-            for (int c = 0; c < length; ++c)
-                fillIndicatorRange(line, col + c, line, col + c + 1, lsp::LSP_INDICATOR_SEMANTIC);
-        }
+            fillIndicatorRange(line, col, line, col + length, lsp::LSP_INDICATOR_SEMANTIC);
     }
 }
 

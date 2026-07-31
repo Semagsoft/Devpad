@@ -24,6 +24,7 @@ public:
     void pasteClipboard() override;
     void sendText(const QString& text) override;
     bool isRunning() const override;
+    QWidget* terminalWidget() const override;
 
 private:
     static QString shellProgram();

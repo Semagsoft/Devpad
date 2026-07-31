@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -164,16 +164,26 @@ QIcon ProjectPanel::iconForFile(const QString& filePath)
     return QFileIconProvider().icon(QFileInfo(filePath));
 }
 
+void FileFilterProxyModel::invalidateFilterCompat()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+    endFilterChange();
+#else
+    invalidateFilter();
+#endif
+}
+
 void FileFilterProxyModel::setFilterText(const QString& text)
 {
     m_filterText = text;
-    invalidateFilter();
+    invalidateFilterCompat();
 }
 
 void FileFilterProxyModel::setGitIgnoreEnabled(bool enabled)
 {
     m_gitIgnoreEnabled = enabled;
-    invalidateFilter();
+    invalidateFilterCompat();
 }
 
 void FileFilterProxyModel::setGitIgnoreRootPath(const QString& rootPath)
@@ -186,7 +196,7 @@ void FileFilterProxyModel::setGitIgnoreRootPath(const QString& rootPath)
     {
         m_gitIgnore = std::make_unique<GitIgnore>(rootPath);
     }
-    invalidateFilter();
+    invalidateFilterCompat();
 }
 
 void FileFilterProxyModel::scanGitIgnoreDirectory(const QString& dirPath)
@@ -194,7 +204,7 @@ void FileFilterProxyModel::scanGitIgnoreDirectory(const QString& dirPath)
     if (m_gitIgnore)
     {
         m_gitIgnore->scanDirectory(dirPath);
-        invalidateFilter();
+        invalidateFilterCompat();
     }
 }
 
@@ -573,16 +583,17 @@ void ProjectPanel::onContextMenu(const QPoint& pos)
         QAction* copyPathAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy Root Path"));
         connect(copyPathAct, &QAction::triggered, this, [this]() { copyPath(currentRootPath); });
 
-        QAction* showInFmAct = menu.addAction(tr("Show in File Manager"));
+        QAction* showInFmAct = menu.addAction(QIcon(":/icons/Common/openinfolder.svg"), tr("Show in File Manager"));
         connect(showInFmAct, &QAction::triggered, this, [this]() { showInFileManager(currentRootPath); });
 
-        QAction* openTermAct = menu.addAction(tr("Open in Terminal"));
+        QAction* openTermAct = menu.addAction(QIcon(":/icons/Common/openinterminal.svg"), tr("Open in Terminal"));
         connect(openTermAct, &QAction::triggered, this, [this]() { openInTerminal(currentRootPath); });
 
         menu.addSeparator();
 
         bool hiddenVisible = SettingsManager::instance().showHiddenFiles();
-        QAction* showHiddenAct = menu.addAction(hiddenVisible ? tr("Hide Hidden Files and Folders") : tr("Show Hidden Files and Folders"));
+        QAction* showHiddenAct = menu.addAction(QIcon(":/icons/Common/hiddenfolder.svg"),
+                                                hiddenVisible ? tr("Hide Hidden Files and Folders") : tr("Show Hidden Files and Folders"));
         connect(showHiddenAct, &QAction::triggered, this,
                 [this, hiddenVisible]()
                 {
@@ -591,7 +602,8 @@ void ProjectPanel::onContextMenu(const QPoint& pos)
                 });
 
         bool gitIgnoreEnabled = SettingsManager::instance().useGitIgnore();
-        QAction* gitIgnoreAct = menu.addAction(gitIgnoreEnabled ? tr("Disable .gitignore Filtering") : tr("Enable .gitignore Filtering"));
+        QAction* gitIgnoreAct = menu.addAction(QIcon(":/icons/Common/filter.svg"),
+                                               gitIgnoreEnabled ? tr("Disable .gitignore Filtering") : tr("Enable .gitignore Filtering"));
         gitIgnoreAct->setCheckable(true);
         gitIgnoreAct->setChecked(gitIgnoreEnabled);
         connect(gitIgnoreAct, &QAction::triggered, this,

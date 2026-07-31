@@ -36,7 +36,7 @@ TEST_F(ActionManagerTest, CreateActions)
     EXPECT_NE(manager.quitDevpadAct(), nullptr);
     EXPECT_NE(manager.undoAct(), nullptr);
     EXPECT_NE(manager.redoAct(), nullptr);
-    EXPECT_TRUE(manager.actionsWithShortcuts().size() > 0);
+    EXPECT_FALSE(manager.actionsWithShortcuts().empty());
 }
 
 TEST_F(ActionManagerTest, BuildMenusCreatesMenus)

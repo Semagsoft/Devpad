@@ -496,7 +496,7 @@ TEST_F(EditorControllerTest, SaveTriggersExternalModification)
     // by touching the file externally
     {
         QFile file(path);
-        file.open(QIODevice::WriteOnly | QIODevice::Text);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Text));
         QTextStream out(&file);
         out << "externally modified";
     }

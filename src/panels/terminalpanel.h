@@ -47,6 +47,10 @@ public:
     void toggle(QTabWidget* tabWidget, QMainWindow* mainWindow);
     void applyPosition(TerminalPanelPosition pos, QTabWidget* tabWidget, QMainWindow* mainWindow);
 
+    bool terminalHasFocus() const;
+    void pasteToTerminal();
+    void copyFromTerminal();
+
 signals:
     void terminalStarted();
     void terminalStopped();
@@ -58,6 +62,7 @@ private slots:
 protected:
     void showEvent(QShowEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
 private:
     void extractColorSchemes();

@@ -107,7 +107,7 @@ TEST_F(TabManagerTest, RemoveEditorDecreasesCount)
     addEditor("remove.txt");
     EXPECT_EQ(tabManager->count(), 2);
 
-    tabManager->removeEditor(1);
+    tabManager->closeEditor(1);
     EXPECT_EQ(tabManager->count(), 1);
     EXPECT_EQ(tabManager->editorAt(0), e1);
 }

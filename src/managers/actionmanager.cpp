@@ -647,8 +647,8 @@ void ActionManager::wireConnections(const ActionTargets& t)
     connect(this, &ActionManager::undoTriggered, ec, &EditorController::undo);
     connect(this, &ActionManager::redoTriggered, ec, &EditorController::redo);
     connect(this, &ActionManager::cutTriggered, ec, &EditorController::cut);
-    connect(this, &ActionManager::copyTriggered, ec, &EditorController::copy);
-    connect(this, &ActionManager::pasteTriggered, ec, &EditorController::paste);
+    connect(this, &ActionManager::copyTriggered, mw, &MainWindow::copy);
+    connect(this, &ActionManager::pasteTriggered, mw, &MainWindow::paste);
     connect(this, &ActionManager::selectAllTriggered, ec, &EditorController::selectAll);
     connect(this, &ActionManager::deleteTriggered, ec, &EditorController::deleteText);
     connect(this, &ActionManager::findTriggered, mw, &MainWindow::find);

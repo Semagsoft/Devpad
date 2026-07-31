@@ -2,7 +2,9 @@
 #include "printmanager.h"
 #include "settingsmanager.h"
 
+#include <QFileInfo>
 #include <QPrinter>
+#include <QTemporaryDir>
 #include <QTextDocument>
 
 #include <gtest/gtest.h>
@@ -12,10 +14,18 @@ class PrintManagerTest : public ::testing::Test
 protected:
     void SetUp() override
     {
+        ASSERT_TRUE(m_tempDir.isValid());
+
         m_testSettings = SettingsManager::createForTesting();
         SettingsManager::setTestingInstance(m_testSettings.get());
         m_editor = new CodeEditor();
         m_manager = new PrintManager();
+    }
+
+    void configurePdfPrinter(QPrinter& printer) const
+    {
+        printer.setOutputFormat(QPrinter::PdfFormat);
+        printer.setOutputFileName(m_tempDir.filePath("test_output.pdf"));
     }
 
     void TearDown() override
@@ -29,6 +39,7 @@ protected:
     CodeEditor* m_editor = nullptr;
     PrintManager* m_manager = nullptr;
     std::unique_ptr<SettingsManager> m_testSettings;
+    QTemporaryDir m_tempDir;
 };
 
 TEST_F(PrintManagerTest, ConstructorDoesNotCrash)
@@ -42,8 +53,10 @@ TEST_F(PrintManagerTest, PrintWithNoLexerUsesPlainText)
     m_editor->setSyntax("");
 
     QPrinter printer(QPrinter::HighResolution);
+    configurePdfPrinter(printer);
     // Just verify no crash when printing plain text
     EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
 TEST_F(PrintManagerTest, PrintWithCppLexerDoesNotCrash)
@@ -53,7 +66,9 @@ TEST_F(PrintManagerTest, PrintWithCppLexerDoesNotCrash)
     ASSERT_NE(m_editor->lexer(), nullptr);
 
     QPrinter printer(QPrinter::HighResolution);
+    configurePdfPrinter(printer);
     EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
 TEST_F(PrintManagerTest, PrintWithPythonLexerDoesNotCrash)
@@ -63,7 +78,9 @@ TEST_F(PrintManagerTest, PrintWithPythonLexerDoesNotCrash)
     ASSERT_NE(m_editor->lexer(), nullptr);
 
     QPrinter printer(QPrinter::HighResolution);
+    configurePdfPrinter(printer);
     EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
 TEST_F(PrintManagerTest, PrintWithMultiLineDoesNotCrash)
@@ -72,7 +89,9 @@ TEST_F(PrintManagerTest, PrintWithMultiLineDoesNotCrash)
     m_editor->setSyntax("cpp");
 
     QPrinter printer(QPrinter::HighResolution);
+    configurePdfPrinter(printer);
     EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
 TEST_F(PrintManagerTest, PrintEmptyEditorDoesNotCrash)
@@ -81,7 +100,9 @@ TEST_F(PrintManagerTest, PrintEmptyEditorDoesNotCrash)
     m_editor->setSyntax("cpp");
 
     QPrinter printer(QPrinter::HighResolution);
+    configurePdfPrinter(printer);
     EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
 TEST_F(PrintManagerTest, EditorWithoutSyntaxHasNoLexer)

@@ -19,6 +19,7 @@
 #include "lspeditorintegration.h"
 
 #include "../codeeditor.h"
+#include "appstrings.h"
 #include "lspclient.h"
 #include "lspindicators.h"
 #include "lspservermanager.h"
@@ -80,7 +81,7 @@ void LspEditorIntegration::sendDidOpen()
         return;
 
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty() || filePath == m_editor->tr("Untitled"))
+    if (filePath.isEmpty() || filePath == Strings::untitled())
         return;
 
     QString uri = uriFromPath(filePath);
@@ -94,7 +95,7 @@ void LspEditorIntegration::sendDidChange()
         return;
 
     QString filePath = m_editor->fileName();
-    if (filePath.isEmpty() || filePath == m_editor->tr("Untitled"))
+    if (filePath.isEmpty() || filePath == Strings::untitled())
         return;
 
     QString uri = uriFromPath(filePath);

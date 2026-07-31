@@ -119,23 +119,35 @@ signals:
 private slots:
     void onReadyReadStdout();
     void onReadyReadStderr();
+    void onProcessStarted();
     void onProcessFinished(int exitCode, QProcess::ExitStatus status);
     void onProcessError(QProcess::ProcessError error);
 
 private:
     void sendInitialize();
+    void cleanupProcess();
+    void flushPendingDocOps();
     void handleNotification(const QString& method, const QJsonObject& params);
     void handleResponse(int id, const QJsonValue& result, const QJsonObject& error);
     QString methodName(const QString& method) const;
 
-    struct DocumentState
+    void tryRestart();
+
+    struct PendingDocOp
     {
-        int version = 0;
+        enum Type
+        {
+            Open,
+            Change,
+            Close,
+            Save
+        };
+        Type type;
         QString uri;
         QString text;
+        int version = 0;
     };
-
-    void tryRestart();
+    QList<PendingDocOp> m_pendingDocOps;
 
     QProcess* m_process = nullptr;
     LspJsonRpc* m_jsonRpc = nullptr;
@@ -145,8 +157,13 @@ private:
     QStringList m_args;
     ServerCapabilities m_capabilities;
     bool m_initialized = false;
+    bool m_starting = false;
+    bool m_stopping = false;
     int m_retryCount = 0;
     static constexpr int MAX_RETRIES = 3;
+    static constexpr int START_TIMEOUT_MS = 5000;
+    static constexpr int SHUTDOWN_TIMEOUT_MS = 5000;
+    static constexpr int KILL_TIMEOUT_MS = 2000;
 };
 
 } // namespace lsp

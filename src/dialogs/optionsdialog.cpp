@@ -48,7 +48,7 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent), m_geometrySetti
 {
     setWindowTitle(tr("Options"));
     setModal(true);
-    setMinimumSize(440, 400);
+    setMinimumSize(520, 400);
     setupUI();
     loadSettings();
     m_geometrySettings.restoreGeometry(this);
@@ -74,7 +74,6 @@ void OptionsDialog::setupUI()
     setupAppearanceTab();
     setupEditorTab();
     setupPanelsTab();
-    setupLspTab();
 
     mainLayout->addWidget(tabWidget);
 
@@ -135,6 +134,33 @@ void OptionsDialog::setupGeneralTab()
     }
     defaultsLayout->addRow(tr("Default encoding:"), defaultEncodingComboBox);
     mainLayout->addWidget(defaultsGroup);
+
+    QGroupBox* lspGeneralGroup = new QGroupBox(tr("Language Server Protocol"), content);
+    QVBoxLayout* lspGeneralLayout = new QVBoxLayout(lspGeneralGroup);
+    lspEnabledCheckBox = new QCheckBox(tr("Enable LSP (Language Server Protocol)"), lspGeneralGroup);
+    lspGeneralLayout->addWidget(lspEnabledCheckBox);
+    QFormLayout* thresholdLayout = new QFormLayout();
+    lspCompletionTriggerSpin = new QSpinBox(lspGeneralGroup);
+    lspCompletionTriggerSpin->setRange(1, 10);
+    lspCompletionTriggerSpin->setValue(2);
+    lspCompletionTriggerSpin->setSuffix(tr(" character(s)"));
+    thresholdLayout->addRow(tr("Completion trigger after:"), lspCompletionTriggerSpin);
+    lspGeneralLayout->addLayout(thresholdLayout);
+    mainLayout->addWidget(lspGeneralGroup);
+
+    QGroupBox* serverGroup = new QGroupBox(tr("Server Commands"), content);
+    QVBoxLayout* serverLayout = new QVBoxLayout(serverGroup);
+    lspServerTable = new QTableWidget(serverGroup);
+    lspServerTable->setColumnCount(3);
+    lspServerTable->setHorizontalHeaderLabels({tr("Language"), tr("Command"), tr("Arguments")});
+    lspServerTable->horizontalHeader()->setStretchLastSection(true);
+    lspServerTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    lspServerTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    lspServerTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    lspServerTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    serverLayout->addWidget(lspServerTable);
+    mainLayout->addWidget(serverGroup);
+
     mainLayout->addStretch();
 
     tabWidget->addTab(createScrollContainer(content), tr("General"));
@@ -412,43 +438,6 @@ void OptionsDialog::setupPanelsTab()
     tabWidget->addTab(createScrollContainer(content), tr("Panels"));
 }
 
-void OptionsDialog::setupLspTab()
-{
-    QWidget* content = new QWidget();
-    QVBoxLayout* mainLayout = new QVBoxLayout(content);
-
-    QGroupBox* generalGroup = new QGroupBox(tr("Language Server Protocol"), content);
-    QVBoxLayout* generalLayout = new QVBoxLayout(generalGroup);
-    lspEnabledCheckBox = new QCheckBox(tr("Enable LSP (Language Server Protocol)"), generalGroup);
-    generalLayout->addWidget(lspEnabledCheckBox);
-    lspShowErrorListCheckBox = new QCheckBox(tr("Show error list"), generalGroup);
-    generalLayout->addWidget(lspShowErrorListCheckBox);
-    QFormLayout* thresholdLayout = new QFormLayout();
-    lspCompletionTriggerSpin = new QSpinBox(generalGroup);
-    lspCompletionTriggerSpin->setRange(1, 10);
-    lspCompletionTriggerSpin->setValue(2);
-    lspCompletionTriggerSpin->setSuffix(tr(" character(s)"));
-    thresholdLayout->addRow(tr("Completion trigger after:"), lspCompletionTriggerSpin);
-    generalLayout->addLayout(thresholdLayout);
-    mainLayout->addWidget(generalGroup);
-
-    QGroupBox* serverGroup = new QGroupBox(tr("Server Commands"), content);
-    QVBoxLayout* serverLayout = new QVBoxLayout(serverGroup);
-    lspServerTable = new QTableWidget(serverGroup);
-    lspServerTable->setColumnCount(3);
-    lspServerTable->setHorizontalHeaderLabels({tr("Language"), tr("Command"), tr("Arguments")});
-    lspServerTable->horizontalHeader()->setStretchLastSection(true);
-    lspServerTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    lspServerTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    lspServerTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    lspServerTable->setSelectionMode(QAbstractItemView::SingleSelection);
-    serverLayout->addWidget(lspServerTable);
-    mainLayout->addWidget(serverGroup);
-
-    mainLayout->addStretch();
-    tabWidget->addTab(createScrollContainer(content), tr("LSP"));
-}
-
 void OptionsDialog::updateThemePreview()
 {
     ThemeColors colors;
@@ -543,7 +532,6 @@ void OptionsDialog::loadSettings()
     autoSaveIntervalSpin->setEnabled(autoSaveCheckBox->isChecked());
 
     lspEnabledCheckBox->setChecked(s.lspEnabled());
-    lspShowErrorListCheckBox->setChecked(s.lspShowErrorList());
     lspCompletionTriggerSpin->setValue(s.lspCompletionTriggerChars());
 
     // Populate LSP server table with default + custom entries
@@ -617,7 +605,6 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setDefaultEncoding(defaultEncodingComboBox->currentIndex());
 
     SettingsManager::instance().setLspEnabled(lspEnabledCheckBox->isChecked());
-    SettingsManager::instance().setLspShowErrorList(lspShowErrorListCheckBox->isChecked());
     SettingsManager::instance().setLspCompletionTriggerChars(lspCompletionTriggerSpin->value());
 
     // Save LSP server table

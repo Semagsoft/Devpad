@@ -98,7 +98,7 @@ TEST_F(EncodingUtilsTest, EncodingToDisplayNameSystem)
 
 TEST_F(EncodingUtilsTest, EncodingToDisplayNameUnknownReturnsUtf8)
 {
-    EXPECT_EQ(encodingToDisplayName(static_cast<QStringConverter::Encoding>(99)), "UTF-8");
+    EXPECT_EQ(encodingToDisplayName(static_cast<QStringConverter::Encoding>(99)), "UTF-8"); // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 }
 
 TEST_F(EncodingUtilsTest, RoundTrip)

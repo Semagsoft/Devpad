@@ -64,6 +64,11 @@ CodeEditor* TabManager::editorAt(int index) const
 
 CodeEditor* TabManager::findEditorByFileName(const QString& fileName) const
 {
+    QFileInfo targetInfo(fileName);
+    QString targetAbs = targetInfo.canonicalFilePath();
+    if (targetAbs.isEmpty())
+        targetAbs = targetInfo.absoluteFilePath();
+
     for (QTabWidget* pane : m_panes)
     {
         for (int i = 0; i < pane->count(); ++i)
@@ -72,7 +77,15 @@ CodeEditor* TabManager::findEditorByFileName(const QString& fileName) const
             if (!w)
                 continue;
             CodeEditor* editor = w->findChild<CodeEditor*>();
-            if (editor && editor->fileName() == fileName)
+            if (!editor || editor->fileName().isEmpty())
+                continue;
+
+            QFileInfo editorInfo(editor->fileName());
+            QString editorAbs = editorInfo.canonicalFilePath();
+            if (editorAbs.isEmpty())
+                editorAbs = editorInfo.absoluteFilePath();
+
+            if (editorAbs == targetAbs)
             {
                 return editor;
             }
@@ -122,6 +135,12 @@ void TabManager::addEditor(CodeEditor* editor, const QString& title)
 {
     auto* container = new EditorContainer(editor, m_activePane);
     m_containers.insert(editor, container);
+    connect(editor, &QObject::destroyed, this,
+            [this, editor]()
+            {
+                m_containers.remove(editor);
+                m_pinnedEditors.remove(editor);
+            });
     m_activePane->addTab(container, title);
     int idx = m_activePane->indexOf(container);
     updateCloseButton(idx, m_activePane, SettingsManager::instance().closeButtonMode());
@@ -193,39 +212,6 @@ void TabManager::setPinnedFiles(const QStringList& files)
                 updateCloseButton(i, pane, SettingsManager::instance().closeButtonMode());
             }
         }
-    }
-}
-
-void TabManager::removeEditor(int index)
-{
-    int globalIdx = 0;
-    for (QTabWidget* pane : m_panes)
-    {
-        if (index < globalIdx + pane->count())
-        {
-            int localIdx = index - globalIdx;
-            auto* w = pane->widget(localIdx);
-            if (!w)
-                return;
-            auto* editor = w->findChild<CodeEditor*>();
-            if (!editor)
-                return;
-            if (m_pinnedEditors.contains(editor))
-                return;
-            removeCloseButtons(localIdx, pane);
-            m_pinnedEditors.remove(editor);
-            m_containers.remove(editor);
-            pane->removeTab(localIdx);
-            for (int i = localIdx; i < pane->count(); ++i)
-            {
-                updateCloseButton(i, pane, SettingsManager::instance().closeButtonMode());
-            }
-            emit editorClosed(editor);
-            w->deleteLater(); // container deletion cascades to editor
-            updateTabBarVisibility();
-            return;
-        }
-        globalIdx += pane->count();
     }
 }
 

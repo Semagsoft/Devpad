@@ -98,6 +98,8 @@ public slots:
     void printPreview();
     void pageSetup();
     void quitDevpad();
+    void paste();
+    void copy();
 
 private slots:
     void updateStatusBar();
@@ -115,6 +117,11 @@ protected:
     void changeEvent(QEvent* event) override;
 
 private:
+    void setupWindow();
+    void setupDockWidgets();
+    void createManagers();
+    void connectRemoteService();
+    void applyInitialSettings();
     void setupUI();
     void wireActions();
     void connectPanelSignals();
@@ -129,6 +136,8 @@ private:
     void applySettings();
     void applyStartupMode();
     void applyAutoSaveSettings();
+
+    void invokeOnEditor(void (CodeEditor::*method)());
 
     void loadFile(const QString& fileName, const QString& encoding = QString());
     void updateSplitViewVisibility();

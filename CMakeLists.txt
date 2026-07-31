@@ -1,5 +1,5 @@
-﻿cmake_minimum_required(VERSION 3.23)
-project(Devpad VERSION 1.0 LANGUAGES CXX)
+﻿cmake_minimum_required(VERSION 3.16)
+project(Devpad VERSION 1.01 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
@@ -36,7 +36,7 @@ else()
             GIT_REPOSITORY https://github.com/lxqt/lxqt-build-tools.git
             GIT_TAG 2.1.0
             PREFIX ${DEPS_PREFIX}/lxqt-build-tools
-            PATCH_COMMAND sh -c "sed -i 's/set(LXQT_MIN_LINGUIST_VERSION \"6.6\")/set(LXQT_MIN_LINGUIST_VERSION \"6.2\")/' CMakeLists.txt"
+            PATCH_COMMAND sh -c "sed -i.bak 's/set(LXQT_MIN_LINGUIST_VERSION \"6.6\")/set(LXQT_MIN_LINGUIST_VERSION \"6.2\")/' CMakeLists.txt && rm -f CMakeLists.txt.bak"
             CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
             BUILD_COMMAND ""
             INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
@@ -46,7 +46,7 @@ else()
             GIT_REPOSITORY https://github.com/lxqt/qtermwidget.git
             GIT_TAG 2.1.0
             PREFIX ${DEPS_PREFIX}/qtermwidget
-            PATCH_COMMAND sh -c "sed -i.bak 's/ SHARED / STATIC /' CMakeLists.txt && sed -i 's/set(QT_MINIMUM_VERSION \"6.6.0\")/set(QT_MINIMUM_VERSION \"6.2.0\")/' CMakeLists.txt && rm -f CMakeLists.txt.bak"
+            PATCH_COMMAND sh -c "sed -i.bak 's/ SHARED / STATIC /' CMakeLists.txt && sed -i.bak 's/set(QT_MINIMUM_VERSION \"6.6.0\")/set(QT_MINIMUM_VERSION \"6.2.0\")/' CMakeLists.txt && rm -f CMakeLists.txt.bak"
             CMAKE_ARGS
                 -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
                 -DCMAKE_PREFIX_PATH=${DEPS_PREFIX}
@@ -69,6 +69,16 @@ else()
 endif()
 
 # ── QScintilla (system or build from source) ──────────────────
+# On MSYS2/MinGW the toolchain prefix (e.g. /ucrt64) is not part of the
+# default search path, so find_library()/find_path() cannot locate packages
+# installed under it (QScintilla ships no CMake config there). Derive the
+# prefix from the compiler location and add it to the search path.
+if(WIN32 AND MINGW)
+    get_filename_component(_mingw_prefix "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(_mingw_prefix "${_mingw_prefix}" DIRECTORY)
+    list(APPEND CMAKE_PREFIX_PATH "${_mingw_prefix}")
+endif()
+
 find_package(Qt6 COMPONENTS QScintilla QUIET)
 
 if(NOT Qt6QScintilla_FOUND)
@@ -178,15 +188,18 @@ add_library(Devpad_lib STATIC
     src/panels/terminalpanel.cpp
     src/panels/terminalbackend.cpp
     src/panels/splitview.cpp
+    src/panels/dropzoneoverlay.cpp
     $<$<NOT:$<BOOL:${TERMINAL_HAS_KODOTERM}>>:src/panels/terminalbackend_qtermwidget.cpp>
     $<$<BOOL:${TERMINAL_HAS_KODOTERM}>:src/panels/terminalbackend_kodoterm.cpp>
     src/panels/draggabletabbar.cpp
     src/panels/errorlistpanel.cpp
+    src/widgets/brackethelper.cpp
     src/widgets/themepreviewwidget.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/editorcontainer.cpp
     src/lsp/lspjsonrpc.cpp
     src/lsp/lspclient.cpp
+    src/lsp/lspconnectionhelper.cpp
     src/lsp/lspservermanager.cpp
     src/lsp/lsptypes.cpp
     src/lsp/lspeditorintegration.cpp
@@ -267,6 +280,16 @@ target_sources(Devpad PRIVATE ${qm_files})
 # ── Tests ─────────────────────────────────────────────────────
 option(BUILD_TESTS "Build unit tests" ON)
 
+# ── Translations ──────────────────────────────────────────────
+find_program(QT_LUPDATE NAMES lupdate-qt6 lupdate HINTS ${Qt6_DIR}/../../../bin /usr/lib/qt6/bin)
+if(QT_LUPDATE)
+    add_custom_target(update-translations
+        COMMAND ${QT_LUPDATE} -no-obsolete src/ -ts ${TS_FILES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Updating translation .ts files from source"
+    )
+endif()
+
 # ── Formatting ────────────────────────────────────────────────
 find_program(CLANG_FORMAT clang-format)
 if(CLANG_FORMAT)
@@ -330,10 +353,17 @@ if(BUILD_TESTS)
         tests/test_sessionmanager.cpp
         tests/test_snippet.cpp
         tests/test_snippetmanager.cpp
+        tests/test_editorcontainer.cpp
+        tests/test_encodingmenuhelper.cpp
         tests/test_externaltoolmanager.cpp
-        tests/test_printmanager.cpp
         tests/test_filewatchermanager.cpp
+        tests/test_gitignore.cpp
+        tests/test_inlinefindbar.cpp
+        tests/test_printmanager.cpp
+        tests/test_recentfileshelper.cpp
         tests/test_lsptypes.cpp
+        tests/test_lspjsonrpc.cpp
+        tests/test_splitview.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)

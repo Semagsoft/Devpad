@@ -185,15 +185,6 @@ private:
     bool m_lineNumbersVisible = true;
     bool m_autoCloseBrackets = true;
 
-    struct BracketContext
-    {
-        bool inString = false;
-        bool inCharLiteral = false;
-        bool inComment = false;
-        bool inBlockComment = false;
-    };
-
-    BracketContext contextAtPosition(int pos) const;
     bool handleAutoClose(QChar ch, int pos);
     bool handleBracketSkip(QChar ch, int pos);
 

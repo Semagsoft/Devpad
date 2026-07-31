@@ -1,6 +1,7 @@
 #include "lspjsonrpc.h"
 
 #include <QJsonParseError>
+#include <QPointer>
 
 namespace lsp
 {
@@ -19,13 +20,17 @@ void LspJsonRpc::registerPendingRequest(int id, ResponseCallback callback, int t
     m_pendingRequests[id] = callback;
     if (timeoutMs > 0)
     {
+        QPointer<LspJsonRpc> guard(this);
         QTimer::singleShot(timeoutMs, this,
-                           [this, id]()
+                           [guard, id]()
                            {
-                               auto it = m_pendingRequests.find(id);
-                               if (it != m_pendingRequests.end())
+                               if (guard)
                                {
-                                   m_pendingRequests.erase(it);
+                                   auto it = guard->m_pendingRequests.find(id);
+                                   if (it != guard->m_pendingRequests.end())
+                                   {
+                                       guard->m_pendingRequests.erase(it);
+                                   }
                                }
                            });
     }

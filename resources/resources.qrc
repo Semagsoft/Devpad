@@ -19,6 +19,7 @@
         <file>color-schemes/DevpadAyuDark.colorscheme</file>
         <file>icons/Common/clear.svg</file>
         <file>icons/Common/filetypes/cppfile.svg</file>
+        <file>icons/Common/filter.svg</file>
         <file>icons/Common/folder.svg</file>
         <file>icons/Common/hiddenfolder.svg</file>
         <file>icons/devpad.svg</file>
@@ -34,7 +35,6 @@
         <file>icons/Edit/findnext.svg</file>
         <file>icons/Edit/findprevious.svg</file>
         <file>icons/Edit/find.svg</file>
-
         <file>icons/Edit/goto.svg</file>
         <file>icons/Edit/paste.svg</file>
         <file>icons/Edit/redo.svg</file>
