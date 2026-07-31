@@ -244,5 +244,17 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
                     guard->deleteLater();
                 }
             });
-    killTimer->start(30000);
+    // Start the scp process on the next event-loop iteration. Deferring the
+    // process start ensures start failures (e.g. FailedToStart when scp is
+    // unavailable) are never reported synchronously from within openRemote();
+    // some platforms deliver that error synchronously from inside start().
+    // URL validation and the status message above are already emitted synchronously.
+    QTimer::singleShot(0, this,
+                       [scp, killTimer, args, guard]()
+                       {
+                           if (!guard)
+                               return;
+                           scp->start("scp", args);
+                           killTimer->start(30000);
+                       });
 }
