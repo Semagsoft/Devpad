@@ -69,6 +69,16 @@ else()
 endif()
 
 # ── QScintilla (system or build from source) ──────────────────
+# On MSYS2/MinGW the toolchain prefix (e.g. /ucrt64) is not part of the
+# default search path, so find_library()/find_path() cannot locate packages
+# installed under it (QScintilla ships no CMake config there). Derive the
+# prefix from the compiler location and add it to the search path.
+if(WIN32 AND MINGW)
+    get_filename_component(_mingw_prefix "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(_mingw_prefix "${_mingw_prefix}" DIRECTORY)
+    list(APPEND CMAKE_PREFIX_PATH "${_mingw_prefix}")
+endif()
+
 find_package(Qt6 COMPONENTS QScintilla QUIET)
 
 if(NOT Qt6QScintilla_FOUND)
