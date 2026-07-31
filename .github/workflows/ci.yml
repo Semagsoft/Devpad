@@ -135,6 +135,120 @@ jobs:
           files: Devpad-*.AppImage
           fail_on_unmatched_files: false
 
+  windows:
+    name: Build and test (Windows MSYS2)
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: UCRT64
+          install: >-
+            mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-qt6-multimedia
+            mingw-w64-ucrt-x86_64-qt6-svg
+            mingw-w64-ucrt-x86_64-qt6-tools
+            mingw-w64-ucrt-x86_64-qscintilla-qt6
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-ccache
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: windows-msys2
+
+      - name: Configure
+        run: |
+          export CCACHE_BASEDIR=${{ github.workspace }}
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-Werror" \
+            -DBUILD_TESTS=ON \
+            -DBUILD_QSCINTILLA=OFF
+        env:
+          CCACHE_DIR: D:\a\ccache
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Extract version
+        id: version
+        shell: msys2 {0}
+        run: |
+          VERSION=$(grep 'project(Devpad VERSION' CMakeLists.txt | sed 's/.*VERSION \([^ ]*\).*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Deploy Qt dependencies with windeployqt
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        run: |
+          windeployqt build/Devpad.exe --dir build/dist
+          cp build/*.qm build/dist/ 2>/dev/null || true
+
+      - name: Install NSIS
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        shell: powershell
+        run: choco install nsis -y --no-progress
+
+      - name: Build NSIS installer
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        shell: powershell
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          & "C:\Program Files (x86)\NSIS\makensis.exe" "/DPRODUCT_VERSION=$version" installer/installer.nsi
+          Move-Item "Devpad-*-Setup.exe" "Devpad-$version-Setup.exe" -ErrorAction SilentlyContinue
+
+      - name: Build MSI installer
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        shell: powershell
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $wixDir = if (Test-Path "C:\Program Files (x86)\WiX Toolset v3*") {
+            (Get-ChildItem "C:\Program Files (x86)\WiX Toolset v3*" -Directory | Select-Object -First 1).FullName
+          } else {
+            "C:\ProgramData\wix314"
+          }
+          $env:Path = "$wixDir\bin;$env:Path"
+          Push-Location installer
+          try {
+            & candle.exe -arch x64 "-dProductVersion=$version" -out Devpad.wixobj Devpad.wxs
+            if ($LASTEXITCODE -ne 0) { throw "candle failed" }
+            & light.exe -out "..\Devpad-$version.msi" -ext WixUIExtension Devpad.wixobj
+            if ($LASTEXITCODE -ne 0) { throw "light failed" }
+          } finally {
+            Remove-Item "Devpad.wixobj" -ErrorAction SilentlyContinue
+            Remove-Item "Devpad.wixpdb" -ErrorAction SilentlyContinue
+            Pop-Location
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          name: Devpad-Windows-${{ steps.version.outputs.version }}
+          path: |
+            Devpad-*-Setup.exe
+            Devpad-*.msi
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Devpad-*-Setup.exe
+            Devpad-*.msi
+          fail_on_unmatched_files: false
+
   sanitize:
     name: Sanitizers (ASan+UBSan)
     runs-on: ubuntu-24.04
