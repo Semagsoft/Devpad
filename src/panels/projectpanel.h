@@ -62,6 +62,7 @@ protected:
     bool lessThan(const QModelIndex& left, const QModelIndex& right) const override;
 
 private:
+    void invalidateFilterCompat();
     QString m_filterText;
     QIcon m_closedFolderIcon;
     QIcon m_openFolderIcon;

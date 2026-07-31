@@ -164,16 +164,26 @@ QIcon ProjectPanel::iconForFile(const QString& filePath)
     return QFileIconProvider().icon(QFileInfo(filePath));
 }
 
+void FileFilterProxyModel::invalidateFilterCompat()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+    endFilterChange();
+#else
+    invalidateFilter();
+#endif
+}
+
 void FileFilterProxyModel::setFilterText(const QString& text)
 {
     m_filterText = text;
-    invalidateFilter();
+    invalidateFilterCompat();
 }
 
 void FileFilterProxyModel::setGitIgnoreEnabled(bool enabled)
 {
     m_gitIgnoreEnabled = enabled;
-    invalidateFilter();
+    invalidateFilterCompat();
 }
 
 void FileFilterProxyModel::setGitIgnoreRootPath(const QString& rootPath)
@@ -186,7 +196,7 @@ void FileFilterProxyModel::setGitIgnoreRootPath(const QString& rootPath)
     {
         m_gitIgnore = std::make_unique<GitIgnore>(rootPath);
     }
-    invalidateFilter();
+    invalidateFilterCompat();
 }
 
 void FileFilterProxyModel::scanGitIgnoreDirectory(const QString& dirPath)
@@ -194,7 +204,7 @@ void FileFilterProxyModel::scanGitIgnoreDirectory(const QString& dirPath)
     if (m_gitIgnore)
     {
         m_gitIgnore->scanDirectory(dirPath);
-        invalidateFilter();
+        invalidateFilterCompat();
     }
 }
 
