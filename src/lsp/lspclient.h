@@ -135,7 +135,13 @@ private:
 
     struct PendingDocOp
     {
-        enum Type { Open, Change, Close, Save };
+        enum Type
+        {
+            Open,
+            Change,
+            Close,
+            Save
+        };
         Type type;
         QString uri;
         QString text;

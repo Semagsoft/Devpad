@@ -28,13 +28,13 @@
 #endif
 #include <QApplication>
 #include <QClipboard>
-#include <QDebug>
-#include <QKeyEvent>
 #include <QContextMenuEvent>
+#include <QDebug>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QKeyEvent>
 #include <QMainWindow>
 #include <QMenu>
 #include <QPointer>

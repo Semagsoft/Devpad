@@ -468,8 +468,7 @@ void MainWindow::setupEditorConnections()
 void MainWindow::setupLspConnections()
 {
     lsp::setupLspConnections(m_lspServerManager, m_tabManager, m_errorListPanel, m_actionManager,
-                             [this](const QString& filePath, int line, int column)
-                             { onNavigateToLocation(filePath, line, column); });
+                             [this](const QString& filePath, int line, int column) { onNavigateToLocation(filePath, line, column); });
 }
 
 void MainWindow::applyCloseButtonPosition()

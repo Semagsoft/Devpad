@@ -3,12 +3,11 @@
 #include "actionmanager.h"
 #include "codeeditor.h"
 #include "errorlistpanel.h"
-#include "settingsmanager.h"
-#include "tabmanager.h"
-
 #include "lspclient.h"
 #include "lspservermanager.h"
 #include "lsptypes.h"
+#include "settingsmanager.h"
+#include "tabmanager.h"
 
 #include <QCursor>
 #include <QJsonObject>

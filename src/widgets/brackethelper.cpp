@@ -1,9 +1,9 @@
 #include "brackethelper.h"
 
+#include <array>
+
 #include <Qsci/qscilexer.h>
 #include <Qsci/qsciscintilla.h>
-
-#include <array>
 
 BracketContext BracketHelper::contextAtPosition(const QsciScintilla* editor, int pos)
 {
