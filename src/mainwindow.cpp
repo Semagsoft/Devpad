@@ -50,6 +50,8 @@
 #include "terminalpanel.h"
 #include "theme.h"
 #include "themeapplier.h"
+#include "updatechecker.h"
+#include "updatedialog.h"
 
 #include <QAction>
 #include <QApplication>
@@ -142,6 +144,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setupDockWidgets();
     createManagers();
     connectRemoteService();
+    connectUpdateService();
 
     setupUI();
     wireActions();
@@ -221,6 +224,7 @@ void MainWindow::createManagers()
 
     m_externalToolManager = new ExternalToolManager(this);
     m_remoteFileService = new RemoteFileService(this);
+    m_updateChecker = new UpdateChecker(this);
     m_snippetManager = new SnippetManager(this);
 
     m_lspServerManager = new lsp::LspServerManager(this);
@@ -256,6 +260,28 @@ void MainWindow::connectRemoteService()
                 }
             });
     connect(m_remoteFileService, &RemoteFileService::statusMessage, this, [this](const QString& message) { statusBar()->showMessage(message); });
+}
+
+void MainWindow::connectUpdateService()
+{
+    connect(m_updateChecker, &UpdateChecker::updateAvailable, this,
+            [this](const QString& latestVersion, const QString& releaseUrl)
+            {
+                statusBar()->clearMessage();
+                UpdateDialog::showUpdateAvailable(this, latestVersion, releaseUrl);
+            });
+    connect(m_updateChecker, &UpdateChecker::upToDate, this,
+            [this](const QString& latestVersion)
+            {
+                statusBar()->clearMessage();
+                UpdateDialog::showUpToDate(this, latestVersion);
+            });
+    connect(m_updateChecker, &UpdateChecker::checkFailed, this,
+            [this](const QString& error)
+            {
+                statusBar()->clearMessage();
+                UpdateDialog::showCheckFailed(this, error);
+            });
 }
 
 void MainWindow::applyInitialSettings()
@@ -1326,6 +1352,12 @@ void MainWindow::showAbout()
 {
     AboutDialog dlg(this);
     dlg.exec();
+}
+
+void MainWindow::checkForUpdates()
+{
+    statusBar()->showMessage(tr("Checking for updates..."));
+    m_updateChecker->checkForUpdates();
 }
 
 void MainWindow::updateEncodingSelector()

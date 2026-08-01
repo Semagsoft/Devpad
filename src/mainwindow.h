@@ -45,6 +45,7 @@ class SplitView;
 class TabManager;
 class TerminalPanel;
 class ThemeApplier;
+class UpdateChecker;
 
 namespace lsp
 {
@@ -85,6 +86,7 @@ public slots:
     void expandSelection();
     void shrinkSelection();
     void showAbout();
+    void checkForUpdates();
     void showOptions();
     void runExternalTool(int index);
     void goToDefinition();
@@ -121,6 +123,7 @@ private:
     void setupDockWidgets();
     void createManagers();
     void connectRemoteService();
+    void connectUpdateService();
     void applyInitialSettings();
     void setupUI();
     void wireActions();
@@ -175,6 +178,7 @@ private:
     // Owned: QObject children (parent=this), destroyed automatically
     ExternalToolManager* m_externalToolManager = nullptr;
     RemoteFileService* m_remoteFileService = nullptr;
+    UpdateChecker* m_updateChecker = nullptr;
     SnippetManager* m_snippetManager = nullptr;
     lsp::LspServerManager* m_lspServerManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;

@@ -330,6 +330,10 @@ public:
     {
         return m_aboutAct;
     }
+    QAction* checkForUpdatesAct() const
+    {
+        return m_checkForUpdatesAct;
+    }
     QAction* donateAct() const
     {
         return m_donateAct;
@@ -467,6 +471,7 @@ signals:
     void optionsTriggered();
     void configureExternalToolsTriggered();
     void aboutTriggered();
+    void checkForUpdatesTriggered();
     void donateTriggered();
     void websiteTriggered();
     void externalToolTriggered(int index);
@@ -563,6 +568,7 @@ private:
     QAction* m_donateAct = nullptr;
     QAction* m_websiteAct = nullptr;
     QAction* m_aboutAct = nullptr;
+    QAction* m_checkForUpdatesAct = nullptr;
     QList<QAction*> m_externalToolActs;
     RecentFilesHelper* m_recentFilesHelper = nullptr;
     EncodingMenuHelper* m_encodingHelper = nullptr;

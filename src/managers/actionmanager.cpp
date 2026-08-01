@@ -407,11 +407,15 @@ void ActionManager::createActions()
     m_donateAct = createIconAction(":/icons/Help/donate.svg", tr("Donate"), QKeySequence(), [this]() { emit donateTriggered(); });
     m_websiteAct = createIconAction(":/icons/Help/website.svg", tr("Website"), QKeySequence(), [this]() { emit websiteTriggered(); });
     m_aboutAct = createIconAction(":/icons/Help/about.svg", tr("About"), QKeySequence(), [this]() { emit aboutTriggered(); });
+    m_checkForUpdatesAct =
+        createIconAction(":/icons/Help/update.svg", tr("Check for Updates"), QKeySequence(), [this]() { emit checkForUpdatesTriggered(); });
 }
 
 void ActionManager::buildMenus(QMenuBar* menuBar)
 {
     QMenu* devpadMenu = menuBar->addMenu(tr("Devpad"));
+    devpadMenu->addAction(m_checkForUpdatesAct);
+    devpadMenu->addSeparator();
     devpadMenu->addAction(m_quitDevpadAct);
 
     QAction* sep = new QAction(tr("|"), this);
@@ -725,6 +729,7 @@ void ActionManager::wireConnections(const ActionTargets& t)
                     rebuildExternalToolsMenu();
             });
     connect(this, &ActionManager::aboutTriggered, mw, &MainWindow::showAbout);
+    connect(this, &ActionManager::checkForUpdatesTriggered, mw, &MainWindow::checkForUpdates);
     connect(this, &ActionManager::donateTriggered, this,
             []() { QDesktopServices::openUrl(QUrl("https://www.paypal.com/ncp/payment/RFY5Z3KJ8UY8W")); });
     connect(this, &ActionManager::websiteTriggered, this, []() { QDesktopServices::openUrl(QUrl("https://semagsoft.com")); });

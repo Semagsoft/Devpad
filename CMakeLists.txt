@@ -177,6 +177,7 @@ add_library(Devpad_lib STATIC
     src/managers/encodingmanager.cpp
     src/managers/printmanager.cpp
     src/managers/filewatchermanager.cpp
+    src/managers/updatechecker.cpp
     src/snippet.cpp
     src/snippetengine.cpp
     src/dialogs/findinfilesdialog.cpp
@@ -184,6 +185,7 @@ add_library(Devpad_lib STATIC
     src/dialogs/aboutdialog.cpp
     src/dialogs/optionsdialog.cpp
     src/dialogs/externaltoolsdialog.cpp
+    src/dialogs/updatedialog.cpp
     src/panels/projectpanel.cpp
     src/panels/terminalpanel.cpp
     src/panels/terminalbackend.cpp
@@ -364,6 +366,7 @@ if(BUILD_TESTS)
         tests/test_lsptypes.cpp
         tests/test_lspjsonrpc.cpp
         tests/test_splitview.cpp
+        tests/test_updatechecker.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)
