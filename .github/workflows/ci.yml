@@ -195,6 +195,12 @@ jobs:
         run: |
           windeployqt build/Devpad.exe --dir build/dist
           cp build/Devpad.exe build/dist/Devpad.exe
+          for f in $(find build/dist -name '*.dll') build/Devpad.exe; do
+            objdump -p "$f" 2>/dev/null
+          done | grep 'DLL Name' | sed 's/.*DLL Name: *//' | sort -u | while read -r dll; do
+            found=$(find /ucrt64/bin -maxdepth 1 -iname "$dll" -print -quit)
+            [ -n "$found" ] && cp -n "$found" build/dist/
+          done
           cp build/*.qm build/dist/ 2>/dev/null || true
 
       - name: Install NSIS
@@ -223,13 +229,16 @@ jobs:
           $env:Path = "$wixDir\bin;$env:Path"
           Push-Location installer
           try {
+            & heat.exe dir "..\build\dist" -nologo -gg -srd -dr INSTALLDIR -cg DeployedFiles -var var.DistDir -out Heat.wxs
+            if ($LASTEXITCODE -ne 0) { throw "heat failed" }
+            & candle.exe -arch x64 "-dProductVersion=$version" "-dDistDir=..\build\dist" -out Heat.wixobj Heat.wxs
+            if ($LASTEXITCODE -ne 0) { throw "candle Heat.wxs failed" }
             & candle.exe -arch x64 "-dProductVersion=$version" -out Devpad.wixobj Devpad.wxs
             if ($LASTEXITCODE -ne 0) { throw "candle failed" }
-            & light.exe -out "..\Devpad-$version.msi" -ext WixUIExtension Devpad.wixobj
+            & light.exe -out "..\Devpad-$version.msi" -ext WixUIExtension Devpad.wixobj Heat.wixobj
             if ($LASTEXITCODE -ne 0) { throw "light failed" }
           } finally {
-            Remove-Item "Devpad.wixobj" -ErrorAction SilentlyContinue
-            Remove-Item "Devpad.wixpdb" -ErrorAction SilentlyContinue
+            Remove-Item "Heat.wxs", "Heat.wixobj", "Devpad.wixobj", "Devpad.wixpdb" -ErrorAction SilentlyContinue
             Pop-Location
           }
 

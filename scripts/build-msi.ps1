@@ -30,19 +30,42 @@ if (-not (Test-Path (Join-Path $distDir "Devpad.exe"))) {
     & "windeployqt.exe" (Join-Path $BuildDir "Devpad.exe") "--dir" $distDir
     Copy-Item (Join-Path $BuildDir "Devpad.exe") $distDir
     Copy-Item (Join-Path $BuildDir "devpad_*.qm") $distDir -ErrorAction SilentlyContinue
+
+    # Copy runtime dependencies not already deployed by windeployqt
+    if (Get-Command objdump -ErrorAction SilentlyContinue) {
+        $targets = @((Get-ChildItem $distDir -Recurse -Filter *.dll -ErrorAction SilentlyContinue).FullName) + @(Join-Path $BuildDir "Devpad.exe")
+        $names = @($targets | ForEach-Object { (& objdump -p $_ 2>$null | Select-String 'DLL Name').Line } |
+            ForEach-Object { ($_ -replace '.*DLL Name:\s*', '').Trim() } | Sort-Object -Unique)
+        $prefix = if ($env:MSYSTEM_PREFIX) { $env:MSYSTEM_PREFIX } else { "C:\msys64\ucrt64" }
+        foreach ($name in $names) {
+            $src = Get-ChildItem (Join-Path $prefix "bin") -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($src -and -not (Test-Path (Join-Path $distDir $name))) {
+                Copy-Item $src.FullName $distDir
+            }
+        }
+    }
 }
 
 # Step 2: Ensure we're in the installer directory
 Push-Location $InstallerDir
 try {
-    # Step 3: Compile .wxs to .wixobj
+    # Step 3: Harvest the dist directory into a WiX fragment with heat
+    Write-Host "Harvesting dist directory with heat..."
+    & heat.exe dir $distDir -nologo -gg -srd -dr INSTALLDIR -cg DeployedFiles "-var var.DistDir" -out Heat.wxs
+    if ($LASTEXITCODE -ne 0) { throw "heat failed" }
+
+    # Step 4: Compile .wxs to .wixobj
+    Write-Host "Compiling Heat.wxs..."
+    & candle.exe -arch x64 "-dProductVersion=$Version" "-dDistDir=$distDir" -out Heat.wixobj Heat.wxs
+    if ($LASTEXITCODE -ne 0) { throw "candle Heat.wxs failed" }
+
     Write-Host "Compiling Devpad.wxs..."
     & candle.exe -arch x64 "-dProductVersion=$Version" -out Devpad.wixobj Devpad.wxs
     if ($LASTEXITCODE -ne 0) { throw "candle failed" }
 
-    # Step 4: Link .wixobj to .msi
+    # Step 5: Link .wixobj to .msi
     Write-Host "Linking Devpad.msi..."
-    & light.exe -out $OutputMsi -ext WixUIExtension Devpad.wixobj
+    & light.exe -out $OutputMsi -ext WixUIExtension Devpad.wixobj Heat.wixobj
     if ($LASTEXITCODE -ne 0) { throw "light failed" }
 
     Write-Host "MSI created: $OutputMsi"
@@ -54,4 +77,6 @@ finally {
     # Clean up intermediate files
     Remove-Item (Join-Path $InstallerDir "Devpad.wixobj") -ErrorAction SilentlyContinue
     Remove-Item (Join-Path $InstallerDir "Devpad.wixpdb") -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $InstallerDir "Heat.wxs") -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $InstallerDir "Heat.wixobj") -ErrorAction SilentlyContinue
 }
