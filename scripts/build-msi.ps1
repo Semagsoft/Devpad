@@ -28,6 +28,7 @@ $distDir = Join-Path $BuildDir "dist"
 if (-not (Test-Path (Join-Path $distDir "Devpad.exe"))) {
     Write-Host "Running windeployqt..."
     & "windeployqt.exe" (Join-Path $BuildDir "Devpad.exe") "--dir" $distDir
+    Copy-Item (Join-Path $BuildDir "Devpad.exe") $distDir
     Copy-Item (Join-Path $BuildDir "devpad_*.qm") $distDir -ErrorAction SilentlyContinue
 }
 

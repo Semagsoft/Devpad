@@ -194,6 +194,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         run: |
           windeployqt build/Devpad.exe --dir build/dist
+          cp build/Devpad.exe build/dist/Devpad.exe
           cp build/*.qm build/dist/ 2>/dev/null || true
 
       - name: Install NSIS
