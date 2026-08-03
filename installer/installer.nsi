@@ -2,6 +2,9 @@
 !ifndef PRODUCT_VERSION
 !define PRODUCT_VERSION "1.01"
 !endif
+!ifndef PRODUCT_OUTFILE
+!define PRODUCT_OUTFILE "Devpad-${PRODUCT_VERSION}-Setup.exe"
+!endif
 !define PRODUCT_PUBLISHER "Semagsoft"
 !define PRODUCT_WEB_SITE "https://semagsoft.com"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\Devpad.exe"
@@ -9,7 +12,7 @@
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "Devpad-${PRODUCT_VERSION}-Setup.exe"
+OutFile "${PRODUCT_OUTFILE}"
 InstallDir "$PROGRAMFILES64\Devpad"
 InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 RequestExecutionLevel admin
