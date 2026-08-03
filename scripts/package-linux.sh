@@ -142,7 +142,13 @@ while IFS= read -r line; do
 done < <(ldd "${BUILD_DIR}/Devpad" 2>/dev/null || true)
 
 # Bundle Qt plugins — only essential categories
-QT_PLUGIN_SRC="/usr/lib/qt6/plugins"
+QT_PLUGIN_SRC=""
+for cand in "$(qmake6 -query QT_INSTALL_PLUGINS 2>/dev/null)" \
+    "/usr/lib/x86_64-linux-gnu/qt6/plugins" \
+    "/usr/lib/qt6/plugins" \
+    "/usr/lib64/qt6/plugins"; do
+    [ -n "$cand" ] && [ -d "$cand" ] && { QT_PLUGIN_SRC="$cand"; break; }
+done
 QT_PLUGIN_DEST="${STAGING}/plugins"
 
 if [ -d "$QT_PLUGIN_SRC" ]; then
@@ -240,9 +246,9 @@ find "${STAGING}" -type f | sort | while IFS= read -r f; do
 done
 
 total_libs=$(find "${STAGING}/lib" -type f | wc -l)
-total_plugins=$(find "${STAGING}/plugins" -name '*.so' -type f | wc -l)
+total_plugins=$(find "${QT_PLUGIN_DEST}" -name '*.so' -type f 2>/dev/null | wc -l || true)
 lib_size=$(du -sh "${STAGING}/lib" | cut -f1)
-plugin_size=$(du -sh "${STAGING}/plugins" | cut -f1)
+plugin_size=$(du -sh "${QT_PLUGIN_DEST}" 2>/dev/null | cut -f1 || echo "0")
 
 echo ""
 info "Summary:"
