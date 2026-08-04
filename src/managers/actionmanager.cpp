@@ -407,6 +407,9 @@ void ActionManager::createActions()
 
     // Tools
     m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options"), QKeySequence(), [this]() { emit optionsTriggered(); });
+#ifdef Q_OS_MACOS
+    m_optionsAct->setMenuRole(QAction::PreferencesRole);
+#endif
 
     // Help
     m_donateAct = createIconAction(":/icons/Help/donate.svg", tr("Donate"), QKeySequence(), [this]() { emit donateTriggered(); });
