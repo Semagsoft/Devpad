@@ -340,7 +340,12 @@ void ActionManager::createActions()
                                           emit zoomResetTriggered();
                                           emit viewActionTriggered(ViewAction::ZoomReset);
                                       });
-    m_fullScreenAct = createIconAction(":/icons/View/fullscreen.svg", tr("Fullscreen"), QKeySequence("F11"),
+    m_fullScreenAct = createIconAction(":/icons/View/fullscreen.svg", tr("Fullscreen"),
+#ifdef Q_OS_MACOS
+                                       QKeySequence(),
+#else
+                                       QKeySequence("F11"),
+#endif
                                        [this]()
                                        {
                                            emit toggleFullScreenTriggered();
@@ -542,7 +547,9 @@ void ActionManager::buildViewMenu(QMenu* viewMenu)
     viewMenu->addAction(m_toolBarAct);
     viewMenu->addAction(m_statusBarAct);
     viewMenu->addSeparator();
+#ifndef Q_OS_MACOS
     viewMenu->addAction(m_fullScreenAct);
+#endif
 } // createViewMenu
 
 void ActionManager::buildToolsMenu(QMenu* toolsMenu)
