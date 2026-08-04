@@ -46,6 +46,16 @@
     <binary>Devpad</binary>
   </provides>
   <releases>
+    <release version="1.02" date="2026-08-04">
+      <description>
+        <p>Maintenance release.</p>
+      </description>
+    </release>
+    <release version="1.01" date="2026-08-03">
+      <description>
+        <p>Added .gitignore filtering, project panel improvements, and Check for Updates support.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-07-06">
       <description>
         <p>Initial release of Devpad.</p>

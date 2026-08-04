@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## [1.02] - TBD
+
+- TBD
+
 ## [1.01] - 2026-08-03
 
 What's new in Devpad 1.01:
