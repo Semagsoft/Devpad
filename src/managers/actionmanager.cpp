@@ -413,14 +413,21 @@ void ActionManager::createActions()
 
 void ActionManager::buildMenus(QMenuBar* menuBar)
 {
+#ifdef Q_OS_MACOS
+    m_checkForUpdatesAct->setMenuRole(QAction::ApplicationSpecificRole);
+    m_quitDevpadAct->setMenuRole(QAction::QuitRole);
+#endif
+
     QMenu* devpadMenu = menuBar->addMenu(tr("Devpad"));
     devpadMenu->addAction(m_checkForUpdatesAct);
     devpadMenu->addSeparator();
     devpadMenu->addAction(m_quitDevpadAct);
 
+#ifndef Q_OS_MACOS
     QAction* sep = new QAction(tr("|"), this);
     sep->setEnabled(false);
     menuBar->addAction(sep);
+#endif
 
     QMenu* fileMenu = menuBar->addMenu(tr("File"));
     buildFileMenu(fileMenu);
