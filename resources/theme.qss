@@ -16,10 +16,6 @@ QWidget#TitleBar QMenuBar {
 QWidget#TitleBar QMenuBar::item {
     background-color: transparent;
 }
-QWidget#TitleBar QLabel#TitleBarLabel {
-    color: %toolbarFg%;
-    padding-left: 8px;
-}
 QToolButton#TitleBarWindowButton {
     background-color: transparent;
     border: none;

@@ -300,7 +300,7 @@ void MainWindow::applyInitialSettings()
     m_actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
     m_actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
     addToolBar(m_actionManager->toolBar());
-    menuBar()->setVisible(SettingsManager::instance().showMenuBar());
+    menuBarWidget()->setVisible(SettingsManager::instance().showMenuBar());
     m_actionManager->toolBar()->setVisible(SettingsManager::instance().showToolbar());
     statusBar()->setVisible(SettingsManager::instance().showStatusbar());
 
@@ -340,8 +340,8 @@ void MainWindow::setupUI()
     connect(menuBarShortcut, &QShortcut::activated, this,
             [this]()
             {
-                bool visible = !menuBar()->isVisible();
-                menuBar()->setVisible(visible);
+                bool visible = !menuBarWidget()->isVisible();
+                menuBarWidget()->setVisible(visible);
                 m_actionManager->menuBarAct()->setChecked(visible);
                 SettingsManager::instance().setShowMenuBar(visible);
             });
@@ -377,10 +377,10 @@ void MainWindow::applyTitleBarMode()
         m_titleBar = new TitleBar(this);
         setMenuWidget(m_titleBar);
 
-        QMenuBar* mb = menuBar();
+        QMenuBar* mb = new QMenuBar(m_titleBar);
         m_titleBar->setMenuBar(mb);
+        m_actionManager->buildMenus(mb);
         m_titleBar->setMaximized(isMaximized());
-        m_titleBar->setTitleText(windowTitle());
 
         connect(m_titleBar, &TitleBar::minimizeRequested, this, &MainWindow::showMinimized);
         connect(m_titleBar, &TitleBar::maximizeRequested, this,
@@ -422,6 +422,11 @@ void MainWindow::applyTitleBarMode()
             m_actionManager->menuTitlebarAct()->setChecked(false);
     }
 #endif
+}
+
+QMenuBar* MainWindow::menuBarWidget()
+{
+    return m_titleBar ? m_titleBar->menuBarWidget() : menuBar();
 }
 
 void MainWindow::wireActions()

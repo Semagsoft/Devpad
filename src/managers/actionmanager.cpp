@@ -702,8 +702,8 @@ void ActionManager::wireConnections(const ActionTargets& t)
     connect(this, &ActionManager::toggleMenuBarTriggered, this,
             [this, mw]()
             {
-                bool visible = !mw->menuBar()->isVisible();
-                mw->menuBar()->setVisible(visible);
+                bool visible = !mw->menuBarWidget()->isVisible();
+                mw->menuBarWidget()->setVisible(visible);
                 m_menuBarAct->setChecked(visible);
                 SettingsManager::instance().setShowMenuBar(visible);
             });

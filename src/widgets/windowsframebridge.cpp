@@ -23,6 +23,8 @@
 #include "titlebar.h"
 
 #include <QApplication>
+#include <QMenuBar>
+#include <QPointer>
 #include <QWidget>
 #include <initializer_list>
 
@@ -113,13 +115,13 @@ bool WindowsFrameBridge::nativeEventFilter(const QByteArray& eventType, void* me
         const QRect titleRect(m_titleBar->mapToGlobal(QPoint(0, 0)), m_titleBar->size());
         if (titleRect.contains(globalPt))
         {
-            const std::initializer_list<QWidget*> interactive = {
+            QPointer<QWidget> interactive[] = {
                 m_titleBar->menuBarWidget(),
                 m_titleBar->minimizeButton(),
                 m_titleBar->maximizeButton(),
                 m_titleBar->closeButton(),
             };
-            for (QWidget* child : interactive)
+            for (QPointer<QWidget> child : interactive)
             {
                 if (child && child->isVisible())
                 {

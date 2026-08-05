@@ -19,12 +19,10 @@
 
 #include "titlebar.h"
 
-#include "appstrings.h"
 #include "settingsmanager.h"
 #include "theme.h"
 
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QPainter>
@@ -108,10 +106,6 @@ TitleBar::TitleBar(QWidget* parent) : QWidget(parent)
     setObjectName("TitleBar");
     setFixedHeight(Height);
 
-    m_titleLabel = new QLabel(this);
-    m_titleLabel->setObjectName("TitleBarLabel");
-    m_titleLabel->setText(Strings::AppName());
-
     m_minimizeButton = new TitleBarButton(TitleBarButton::Role::Minimize, this);
     m_minimizeButton->setToolTip(tr("Minimize"));
     m_maximizeButton = new TitleBarButton(TitleBarButton::Role::Maximize, this);
@@ -127,7 +121,6 @@ TitleBar::TitleBar(QWidget* parent) : QWidget(parent)
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(4, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(m_titleLabel);
     layout->addStretch(1);
     layout->addWidget(m_minimizeButton);
     layout->addWidget(m_maximizeButton);
@@ -151,18 +144,13 @@ void TitleBar::setMenuBar(QMenuBar* menuBar)
 
     m_menuBar->setParent(this);
     m_menuBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    qobject_cast<QHBoxLayout*>(layout())->insertWidget(layout()->indexOf(m_titleLabel), m_menuBar);
+    qobject_cast<QHBoxLayout*>(layout())->insertWidget(0, m_menuBar);
 }
 
 void TitleBar::setMaximized(bool maximized)
 {
     m_maximizeButton->setMaximized(maximized);
     m_maximizeButton->setToolTip(maximized ? tr("Restore") : tr("Maximize"));
-}
-
-void TitleBar::setTitleText(const QString& text)
-{
-    m_titleLabel->setText(text);
 }
 
 void TitleBar::mouseDoubleClickEvent(QMouseEvent* event)

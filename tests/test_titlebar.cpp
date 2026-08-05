@@ -2,7 +2,6 @@
 #include "widgets/titlebar.h"
 
 #include <QApplication>
-#include <QLabel>
 #include <QLayout>
 #include <QMainWindow>
 #include <QMenuBar>
@@ -79,15 +78,6 @@ TEST_F(TitleBarTest, SetMenuBarReparentsAndInserts)
     EXPECT_EQ(menuBar->parentWidget(), &titleBar);
     EXPECT_EQ(titleBar.menuBarWidget(), menuBar);
     EXPECT_GE(titleBar.layout()->indexOf(menuBar), 0);
-}
-
-TEST_F(TitleBarTest, SetTitleTextUpdatesLabel)
-{
-    TitleBar titleBar;
-    titleBar.setTitleText(QStringLiteral("Hello"));
-    auto* label = titleBar.findChild<QLabel*>("TitleBarLabel");
-    ASSERT_NE(label, nullptr);
-    EXPECT_EQ(label->text(), QString("Hello"));
 }
 
 TEST_F(TitleBarTest, MenuInTitlebarSettingRoundTrip)

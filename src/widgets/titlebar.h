@@ -4,7 +4,6 @@
 #include <QToolButton>
 #include <QWidget>
 
-class QLabel;
 class QMenuBar;
 
 // Window control button that paints its glyph with QPainter so it adapts to
@@ -61,7 +60,6 @@ public:
     }
 
     void setMaximized(bool maximized);
-    void setTitleText(const QString& text);
 
 signals:
     void minimizeRequested();
@@ -74,7 +72,6 @@ protected:
 
 private:
     QMenuBar* m_menuBar = nullptr;
-    QLabel* m_titleLabel = nullptr;
     TitleBarButton* m_minimizeButton = nullptr;
     TitleBarButton* m_maximizeButton = nullptr;
     TitleBarButton* m_closeButton = nullptr;

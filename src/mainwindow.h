@@ -35,6 +35,7 @@ class ExternalToolManager;
 class FileManager;
 class FileWatcherManager;
 class FindInFilesDialog;
+class QMenuBar;
 class PrintManager;
 class ProjectPanel;
 class RemoteFileService;
@@ -107,6 +108,9 @@ public slots:
     void quitDevpad();
     void paste();
     void copy();
+    void applyTitleBarMode();
+
+    QMenuBar* menuBarWidget();
 
 private slots:
     void updateStatusBar();
@@ -125,7 +129,6 @@ protected:
 
 private:
     void setupWindow();
-    void applyTitleBarMode();
     void setupDockWidgets();
     void createManagers();
     void connectRemoteService();
