@@ -23,27 +23,12 @@ if (-not $wixBin) {
 
 $env:Path = "$wixBin;$env:Path"
 
-# Step 1: Deploy Qt dependencies if dist doesn't contain the exe
+# Step 1: Deploy Qt + runtime dependencies into a self-contained dist
 $distDir = Join-Path $BuildDir "dist"
-if (-not (Test-Path (Join-Path $distDir "Devpad.exe"))) {
-    Write-Host "Running windeployqt..."
-    & "windeployqt.exe" (Join-Path $BuildDir "Devpad.exe") "--dir" $distDir
-    Copy-Item (Join-Path $BuildDir "Devpad.exe") $distDir
-    Copy-Item (Join-Path $BuildDir "devpad_*.qm") $distDir -ErrorAction SilentlyContinue
-
-    # Copy runtime dependencies not already deployed by windeployqt
-    if (Get-Command objdump -ErrorAction SilentlyContinue) {
-        $targets = @((Get-ChildItem $distDir -Recurse -Filter *.dll -ErrorAction SilentlyContinue).FullName) + @(Join-Path $BuildDir "Devpad.exe")
-        $names = @($targets | ForEach-Object { (& objdump -p $_ 2>$null | Select-String 'DLL Name').Line } |
-            ForEach-Object { ($_ -replace '.*DLL Name:\s*', '').Trim() } | Sort-Object -Unique)
-        $prefix = if ($env:MSYSTEM_PREFIX) { $env:MSYSTEM_PREFIX } else { "C:\msys64\ucrt64" }
-        foreach ($name in $names) {
-            $src = Get-ChildItem (Join-Path $prefix "bin") -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($src -and -not (Test-Path (Join-Path $distDir $name))) {
-                Copy-Item $src.FullName $distDir
-            }
-        }
-    }
+& (Join-Path $PSScriptRoot "deploy-windows-deps.ps1") -BuildDir $BuildDir -DistDir $distDir
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Dependency deployment failed (deploy-windows-deps.ps1)"
+    exit 1
 }
 
 # Step 2: Ensure we're in the installer directory

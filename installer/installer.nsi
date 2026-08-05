@@ -62,54 +62,13 @@ SetCompressor /SOLID lzma
 Section "Devpad" SecCore
     SectionIn RO
     SetOutPath "$INSTDIR"
-    ; Main executable
-    File "..\build\dist\Devpad.exe"
     File "devpad.ico"
 
-    ; All DLLs
-    File "..\build\dist\*.dll"
-
-    ; Qt plugins
-    SetOutPath "$INSTDIR\platforms"
-    File "..\build\dist\platforms\qwindows.dll"
-
-    SetOutPath "$INSTDIR\styles"
-    File /nonfatal "..\build\dist\styles\qmodernwindowsstyle.dll"
-
-    SetOutPath "$INSTDIR\imageformats"
-    File "..\build\dist\imageformats\qgif.dll"
-    File "..\build\dist\imageformats\qico.dll"
-    File "..\build\dist\imageformats\qjpeg.dll"
-    File "..\build\dist\imageformats\qsvg.dll"
-
-    SetOutPath "$INSTDIR\iconengines"
-    File "..\build\dist\iconengines\qsvgicon.dll"
-
-    SetOutPath "$INSTDIR\multimedia"
-    File "..\build\dist\multimedia\ffmpegmediaplugin.dll"
-
-    SetOutPath "$INSTDIR\networkinformation"
-    File "..\build\dist\networkinformation\qglib.dll"
-    File "..\build\dist\networkinformation\qnetworklistmanager.dll"
-
-    SetOutPath "$INSTDIR\tls"
-    File "..\build\dist\tls\qcertonlybackend.dll"
-    File /nonfatal "..\build\dist\tls\qopensslbackend.dll"
-    File "..\build\dist\tls\qschannelbackend.dll"
-
-    SetOutPath "$INSTDIR\generic"
-    File "..\build\dist\generic\qtuiotouchplugin.dll"
-
-    ; Translations
-    SetOutPath "$INSTDIR\translations"
-    File /nonfatal "..\build\dist\translations\*.qm"
-
-    ; Devpad translations
-    SetOutPath "$INSTDIR"
-    File /nonfatal "..\build\dist\devpad_*.qm"
+    ; Everything deployed into the dist directory (executable, DLLs, Qt plugins,
+    ; translations). File /r preserves the directory structure of dist.
+    File /r "..\build\dist\*"
 
     ; License
-    SetOutPath "$INSTDIR"
     File "..\LICENSE"
 
 SectionEnd

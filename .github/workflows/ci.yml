@@ -230,18 +230,13 @@ jobs:
           VERSION=$(grep 'project(Devpad VERSION' CMakeLists.txt | sed 's/.*VERSION \([^ ]*\).*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Deploy Qt dependencies with windeployqt
+      - name: Deploy Qt and runtime dependencies
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         run: |
-          windeployqt build/Devpad.exe --dir build/dist
-          cp build/Devpad.exe build/dist/Devpad.exe
-          for f in $(find build/dist -name '*.dll') build/Devpad.exe; do
-            objdump -p "$f" 2>/dev/null
-          done | grep 'DLL Name' | sed 's/.*DLL Name: *//' | sort -u | while read -r dll; do
-            found=$(find /ucrt64/bin -maxdepth 1 -iname "$dll" -print -quit)
-            [ -n "$found" ] && cp -n "$found" build/dist/
-          done
-          cp build/*.qm build/dist/ 2>/dev/null || true
+          powershell -ExecutionPolicy Bypass -File scripts/deploy-windows-deps.ps1 \
+            -BuildDir "$GITHUB_WORKSPACE\build" \
+            -DistDir "$GITHUB_WORKSPACE\build\dist" \
+            -MsysPrefix "C:\msys64\ucrt64"
 
       - name: Install NSIS
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
