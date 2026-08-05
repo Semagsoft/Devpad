@@ -346,6 +346,12 @@ public:
     {
         return m_menuBarAct;
     }
+#ifdef Q_OS_WIN
+    QAction* menuTitlebarAct() const
+    {
+        return m_menuTitlebarAct;
+    }
+#endif
     QMenu* recentFilesMenu() const
     {
         return m_recentFilesHelper ? m_recentFilesHelper->menu() : nullptr;
@@ -447,6 +453,9 @@ signals:
     void toggleToolBarTriggered();
     void toggleStatusBarTriggered();
     void toggleMenuBarTriggered();
+#ifdef Q_OS_WIN
+    void toggleMenuTitlebarTriggered();
+#endif
     void toggleWordWrapTriggered();
     void printFileTriggered();
     void printPreviewTriggered();
@@ -543,6 +552,9 @@ private:
     QAction* m_errorListPanelAct = nullptr;
     QAction* m_toolBarAct = nullptr;
     QAction* m_statusBarAct = nullptr;
+#ifdef Q_OS_WIN
+    QAction* m_menuTitlebarAct = nullptr;
+#endif
     QAction* m_wordWrapAct = nullptr;
     QAction* m_printAct = nullptr;
     QAction* m_printPreviewAct = nullptr;

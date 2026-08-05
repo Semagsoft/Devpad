@@ -33,6 +33,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 - Read-only mode toggle per tab
 - Word wrap, whitespace visibility, scroll past end, vertical edge marker
 - Configurable tab bar position, close button side, tab display mode
+- (Windows) Menu bar in titlebar option with a modern in-titlebar menu
 - Status bar with line/column, file type, encoding selector
 - Configurable UI font separate from editor font
 - Recent files list, recent folders list

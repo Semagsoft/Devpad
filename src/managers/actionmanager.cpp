@@ -405,6 +405,13 @@ void ActionManager::createActions()
                 emit viewActionTriggered(ViewAction::StatusBar);
             });
 
+#ifdef Q_OS_WIN
+    m_menuTitlebarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Menu in Titlebar"), this);
+    m_menuTitlebarAct->setCheckable(true);
+    m_menuTitlebarAct->setChecked(SettingsManager::instance().showMenuInTitlebar());
+    connect(m_menuTitlebarAct, &QAction::triggered, this, [this]() { emit toggleMenuTitlebarTriggered(); });
+#endif
+
     // Tools
     m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options"), QKeySequence(), [this]() { emit optionsTriggered(); });
 #ifdef Q_OS_MACOS
@@ -549,6 +556,9 @@ void ActionManager::buildViewMenu(QMenu* viewMenu)
     viewMenu->addAction(m_menuBarAct);
     viewMenu->addAction(m_toolBarAct);
     viewMenu->addAction(m_statusBarAct);
+#ifdef Q_OS_WIN
+    viewMenu->addAction(m_menuTitlebarAct);
+#endif
     viewMenu->addSeparator();
 #ifndef Q_OS_MACOS
     viewMenu->addAction(m_fullScreenAct);
@@ -697,6 +707,16 @@ void ActionManager::wireConnections(const ActionTargets& t)
                 m_menuBarAct->setChecked(visible);
                 SettingsManager::instance().setShowMenuBar(visible);
             });
+#ifdef Q_OS_WIN
+    connect(this, &ActionManager::toggleMenuTitlebarTriggered, this,
+            [this, mw]()
+            {
+                bool enabled = !SettingsManager::instance().showMenuInTitlebar();
+                SettingsManager::instance().setShowMenuInTitlebar(enabled);
+                mw->applyTitleBarMode();
+                m_menuTitlebarAct->setChecked(enabled);
+            });
+#endif
     connect(this, &ActionManager::toggleToolBarTriggered, this,
             [this]()
             {

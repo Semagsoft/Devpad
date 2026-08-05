@@ -180,6 +180,7 @@ void SettingsManager::loadCache()
     m_cache.ui.tabBarPosition =
         static_cast<TabBarPosition>(m_settings.value("Options_TabBarPosition", static_cast<int>(TabBarPosition::Top)).toInt());
     m_cache.ui.showMenuBar = m_settings.value("Options_ShowMenuBar", true).toBool();
+    m_cache.ui.showMenuInTitlebar = m_settings.value("Options_ShowMenuInTitlebar", true).toBool();
     m_cache.ui.showToolbar = m_settings.value("Options_ShowToolbar", true).toBool();
     m_cache.ui.showStatusbar = m_settings.value("Options_ShowStatusbar", true).toBool();
     m_cache.ui.uiFontFamily = m_settings.value("Options_UIFont", "Sans Serif").toString();
@@ -331,6 +332,10 @@ CloseButtonMode SettingsManager::closeButtonMode() const
 bool SettingsManager::showMenuBar() const
 {
     return m_cache.ui.showMenuBar;
+}
+bool SettingsManager::showMenuInTitlebar() const
+{
+    return m_cache.ui.showMenuInTitlebar;
 }
 bool SettingsManager::showToolbar() const
 {
@@ -562,6 +567,10 @@ void SettingsManager::setTabBarPosition(TabBarPosition position)
 void SettingsManager::setShowMenuBar(bool visible)
 {
     writeCached("Options_ShowMenuBar", m_cache.ui.showMenuBar, visible);
+}
+void SettingsManager::setShowMenuInTitlebar(bool enabled)
+{
+    writeCached("Options_ShowMenuInTitlebar", m_cache.ui.showMenuInTitlebar, enabled);
 }
 void SettingsManager::setShowToolbar(bool visible)
 {

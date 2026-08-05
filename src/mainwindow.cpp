@@ -50,6 +50,10 @@
 #include "terminalpanel.h"
 #include "theme.h"
 #include "themeapplier.h"
+#include "widgets/titlebar.h"
+#ifdef Q_OS_WIN
+#include "widgets/windowsframebridge.h"
+#endif
 #include "updatechecker.h"
 #include "updatedialog.h"
 
@@ -165,6 +169,10 @@ void MainWindow::setupWindow()
 {
     setWindowTitle(Strings::AppName());
     setMinimumSize(800, 600);
+#ifdef Q_OS_WIN
+    if (SettingsManager::instance().showMenuInTitlebar())
+        setWindowFlag(Qt::FramelessWindowHint, true);
+#endif
     QIcon windowIcon(":/icons/devpad.svg");
     if (!windowIcon.isNull())
         setWindowIcon(windowIcon);
@@ -353,6 +361,67 @@ void MainWindow::setupUI()
     const auto shortcutActions = m_actionManager->actionsWithShortcuts();
     for (QAction* act : shortcutActions)
         addAction(act);
+
+    applyTitleBarMode();
+}
+
+void MainWindow::applyTitleBarMode()
+{
+#ifdef Q_OS_WIN
+    const bool useTitlebar = SettingsManager::instance().showMenuInTitlebar();
+
+    if (useTitlebar && !m_titleBar)
+    {
+        setWindowFlag(Qt::FramelessWindowHint, true);
+
+        m_titleBar = new TitleBar(this);
+        setMenuWidget(m_titleBar);
+
+        QMenuBar* mb = menuBar();
+        m_titleBar->setMenuBar(mb);
+        m_titleBar->setMaximized(isMaximized());
+        m_titleBar->setTitleText(windowTitle());
+
+        connect(m_titleBar, &TitleBar::minimizeRequested, this, &MainWindow::showMinimized);
+        connect(m_titleBar, &TitleBar::maximizeRequested, this,
+                [this]()
+                {
+                    if (isMaximized())
+                        showNormal();
+                    else
+                        showMaximized();
+                });
+        connect(m_titleBar, &TitleBar::closeRequested, this, &MainWindow::close);
+
+        m_frameBridge = new WindowsFrameBridge(this, m_titleBar);
+
+        if (m_actionManager->menuTitlebarAct())
+            m_actionManager->menuTitlebarAct()->setChecked(true);
+    }
+    else if (!useTitlebar && m_titleBar)
+    {
+        setWindowFlag(Qt::FramelessWindowHint, false);
+
+        if (m_frameBridge)
+        {
+            qApp->removeNativeEventFilter(m_frameBridge);
+            delete m_frameBridge;
+            m_frameBridge = nullptr;
+        }
+
+        if (QMenuBar* mb = m_titleBar->menuBarWidget())
+        {
+            mb->setParent(this);
+            mb->show();
+            setMenuBar(mb);
+        }
+        delete m_titleBar;
+        m_titleBar = nullptr;
+
+        if (m_actionManager->menuTitlebarAct())
+            m_actionManager->menuTitlebarAct()->setChecked(false);
+    }
+#endif
 }
 
 void MainWindow::wireActions()
@@ -1301,6 +1370,11 @@ void MainWindow::changeEvent(QEvent* event)
     if (event->type() == QEvent::WindowStateChange)
     {
         m_actionManager->fullScreenAct()->setChecked(isFullScreen());
+        if (m_titleBar)
+        {
+            m_titleBar->setMaximized(isMaximized());
+            m_titleBar->setVisible(!isFullScreen());
+        }
     }
     else if (event->type() == QEvent::ThemeChange)
     {

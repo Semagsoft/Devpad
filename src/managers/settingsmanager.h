@@ -119,6 +119,7 @@ public:
         TabDisplayMode tabDisplayMode = TabDisplayMode::ShowTwoPlus;
         TabBarPosition tabBarPosition = TabBarPosition::Top;
         bool showMenuBar = true;
+        bool showMenuInTitlebar = true;
         bool showToolbar = true;
         bool showStatusbar = true;
         QString uiFontFamily = "Sans Serif";
@@ -232,6 +233,7 @@ public:
     TabDisplayMode tabDisplayMode() const;
     TabBarPosition tabBarPosition() const;
     bool showMenuBar() const;
+    bool showMenuInTitlebar() const;
     bool showToolbar() const;
     bool showStatusbar() const;
     QString uiFontFamily() const;
@@ -242,6 +244,7 @@ public:
     void setTabDisplayMode(TabDisplayMode mode);
     void setTabBarPosition(TabBarPosition position);
     void setShowMenuBar(bool visible);
+    void setShowMenuInTitlebar(bool enabled);
     void setShowToolbar(bool visible);
     void setShowStatusbar(bool visible);
     void setUiFontFamily(const QString& family);

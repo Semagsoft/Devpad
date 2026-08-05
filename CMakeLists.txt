@@ -197,6 +197,8 @@ add_library(Devpad_lib STATIC
     src/panels/errorlistpanel.cpp
     src/widgets/brackethelper.cpp
     src/widgets/themepreviewwidget.cpp
+    src/widgets/titlebar.cpp
+    src/widgets/windowsframebridge.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/editorcontainer.cpp
     src/lsp/lspjsonrpc.cpp
@@ -361,6 +363,7 @@ if(BUILD_TESTS)
         tests/test_filewatchermanager.cpp
         tests/test_gitignore.cpp
         tests/test_inlinefindbar.cpp
+        tests/test_titlebar.cpp
         tests/test_printmanager.cpp
         tests/test_recentfileshelper.cpp
         tests/test_lsptypes.cpp

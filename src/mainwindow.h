@@ -45,7 +45,12 @@ class SplitView;
 class TabManager;
 class TerminalPanel;
 class ThemeApplier;
+class TitleBar;
 class UpdateChecker;
+
+#ifdef Q_OS_WIN
+class WindowsFrameBridge;
+#endif
 
 namespace lsp
 {
@@ -120,6 +125,7 @@ protected:
 
 private:
     void setupWindow();
+    void applyTitleBarMode();
     void setupDockWidgets();
     void createManagers();
     void connectRemoteService();
@@ -185,6 +191,10 @@ private:
     QPointer<FindSymbolsDialog> m_findSymbolsDialog;
 
     QLocalServer* m_localServer = nullptr;
+    TitleBar* m_titleBar = nullptr;
+#ifdef Q_OS_WIN
+    WindowsFrameBridge* m_frameBridge = nullptr;
+#endif
     bool m_quitRequested = false;
 };
 
