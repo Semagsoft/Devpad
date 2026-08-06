@@ -44,7 +44,7 @@ TitleBarButton::TitleBarButton(Role role, QWidget* parent) : QToolButton(parent)
 
 void TitleBarButton::setMaximized(bool maximized)
 {
-    if (m_role == Role::Maximize)
+    if (m_role == Role::Maximize || m_role == Role::Restore)
         m_role = maximized ? Role::Restore : Role::Maximize;
     update();
 }

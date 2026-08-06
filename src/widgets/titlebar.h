@@ -23,6 +23,11 @@ public:
 
     explicit TitleBarButton(Role role, QWidget* parent = nullptr);
 
+    Role role() const
+    {
+        return m_role;
+    }
+
     void setMaximized(bool maximized);
 
 protected:

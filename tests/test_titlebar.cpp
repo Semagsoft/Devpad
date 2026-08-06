@@ -69,6 +69,25 @@ TEST_F(TitleBarTest, MaximizedTogglesRestoreTooltip)
     EXPECT_EQ(titleBar.maximizeButton()->toolTip(), QString("Maximize"));
 }
 
+TEST_F(TitleBarTest, MaximizeButtonCyclesBackToMaximizeIcon)
+{
+    auto* button = static_cast<TitleBarButton*>(new TitleBarButton(TitleBarButton::Role::Maximize));
+
+    button->setMaximized(true);
+    EXPECT_EQ(button->role(), TitleBarButton::Role::Restore);
+
+    button->setMaximized(false);
+    EXPECT_EQ(button->role(), TitleBarButton::Role::Maximize);
+
+    button->setMaximized(true);
+    EXPECT_EQ(button->role(), TitleBarButton::Role::Restore);
+
+    button->setMaximized(false);
+    EXPECT_EQ(button->role(), TitleBarButton::Role::Maximize);
+
+    delete button;
+}
+
 TEST_F(TitleBarTest, SetMenuBarReparentsAndInserts)
 {
     TitleBar titleBar;
