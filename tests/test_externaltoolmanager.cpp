@@ -107,12 +107,34 @@ TEST_F(ExternalToolManagerTest, ParseArgumentsDoubleQuotes)
     EXPECT_EQ(result[1], "hello world");
 }
 
+#ifndef Q_OS_WIN
 TEST_F(ExternalToolManagerTest, ParseArgumentsBackslashEscape)
 {
     QStringList result = ExternalToolManager::parseArguments("arg\\ with\\ spaces");
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0], "arg with spaces");
 }
+#else
+TEST_F(ExternalToolManagerTest, ParseArgumentsWindowsBackslashPreserved)
+{
+    QStringList result = ExternalToolManager::parseArguments("--path C:\\Users\\primo\\file.cpp");
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_EQ(result[1], "C:\\Users\\primo\\file.cpp");
+}
+
+TEST_F(ExternalToolManagerTest, ParseArgumentsWindowsQuotedPath)
+{
+    QStringList result = ExternalToolManager::parseArguments("\"C:\\Program Files\\app\\run.exe\" --flag");
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_EQ(result[0], "C:\\Program Files\\app\\run.exe");
+}
+
+TEST_F(ExternalToolManagerTest, CmdQuoteWindows)
+{
+    EXPECT_EQ(ExternalToolManager::cmdQuote("C:\\Users\\primo\\My Documents"), "\"C:\\Users\\primo\\My Documents\"");
+    EXPECT_EQ(ExternalToolManager::cmdQuote("a\"b"), "\"a\"\"b\"");
+}
+#endif
 
 TEST_F(ExternalToolManagerTest, ParseArgumentsMixedQuotes)
 {

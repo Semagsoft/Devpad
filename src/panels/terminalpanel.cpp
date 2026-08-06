@@ -278,7 +278,7 @@ void TerminalPanel::setWorkingDirectory(const QString& path)
     {
         m_backend->setWorkingDirectory(path);
 #ifdef Q_OS_WIN
-        m_backend->sendText(QString("cd \"%1\" && cls\n").arg(path));
+        m_backend->sendText(QString("cd /d \"%1\" && cls\n").arg(path));
 #else
         m_backend->sendText(QString("cd \"%1\" && clear\n").arg(path));
 #endif

@@ -96,10 +96,12 @@ QStringList ExternalToolManager::parseArguments(const QString& args)
             {
                 inDoubleQuote = false;
             }
+#ifndef Q_OS_WIN
             else if (c == QLatin1Char('\\') && i + 1 < args.size())
             {
                 current += args[++i];
             }
+#endif
             else
             {
                 current += c;
@@ -115,10 +117,12 @@ QStringList ExternalToolManager::parseArguments(const QString& args)
             {
                 inDoubleQuote = true;
             }
+#ifndef Q_OS_WIN
             else if (c == QLatin1Char('\\') && i + 1 < args.size())
             {
                 current += args[++i];
             }
+#endif
             else if (c.isSpace())
             {
                 if (!current.isEmpty())
@@ -146,6 +150,15 @@ QString ExternalToolManager::shellEscape(const QString& s)
     escaped.replace(QLatin1Char('\''), QStringLiteral("'\\''"));
     return QLatin1Char('\'') + escaped + QLatin1Char('\'');
 }
+
+#ifdef Q_OS_WIN
+QString ExternalToolManager::cmdQuote(const QString& s)
+{
+    QString quoted = s;
+    quoted.replace(QLatin1Char('"'), QStringLiteral("\"\""));
+    return QLatin1Char('"') + quoted + QLatin1Char('"');
+}
+#endif
 
 bool ExternalToolManager::runTool(int index, const QString& filePath, const QString& projectDir, const QString& selectedText, int lineNumber,
                                   const std::function<void(const QString&)>& terminalSender, QWidget* parent)
@@ -178,12 +191,24 @@ bool ExternalToolManager::runTool(int index, const QString& filePath, const QStr
 
     if (tool.runInTerminal && terminalSender)
     {
-        // Terminal path: build a properly shell-escaped command
-        QString cmdLine = QStringLiteral("cd %1 && exec %2").arg(shellEscape(resolvedWorkDir), shellEscape(resolvedCmd));
+        // Terminal path: build a properly escaped command line for the platform shell.
+        QString cmdLine;
+#ifdef Q_OS_WIN
+        // cmd.exe has no `exec` builtin, needs `cd /d` for cross-drive changes,
+        // and quotes with double quotes only.
+        cmdLine = QStringLiteral("cd /d %1 && %2").arg(cmdQuote(resolvedWorkDir), cmdQuote(resolvedCmd));
+        for (const auto& arg : resolvedArgs)
+        {
+            cmdLine += QLatin1Char(' ') + cmdQuote(arg);
+        }
+#else
+        // POSIX shell: single-quote escaping, `cd` + `exec`.
+        cmdLine = QStringLiteral("cd %1 && exec %2").arg(shellEscape(resolvedWorkDir), shellEscape(resolvedCmd));
         for (const auto& arg : resolvedArgs)
         {
             cmdLine += QLatin1Char(' ') + shellEscape(arg);
         }
+#endif
         cmdLine += QLatin1Char('\n');
         terminalSender(cmdLine);
     }
