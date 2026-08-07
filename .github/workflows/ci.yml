@@ -230,8 +230,7 @@ jobs:
         run: |
           powershell -ExecutionPolicy Bypass -File scripts/deploy-windows-deps.ps1 \
             -BuildDir "$GITHUB_WORKSPACE\build" \
-            -DistDir "$GITHUB_WORKSPACE\build\dist" \
-            -MsysPrefix "C:\msys64\ucrt64"
+            -DistDir "$GITHUB_WORKSPACE\build\dist"
 
       - name: Install NSIS
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'

@@ -33,11 +33,39 @@ if (-not (Test-Path (Join-Path $BuildDir "Devpad.exe"))) {
 }
 
 # ── Locate the MSYS2 prefix ───────────────────────────────────
-if (-not $MsysPrefix) {
-    if ($env:MSYSTEM_PREFIX) { $MsysPrefix = $env:MSYSTEM_PREFIX }
-    elseif (Test-Path "C:\msys64\ucrt64") { $MsysPrefix = "C:\msys64\ucrt64" }
-    elseif (Test-Path "C:\msys64\mingw64") { $MsysPrefix = "C:\msys64\mingw64" }
+function Find-MsysPrefix {
+    # Explicitly provided via -MsysPrefix.
+    if ($script:MsysPrefix) { return $script:MsysPrefix }
+    # Exported by the MSYS2 UCRT64/MINGW64/CLANG64 shells.
+    if ($env:MSYSTEM_PREFIX) { return $env:MSYSTEM_PREFIX }
+
+    # Infer from windeployqt on PATH: <prefix>\bin\windeployqt.exe
+    $cmd = Get-Command windeployqt -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $prefix = Split-Path (Split-Path $cmd.Source -Parent) -Parent
+        if ($prefix -and (Test-Path (Join-Path $prefix "bin"))) { return $prefix }
+    }
+
+    # Infer from objdump on PATH: <msysBase>\usr\bin\objdump.exe
+    $cmd = Get-Command objdump -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $dir = Split-Path $cmd.Source -Parent
+        $dir = Split-Path $dir -Parent
+        $msysBase = Split-Path $dir -Parent
+        if ($msysBase) {
+            foreach ($sub in @("ucrt64", "mingw64", "clang64")) {
+                $candidate = Join-Path $msysBase $sub
+                if (Test-Path (Join-Path $candidate "bin")) { return $candidate }
+            }
+        }
+    }
+
+    if (Test-Path "C:\msys64\ucrt64") { return "C:\msys64\ucrt64" }
+    if (Test-Path "C:\msys64\mingw64") { return "C:\msys64\mingw64" }
+    return ""
 }
+
+$MsysPrefix = Find-MsysPrefix
 $msysBase = if ($MsysPrefix) { Split-Path $MsysPrefix -Parent } else { "" }
 
 # ── Locate a tool on PATH or under the MSYS2 tree ──────────────
