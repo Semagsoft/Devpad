@@ -1,10 +1,11 @@
 ﻿# Changelog
 
 ## [1.02] -TBD
-(WIP)
+
 What's new in Devpad 1.02:
 
 - (Platform=Windows) The menu bar can now be displayed inside the titlebar, matching the look of modern editors. SHA: 75b965add2c46ed43f3e4c8bebb6c79c01b53846
+- (Platform=macOS) Support for opening files from Finder/dock. SHA: da64180422047105e2338341bb256c5c30bb0f34
 
 Bug fixes for version 1.02:
 
