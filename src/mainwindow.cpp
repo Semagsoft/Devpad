@@ -67,6 +67,9 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#ifdef Q_OS_MACOS
+#include <QFileOpenEvent>
+#endif
 #include <QIcon>
 #include <QInputDialog>
 #include <QLocalSocket>
@@ -89,6 +92,34 @@
 #include <QToolButton>
 #ifndef Q_OS_WIN
 #include <qtermwidget.h>
+#endif
+
+#ifdef Q_OS_MACOS
+namespace
+{
+QString appBundlePath()
+{
+    const QString bundle = QDir::cleanPath(QCoreApplication::applicationDirPath() + QStringLiteral("/../.."));
+    return QFileInfo::exists(bundle + QStringLiteral("/Contents/Info.plist")) ? bundle : QString();
+}
+
+void launchAppBundle(const QStringList& args)
+{
+    const QString bundle = appBundlePath();
+    if (bundle.isEmpty())
+    {
+        if (!QProcess::startDetached(QCoreApplication::applicationFilePath(), args))
+            Logger::instance().error(QString("Failed to start detached process: %1").arg(args.join(QLatin1Char(' '))));
+        return;
+    }
+    QStringList openArgs;
+    openArgs << QStringLiteral("-n") << bundle;
+    if (!args.isEmpty())
+        openArgs << QStringLiteral("--args") << args;
+    if (!QProcess::startDetached(QStringLiteral("open"), openArgs))
+        Logger::instance().error(QString("Failed to launch app bundle with: %1").arg(openArgs.join(QLatin1Char(' '))));
+}
+} // namespace
 #endif
 
 MainWindow::~MainWindow() = default;
@@ -125,6 +156,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     connect(m_splitView, &SplitView::tabDetachedToWindow, this,
             [](const QString& filePath)
             {
+#ifdef Q_OS_MACOS
+                QStringList args;
+                if (!filePath.isEmpty() && filePath[0] == QChar(1))
+                    args << QStringLiteral("--transfer") << filePath.mid(1);
+                else if (!filePath.isEmpty())
+                    args << filePath;
+                launchAppBundle(args);
+#else
                 QString appPath = QApplication::applicationFilePath();
                 if (!filePath.isEmpty() && filePath[0] == QChar(1))
                 {
@@ -141,6 +180,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                         Logger::instance().error(QString("Failed to start detached process for: %1").arg(filePath));
                     }
                 }
+#endif
             });
 
     connect(m_splitView, &SplitView::externalTabDropped, this, [this](const QString& filePath) { loadFile(filePath); });
@@ -749,11 +789,15 @@ void MainWindow::loadFile(const QString& fileName, const QString& encoding)
 
 void MainWindow::newWindow()
 {
+#ifdef Q_OS_MACOS
+    launchAppBundle(QStringList());
+#else
     QString appPath = QApplication::applicationFilePath();
     if (!QProcess::startDetached(appPath, QStringList()))
     {
         Logger::instance().error("Failed to start detached process for new window");
     }
+#endif
     Logger::instance().info("Opened new window");
 }
 
@@ -1392,6 +1436,29 @@ void MainWindow::changeEvent(QEvent* event)
         }
     }
     QMainWindow::changeEvent(event);
+}
+
+bool MainWindow::event(QEvent* event)
+{
+#ifdef Q_OS_MACOS
+    if (event->type() == QEvent::FileOpen)
+    {
+        const auto* fileOpenEvent = static_cast<const QFileOpenEvent*>(event);
+        const QString path = fileOpenEvent->file();
+        if (!path.isEmpty())
+        {
+            const QFileInfo info(path);
+            if (info.isDir())
+                openFolderFromPath(path);
+            else
+                openFileFromPath(path);
+            raise();
+            activateWindow();
+        }
+        return true;
+    }
+#endif
+    return QMainWindow::event(event);
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)

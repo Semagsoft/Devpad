@@ -150,6 +150,13 @@ configure_file(
     ${CMAKE_BINARY_DIR}/generated/devpad_version.h
 )
 
+# ── macOS Info.plist from CMake ──────────────────────────────
+configure_file(
+    resources/Info.plist.in
+    ${CMAKE_BINARY_DIR}/generated/Info.plist
+    @ONLY
+)
+
 # ── Shared static library (avoids double compilation) ─────────
 add_library(Devpad_lib STATIC
     src/codeeditor.cpp

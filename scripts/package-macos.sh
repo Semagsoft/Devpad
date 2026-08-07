@@ -37,7 +37,7 @@ mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
 
 cp "${BUILD_DIR}/Devpad" "${APP_BUNDLE}/Contents/MacOS/"
-cp resources/Info.plist "${APP_BUNDLE}/Contents/"
+cp "${BUILD_DIR}/generated/Info.plist" "${APP_BUNDLE}/Contents/"
 cp resources/Devpad.icns "${APP_BUNDLE}/Contents/Resources/"
 
 # Copy license
@@ -50,13 +50,55 @@ info "Running macdeployqt to bundle Qt frameworks..."
 macdeployqt "${APP_BUNDLE}" -verbose=1
 ok "macdeployqt complete"
 
-# ─── Step 4: Ad-hoc code sign ──────────────────────────────────
-info "Ad-hoc code signing..."
-codesign --deep --force --sign - "${APP_BUNDLE}/Contents/MacOS/Devpad" 2>/dev/null || true
-codesign --deep --force --sign - "${APP_BUNDLE}" 2>/dev/null || true
-ok "Ad-hoc code signing complete"
+# ─── Step 4: Code signing ────────────────────────────────────
+# Use a Developer ID identity (hardened runtime + timestamp) when one is
+# available; fall back to ad-hoc signing for local builds.
+SIGN_IDENTITY="${DEVELOPER_ID:-}"
+if [ -z "$SIGN_IDENTITY" ]; then
+    SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+        | grep -o 'Developer ID Application: [^)]*' \
+        | head -1 || true)
+fi
 
-# ─── Step 5: Create .dmg disk image ────────────────────────────
+if [ -n "$SIGN_IDENTITY" ]; then
+    info "Code signing with identity: $SIGN_IDENTITY"
+    codesign --force --deep --sign "$SIGN_IDENTITY" \
+        --options runtime \
+        --timestamp \
+        "${APP_BUNDLE}"
+else
+    warn "No Developer ID identity found; using ad-hoc signature"
+    codesign --deep --force --sign - "${APP_BUNDLE}"
+fi
+codesign --verify --deep "${APP_BUNDLE}"
+ok "Code signing complete"
+
+# ─── Step 5: Notarization (optional) ──────────────────────────
+# Requires: NOTARIZE=1, APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID
+notarize_app() {
+    info "Submitting ${APP_BUNDLE} to Apple for notarization..."
+    xcrun notarytool submit "${APP_BUNDLE}" \
+        --apple-id "${APPLE_ID}" \
+        --password "${APPLE_APP_PASSWORD}" \
+        --team-id "${APPLE_TEAM_ID}" \
+        --wait || err "Notarization submission failed"
+
+    info "Stapling notarization ticket..."
+    xcrun stapler staple "${APP_BUNDLE}"
+    ok "Notarization and stapling complete"
+}
+
+if [ "${NOTARIZE:-0}" = "1" ]; then
+    if [ -z "${APPLE_ID:-}" ] || [ -z "${APPLE_APP_PASSWORD:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ]; then
+        err "NOTARIZE=1 requires APPLE_ID, APPLE_APP_PASSWORD and APPLE_TEAM_ID env vars"
+    fi
+    if [ -z "$SIGN_IDENTITY" ]; then
+        err "Notarization requires a Developer ID signing identity"
+    fi
+    notarize_app
+fi
+
+# ─── Step 6: Create .dmg disk image ───────────────────────────
 info "Creating .dmg disk image..."
 rm -f "${DMG_OUTPUT}"
 
@@ -75,13 +117,13 @@ rm -rf "${DMG_DIR}"
 
 ok "Disk image created: ${DMG_OUTPUT} ($(du -h "${DMG_OUTPUT}" | cut -f1))"
 
-# ─── Step 6: Create portable .tar.gz archive ────────────────────
+# ─── Step 7: Create portable .tar.gz archive ────────────────────
 info "Creating portable archive..."
 TARBALL="${NAME}.tar.gz"
 tar czf "${TARBALL}" "${APP_BUNDLE}"
 ok "Archive created: ${TARBALL} ($(du -h "${TARBALL}" | cut -f1))"
 
-# ─── Step 7: Cleanup build dir ──────────────────────────────────
+# ─── Step 8: Cleanup build dir ──────────────────────────────────
 info "Cleaning up build directory..."
 rm -rf "${BUILD_DIR}"
 

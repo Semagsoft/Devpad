@@ -122,6 +122,7 @@ private slots:
     void onNavigateToLocation(const QString& filePath, int line, int column);
 
 protected:
+    bool event(QEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     void closeEvent(QCloseEvent* event) override;

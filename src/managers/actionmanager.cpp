@@ -431,6 +431,7 @@ void ActionManager::buildMenus(QMenuBar* menuBar)
 #ifdef Q_OS_MACOS
     m_checkForUpdatesAct->setMenuRole(QAction::ApplicationSpecificRole);
     m_quitDevpadAct->setMenuRole(QAction::QuitRole);
+    m_aboutAct->setMenuRole(QAction::AboutRole);
 #endif
 
     QMenu* devpadMenu = menuBar->addMenu(tr("Devpad"));
