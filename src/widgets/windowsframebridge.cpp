@@ -67,8 +67,7 @@ void WindowsFrameBridge::refreshFrame()
     if (!m_hwnd)
         return;
 
-    SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 
 bool WindowsFrameBridge::isOverMaximizeButton(const POINT& screenPos) const
@@ -110,8 +109,7 @@ bool WindowsFrameBridge::nativeEventFilter(const QByteArray& eventType, void* me
 
         // Hide the native frame: the client area fills the whole window. The
         // non-zero return applies our modified client rect (rgrc[0]).
-        RECT* rect = msg->wParam ? &(reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam)->rgrc[0])
-                                 : reinterpret_cast<RECT*>(msg->lParam);
+        RECT* rect = msg->wParam ? &(reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam)->rgrc[0]) : reinterpret_cast<RECT*>(msg->lParam);
         if (IsZoomed(msg->hwnd))
         {
             const int thickness = FrameThickness();
@@ -305,8 +303,7 @@ void WindowsFrameBridge::showSystemMenu(const POINT& screenPos)
     EnableMenuItem(menu, SC_MAXIMIZE, MF_BYCOMMAND | (zoomed ? MF_GRAYED : MF_ENABLED));
     EnableMenuItem(menu, SC_CLOSE, MF_BYCOMMAND | MF_ENABLED);
 
-    const UINT command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, screenPos.x,
-                                       screenPos.y, 0, hwnd, nullptr);
+    const UINT command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, screenPos.x, screenPos.y, 0, hwnd, nullptr);
     if (command != 0)
         SendMessageW(hwnd, WM_SYSCOMMAND, command, 0);
 }
