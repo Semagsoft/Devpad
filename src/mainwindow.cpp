@@ -126,6 +126,8 @@ MainWindow::~MainWindow() = default;
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
+    qApp->installEventFilter(this);
+
     setupWindow();
 
     m_splitView = new SplitView(this);
@@ -1438,7 +1440,7 @@ void MainWindow::changeEvent(QEvent* event)
     QMainWindow::changeEvent(event);
 }
 
-bool MainWindow::event(QEvent* event)
+bool MainWindow::eventFilter(QObject* obj, QEvent* event)
 {
 #ifdef Q_OS_MACOS
     if (event->type() == QEvent::FileOpen)
@@ -1458,7 +1460,7 @@ bool MainWindow::event(QEvent* event)
         return true;
     }
 #endif
-    return QMainWindow::event(event);
+    return QMainWindow::eventFilter(obj, event);
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)
