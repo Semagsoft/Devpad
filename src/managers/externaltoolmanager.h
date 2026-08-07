@@ -43,6 +43,11 @@ public:
     // Escape a string for safe use in a POSIX shell (single-quote wrapping)
     static QString shellEscape(const QString& s);
 
+#ifdef Q_OS_WIN
+    // Quote a string for safe use in cmd.exe (double-quote wrapping)
+    static QString cmdQuote(const QString& s);
+#endif
+
     // Run external tool by index.
     // For terminal tools, the escaped shell command is passed via terminalSender.
     // For background tools, a QProcess + output dialog is created.

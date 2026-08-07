@@ -340,7 +340,12 @@ void ActionManager::createActions()
                                           emit zoomResetTriggered();
                                           emit viewActionTriggered(ViewAction::ZoomReset);
                                       });
-    m_fullScreenAct = createIconAction(":/icons/View/fullscreen.svg", tr("Fullscreen"), QKeySequence("F11"),
+    m_fullScreenAct = createIconAction(":/icons/View/fullscreen.svg", tr("Fullscreen"),
+#ifdef Q_OS_MACOS
+                                       QKeySequence(),
+#else
+                                       QKeySequence("F11"),
+#endif
                                        [this]()
                                        {
                                            emit toggleFullScreenTriggered();
@@ -400,8 +405,18 @@ void ActionManager::createActions()
                 emit viewActionTriggered(ViewAction::StatusBar);
             });
 
+#ifdef Q_OS_WIN
+    m_menuTitlebarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Menu in Titlebar"), this);
+    m_menuTitlebarAct->setCheckable(true);
+    m_menuTitlebarAct->setChecked(SettingsManager::instance().showMenuInTitlebar());
+    connect(m_menuTitlebarAct, &QAction::triggered, this, [this]() { emit toggleMenuTitlebarTriggered(); });
+#endif
+
     // Tools
     m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options"), QKeySequence(), [this]() { emit optionsTriggered(); });
+#ifdef Q_OS_MACOS
+    m_optionsAct->setMenuRole(QAction::PreferencesRole);
+#endif
 
     // Help
     m_donateAct = createIconAction(":/icons/Help/donate.svg", tr("Donate"), QKeySequence(), [this]() { emit donateTriggered(); });
@@ -413,14 +428,22 @@ void ActionManager::createActions()
 
 void ActionManager::buildMenus(QMenuBar* menuBar)
 {
+#ifdef Q_OS_MACOS
+    m_checkForUpdatesAct->setMenuRole(QAction::ApplicationSpecificRole);
+    m_quitDevpadAct->setMenuRole(QAction::QuitRole);
+    m_aboutAct->setMenuRole(QAction::AboutRole);
+#endif
+
     QMenu* devpadMenu = menuBar->addMenu(tr("Devpad"));
     devpadMenu->addAction(m_checkForUpdatesAct);
     devpadMenu->addSeparator();
     devpadMenu->addAction(m_quitDevpadAct);
 
+#ifndef Q_OS_MACOS
     QAction* sep = new QAction(tr("|"), this);
     sep->setEnabled(false);
     menuBar->addAction(sep);
+#endif
 
     QMenu* fileMenu = menuBar->addMenu(tr("File"));
     buildFileMenu(fileMenu);
@@ -534,8 +557,13 @@ void ActionManager::buildViewMenu(QMenu* viewMenu)
     viewMenu->addAction(m_menuBarAct);
     viewMenu->addAction(m_toolBarAct);
     viewMenu->addAction(m_statusBarAct);
+#ifdef Q_OS_WIN
+    viewMenu->addAction(m_menuTitlebarAct);
+#endif
     viewMenu->addSeparator();
+#ifndef Q_OS_MACOS
     viewMenu->addAction(m_fullScreenAct);
+#endif
 } // createViewMenu
 
 void ActionManager::buildToolsMenu(QMenu* toolsMenu)
@@ -675,11 +703,21 @@ void ActionManager::wireConnections(const ActionTargets& t)
     connect(this, &ActionManager::toggleMenuBarTriggered, this,
             [this, mw]()
             {
-                bool visible = !mw->menuBar()->isVisible();
-                mw->menuBar()->setVisible(visible);
+                bool visible = !mw->menuBarWidget()->isVisible();
+                mw->menuBarWidget()->setVisible(visible);
                 m_menuBarAct->setChecked(visible);
                 SettingsManager::instance().setShowMenuBar(visible);
             });
+#ifdef Q_OS_WIN
+    connect(this, &ActionManager::toggleMenuTitlebarTriggered, this,
+            [this, mw]()
+            {
+                bool enabled = !SettingsManager::instance().showMenuInTitlebar();
+                SettingsManager::instance().setShowMenuInTitlebar(enabled);
+                mw->applyTitleBarMode();
+                m_menuTitlebarAct->setChecked(enabled);
+            });
+#endif
     connect(this, &ActionManager::toggleToolBarTriggered, this,
             [this]()
             {

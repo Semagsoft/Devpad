@@ -128,12 +128,37 @@ jobs:
         env:
           BUILD_DIR: build-appimage
 
+      - name: Build Flatpak
+        run: |
+          docker run --privileged --rm \
+            -v "${{ github.workspace }}":/workspace \
+            -w /workspace \
+            ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9 \
+            bash -c '
+              set -euo pipefail
+              flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+              xvfb-run --auto-servernum flatpak-builder \
+                --repo=flatpak-repo \
+                --disable-rofiles-fuse \
+                --install-deps-from=flathub \
+                --force-clean \
+                --default-branch=master \
+                --arch=x86_64 \
+                --state-dir=.flatpak-builder \
+                flatpak_app flatpak/com.semagsoft.Devpad.yml
+              flatpak build-bundle flatpak-repo Devpad.flatpak \
+                --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+                --arch=x86_64 \
+                com.semagsoft.Devpad master
+            '
+
       - uses: actions/upload-artifact@v4
         with:
           name: Devpad-Linux-${{ github.ref_name }}
           path: |
             Devpad-*.AppImage
             Devpad-*.tar.gz
+            Devpad.flatpak
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
@@ -142,37 +167,7 @@ jobs:
           files: |
             Devpad-*.AppImage
             Devpad-*.tar.gz
-          fail_on_unmatched_files: false
-
-  flatpak:
-    name: Build Flatpak
-    runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9
-      options: --privileged
-    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Flatpak
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          bundle: Devpad.flatpak
-          manifest-path: flatpak/com.semagsoft.Devpad.yml
-          cache-key: flatpak-builder
-          upload-artifact: false
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Devpad-Flatpak-${{ github.ref_name }}
-          path: Devpad.flatpak
-
-      - name: Upload to release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: Devpad.flatpak
+            Devpad.flatpak
           fail_on_unmatched_files: false
 
   windows:
@@ -230,18 +225,13 @@ jobs:
           VERSION=$(grep 'project(Devpad VERSION' CMakeLists.txt | sed 's/.*VERSION \([^ ]*\).*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Deploy Qt dependencies with windeployqt
+      - name: Deploy Qt and runtime dependencies
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         run: |
-          windeployqt build/Devpad.exe --dir build/dist
-          cp build/Devpad.exe build/dist/Devpad.exe
-          for f in $(find build/dist -name '*.dll') build/Devpad.exe; do
-            objdump -p "$f" 2>/dev/null
-          done | grep 'DLL Name' | sed 's/.*DLL Name: *//' | sort -u | while read -r dll; do
-            found=$(find /ucrt64/bin -maxdepth 1 -iname "$dll" -print -quit)
-            [ -n "$found" ] && cp -n "$found" build/dist/
-          done
-          cp build/*.qm build/dist/ 2>/dev/null || true
+          powershell -ExecutionPolicy Bypass -File scripts/deploy-windows-deps.ps1 \
+            -BuildDir "$GITHUB_WORKSPACE\build" \
+            -DistDir "$GITHUB_WORKSPACE\build\dist" \
+            -MsysPrefix "C:\msys64\ucrt64"
 
       - name: Install NSIS
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'

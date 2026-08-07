@@ -3,6 +3,7 @@ build-appimage/
 build-asan/
 build_rel/
 build-release/
+build-tests/
 build_san/
 Devpad-1.0-linux-x86_64/
 qscintilla-build/

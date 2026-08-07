@@ -33,6 +33,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 - Read-only mode toggle per tab
 - Word wrap, whitespace visibility, scroll past end, vertical edge marker
 - Configurable tab bar position, close button side, tab display mode
+- (Windows) Menu bar in titlebar option with a modern in-titlebar menu
 - Status bar with line/column, file type, encoding selector
 - Configurable UI font separate from editor font
 - Recent files list, recent folders list
@@ -116,7 +117,39 @@ ctest --test-dir build --output-on-failure
 ```bash
 ./scripts/package-macos.sh
 ```
+
 Produces `Devpad-<version>-macos-<arch>.dmg` with a bundled `.app`.
+
+For a distributable, Gatekeeper-clean build, sign with a Developer ID and
+notarize (requires an Apple Developer account):
+
+```bash
+DEVELOPER_ID="Developer ID Application: Your Name (TEAMID)" \
+NOTARIZE=1 \
+APPLE_ID="you@example.com" \
+APPLE_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" \
+APPLE_TEAM_ID="TEAMID" \
+./scripts/package-macos.sh
+```
+
+Without `DEVELOPER_ID`, the app is ad-hoc signed (fine for local use).
+
+### Installing on macOS
+
+1. Open the `.dmg` and drag `Devpad.app` into `Applications`.
+2. Launch Devpad (from Launchpad, Spotlight, or double-clicking the app).
+   - First launch of a locally built or ad-hoc signed app: right-click
+     `Devpad.app` in Finder and choose **Open**, then confirm. Or run
+     `xattr -dr com.apple.quarantine /Applications/Devpad.app` first.
+3. If Devpad does not launch after an update (e.g., macOS opens a Terminal or
+   nothing happens), re-register the app with LaunchServices:
+   ```bash
+   ./scripts/fix-launchservices-macos.sh
+   ```
+
+Devpad registers itself as an editor for common text/code files, so you can
+open files from Finder with **Open With > Devpad** or by dragging them onto the
+Dock icon.
 
 ## Usage
 

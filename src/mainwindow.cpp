@@ -50,6 +50,10 @@
 #include "terminalpanel.h"
 #include "theme.h"
 #include "themeapplier.h"
+#include "widgets/titlebar.h"
+#ifdef Q_OS_WIN
+#include "widgets/windowsframebridge.h"
+#endif
 #include "updatechecker.h"
 #include "updatedialog.h"
 
@@ -63,6 +67,9 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#ifdef Q_OS_MACOS
+#include <QFileOpenEvent>
+#endif
 #include <QIcon>
 #include <QInputDialog>
 #include <QLocalSocket>
@@ -87,10 +94,40 @@
 #include <qtermwidget.h>
 #endif
 
+#ifdef Q_OS_MACOS
+namespace
+{
+QString appBundlePath()
+{
+    const QString bundle = QDir::cleanPath(QCoreApplication::applicationDirPath() + QStringLiteral("/../.."));
+    return QFileInfo::exists(bundle + QStringLiteral("/Contents/Info.plist")) ? bundle : QString();
+}
+
+void launchAppBundle(const QStringList& args)
+{
+    const QString bundle = appBundlePath();
+    if (bundle.isEmpty())
+    {
+        if (!QProcess::startDetached(QCoreApplication::applicationFilePath(), args))
+            Logger::instance().error(QString("Failed to start detached process: %1").arg(args.join(QLatin1Char(' '))));
+        return;
+    }
+    QStringList openArgs;
+    openArgs << QStringLiteral("-n") << bundle;
+    if (!args.isEmpty())
+        openArgs << QStringLiteral("--args") << args;
+    if (!QProcess::startDetached(QStringLiteral("open"), openArgs))
+        Logger::instance().error(QString("Failed to launch app bundle with: %1").arg(openArgs.join(QLatin1Char(' '))));
+}
+} // namespace
+#endif
+
 MainWindow::~MainWindow() = default;
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
+    qApp->installEventFilter(this);
+
     setupWindow();
 
     m_splitView = new SplitView(this);
@@ -121,6 +158,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     connect(m_splitView, &SplitView::tabDetachedToWindow, this,
             [](const QString& filePath)
             {
+#ifdef Q_OS_MACOS
+                QStringList args;
+                if (!filePath.isEmpty() && filePath[0] == QChar(1))
+                    args << QStringLiteral("--transfer") << filePath.mid(1);
+                else if (!filePath.isEmpty())
+                    args << filePath;
+                launchAppBundle(args);
+#else
                 QString appPath = QApplication::applicationFilePath();
                 if (!filePath.isEmpty() && filePath[0] == QChar(1))
                 {
@@ -137,6 +182,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                         Logger::instance().error(QString("Failed to start detached process for: %1").arg(filePath));
                     }
                 }
+#endif
             });
 
     connect(m_splitView, &SplitView::externalTabDropped, this, [this](const QString& filePath) { loadFile(filePath); });
@@ -292,7 +338,7 @@ void MainWindow::applyInitialSettings()
     m_actionManager->toolBarAct()->setChecked(SettingsManager::instance().showToolbar());
     m_actionManager->statusBarAct()->setChecked(SettingsManager::instance().showStatusbar());
     addToolBar(m_actionManager->toolBar());
-    menuBar()->setVisible(SettingsManager::instance().showMenuBar());
+    menuBarWidget()->setVisible(SettingsManager::instance().showMenuBar());
     m_actionManager->toolBar()->setVisible(SettingsManager::instance().showToolbar());
     statusBar()->setVisible(SettingsManager::instance().showStatusbar());
 
@@ -332,8 +378,8 @@ void MainWindow::setupUI()
     connect(menuBarShortcut, &QShortcut::activated, this,
             [this]()
             {
-                bool visible = !menuBar()->isVisible();
-                menuBar()->setVisible(visible);
+                bool visible = !menuBarWidget()->isVisible();
+                menuBarWidget()->setVisible(visible);
                 m_actionManager->menuBarAct()->setChecked(visible);
                 SettingsManager::instance().setShowMenuBar(visible);
             });
@@ -353,6 +399,68 @@ void MainWindow::setupUI()
     const auto shortcutActions = m_actionManager->actionsWithShortcuts();
     for (QAction* act : shortcutActions)
         addAction(act);
+
+    applyTitleBarMode();
+}
+
+void MainWindow::applyTitleBarMode()
+{
+#ifdef Q_OS_WIN
+    const bool useTitlebar = SettingsManager::instance().showMenuInTitlebar();
+
+    if (useTitlebar && !m_titleBar)
+    {
+        m_titleBar = new TitleBar(this);
+        setMenuWidget(m_titleBar);
+
+        QMenuBar* mb = new QMenuBar(m_titleBar);
+        m_titleBar->setMenuBar(mb);
+        m_actionManager->buildMenus(mb);
+        m_titleBar->setMaximized(isMaximized());
+
+        connect(m_titleBar, &TitleBar::minimizeRequested, this, &MainWindow::showMinimized);
+        connect(m_titleBar, &TitleBar::maximizeRequested, this,
+                [this]()
+                {
+                    if (isMaximized())
+                        showNormal();
+                    else
+                        showMaximized();
+                });
+        connect(m_titleBar, &TitleBar::closeRequested, this, &MainWindow::close);
+
+        m_frameBridge = new WindowsFrameBridge(this, m_titleBar);
+
+        if (m_actionManager->menuTitlebarAct())
+            m_actionManager->menuTitlebarAct()->setChecked(true);
+    }
+    else if (!useTitlebar && m_titleBar)
+    {
+        if (m_frameBridge)
+        {
+            qApp->removeNativeEventFilter(m_frameBridge);
+            delete m_frameBridge;
+            m_frameBridge = nullptr;
+        }
+
+        if (QMenuBar* mb = m_titleBar->menuBarWidget())
+        {
+            mb->setParent(this);
+            mb->show();
+            setMenuBar(mb);
+        }
+        delete m_titleBar;
+        m_titleBar = nullptr;
+
+        if (m_actionManager->menuTitlebarAct())
+            m_actionManager->menuTitlebarAct()->setChecked(false);
+    }
+#endif
+}
+
+QMenuBar* MainWindow::menuBarWidget()
+{
+    return m_titleBar ? m_titleBar->menuBarWidget() : menuBar();
 }
 
 void MainWindow::wireActions()
@@ -683,11 +791,15 @@ void MainWindow::loadFile(const QString& fileName, const QString& encoding)
 
 void MainWindow::newWindow()
 {
+#ifdef Q_OS_MACOS
+    launchAppBundle(QStringList());
+#else
     QString appPath = QApplication::applicationFilePath();
     if (!QProcess::startDetached(appPath, QStringList()))
     {
         Logger::instance().error("Failed to start detached process for new window");
     }
+#endif
     Logger::instance().info("Opened new window");
 }
 
@@ -1301,6 +1413,11 @@ void MainWindow::changeEvent(QEvent* event)
     if (event->type() == QEvent::WindowStateChange)
     {
         m_actionManager->fullScreenAct()->setChecked(isFullScreen());
+        if (m_titleBar)
+        {
+            m_titleBar->setMaximized(isMaximized());
+            m_titleBar->setVisible(!isFullScreen());
+        }
     }
     else if (event->type() == QEvent::ThemeChange)
     {
@@ -1321,6 +1438,29 @@ void MainWindow::changeEvent(QEvent* event)
         }
     }
     QMainWindow::changeEvent(event);
+}
+
+bool MainWindow::eventFilter(QObject* obj, QEvent* event)
+{
+#ifdef Q_OS_MACOS
+    if (event->type() == QEvent::FileOpen)
+    {
+        const auto* fileOpenEvent = static_cast<const QFileOpenEvent*>(event);
+        const QString path = fileOpenEvent->file();
+        if (!path.isEmpty())
+        {
+            const QFileInfo info(path);
+            if (info.isDir())
+                openFolderFromPath(path);
+            else
+                openFileFromPath(path);
+            raise();
+            activateWindow();
+        }
+        return true;
+    }
+#endif
+    return QMainWindow::eventFilter(obj, event);
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)

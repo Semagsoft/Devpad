@@ -35,6 +35,7 @@ class ExternalToolManager;
 class FileManager;
 class FileWatcherManager;
 class FindInFilesDialog;
+class QMenuBar;
 class PrintManager;
 class ProjectPanel;
 class RemoteFileService;
@@ -45,7 +46,12 @@ class SplitView;
 class TabManager;
 class TerminalPanel;
 class ThemeApplier;
+class TitleBar;
 class UpdateChecker;
+
+#ifdef Q_OS_WIN
+class WindowsFrameBridge;
+#endif
 
 namespace lsp
 {
@@ -102,6 +108,9 @@ public slots:
     void quitDevpad();
     void paste();
     void copy();
+    void applyTitleBarMode();
+
+    QMenuBar* menuBarWidget();
 
 private slots:
     void updateStatusBar();
@@ -113,6 +122,7 @@ private slots:
     void onNavigateToLocation(const QString& filePath, int line, int column);
 
 protected:
+    bool eventFilter(QObject* obj, QEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
@@ -185,6 +195,10 @@ private:
     QPointer<FindSymbolsDialog> m_findSymbolsDialog;
 
     QLocalServer* m_localServer = nullptr;
+    TitleBar* m_titleBar = nullptr;
+#ifdef Q_OS_WIN
+    WindowsFrameBridge* m_frameBridge = nullptr;
+#endif
     bool m_quitRequested = false;
 };
 

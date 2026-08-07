@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.16)
-project(Devpad VERSION 1.01 LANGUAGES CXX)
+project(Devpad VERSION 1.02 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
@@ -150,6 +150,13 @@ configure_file(
     ${CMAKE_BINARY_DIR}/generated/devpad_version.h
 )
 
+# ── macOS Info.plist from CMake ──────────────────────────────
+configure_file(
+    resources/Info.plist.in
+    ${CMAKE_BINARY_DIR}/generated/Info.plist
+    @ONLY
+)
+
 # ── Shared static library (avoids double compilation) ─────────
 add_library(Devpad_lib STATIC
     src/codeeditor.cpp
@@ -197,6 +204,8 @@ add_library(Devpad_lib STATIC
     src/panels/errorlistpanel.cpp
     src/widgets/brackethelper.cpp
     src/widgets/themepreviewwidget.cpp
+    src/widgets/titlebar.cpp
+    src/widgets/windowsframebridge.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/editorcontainer.cpp
     src/lsp/lspjsonrpc.cpp
@@ -361,6 +370,7 @@ if(BUILD_TESTS)
         tests/test_filewatchermanager.cpp
         tests/test_gitignore.cpp
         tests/test_inlinefindbar.cpp
+        tests/test_titlebar.cpp
         tests/test_printmanager.cpp
         tests/test_recentfileshelper.cpp
         tests/test_lsptypes.cpp

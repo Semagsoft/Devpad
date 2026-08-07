@@ -1,5 +1,20 @@
 ﻿# Changelog
 
+## [1.02] -TBD
+
+What's new in Devpad 1.02:
+
+- (Platform=Windows) The menu bar can now be displayed inside the titlebar, matching the look of modern editors. SHA: 75b965add2c46ed43f3e4c8bebb6c79c01b53846
+- (Platform=macOS) Support for opening files from Finder/dock. SHA: da64180422047105e2338341bb256c5c30bb0f34
+
+Bug fixes for version 1.02:
+
+- (Platform=Windows) Failed to start because non-Qt runtime DLLs (libicudt78.dll, libgraphite2.dll, libbrotlicommon.dll, libintl-8.dll) were missing from the deployed dist. SHA: 03895853bb29f8f5f705fa873f2b421d49a1a112
+- (Platform=Windows) Terminal bug when running external tools. SHA: b43958113580e834226a8365b36099e8bf840e38
+- (Platform=macOS) "Check for Updates" Is in a normal, extra "Devpad" menu when it should be in the App menu. SHA: 3a82aa8f5c1b1dec26c3120e5c82d5ffd6d90132
+- (Platform=macOS) "Fullscreen" action is redundant. SHA: 489654b282024e35558f762ebda2eb7ff890147b
+- (Platform=macOS) "Options" action shows up in the "Tools" menu after adding an external tool. SHA: eb5733e69e1a6f24022e75867bca3712a6a3470b
+
 ## [1.01] - 2026-08-03
 
 What's new in Devpad 1.01:

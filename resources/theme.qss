@@ -7,6 +7,34 @@ QMenuBar {
     color: %menuFg%;
     border-bottom: 1px solid %separator%;
 }
+/* Titlebar (Windows menu-in-titlebar mode) */
+QWidget#TitleBar QMenuBar {
+    background-color: transparent;
+    color: %toolbarFg%;
+    border-bottom: none;
+}
+QWidget#TitleBar QMenuBar::item {
+    background-color: transparent;
+}
+QToolButton#TitleBarWindowButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    color: %toolbarFg%;
+}
+QToolButton#TitleBarCloseButton {
+    color: %toolbarFg%;
+}
+QToolButton#TitleBarWindowButton:hover {
+    background-color: %selectionBg%;
+}
+QToolButton#TitleBarWindowButton:pressed {
+    background-color: %tabBgActive%;
+}
+QToolButton#TitleBarCloseButton:hover,
+QToolButton#TitleBarCloseButton:pressed {
+    background-color: #e81123;
+}
 QMenuBar::item {
     background-color: transparent;
     padding: 4px 8px;
