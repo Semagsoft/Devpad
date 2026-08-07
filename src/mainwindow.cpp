@@ -169,10 +169,6 @@ void MainWindow::setupWindow()
 {
     setWindowTitle(Strings::AppName());
     setMinimumSize(800, 600);
-#ifdef Q_OS_WIN
-    if (SettingsManager::instance().showMenuInTitlebar())
-        setWindowFlag(Qt::FramelessWindowHint, true);
-#endif
     QIcon windowIcon(":/icons/devpad.svg");
     if (!windowIcon.isNull())
         setWindowIcon(windowIcon);
@@ -372,8 +368,6 @@ void MainWindow::applyTitleBarMode()
 
     if (useTitlebar && !m_titleBar)
     {
-        setWindowFlag(Qt::FramelessWindowHint, true);
-
         m_titleBar = new TitleBar(this);
         setMenuWidget(m_titleBar);
 
@@ -400,8 +394,6 @@ void MainWindow::applyTitleBarMode()
     }
     else if (!useTitlebar && m_titleBar)
     {
-        setWindowFlag(Qt::FramelessWindowHint, false);
-
         if (m_frameBridge)
         {
             qApp->removeNativeEventFilter(m_frameBridge);
