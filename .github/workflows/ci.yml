@@ -316,10 +316,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Untap untrusted Homebrew tap
+        run: brew untap aws/tap || true
+
       - name: Install dependencies (Homebrew)
         if: matrix.arch == 'arm64'
         run: |
-          brew untap aws/tap || true
           brew install qt qscintilla2 googletest ccache
 
       - name: Install Qt (aqtinstall)
