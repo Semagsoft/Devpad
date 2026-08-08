@@ -428,6 +428,9 @@ void OptionsDialog::setupPanelsTab()
     projectPanelPositionComboBox = new QComboBox(projectGroup);
     projectPanelPositionComboBox->addItems({tr("Left"), tr("Right")});
     projectLayout->addRow(tr("Panel position:"), projectPanelPositionComboBox);
+    projectFileOpenComboBox = new QComboBox(projectGroup);
+    projectFileOpenComboBox->addItems({tr("Single Click"), tr("Double Click")});
+    projectLayout->addRow(tr("Open file on:"), projectFileOpenComboBox);
     showHiddenFilesCheckBox = new QCheckBox(tr("Show hidden files"), projectGroup);
     projectLayout->addRow(showHiddenFilesCheckBox);
     useGitIgnoreCheckBox = new QCheckBox(tr("Use .gitignore filtering"), projectGroup);
@@ -501,6 +504,7 @@ void OptionsDialog::loadSettings()
         terminalFontFaceComboBox->setCurrentIndex(termFontIndex);
     terminalFontSizeBox->setText(QString::number(s.terminalFontSize()));
     projectPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.projectPanelPosition()));
+    projectFileOpenComboBox->setCurrentIndex(static_cast<int>(s.fileOpenMode()));
     showHiddenFilesCheckBox->setChecked(s.showHiddenFiles());
     useGitIgnoreCheckBox->setChecked(s.useGitIgnore());
     verticalEdgeCheckBox->setChecked(s.verticalEdgeEnabled());
@@ -581,6 +585,7 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setTerminalFontFamily(terminalFontFaceComboBox->currentText());
     SettingsManager::instance().setTerminalFontSize(qMax(1, terminalFontSizeBox->text().toInt()));
     SettingsManager::instance().setProjectPanelPosition(static_cast<ProjectPanelPosition>(projectPanelPositionComboBox->currentIndex()));
+    SettingsManager::instance().setFileOpenMode(static_cast<FileOpenMode>(projectFileOpenComboBox->currentIndex()));
     SettingsManager::instance().setShowHiddenFiles(showHiddenFilesCheckBox->isChecked());
     SettingsManager::instance().setUseGitIgnore(useGitIgnoreCheckBox->isChecked());
     SettingsManager::instance().setVerticalEdgeEnabled(verticalEdgeCheckBox->isChecked());

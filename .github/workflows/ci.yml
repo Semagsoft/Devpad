@@ -14,7 +14,7 @@ jobs:
     name: Check formatting
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install clang-format
         run: sudo apt-get install -y -qq clang-format-18
       - name: Check C++ formatting
@@ -25,7 +25,7 @@ jobs:
     name: Clang-tidy
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install system dependencies
         run: |
@@ -59,7 +59,7 @@ jobs:
         compiler: [gcc, clang]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install system dependencies
         run: |
@@ -73,7 +73,7 @@ jobs:
             ccache
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: ${{ matrix.compiler }}
 
@@ -98,7 +98,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install system dependencies
         run: |
@@ -152,7 +152,7 @@ jobs:
                 com.semagsoft.Devpad master
             '
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Devpad-Linux-${{ github.ref_name }}
           path: |
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             Devpad-*.AppImage
@@ -177,7 +177,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
@@ -195,7 +195,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ccache
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: windows-msys2
 
@@ -282,7 +282,7 @@ jobs:
           $version = "${{ steps.version.outputs.version }}"
           Compress-Archive -Path build/dist/* -DestinationPath "Devpad-$version-windows-x86_64.zip" -CompressionLevel Optimal
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
           name: Devpad-Windows-${{ steps.version.outputs.version }}
@@ -293,7 +293,7 @@ jobs:
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             Devpad-*-Setup.exe
@@ -314,7 +314,10 @@ jobs:
             os: macos-15-intel
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      - name: Untap untrusted Homebrew tap
+        run: brew untap aws/tap || true
 
       - name: Install dependencies (Homebrew)
         if: matrix.arch == 'arm64'
@@ -338,7 +341,7 @@ jobs:
           fi
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@v1.2.23
         with:
           key: macos-${{ matrix.arch }}
 
@@ -372,7 +375,7 @@ jobs:
           fi
           bash scripts/package-macos.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
           name: Devpad-macOS-${{ matrix.arch }}-${{ github.ref_name }}
@@ -382,7 +385,7 @@ jobs:
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             Devpad-*.dmg
@@ -393,7 +396,7 @@ jobs:
     name: Sanitizers (ASan+UBSan)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install system dependencies
         run: |

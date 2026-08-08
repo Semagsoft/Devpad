@@ -98,6 +98,7 @@ private:
     QCheckBox* showHiddenFilesCheckBox = nullptr;
     QCheckBox* useGitIgnoreCheckBox = nullptr;
     QComboBox* projectPanelPositionComboBox = nullptr;
+    QComboBox* projectFileOpenComboBox = nullptr;
     ThemePreviewWidget* themePreview = nullptr;
     QPushButton* accentColorButton = nullptr;
     QColor m_accentColor;

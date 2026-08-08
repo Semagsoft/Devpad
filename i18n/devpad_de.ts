@@ -101,7 +101,7 @@
     </message>
     <message>
         <location filename="../src/managers/actionmanager.cpp" line="124"/>
-        <location filename="../src/managers/actionmanager.cpp" line="466"/>
+        <location filename="../src/managers/actionmanager.cpp" line="493"/>
         <source>Print</source>
         <translation>Drucken</translation>
     </message>
@@ -281,132 +281,142 @@
         <translation>Vollbild</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="349"/>
+        <location filename="../src/managers/actionmanager.cpp" line="354"/>
         <source>Project Panel</source>
         <translation>Projektpanel</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="360"/>
+        <location filename="../src/managers/actionmanager.cpp" line="365"/>
         <source>Terminal Panel</source>
         <translation>Terminal-Panel</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="371"/>
+        <location filename="../src/managers/actionmanager.cpp" line="376"/>
         <source>Error List</source>
         <translation>Fehlerliste</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="376"/>
+        <location filename="../src/managers/actionmanager.cpp" line="381"/>
         <source>Menu Bar	Ctrl+Alt+M</source>
         <translation>Menüleiste	Strg+Alt+M</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="385"/>
+        <location filename="../src/managers/actionmanager.cpp" line="390"/>
         <source>Toolbar</source>
         <translation>Symbolleiste</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="394"/>
+        <location filename="../src/managers/actionmanager.cpp" line="399"/>
         <source>Status Bar</source>
         <translation>Statusleiste</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="404"/>
+        <location filename="../src/managers/actionmanager.cpp" line="409"/>
+        <source>Menu in Titlebar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/managers/actionmanager.cpp" line="416"/>
         <source>Options</source>
         <translation>Optionen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="407"/>
+        <location filename="../src/managers/actionmanager.cpp" line="422"/>
         <source>Donate</source>
         <translation>Spenden</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="408"/>
+        <location filename="../src/managers/actionmanager.cpp" line="423"/>
         <source>Website</source>
         <translation>Webseite</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="409"/>
+        <location filename="../src/managers/actionmanager.cpp" line="424"/>
         <source>About</source>
         <translation>Über</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="414"/>
+        <location filename="../src/managers/actionmanager.cpp" line="426"/>
+        <source>Check for Updates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/managers/actionmanager.cpp" line="437"/>
         <source>Devpad</source>
         <translation>Devpad</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="417"/>
+        <location filename="../src/managers/actionmanager.cpp" line="443"/>
         <source>|</source>
         <translation>|</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="421"/>
+        <location filename="../src/managers/actionmanager.cpp" line="448"/>
         <source>File</source>
         <translation>Datei</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="424"/>
+        <location filename="../src/managers/actionmanager.cpp" line="451"/>
         <source>Edit</source>
         <translation>Bearbeiten</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="427"/>
+        <location filename="../src/managers/actionmanager.cpp" line="454"/>
         <source>View</source>
         <translation>Ansicht</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="430"/>
+        <location filename="../src/managers/actionmanager.cpp" line="457"/>
         <source>Tools</source>
         <translation>Extras</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="433"/>
+        <location filename="../src/managers/actionmanager.cpp" line="460"/>
         <source>Help</source>
         <translation>Hilfe</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="439"/>
+        <location filename="../src/managers/actionmanager.cpp" line="466"/>
         <source>New</source>
         <translation>Neu</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="443"/>
+        <location filename="../src/managers/actionmanager.cpp" line="470"/>
         <source>Open</source>
         <translation>Öffnen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="460"/>
+        <location filename="../src/managers/actionmanager.cpp" line="487"/>
         <source>Properties</source>
         <translation>Eigenschaften</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="494"/>
+        <location filename="../src/managers/actionmanager.cpp" line="521"/>
         <source>Bookmarks</source>
         <translation>Lesezeichen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="505"/>
+        <location filename="../src/managers/actionmanager.cpp" line="532"/>
         <source>Language Server</source>
         <translation>Sprachserver</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="577"/>
+        <location filename="../src/managers/actionmanager.cpp" line="609"/>
         <source>External Tools...</source>
         <translation>Externe Werkzeuge…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="605"/>
+        <location filename="../src/managers/actionmanager.cpp" line="637"/>
         <source>Main</source>
         <translation>Hauptbereich</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="769"/>
+        <location filename="../src/managers/actionmanager.cpp" line="812"/>
         <source>Line: 1, Col: 1</source>
         <translation>Zeile: 1, Spalte: 1</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="774"/>
+        <location filename="../src/managers/actionmanager.cpp" line="817"/>
         <source>Plain Text</source>
         <translation>Nur Text</translation>
     </message>
@@ -728,62 +738,62 @@ Möchten Sie sie wiederherstellen?</translation>
 <context>
     <name>ExternalToolEditDialog</name>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="271"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="296"/>
         <source>Edit External Tool</source>
         <translation>Externes Werkzeug bearbeiten</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="279"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="304"/>
         <source>My Tool</source>
         <translation>Mein Werkzeug</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="280"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="305"/>
         <source>Name:</source>
         <translation>Name:</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="283"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="308"/>
         <source>python3, gcc, make, ...</source>
         <translation>python3, gcc, make, …</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="284"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="309"/>
         <source>Command:</source>
         <translation>Befehl:</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="287"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="312"/>
         <source>%f, %n, %d, %p, %e, %s, %l, %%</source>
         <translation>%f, %n, %d, %p, %e, %s, %l, %%</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="288"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="313"/>
         <source>Arguments:</source>
         <translation>Argumente:</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="291"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="316"/>
         <source>Leave empty for file/project directory</source>
         <translation>Leer lassen für Datei-/Projektverzeichnis</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="292"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="317"/>
         <source>Working dir:</source>
         <translation>Arbeitsverzeichnis:</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="295"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="320"/>
         <source>Shortcut:</source>
         <translation>Tastenkürzel:</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="297"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="322"/>
         <source>Run in terminal panel</source>
         <translation>Im Terminal-Panel ausführen</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="303"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="328"/>
         <source>Variables: %f = full path, %n = filename, %d = directory, %p = project dir, %e = extension, %s = selected text, %l = line number, %% = literal %</source>
         <translation>Variablen: %f = vollständiger Pfad, %n = Dateiname, %d = Verzeichnis, %p = Projektverzeichnis, %e = Erweiterung, %s = ausgewählter Text, %l = Zeilennummer, %% = Literal %</translation>
     </message>
@@ -791,17 +801,17 @@ Möchten Sie sie wiederherstellen?</translation>
 <context>
     <name>ExternalToolManager</name>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="194"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="219"/>
         <source> - Output</source>
         <translation> - Ausgabe</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="207"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="232"/>
         <source>Close</source>
         <translation>Schließen</translation>
     </message>
     <message>
-        <location filename="../src/managers/externaltoolmanager.cpp" line="223"/>
+        <location filename="../src/managers/externaltoolmanager.cpp" line="248"/>
         <source>
 --- Process exited ---</source>
         <translation>
@@ -970,122 +980,122 @@ Möchten Sie sie wiederherstellen?</translation>
 <context>
     <name>FindInFilesDialog</name>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="206"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="205"/>
         <source>Find in Files</source>
         <translation>In Dateien suchen</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="229"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="228"/>
         <source>Find:</source>
         <translation>Suchen:</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="231"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="230"/>
         <source>Enter search text...</source>
         <translation>Suchtext eingeben…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="236"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="235"/>
         <source>In:</source>
         <translation>In:</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="238"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="237"/>
         <source>Search directory...</source>
         <translation>Suchverzeichnis…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="240"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="239"/>
         <source>Browse...</source>
         <translation>Durchsuchen…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="245"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="244"/>
         <source>Filter:</source>
         <translation>Filter:</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="247"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="246"/>
         <source>e.g. *.cpp *.h *.py (space-separated, * for all)</source>
         <translation>z. B. *.cpp *.h *.py (Leerzeichen-getrennt, * für alle)</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="252"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="251"/>
         <source>Match case</source>
         <translation>Groß-/Kleinschreibung</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="253"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="252"/>
         <source>Whole word</source>
         <translation>Ganzes Wort</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="254"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="253"/>
         <source>Regex</source>
         <translation>RegEx</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="262"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="261"/>
         <source>File</source>
         <translation>Datei</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="262"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="261"/>
         <source>Line</source>
         <translation>Linie</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="262"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="261"/>
         <source>Match</source>
         <translation>Treffer</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="277"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="276"/>
         <source>Search</source>
         <translation>Suchen</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="278"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="277"/>
         <source>Stop</source>
         <translation>Stopp</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="280"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="279"/>
         <source>Close</source>
         <translation>Schließen</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="309"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="308"/>
         <source>Searching...</source>
         <translation>Suche läuft…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="318"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="317"/>
         <source>Invalid directory.</source>
         <translation>Ungültiges Verzeichnis.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="405"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="404"/>
         <source>Found %1 match(es)...</source>
         <translation>%1 Treffer gefunden…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="415"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="414"/>
         <source>No results found.</source>
         <translation>Keine Ergebnisse gefunden.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="417"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="416"/>
         <source>Found %1 match(es) in %2 file(s).</source>
         <translation>%1 Treffer in %2 Datei(en) gefunden.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="427"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="426"/>
         <source>Error: %1</source>
         <translation>Fehler: %1</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="432"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="431"/>
         <source>Select Search Directory</source>
         <translation>Suchverzeichnis auswählen</translation>
     </message>
@@ -1093,7 +1103,7 @@ Möchten Sie sie wiederherstellen?</translation>
 <context>
     <name>FindInFilesWorker</name>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="169"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="166"/>
         <source>Invalid regex: %1</source>
         <translation>Ungültiger regulärer Ausdruck: %1</translation>
     </message>
@@ -1214,172 +1224,172 @@ Möchten Sie sie wiederherstellen?</translation>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/mainwindow.cpp" line="247"/>
+        <location filename="../src/mainwindow.cpp" line="297"/>
         <source>Download Failed</source>
         <translation>Download fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="247"/>
+        <location filename="../src/mainwindow.cpp" line="297"/>
         <source>Failed to download &quot;%1&quot;:
 %2</source>
         <translation>Download von „%1“ fehlgeschlagen:
 %2</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="255"/>
+        <location filename="../src/mainwindow.cpp" line="305"/>
         <source>Downloading... %1%</source>
         <translation>Herunterladen… %1%</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="503"/>
+        <location filename="../src/mainwindow.cpp" line="642"/>
         <source>Open File</source>
         <translation>Datei öffnen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="521"/>
+        <location filename="../src/mainwindow.cpp" line="660"/>
         <source>Remote</source>
         <translation>Remote</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="550"/>
+        <location filename="../src/mainwindow.cpp" line="689"/>
         <source>Open Remote</source>
         <translation>Remote öffnen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="550"/>
+        <location filename="../src/mainwindow.cpp" line="689"/>
         <source>Enter remote file URL
 (HTTP/HTTPS or SSH):</source>
         <translation>Remote-Datei-URL eingeben
 (HTTP/HTTPS oder SSH):</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="566"/>
+        <location filename="../src/mainwindow.cpp" line="705"/>
         <source>Invalid URL</source>
         <translation>Ungültige URL</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="566"/>
+        <location filename="../src/mainwindow.cpp" line="705"/>
         <source>The URL &quot;%1&quot; is not valid.</source>
         <translation>Die URL „%1“ ist ungültig.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="580"/>
+        <location filename="../src/mainwindow.cpp" line="719"/>
         <source>Open Folder</source>
         <translation>Ordner öffnen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="640"/>
-        <location filename="../src/mainwindow.cpp" line="962"/>
+        <location filename="../src/mainwindow.cpp" line="779"/>
+        <location filename="../src/mainwindow.cpp" line="1105"/>
         <source>Error</source>
         <translation>Fehler</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="640"/>
+        <location filename="../src/mainwindow.cpp" line="779"/>
         <source>Cannot open file: </source>
         <translation>Kann Datei nicht öffnen: </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="682"/>
+        <location filename="../src/mainwindow.cpp" line="825"/>
         <source>Go To Line</source>
         <translation>Gehe zu Zeile</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="682"/>
+        <location filename="../src/mainwindow.cpp" line="825"/>
         <source>Line number:</source>
         <translation>Zeilennummer:</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="879"/>
+        <location filename="../src/mainwindow.cpp" line="1022"/>
         <source>Line: %1, Col: %2</source>
         <translation>Zeile: %1, Spalte: %2</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="891"/>
+        <location filename="../src/mainwindow.cpp" line="1034"/>
         <source>Plain Text</source>
         <translation>Nur Text</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="896"/>
+        <location filename="../src/mainwindow.cpp" line="1039"/>
         <source>C++</source>
         <translation>C++</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="896"/>
+        <location filename="../src/mainwindow.cpp" line="1039"/>
         <source>C</source>
         <translation>C</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="896"/>
+        <location filename="../src/mainwindow.cpp" line="1039"/>
         <source>C#</source>
         <translation>C#</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="897"/>
+        <location filename="../src/mainwindow.cpp" line="1040"/>
         <source>Java</source>
         <translation>Java</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="897"/>
+        <location filename="../src/mainwindow.cpp" line="1040"/>
         <source>Python</source>
         <translation>Python</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="897"/>
+        <location filename="../src/mainwindow.cpp" line="1040"/>
         <source>JavaScript</source>
         <translation>JavaScript</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="898"/>
+        <location filename="../src/mainwindow.cpp" line="1041"/>
         <source>HTML</source>
         <translation>HTML</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="898"/>
+        <location filename="../src/mainwindow.cpp" line="1041"/>
         <source>CSS</source>
         <translation>CSS</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="898"/>
+        <location filename="../src/mainwindow.cpp" line="1041"/>
         <source>XML</source>
         <translation>XML</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="899"/>
+        <location filename="../src/mainwindow.cpp" line="1042"/>
         <source>SQL</source>
         <translation>SQL</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="899"/>
+        <location filename="../src/mainwindow.cpp" line="1042"/>
         <source>Shell</source>
         <translation>Shell</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="899"/>
+        <location filename="../src/mainwindow.cpp" line="1042"/>
         <source>CMake</source>
         <translation>CMake</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="906"/>
+        <location filename="../src/mainwindow.cpp" line="1049"/>
         <source> | Read Only</source>
         <translation> | Schreibgeschützt</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="940"/>
+        <location filename="../src/mainwindow.cpp" line="1083"/>
         <source>&amp;%1 %2</source>
         <translation>&amp;%1 %2</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="962"/>
+        <location filename="../src/mainwindow.cpp" line="1105"/>
         <source>Cannot revert an unsaved file.</source>
         <translation>Kann eine nicht gespeicherte Datei nicht zurücksetzen.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="969"/>
+        <location filename="../src/mainwindow.cpp" line="1112"/>
         <source>Revert</source>
         <translation>Zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="969"/>
+        <location filename="../src/mainwindow.cpp" line="1112"/>
         <source>The file has unsaved changes.
 
 Do you want to discard them and reload from disk?</source>
@@ -1388,7 +1398,12 @@ Do you want to discard them and reload from disk?</source>
 Möchten Sie sie verwerfen und von der Festplatte neu laden?</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1426"/>
+        <location filename="../src/mainwindow.cpp" line="1499"/>
+        <source>Checking for updates...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1619"/>
         <source>The file &quot;%1&quot; has been modified outside of Devpad.
 
 Your version has unsaved changes.
@@ -1401,7 +1416,7 @@ Ihre Version hat ungespeicherte Änderungen.
 Möchten Sie die Datei neu laden? (Ungespeicherte Änderungen gehen verloren)</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1432"/>
+        <location filename="../src/mainwindow.cpp" line="1625"/>
         <source>The file &quot;%1&quot; has been modified outside of Devpad.
 
 Do you want to reload the file?</source>
@@ -1410,7 +1425,7 @@ Do you want to reload the file?</source>
 Möchten Sie die Datei neu laden?</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1437"/>
+        <location filename="../src/mainwindow.cpp" line="1630"/>
         <source>File Modified</source>
         <translation>Datei geändert</translation>
     </message>
@@ -1868,17 +1883,32 @@ Möchten Sie die Datei neu laden?</translation>
         <translation>Projekt</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="431"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="432"/>
+        <source>Single Click</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="432"/>
+        <source>Double Click</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="433"/>
+        <source>Open file on:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="434"/>
         <source>Show hidden files</source>
         <translation>Versteckte Dateien anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="433"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="436"/>
         <source>Use .gitignore filtering</source>
         <translation>.gitignore-Filterung verwenden</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="438"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="441"/>
         <source>Panels</source>
         <translation>Panels</translation>
     </message>
@@ -1921,184 +1951,184 @@ Möchten Sie die Datei neu laden?</translation>
 <context>
     <name>ProjectPanel</name>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="264"/>
+        <location filename="../src/panels/projectpanel.cpp" line="274"/>
         <source>Project</source>
         <translation>Projekt</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="287"/>
-        <location filename="../src/panels/projectpanel.cpp" line="370"/>
+        <location filename="../src/panels/projectpanel.cpp" line="297"/>
+        <location filename="../src/panels/projectpanel.cpp" line="381"/>
         <source>No folder opened</source>
         <translation>Kein Ordner geöffnet</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="303"/>
+        <location filename="../src/panels/projectpanel.cpp" line="313"/>
         <source>Filter files...</source>
         <translation>Dateien filtern…</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="442"/>
+        <location filename="../src/panels/projectpanel.cpp" line="470"/>
         <source>(No recent folders)</source>
         <translation>(Keine kürzlichen Ordner)</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="451"/>
+        <location filename="../src/panels/projectpanel.cpp" line="479"/>
         <source>&amp;%1 %2</source>
         <translation>&amp;%1 %2</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="460"/>
+        <location filename="../src/panels/projectpanel.cpp" line="488"/>
         <source>Clear Recent Folders</source>
         <translation>Kürzlich geöffnete Ordner löschen</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="516"/>
-        <location filename="../src/panels/projectpanel.cpp" line="565"/>
-        <location filename="../src/panels/projectpanel.cpp" line="614"/>
-        <location filename="../src/panels/projectpanel.cpp" line="621"/>
-        <location filename="../src/panels/projectpanel.cpp" line="628"/>
-        <location filename="../src/panels/projectpanel.cpp" line="633"/>
+        <location filename="../src/panels/projectpanel.cpp" line="544"/>
+        <location filename="../src/panels/projectpanel.cpp" line="593"/>
+        <location filename="../src/panels/projectpanel.cpp" line="642"/>
+        <location filename="../src/panels/projectpanel.cpp" line="649"/>
+        <location filename="../src/panels/projectpanel.cpp" line="656"/>
+        <location filename="../src/panels/projectpanel.cpp" line="661"/>
         <source>New File</source>
         <translation>Neue Datei</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="519"/>
-        <location filename="../src/panels/projectpanel.cpp" line="568"/>
-        <location filename="../src/panels/projectpanel.cpp" line="642"/>
-        <location filename="../src/panels/projectpanel.cpp" line="649"/>
-        <location filename="../src/panels/projectpanel.cpp" line="656"/>
+        <location filename="../src/panels/projectpanel.cpp" line="547"/>
+        <location filename="../src/panels/projectpanel.cpp" line="596"/>
+        <location filename="../src/panels/projectpanel.cpp" line="670"/>
+        <location filename="../src/panels/projectpanel.cpp" line="677"/>
+        <location filename="../src/panels/projectpanel.cpp" line="684"/>
         <source>New Folder</source>
         <translation>Neuer Ordner</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="524"/>
-        <location filename="../src/panels/projectpanel.cpp" line="548"/>
-        <location filename="../src/panels/projectpanel.cpp" line="665"/>
-        <location filename="../src/panels/projectpanel.cpp" line="672"/>
-        <location filename="../src/panels/projectpanel.cpp" line="677"/>
-        <location filename="../src/panels/projectpanel.cpp" line="683"/>
+        <location filename="../src/panels/projectpanel.cpp" line="552"/>
+        <location filename="../src/panels/projectpanel.cpp" line="576"/>
+        <location filename="../src/panels/projectpanel.cpp" line="693"/>
+        <location filename="../src/panels/projectpanel.cpp" line="700"/>
+        <location filename="../src/panels/projectpanel.cpp" line="705"/>
+        <location filename="../src/panels/projectpanel.cpp" line="711"/>
         <source>Rename</source>
         <translation>Umbenennen</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="527"/>
-        <location filename="../src/panels/projectpanel.cpp" line="551"/>
-        <location filename="../src/panels/projectpanel.cpp" line="692"/>
-        <location filename="../src/panels/projectpanel.cpp" line="698"/>
-        <location filename="../src/panels/projectpanel.cpp" line="704"/>
+        <location filename="../src/panels/projectpanel.cpp" line="555"/>
+        <location filename="../src/panels/projectpanel.cpp" line="579"/>
+        <location filename="../src/panels/projectpanel.cpp" line="720"/>
+        <location filename="../src/panels/projectpanel.cpp" line="726"/>
+        <location filename="../src/panels/projectpanel.cpp" line="732"/>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="532"/>
-        <location filename="../src/panels/projectpanel.cpp" line="556"/>
+        <location filename="../src/panels/projectpanel.cpp" line="560"/>
+        <location filename="../src/panels/projectpanel.cpp" line="584"/>
         <source>Copy Path</source>
         <translation>Pfad kopieren</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="535"/>
-        <location filename="../src/panels/projectpanel.cpp" line="559"/>
-        <location filename="../src/panels/projectpanel.cpp" line="576"/>
+        <location filename="../src/panels/projectpanel.cpp" line="563"/>
+        <location filename="../src/panels/projectpanel.cpp" line="587"/>
+        <location filename="../src/panels/projectpanel.cpp" line="604"/>
         <source>Show in File Manager</source>
         <translation>Im Dateimanager anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="538"/>
-        <location filename="../src/panels/projectpanel.cpp" line="579"/>
-        <location filename="../src/panels/projectpanel.cpp" line="742"/>
+        <location filename="../src/panels/projectpanel.cpp" line="566"/>
+        <location filename="../src/panels/projectpanel.cpp" line="607"/>
+        <location filename="../src/panels/projectpanel.cpp" line="770"/>
         <source>Open in Terminal</source>
         <translation>Im Terminal öffnen</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="543"/>
+        <location filename="../src/panels/projectpanel.cpp" line="571"/>
         <source>Open</source>
         <translation>Öffnen</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="573"/>
+        <location filename="../src/panels/projectpanel.cpp" line="601"/>
         <source>Copy Root Path</source>
         <translation>Stammpfad kopieren</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="586"/>
+        <location filename="../src/panels/projectpanel.cpp" line="614"/>
         <source>Hide Hidden Files and Folders</source>
         <translation>Versteckte Dateien und Ordner ausblenden</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="586"/>
+        <location filename="../src/panels/projectpanel.cpp" line="614"/>
         <source>Show Hidden Files and Folders</source>
         <translation>Versteckte Dateien und Ordner anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="596"/>
+        <location filename="../src/panels/projectpanel.cpp" line="624"/>
         <source>Disable .gitignore Filtering</source>
         <translation>.gitignore-Filterung deaktivieren</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="596"/>
+        <location filename="../src/panels/projectpanel.cpp" line="624"/>
         <source>Enable .gitignore Filtering</source>
         <translation>.gitignore-Filterung aktivieren</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="614"/>
+        <location filename="../src/panels/projectpanel.cpp" line="642"/>
         <source>File name:</source>
         <translation>Dateiname:</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="621"/>
         <location filename="../src/panels/projectpanel.cpp" line="649"/>
-        <location filename="../src/panels/projectpanel.cpp" line="672"/>
-        <location filename="../src/panels/projectpanel.cpp" line="692"/>
+        <location filename="../src/panels/projectpanel.cpp" line="677"/>
+        <location filename="../src/panels/projectpanel.cpp" line="700"/>
+        <location filename="../src/panels/projectpanel.cpp" line="720"/>
         <source>Invalid path.</source>
         <translation>Ungültiger Pfad.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="628"/>
+        <location filename="../src/panels/projectpanel.cpp" line="656"/>
         <source>File already exists.</source>
         <translation>Datei existiert bereits.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="633"/>
+        <location filename="../src/panels/projectpanel.cpp" line="661"/>
         <source>Failed to create file.</source>
         <translation>Datei konnte nicht erstellt werden.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="642"/>
+        <location filename="../src/panels/projectpanel.cpp" line="670"/>
         <source>Folder name:</source>
         <translation>Ordnername:</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="656"/>
+        <location filename="../src/panels/projectpanel.cpp" line="684"/>
         <source>Failed to create folder.</source>
         <translation>Ordner konnte nicht erstellt werden.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="665"/>
+        <location filename="../src/panels/projectpanel.cpp" line="693"/>
         <source>New name:</source>
         <translation>Neuer Name:</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="677"/>
+        <location filename="../src/panels/projectpanel.cpp" line="705"/>
         <source>A file or folder with that name already exists.</source>
         <translation>Eine Datei oder ein Ordner mit diesem Namen existiert bereits.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="683"/>
+        <location filename="../src/panels/projectpanel.cpp" line="711"/>
         <source>Failed to rename.</source>
         <translation>Umbenennen fehlgeschlagen.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="698"/>
+        <location filename="../src/panels/projectpanel.cpp" line="726"/>
         <source>Are you sure you want to move &quot;%1&quot; to the trash?</source>
         <translation>Möchten Sie „%1“ wirklich in den Papierkorb verschieben?</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="704"/>
+        <location filename="../src/panels/projectpanel.cpp" line="732"/>
         <source>Failed to move to trash.</source>
         <translation>Verschieben in den Papierkorb fehlgeschlagen.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="742"/>
+        <location filename="../src/panels/projectpanel.cpp" line="770"/>
         <source>No terminal emulator found.</source>
         <translation>Kein Terminal-Emulator gefunden.</translation>
     </message>
@@ -2228,44 +2258,44 @@ Möchten Sie die Datei neu laden?</translation>
         <translation>Lade %1 herunter…</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="112"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="144"/>
         <source>Downloading %1 via SSH...</source>
         <translation>Lade %1 via SSH herunter…</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="121"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="119"/>
         <source>SSH URL must include host and path.
 Example: ssh://user@host/path/to/file</source>
         <translation>SSH-URL muss Host und Pfad enthalten.
 Beispiel: ssh://benutzer@host/pfad/zur/datei</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="130"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="128"/>
         <source>SSH URL contains invalid characters.</source>
         <translation>SSH-URL enthält ungültige Zeichen.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="137"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="135"/>
         <source>Invalid SSH URL: host, user, or path starts with &apos;-&apos;.</source>
         <translation>Ungültige SSH-URL: Host, Benutzer oder Pfad beginnt mit &apos;-&apos;.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="150"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="176"/>
         <source>Failed to create temp file.</source>
         <translation>Temporäre Datei konnte nicht erstellt werden.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="178"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="200"/>
         <source>Unknown error</source>
         <translation>Unbekannter Fehler</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="193"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="215"/>
         <source>Failed to read downloaded file.</source>
         <translation>Heruntergeladene Datei konnte nicht gelesen werden.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="209"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="231"/>
         <source>Failed to start SCP process.</source>
         <translation>SCP-Prozess konnte nicht gestartet werden.</translation>
     </message>
@@ -2347,12 +2377,12 @@ Beispiel: ssh://benutzer@host/pfad/zur/datei</translation>
 <context>
     <name>TabManager</name>
     <message>
-        <location filename="../src/managers/tabmanager.cpp" line="328"/>
+        <location filename="../src/managers/tabmanager.cpp" line="327"/>
         <source> [Read Only]</source>
         <translation> [Schreibgeschützt]</translation>
     </message>
     <message>
-        <location filename="../src/managers/tabmanager.cpp" line="376"/>
+        <location filename="../src/managers/tabmanager.cpp" line="375"/>
         <source>Close</source>
         <translation>Schließen</translation>
     </message>
@@ -2360,36 +2390,128 @@ Beispiel: ssh://benutzer@host/pfad/zur/datei</translation>
 <context>
     <name>TerminalPanel</name>
     <message>
-        <location filename="../src/panels/terminalpanel.cpp" line="42"/>
-        <location filename="../src/panels/terminalpanel.cpp" line="338"/>
-        <location filename="../src/panels/terminalpanel.cpp" line="372"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="43"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="376"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="410"/>
         <source>Terminal</source>
         <translation>Terminal</translation>
     </message>
     <message>
-        <location filename="../src/panels/terminalpanel.cpp" line="301"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="339"/>
         <source>Copy</source>
         <translation>Kopieren</translation>
     </message>
     <message>
-        <location filename="../src/panels/terminalpanel.cpp" line="303"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="341"/>
         <source>Paste</source>
         <translation>Einfügen</translation>
     </message>
     <message>
-        <location filename="../src/panels/terminalpanel.cpp" line="307"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="345"/>
         <source>Clear</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location filename="../src/panels/terminalpanel.cpp" line="311"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="349"/>
         <source>Copy Path</source>
         <translation>Pfad kopieren</translation>
     </message>
     <message>
-        <location filename="../src/panels/terminalpanel.cpp" line="313"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="351"/>
         <source>Show in File Manager</source>
         <translation>Im Dateimanager anzeigen</translation>
+    </message>
+</context>
+<context>
+    <name>TitleBar</name>
+    <message>
+        <location filename="../src/widgets/titlebar.cpp" line="110"/>
+        <source>Minimize</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/widgets/titlebar.cpp" line="112"/>
+        <location filename="../src/widgets/titlebar.cpp" line="153"/>
+        <source>Maximize</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/widgets/titlebar.cpp" line="115"/>
+        <source>Close</source>
+        <translation type="unfinished">Schließen</translation>
+    </message>
+    <message>
+        <location filename="../src/widgets/titlebar.cpp" line="153"/>
+        <source>Restore</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>UpdateChecker</name>
+    <message>
+        <location filename="../src/managers/updatechecker.cpp" line="63"/>
+        <source>The update server returned an invalid response.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>UpdateDialog</name>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="63"/>
+        <source>Check for Updates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="101"/>
+        <source>You&apos;re up to date</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="102"/>
+        <source>Devpad %1 is the latest version.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="105"/>
+        <source>Update Available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="106"/>
+        <source>A new version of Devpad is available (%1).
+
+You are currently running version %2.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="111"/>
+        <source>Check for Updates Failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="130"/>
+        <source>Download</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="135"/>
+        <source>Close</source>
+        <translation type="unfinished">Schließen</translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="161"/>
+        <source>Could Not Open Download Page</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="162"/>
+        <source>Devpad could not open the download page in your browser.
+
+The release URL has been copied to your clipboard:
+%1
+
+Please paste it into your browser to download the update.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

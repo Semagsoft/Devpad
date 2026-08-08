@@ -201,6 +201,8 @@ void SettingsManager::loadCache()
     m_cache.project.useGitIgnore = m_settings.value("Options_UseGitIgnore", true).toBool();
     m_cache.project.projectPanelPosition =
         static_cast<ProjectPanelPosition>(m_settings.value("Options_ProjectPanelPosition", static_cast<int>(ProjectPanelPosition::Left)).toInt());
+    m_cache.project.fileOpenMode =
+        static_cast<FileOpenMode>(m_settings.value("Options_ProjectFileOpenMode", static_cast<int>(FileOpenMode::SingleClick)).toInt());
 
     m_cache.lsp.enabled = m_settings.value("LSP/Enabled", true).toBool();
     m_cache.lsp.showErrorList = m_settings.value("LSP/ShowErrorList", true).toBool();
@@ -637,6 +639,10 @@ ProjectPanelPosition SettingsManager::projectPanelPosition() const
 {
     return m_cache.project.projectPanelPosition;
 }
+FileOpenMode SettingsManager::fileOpenMode() const
+{
+    return m_cache.project.fileOpenMode;
+}
 void SettingsManager::setShowHiddenFiles(bool visible)
 {
     writeCached("Options_ShowHiddenFiles", m_cache.project.showHiddenFiles, visible);
@@ -648,6 +654,10 @@ void SettingsManager::setUseGitIgnore(bool enabled)
 void SettingsManager::setProjectPanelPosition(ProjectPanelPosition position)
 {
     writeCached("Options_ProjectPanelPosition", m_cache.project.projectPanelPosition, position);
+}
+void SettingsManager::setFileOpenMode(FileOpenMode mode)
+{
+    writeCached("Options_ProjectFileOpenMode", m_cache.project.fileOpenMode, mode);
 }
 
 QString SettingsManager::syntaxForExtension(const QString& ext) const

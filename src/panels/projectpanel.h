@@ -87,11 +87,12 @@ public:
     static QIcon iconForFile(const QString& filePath);
 
 signals:
-    void fileDoubleClicked(const QString& filePath);
+    void fileActivated(const QString& filePath);
     void folderSelected(const QString& folderPath);
 
 private slots:
     void onItemClicked(const QModelIndex& index);
+    void onItemDoubleClicked(const QModelIndex& index);
     void onFilterTextChanged(const QString& text);
     void onContextMenu(const QPoint& pos);
     void onRecentFolderSelected();
