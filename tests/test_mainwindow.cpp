@@ -4,12 +4,14 @@
 #include "mainwindow.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
+#include "terminalpanel.h"
 #include "theme.h"
 
 #include <QApplication>
 #include <QFile>
 #include <QFileInfo>
 #include <QSignalSpy>
+#include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTextStream>
 
@@ -57,6 +59,24 @@ TEST_F(MainWindowTest, ConstructorDoesNotCrash)
     MainWindow* window = new MainWindow();
     EXPECT_NE(window, nullptr);
     delete window;
+}
+
+TEST_F(MainWindowTest, TerminalPanelHiddenInTabModeWhenDisabled)
+{
+    SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Tab);
+    SettingsManager::instance().setShowTerminalPanel(false);
+
+    MainWindow window;
+    window.show();
+
+    auto* terminal = window.findChild<TerminalPanel*>();
+    ASSERT_NE(terminal, nullptr);
+    EXPECT_FALSE(terminal->isVisible());
+
+    for (QTabWidget* tw : window.findChildren<QTabWidget*>())
+    {
+        EXPECT_EQ(tw->indexOf(terminal), -1) << "Disabled terminal panel must not be added as a tab";
+    }
 }
 
 TEST_F(MainWindowTest, OpenFileFromPathOpensTab)
