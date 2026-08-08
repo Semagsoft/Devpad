@@ -370,10 +370,12 @@ void TerminalPanel::applyPosition(TerminalPanelPosition pos, QTabWidget* tabWidg
 {
     if (pos == TerminalPanelPosition::Tab)
     {
-        mainWindow->removeDockWidget(this);
         int tabIndex = tabWidget->indexOf(this);
         if (tabIndex == -1)
+        {
+            mainWindow->removeDockWidget(this);
             tabWidget->addTab(this, QIcon(":/icons/View/terminal.svg"), tr("Terminal"));
+        }
         setFeatures(QDockWidget::DockWidgetFeature::NoDockWidgetFeatures);
     }
     else
