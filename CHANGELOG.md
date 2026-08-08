@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## [1.03] -TBD
+
+What's new in Devpad 1.03:
+
+- WIP
+
+Bug fixes for version 1.03:
+
+- WIP
+
 ## [1.02] -2026-08-07
 
 What's new in Devpad 1.02:
