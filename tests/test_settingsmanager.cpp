@@ -79,6 +79,22 @@ TEST_F(SettingsManagerTest, RecentFoldersClear)
     EXPECT_TRUE(SettingsManager::instance().recentFolders().isEmpty());
 }
 
+TEST_F(SettingsManagerTest, FileOpenModeDefaultIsSingleClick)
+{
+    EXPECT_EQ(SettingsManager::instance().fileOpenMode(), FileOpenMode::SingleClick);
+    EXPECT_EQ(SettingsManager::instance().projectSettings().fileOpenMode, FileOpenMode::SingleClick);
+}
+
+TEST_F(SettingsManagerTest, FileOpenModeSetAndGet)
+{
+    SettingsManager::instance().setFileOpenMode(FileOpenMode::DoubleClick);
+    EXPECT_EQ(SettingsManager::instance().fileOpenMode(), FileOpenMode::DoubleClick);
+    EXPECT_EQ(SettingsManager::instance().projectSettings().fileOpenMode, FileOpenMode::DoubleClick);
+
+    SettingsManager::instance().setFileOpenMode(FileOpenMode::SingleClick);
+    EXPECT_EQ(SettingsManager::instance().fileOpenMode(), FileOpenMode::SingleClick);
+}
+
 TEST_F(SettingsManagerTest, DefaultSyntaxLanguagesNonEmpty)
 {
     auto langs = defaultSyntaxLanguages();

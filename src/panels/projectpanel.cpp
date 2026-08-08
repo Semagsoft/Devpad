@@ -337,6 +337,7 @@ void ProjectPanel::setupUI()
     }
 
     connect(treeView, &QTreeView::clicked, this, &ProjectPanel::onItemClicked);
+    connect(treeView, &QTreeView::doubleClicked, this, &ProjectPanel::onItemDoubleClicked);
     connect(treeView, &QTreeView::customContextMenuRequested, this, &ProjectPanel::onContextMenu);
     connect(treeView, &QTreeView::expanded, this, &ProjectPanel::onFolderExpanded);
     connect(treeView, &QTreeView::collapsed, this, &ProjectPanel::onFolderCollapsed);
@@ -387,12 +388,29 @@ QString ProjectPanel::rootPath() const
 
 void ProjectPanel::onItemClicked(const QModelIndex& index)
 {
+    if (SettingsManager::instance().fileOpenMode() != FileOpenMode::SingleClick)
+        return;
+
     QModelIndex sourceIndex = filterProxyModel->mapToSource(index);
     QString filePath = fileModel->filePath(sourceIndex);
     QFileInfo fi(filePath);
     if (fi.isFile())
     {
-        emit fileDoubleClicked(filePath);
+        emit fileActivated(filePath);
+    }
+}
+
+void ProjectPanel::onItemDoubleClicked(const QModelIndex& index)
+{
+    if (SettingsManager::instance().fileOpenMode() != FileOpenMode::DoubleClick)
+        return;
+
+    QModelIndex sourceIndex = filterProxyModel->mapToSource(index);
+    QString filePath = fileModel->filePath(sourceIndex);
+    QFileInfo fi(filePath);
+    if (fi.isFile())
+    {
+        emit fileActivated(filePath);
     }
 }
 
@@ -723,7 +741,7 @@ void ProjectPanel::copyPath(const QString& filePath)
 
 void ProjectPanel::openInEditor(const QString& filePath)
 {
-    emit fileDoubleClicked(filePath);
+    emit fileActivated(filePath);
 }
 
 void ProjectPanel::showInFileManager(const QString& filePath)

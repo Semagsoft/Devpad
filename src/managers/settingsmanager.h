@@ -71,6 +71,11 @@ enum class ProjectPanelPosition
     Left = 0,
     Right = 1
 };
+enum class FileOpenMode
+{
+    SingleClick = 0,
+    DoubleClick = 1
+};
 
 // SettingsManager is intentionally a true singleton (not parented to MainWindow)
 // because it is accessed from many contexts (CodeEditor, dialogs, panels, etc.)
@@ -147,6 +152,7 @@ public:
         bool showHiddenFiles = false;
         bool useGitIgnore = true;
         ProjectPanelPosition projectPanelPosition = ProjectPanelPosition::Left;
+        FileOpenMode fileOpenMode = FileOpenMode::SingleClick;
     };
 
     // ── LSP settings ───────────────────────────────────────────
@@ -278,9 +284,11 @@ public:
     bool showHiddenFiles() const;
     bool useGitIgnore() const;
     ProjectPanelPosition projectPanelPosition() const;
+    FileOpenMode fileOpenMode() const;
     void setShowHiddenFiles(bool visible);
     void setUseGitIgnore(bool enabled);
     void setProjectPanelPosition(ProjectPanelPosition position);
+    void setFileOpenMode(FileOpenMode mode);
 
     // ── File type associations ─────────────────────────────────
     QString syntaxForExtension(const QString& ext) const;

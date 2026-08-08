@@ -512,7 +512,7 @@ void MainWindow::connectPanelSignals()
                     m_editorController->updateReadOnlyActionState();
                 }
             });
-    connect(m_projectPanel, &ProjectPanel::fileDoubleClicked, this, &MainWindow::openFileFromProject);
+    connect(m_projectPanel, &ProjectPanel::fileActivated, this, &MainWindow::openFileFromProject);
     connect(m_projectPanel, &ProjectPanel::folderSelected, this, &MainWindow::openFolderFromPath);
 
     connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelAct(), &QAction::setChecked);
