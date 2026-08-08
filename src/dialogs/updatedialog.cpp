@@ -18,12 +18,16 @@
  */
 #include "updatedialog.h"
 
+#include <QApplication>
+#include <QClipboard>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QFont>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPixmap>
+#include <QProcess>
 #include <QPushButton>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -137,7 +141,29 @@ void UpdateDialog::setupUi()
 
 void UpdateDialog::downloadUpdate()
 {
-    if (!m_releaseUrl.isEmpty())
-        QDesktopServices::openUrl(QUrl(m_releaseUrl));
+    if (m_releaseUrl.isEmpty())
+    {
+        accept();
+        return;
+    }
+
+    const QUrl url(m_releaseUrl);
+    bool opened = QDesktopServices::openUrl(url);
+
+#ifdef Q_OS_LINUX
+    if (!opened)
+        opened = QProcess::startDetached(QStringLiteral("xdg-open"), QStringList{m_releaseUrl});
+#endif
+
+    if (!opened)
+    {
+        QApplication::clipboard()->setText(m_releaseUrl);
+        QMessageBox::warning(this, tr("Could Not Open Download Page"),
+                             tr("Devpad could not open the download page in your browser.\n\n"
+                                "The release URL has been copied to your clipboard:\n%1\n\n"
+                                "Please paste it into your browser to download the update.")
+                                 .arg(m_releaseUrl));
+    }
+
     accept();
 }
