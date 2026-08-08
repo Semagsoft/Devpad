@@ -1,6 +1,6 @@
 !define PRODUCT_NAME "Devpad"
 !ifndef PRODUCT_VERSION
-!define PRODUCT_VERSION "1.02"
+!define PRODUCT_VERSION "1.03"
 !endif
 !ifndef PRODUCT_OUTFILE
 !define PRODUCT_OUTFILE "Devpad-${PRODUCT_VERSION}-Setup.exe"

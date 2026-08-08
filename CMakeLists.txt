@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.16)
-project(Devpad VERSION 1.02 LANGUAGES CXX)
+project(Devpad VERSION 1.03 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)

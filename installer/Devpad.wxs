@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <?ifndef ProductVersion ?>
-    <?define ProductVersion = "1.02" ?>
+    <?define ProductVersion = "1.03" ?>
     <?endif?>
     <Product Id="*"
              Name="Devpad"
