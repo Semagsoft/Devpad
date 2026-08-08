@@ -1,14 +1,16 @@
 ﻿# Changelog
 
-## [1.03] -TBD
+## [1.03] - WIP/TBD
 
 What's new in Devpad 1.03:
 
-- WIP
+- New project panel open file behavior setting (Single-click or Double-click) SHA: 583e49a27376c1fc4109bf8f1ab5d7627ccec521
+- Update CI from using Node.js 20 to Node.js 24 SHA: 583e49a27376c1fc4109bf8f1ab5d7627ccec521
 
 Bug fixes for version 1.03:
 
-- WIP
+- Fix "Check for Updates" bug. SHA: 583e49a27376c1fc4109bf8f1ab5d7627ccec521
+- Fix macOS CI job "taps are not trusted" SHA: 583e49a27376c1fc4109bf8f1ab5d7627ccec521
 
 ## [1.02] -2026-08-07
 
