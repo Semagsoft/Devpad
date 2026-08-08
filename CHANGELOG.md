@@ -11,6 +11,8 @@ Bug fixes for version 1.03:
 
 - Fix "Check for Updates" bug. SHA: 583e49a27376c1fc4109bf8f1ab5d7627ccec521
 - Fix macOS CI job "taps are not trusted" SHA: 583e49a27376c1fc4109bf8f1ab5d7627ccec521
+- Terminal panel when in tab mode goes blank after clicking the OK button in the Options dialog. SHA: 6109df7c3e930c8d82ba2ab536a994a519207fc8
+- Terminal panel when in tab mode is being made visible on startup when it should not be according to the setting. SHA: 6109df7c3e930c8d82ba2ab536a994a519207fc8
 
 ## [1.02] -2026-08-07
 
