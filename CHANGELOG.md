@@ -1,6 +1,8 @@
 ﻿# Changelog
 
-## [1.03] - WIP/TBD
+## [1.04] - TBD
+
+## [1.03] - 2026-08-16
 
 What's new in Devpad 1.03:
 

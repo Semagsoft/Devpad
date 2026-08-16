@@ -62,6 +62,7 @@ const ThemeApplicator& xmlThemeApplicator();
 const ThemeApplicator& sqlThemeApplicator();
 const ThemeApplicator& bashThemeApplicator();
 const ThemeApplicator& cmakeThemeApplicator();
+const ThemeApplicator& luaThemeApplicator();
 const ThemeApplicator& markdownThemeApplicator();
 
 const QHash<QString, ThemeApplicator>& themeApplicatorCache();
