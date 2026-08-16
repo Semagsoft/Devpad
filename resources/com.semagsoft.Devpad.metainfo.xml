@@ -46,6 +46,11 @@
     <binary>Devpad</binary>
   </provides>
   <releases>
+    <release version="1.04" date="2026-08-16">
+      <description>
+        <p>Maintenance release.</p>
+      </description>
+    </release>
     <release version="1.03" date="2026-08-08">
       <description>
         <p>Maintenance release.</p>

@@ -2,7 +2,7 @@ param(
     [string]$BuildDir = (Join-Path $PSScriptRoot "..\build"),
     [string]$InstallerDir = (Join-Path $PSScriptRoot "..\installer"),
     [string]$WixDir = "C:\ProgramData\wix314",
-    [string]$Version = "1.03",
+    [string]$Version = "1.04",
     [string]$OutputMsi = (Join-Path $PSScriptRoot "..\Devpad-$Version.msi")
 )
 
