@@ -2,6 +2,12 @@
 
 ## [1.04] - TBD
 
+What's new in Devpad 1.04:
+
+- Added Lua support. SHA: TBD
+
+Bug fixes for version 1.04:
+
 ## [1.03] - 2026-08-16
 
 What's new in Devpad 1.03:
