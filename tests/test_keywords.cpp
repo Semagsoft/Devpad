@@ -55,8 +55,10 @@ static const std::array kAllLanguages = {
     LanguageKeywords{"XML", xmlKeywords, {"xml", "version"}},
     LanguageKeywords{"SQL", sqlKeywords, {"SELECT", "FROM", "WHERE"}},
     LanguageKeywords{"Bash", bashKeywords, {"if", "then", "fi", "echo"}},
-    LanguageKeywords{"CMake", cmakeKeywords, {"add_executable", "target_link_libraries", "cmake_minimum_required", "CMAKE_CURRENT_SOURCE_DIR"}},
+    LanguageKeywords{"CMake", cmakeKeywords, {"add_executable", "target_link_libraries", "cmake_minimum_required"}},
     LanguageKeywords{"Markdown", markdownKeywords, {}},
+    LanguageKeywords{"QML", qmlKeywords, {"import", "property", "Item", "Rectangle"}},
+    LanguageKeywords{"Lua", luaKeywords, {"function", "local", "end"}},
 };
 
 INSTANTIATE_TEST_SUITE_P(AllLanguages, KeywordsParamTest, ::testing::ValuesIn(kAllLanguages),

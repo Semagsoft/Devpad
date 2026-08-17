@@ -265,6 +265,22 @@ const ThemeApplicator& markdownThemeApplicator()
     return fn;
 }
 
+const ThemeApplicator& qmlThemeApplicator()
+{
+    static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
+    {
+        auto* l = static_cast<QsciLexerJavaScript*>(lexer);
+        l->setColor(colors.comment, QsciLexerJavaScript::Comment);
+        l->setColor(colors.comment, QsciLexerJavaScript::CommentLine);
+        l->setColor(colors.keyword, QsciLexerJavaScript::Keyword);
+        l->setColor(colors.string, QsciLexerJavaScript::DoubleQuotedString);
+        l->setColor(colors.string, QsciLexerJavaScript::SingleQuotedString);
+        l->setColor(colors.number, QsciLexerJavaScript::Number);
+        l->setColor(colors.operator_, QsciLexerJavaScript::Default);
+    };
+    return fn;
+}
+
 const QHash<QString, ThemeApplicator>& themeApplicatorCache()
 {
     static const QHash<QString, ThemeApplicator> cache = {
@@ -274,7 +290,7 @@ const QHash<QString, ThemeApplicator>& themeApplicatorCache()
         {"QsciLexerCSS", cssThemeApplicator()},       {"QsciLexerXML", xmlThemeApplicator()},
         {"QsciLexerSQL", sqlThemeApplicator()},       {"QsciLexerBash", bashThemeApplicator()},
         {"QsciLexerCMake", cmakeThemeApplicator()},   {"QsciLexerLua", luaThemeApplicator()},
-        {"QsciLexerMarkdown", markdownThemeApplicator()},
+        {"QsciLexerMarkdown", markdownThemeApplicator()}, {"QsciLexerJavaScript", qmlThemeApplicator()},
     };
     return cache;
 }
@@ -426,6 +442,12 @@ const std::vector<LanguageInfo>& languageTable()
          luaKeywords,
          luaThemeApplicator(),
          {"--", "--[[", "]]"}},
+        {"qml",
+         "QsciLexerJavaScript",
+         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
+         qmlKeywords,
+         qmlThemeApplicator(),
+         {"//", "/*", "*/"}},
     };
     return table;
 }

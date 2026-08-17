@@ -121,6 +121,8 @@ void OptionsDialog::setupGeneralTab()
         {"markdown", tr("Markdown")},
         {"bash", tr("Bash")},
         {"cmake", tr("CMake")},
+        {"qml", tr("QML")},
+        {"lua", tr("Lua")},
     };
     for (const QString& lang : defaultSyntaxLanguages())
     {

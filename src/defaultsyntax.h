@@ -24,7 +24,7 @@
 inline QStringList defaultSyntaxLanguages()
 {
     return {"cpp", "c",   "csharp", "java", "python", "javascript", "typescript", "html",
-            "css", "xml", "sql",    "rust", "go",     "markdown",   "bash",       "cmake"};
+            "css", "xml", "sql",    "rust", "go",     "markdown",   "bash",       "cmake", "qml", "lua"};
 }
 
 #endif

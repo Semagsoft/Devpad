@@ -713,3 +713,20 @@ const QStringList& luaKeywords()
     return keywords;
 }
 
+const QStringList& qmlKeywords()
+{
+    static const QStringList keywords = {
+        "import", "property", "signal", "readonly", "id", "alias", "default", "as",
+        "Item", "Rectangle", "Text", "Button", "MouseArea", "ListView", "GridView",
+        "Component", "Model", "VisualItemModel", "ListModel", "ListElement",
+        "Timer", "State", "Transition", "PropertyChanges", "NumberAnimation",
+        "ColorAnimation", "Behavior", "AnchorChanges", "ParentAnimation",
+        "Connections", "WorkerScript", "Qt", "console", "parent", "children",
+        "anchors", "transform", "states", "transitions", "true", "false", "null",
+        "function", "var", "let", "const", "if", "else", "for", "while", "return",
+        "switch", "case", "break", "continue", "try", "catch", "finally", "new",
+        "this", "delete", "typeof", "instanceof", "in", "void", "with", "debugger",
+    };
+    return keywords;
+}
+

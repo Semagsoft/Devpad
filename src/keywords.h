@@ -36,6 +36,7 @@ const QStringList& goKeywords();
 const QStringList& markdownKeywords();
 const QStringList& bashKeywords();
 const QStringList& cmakeKeywords();
-const QStringList& luaKeywords();
+    const QStringList& luaKeywords();
+const QStringList& qmlKeywords();
 
 #endif
