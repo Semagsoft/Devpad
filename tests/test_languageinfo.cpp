@@ -95,6 +95,11 @@ TEST_F(LanguageInfoTest, FindLanguageReturnsCorrectEntry)
     ASSERT_NE(lang, nullptr);
     EXPECT_EQ(lang->name, "javascript");
     EXPECT_EQ(lang->lexerClassName, "QsciLexerJavaScript");
+
+    const auto* jsonLang = findLanguage("json");
+    ASSERT_NE(jsonLang, nullptr);
+    EXPECT_EQ(jsonLang->name, "json");
+    EXPECT_EQ(jsonLang->lexerClassName, "QsciLexerJSON");
 }
 
 TEST_F(LanguageInfoTest, ThemeApplicatorCacheContainsExpectedKeys)

@@ -56,6 +56,7 @@ static const QHash<QString, QString>& buildExtensionMap()
         {"xsl", "xml"},
         {"xslt", "xml"},
         {"svg", "xml"},
+        {"json", "json"},
         {"sql", "sql"},
         {"ddl", "sql"},
         {"ts", "typescript"},

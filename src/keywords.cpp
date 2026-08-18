@@ -585,6 +585,14 @@ const QStringList& markdownKeywords()
     return keywords;
 }
 
+const QStringList& jsonKeywords()
+{
+    static const QStringList keywords = {
+        "true", "false", "null",
+    };
+    return keywords;
+}
+
 const QStringList& bashKeywords()
 {
     static const QStringList keywords = {

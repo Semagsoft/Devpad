@@ -60,6 +60,7 @@ const ThemeApplicator& javaThemeApplicator();
 const ThemeApplicator& cssThemeApplicator();
 const ThemeApplicator& xmlThemeApplicator();
 const ThemeApplicator& sqlThemeApplicator();
+const ThemeApplicator& jsonThemeApplicator();
 const ThemeApplicator& bashThemeApplicator();
 const ThemeApplicator& cmakeThemeApplicator();
 const ThemeApplicator& luaThemeApplicator();

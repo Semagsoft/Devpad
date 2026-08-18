@@ -33,6 +33,7 @@
 #include <Qsci/qscilexermarkdown.h>
 #include <Qsci/qscilexerpython.h>
 #include <Qsci/qscilexersql.h>
+#include <Qsci/qscilexerjson.h>
 #include <Qsci/qscilexerxml.h>
 
 const ThemeApplicator& cppThemeApplicator()
@@ -185,6 +186,19 @@ const ThemeApplicator& sqlThemeApplicator()
     return fn;
 }
 
+const ThemeApplicator& jsonThemeApplicator()
+{
+    static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
+    {
+        auto* l = static_cast<QsciLexerJSON*>(lexer);
+        l->setColor(colors.string, QsciLexerJSON::String);
+        l->setColor(colors.number, QsciLexerJSON::Number);
+        l->setColor(colors.operator_, QsciLexerJSON::Operator);
+        l->setColor(colors.foreground, QsciLexerJSON::Default);
+    };
+    return fn;
+}
+
 const ThemeApplicator& bashThemeApplicator()
 {
     static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
@@ -289,6 +303,7 @@ const QHash<QString, ThemeApplicator>& themeApplicatorCache()
         {"QsciLexerCSharp", csharpThemeApplicator()}, {"QsciLexerJava", javaThemeApplicator()},
         {"QsciLexerCSS", cssThemeApplicator()},       {"QsciLexerXML", xmlThemeApplicator()},
         {"QsciLexerSQL", sqlThemeApplicator()},       {"QsciLexerBash", bashThemeApplicator()},
+        {"QsciLexerJSON", jsonThemeApplicator()},
         {"QsciLexerCMake", cmakeThemeApplicator()},   {"QsciLexerLua", luaThemeApplicator()},
         {"QsciLexerMarkdown", markdownThemeApplicator()}, {"QsciLexerJavaScript", qmlThemeApplicator()},
     };
@@ -376,6 +391,12 @@ const std::vector<LanguageInfo>& languageTable()
          sqlKeywords,
          sqlThemeApplicator(),
          {"--", "/*", "*/"}},
+        {"json",
+         "QsciLexerJSON",
+         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJSON(parent); },
+         jsonKeywords,
+         jsonThemeApplicator(),
+         {"//", "/*", "*/"}},
         {"typescript",
          "QsciLexerJavaScript",
          []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
