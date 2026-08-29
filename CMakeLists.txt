@@ -377,6 +377,8 @@ if(BUILD_TESTS)
         tests/test_lspjsonrpc.cpp
         tests/test_splitview.cpp
         tests/test_updatechecker.cpp
+        tests/test_projectpanel.cpp
+        tests/test_lspclient.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)

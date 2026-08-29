@@ -1,0 +1,90 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "debug",
+            "displayName": "Debug",
+            "description": "Debug build with tests",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_TESTS": "ON"
+            }
+        },
+        {
+            "name": "release",
+            "displayName": "Release",
+            "description": "Release build",
+            "binaryDir": "${sourceDir}/build-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "sanitize",
+            "displayName": "Sanitize (ASan+UBSan)",
+            "description": "Debug build with AddressSanitizer and UndefinedBehaviorSanitizer",
+            "binaryDir": "${sourceDir}/build-sanitize",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_TESTS": "ON",
+                "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined"
+            }
+        },
+        {
+            "name": "coverage",
+            "displayName": "Coverage",
+            "description": "Debug build with coverage instrumentation",
+            "binaryDir": "${sourceDir}/build-coverage",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_TESTS": "ON",
+                "CMAKE_CXX_FLAGS": "--coverage -O0",
+                "CMAKE_EXE_LINKER_FLAGS": "--coverage"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "configurePreset": "debug",
+            "jobs": 0
+        },
+        {
+            "name": "release",
+            "configurePreset": "release"
+        },
+        {
+            "name": "sanitize",
+            "configurePreset": "sanitize"
+        },
+        {
+            "name": "coverage",
+            "configurePreset": "coverage"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "debug",
+            "configurePreset": "debug",
+            "output": { "outputOnFailure": true },
+            "execution": { "noTestsAction": "error", "stopOnFailure": false }
+        },
+        {
+            "name": "sanitize",
+            "configurePreset": "sanitize",
+            "output": { "outputOnFailure": true },
+            "execution": {
+                "noTestsAction": "error"
+            },
+            "environment": {
+                "LSAN_OPTIONS": "suppressions=${sourceDir}/.lsan.supp",
+                "UBSAN_OPTIONS": "print_stacktrace=1",
+                "ASAN_OPTIONS": "detect_leaks=1"
+            }
+        }
+    ]
+}
