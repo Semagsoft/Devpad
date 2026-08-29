@@ -8,6 +8,8 @@
 #ifndef TUIBUFFER_H
 #define TUIBUFFER_H
 
+#include "tuisearchengine.h"
+
 #include <QList>
 #include <QString>
 #include <QStringList>
@@ -71,6 +73,17 @@ public:
     QString selectedText() const;
     void deleteSelection();
     void selectAll();
+
+    // Replace (delegates to TuiSearchEngine on m_lines with undo)
+    struct ReplaceResult
+    {
+        bool found = false;
+        int line = -1;
+        int column = -1;
+        int length = 0;
+    };
+    ReplaceResult replaceNext(const QString& find, const QString& replace, const SearchOptions& opts, bool wrap = true);
+    int replaceAll(const QString& find, const QString& replace, const SearchOptions& opts);
 
     QString displayName() const;
     QString languageFromExtension() const;

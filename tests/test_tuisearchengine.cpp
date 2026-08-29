@@ -3,6 +3,7 @@
  * Copyright (C) 2026 Semagsoft
  */
 
+#include "tui/tuibuffer.h"
 #include "tui/tuisearchengine.h"
 
 #include <gtest/gtest.h>
@@ -60,4 +61,54 @@ TEST(TuiSearchEngine, NotFound)
     SearchOptions opts;
     auto r = TuiSearchEngine::findNext(lines, QStringLiteral("xyz"), opts, 0, 0);
     EXPECT_FALSE(r.found);
+}
+
+TEST(TuiSearchEngine, ReplaceNextSimple)
+{
+    QStringList lines = {QStringLiteral("hello world"), QStringLiteral("hello")};
+    SearchOptions opts;
+    auto r = TuiSearchEngine::replaceNext(lines, QStringLiteral("hello"), QStringLiteral("hi"), opts, 0, 0);
+    EXPECT_TRUE(r.found);
+    EXPECT_EQ(lines[0], QStringLiteral("hi world"));
+    EXPECT_EQ(lines[1], QStringLiteral("hello"));
+}
+
+TEST(TuiSearchEngine, ReplaceAll)
+{
+    QStringList lines = {QStringLiteral("foo foo"), QStringLiteral("foo")};
+    SearchOptions opts;
+    int cnt = TuiSearchEngine::replaceAll(lines, QStringLiteral("foo"), QStringLiteral("bar"), opts);
+    EXPECT_EQ(cnt, 3);
+    EXPECT_EQ(lines[0], QStringLiteral("bar bar"));
+    EXPECT_EQ(lines[1], QStringLiteral("bar"));
+}
+
+TEST(TuiSearchEngine, ReplaceRegexCapture)
+{
+    QStringList lines = {QStringLiteral("a1 b2")};
+    SearchOptions opts;
+    opts.regex = true;
+    int cnt = TuiSearchEngine::replaceAll(lines, QStringLiteral("(\\w)(\\d)"), QStringLiteral("\\2\\1"), opts);
+    EXPECT_EQ(cnt, 2);
+    EXPECT_EQ(lines[0], QStringLiteral("1a 2b"));
+}
+
+TEST(TuiSearchEngine, ReplaceWholeWords)
+{
+    QStringList lines = {QStringLiteral("foobar foo")};
+    SearchOptions opts;
+    opts.wholeWords = true;
+    int cnt = TuiSearchEngine::replaceAll(lines, QStringLiteral("foo"), QStringLiteral("bar"), opts);
+    EXPECT_EQ(cnt, 1);
+    EXPECT_EQ(lines[0], QStringLiteral("foobar bar"));
+}
+
+TEST(TuiSearchEngine, ReplaceReadOnlyGuardViaBuffer)
+{
+    TuiBuffer b(QString(), QStringLiteral("hello hello"));
+    b.setReadOnly(true);
+    SearchOptions opts;
+    auto rr = b.replaceNext(QStringLiteral("hello"), QStringLiteral("hi"), opts);
+    EXPECT_FALSE(rr.found);
+    EXPECT_EQ(b.text(), QStringLiteral("hello hello"));
 }

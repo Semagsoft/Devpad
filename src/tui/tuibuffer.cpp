@@ -359,6 +359,41 @@ bool TuiBuffer::hasBookmark(int line) const
     return m_bookmarks.contains(line);
 }
 
+TuiBuffer::ReplaceResult TuiBuffer::replaceNext(const QString& find, const QString& replace, const SearchOptions& opts, bool wrap)
+{
+    if (m_readOnly || find.isEmpty())
+        return {};
+    QStringList copy = m_lines;
+    SearchResult rr = TuiSearchEngine::replaceNext(copy, find, replace, opts, m_cursorLine, m_cursorCol, wrap);
+    if (!rr.found)
+        return {};
+    pushUndo();
+    m_lines = copy;
+    m_cursorLine = rr.line;
+    m_cursorCol = rr.column + rr.length;
+    m_modified = true;
+    clearSelection();
+    ensureCursorValid();
+    return {true, rr.line, rr.column, rr.length};
+}
+
+int TuiBuffer::replaceAll(const QString& find, const QString& replace, const SearchOptions& opts)
+{
+    if (m_readOnly || find.isEmpty())
+        return 0;
+    QStringList copy = m_lines;
+    int count = TuiSearchEngine::replaceAll(copy, find, replace, opts);
+    if (count == 0)
+        return 0;
+    pushUndo();
+    m_lines = copy;
+    m_modified = true;
+    clearSelection();
+    // Keep cursor valid
+    ensureCursorValid();
+    return count;
+}
+
 QString TuiBuffer::displayName() const
 {
     if (m_filePath.isEmpty())

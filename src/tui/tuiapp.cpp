@@ -11,8 +11,11 @@
 #include "tui/tuitabmodel.h"
 
 #include <QCommandLineParser>
+#include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QTextStream>
 
 #include <algorithm>
@@ -140,6 +143,10 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     SearchResult lastSearch;
     bool findMode = false;
     QString findInput;
+    bool replaceMode = false;
+    int replacePhase = 0; // 0=find, 1=replace
+    QString replaceFindInput;
+    QString replaceInput;
     bool saveAsMode = false;
     QString saveAsInput;
     bool gotoMode = false;
@@ -147,6 +154,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     bool commandMode = false;
     QString commandInput;
     QString clipboard;
+    QHash<QString, QDateTime> fileMtimes;
 
     auto saveCurrent = [&](TuiBuffer* buf) -> bool {
         if (!buf)
@@ -162,6 +170,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         if (ok)
         {
             buf->setModified(false);
+            fileMtimes[path] = QFileInfo(path).lastModified();
             statusMsg = QStringLiteral("Saved %1").arg(path);
         }
         else
@@ -180,6 +189,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         {
             buf->setFilePath(newPath);
             buf->setModified(false);
+            fileMtimes[newPath] = QFileInfo(newPath).lastModified();
             statusMsg = QStringLiteral("Saved as %1").arg(newPath);
         }
         else
@@ -200,12 +210,21 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 if (FileService::save(b->filePath(), b->text(), b->encoding(), &err))
                 {
                     b->setModified(false);
+                    fileMtimes[b->filePath()] = QFileInfo(b->filePath()).lastModified();
                     saved++;
                 }
             }
         }
         statusMsg = QStringLiteral("Saved %1 buffers").arg(saved);
     };
+
+    // Initialize file mtimes for watcher
+    for (int i = 0; i < tabs.count(); ++i)
+    {
+        const TuiBuffer* b = tabs.bufferAt(i);
+        if (b && !b->filePath().isEmpty())
+            fileMtimes[b->filePath()] = QFileInfo(b->filePath()).lastModified();
+    }
 
     int ch = 0;
     while (true)
@@ -215,6 +234,48 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         {
             tabs.addBuffer(TuiBuffer());
             cur = tabs.currentBuffer();
+        }
+
+        // Poll for external file changes
+        if (!cur->filePath().isEmpty() && fileMtimes.contains(cur->filePath()))
+        {
+            QFileInfo fi(cur->filePath());
+            if (fi.exists())
+            {
+                QDateTime curMod = fi.lastModified();
+                QDateTime lastMod = fileMtimes.value(cur->filePath());
+                if (curMod.isValid() && lastMod.isValid() && curMod != lastMod)
+                {
+                    if (!cur->isModified())
+                    {
+                        FileLoadResult res = FileService::load(cur->filePath());
+                        if (res.ok)
+                        {
+                            cur->setText(res.text);
+                            cur->setEncoding(res.encoding);
+                            cur->setModified(false);
+                            fileMtimes[cur->filePath()] = curMod;
+                            statusMsg = QStringLiteral("File reloaded (external change): %1").arg(cur->filePath());
+                        }
+                        else
+                        {
+                            fileMtimes[cur->filePath()] = curMod;
+                            statusMsg = QStringLiteral("External change detected but reload failed");
+                        }
+                    }
+                    else
+                    {
+                        // Modified buffer + external change -> warn, avoid spamming by updating mtime to current
+                        // User can :e! to force reload or :w to overwrite
+                        statusMsg = QStringLiteral("WARNING: File changed on disk — :e! to reload, :w to overwrite");
+                        fileMtimes[cur->filePath()] = curMod;
+                    }
+                }
+            }
+        }
+        else if (!cur->filePath().isEmpty() && !fileMtimes.contains(cur->filePath()) && QFile::exists(cur->filePath()))
+        {
+            fileMtimes[cur->filePath()] = QFileInfo(cur->filePath()).lastModified();
         }
 
         int rows, cols;
@@ -421,6 +482,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         QString msg;
         if (findMode)
             msg = QStringLiteral("Find: ") + findInput;
+        else if (replaceMode)
+            msg = (replacePhase == 0 ? QStringLiteral("Find: ") + replaceFindInput : QStringLiteral("Replace: ") + replaceInput);
         else if (saveAsMode)
             msg = QStringLiteral("Save As: ") + saveAsInput;
         else if (gotoMode)
@@ -433,6 +496,13 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         // Position cursor at end of input when in input modes
         if (findMode)
             move(msgY, 6 + findInput.size());
+        else if (replaceMode)
+        {
+            if (replacePhase == 0)
+                move(msgY, 6 + replaceFindInput.size());
+            else
+                move(msgY, 9 + replaceInput.size());
+        }
         else if (saveAsMode)
             move(msgY, 9 + saveAsInput.size());
         else if (gotoMode)
@@ -447,6 +517,77 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         refresh();
 
         ch = getch();
+
+        if (replaceMode)
+        {
+            if (ch == 27)
+            {
+                replaceMode = false;
+                replacePhase = 0;
+                replaceFindInput.clear();
+                replaceInput.clear();
+                statusMsg = QStringLiteral("Replace cancelled");
+            }
+            else if (ch == '\n' || ch == KEY_ENTER || ch == 10 || ch == 13)
+            {
+                if (replacePhase == 0)
+                {
+                    // Move to replace input
+                    replacePhase = 1;
+                }
+                else
+                {
+                    // Execute replace
+                    QString find = replaceFindInput;
+                    QString repl = replaceInput;
+                    replaceMode = false;
+                    replacePhase = 0;
+                    if (find.isEmpty())
+                    {
+                        statusMsg = QStringLiteral("Find string empty");
+                    }
+                    else
+                    {
+                        // Single replace at cursor then prompt for next? For now replace next and show status
+                        // If Shift held? For now single.
+                        auto rr = cur->replaceNext(find, repl, findOpts, true);
+                        if (rr.found)
+                        {
+                            lastSearch = {true, rr.line, rr.column, rr.length};
+                            statusMsg = QStringLiteral("Replaced 1 at %1:%2").arg(rr.line + 1).arg(rr.column + 1);
+                        }
+                        else
+                        {
+                            statusMsg = QStringLiteral("Not found: %1").arg(find);
+                            lastSearch = {};
+                        }
+                    }
+                    replaceFindInput.clear();
+                    replaceInput.clear();
+                }
+            }
+            else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
+            {
+                if (replacePhase == 0)
+                {
+                    if (!replaceFindInput.isEmpty())
+                        replaceFindInput.chop(1);
+                }
+                else
+                {
+                    if (!replaceInput.isEmpty())
+                        replaceInput.chop(1);
+                }
+            }
+            else if (ch >= 32 && ch < 127)
+            {
+                if (replacePhase == 0)
+                    replaceFindInput.append(QChar(ch));
+                else
+                    replaceInput.append(QChar(ch));
+            }
+            continue;
+        }
 
         if (findMode)
         {
@@ -632,6 +773,52 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                     if (!anyModified)
                         break;
                 }
+                else if (cmd == QStringLiteral("e!"))
+                {
+                    if (!cur->filePath().isEmpty())
+                    {
+                        FileLoadResult res = FileService::load(cur->filePath());
+                        if (res.ok)
+                        {
+                            cur->setText(res.text);
+                            cur->setEncoding(res.encoding);
+                            cur->setModified(false);
+                            fileMtimes[cur->filePath()] = QFileInfo(cur->filePath()).lastModified();
+                            statusMsg = QStringLiteral("Reloaded %1").arg(cur->filePath());
+                        }
+                        else
+                        {
+                            statusMsg = QStringLiteral("Reload failed: %1").arg(res.error);
+                        }
+                    }
+                    else
+                    {
+                        statusMsg = QStringLiteral("No file name");
+                    }
+                }
+                else if (cmd.startsWith(QStringLiteral("e! ")))
+                {
+                    QString arg = cmd.mid(3).trimmed();
+                    if (!arg.isEmpty())
+                    {
+                        if (!QFileInfo(arg).isAbsolute())
+                            arg = QDir::current().absoluteFilePath(arg);
+                        FileLoadResult res = FileService::load(arg);
+                        if (res.ok)
+                        {
+                            cur->setText(res.text);
+                            cur->setEncoding(res.encoding);
+                            cur->setFilePath(arg);
+                            cur->setModified(false);
+                            fileMtimes[arg] = QFileInfo(arg).lastModified();
+                            statusMsg = QStringLiteral("Reloaded %1").arg(arg);
+                        }
+                        else
+                        {
+                            statusMsg = QStringLiteral("Reload failed: %1").arg(res.error);
+                        }
+                    }
+                }
                 else if (cmd.startsWith(QStringLiteral("e ")))
                 {
                     QString arg = cmd.mid(2).trimmed();
@@ -644,6 +831,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                         {
                             TuiBuffer buf(arg, res.text, res.encoding);
                             tabs.addBuffer(buf);
+                            fileMtimes[arg] = QFileInfo(arg).lastModified();
                             statusMsg = QStringLiteral("Opened %1").arg(arg);
                         }
                         else
@@ -652,6 +840,49 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                             tabs.addBuffer(buf);
                             statusMsg = QStringLiteral("New file %1").arg(arg);
                         }
+                    }
+                }
+                else if (cmd.startsWith(QStringLiteral("s/")) || cmd.startsWith(QStringLiteral("%s/")))
+                {
+                    bool global = cmd.startsWith(QStringLiteral("%"));
+                    QString rest = global ? cmd.mid(3) : cmd.mid(2);
+                    // rest is "old/new/flags" - split by '/' keeping empty parts
+                    QStringList parts = rest.split(QChar('/'));
+                    if (parts.size() >= 2)
+                    {
+                        QString find = parts[0];
+                        QString repl = parts[1];
+                        QString flags = parts.size() >= 3 ? parts[2] : QString();
+                        bool all = global || flags.contains(QLatin1Char('g'));
+                        if (find.isEmpty())
+                        {
+                            statusMsg = QStringLiteral("Find string empty");
+                        }
+                        else if (all)
+                        {
+                            int cnt = cur->replaceAll(find, repl, findOpts);
+                            statusMsg = cnt > 0 ? QStringLiteral("Replaced %1 occurrences").arg(cnt) : QStringLiteral("Not found: %1").arg(find);
+                            if (cnt > 0)
+                                lastSearch = {};
+                        }
+                        else
+                        {
+                            auto rr = cur->replaceNext(find, repl, findOpts, true);
+                            if (rr.found)
+                            {
+                                lastSearch = {true, rr.line, rr.column, rr.length};
+                                statusMsg = QStringLiteral("Replaced at %1:%2").arg(rr.line + 1).arg(rr.column + 1);
+                            }
+                            else
+                            {
+                                statusMsg = QStringLiteral("Not found: %1").arg(find);
+                                lastSearch = {};
+                            }
+                        }
+                    }
+                    else
+                    {
+                        statusMsg = QStringLiteral("Usage: :s/old/new/[g] or :%%s/old/new/[g]");
                     }
                 }
                 else
@@ -713,6 +944,13 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         {
             gotoMode = true;
             gotoInput.clear();
+        }
+        else if (ch == 8) // Ctrl+H replace
+        {
+            replaceMode = true;
+            replacePhase = 0;
+            replaceFindInput.clear();
+            replaceInput.clear();
         }
         else if (ch == 58) // : command mode
         {
@@ -952,7 +1190,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         else if (ch == KEY_F(1))
         {
-            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  :w :q :wq :e  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V cut/copy/paste  Shift+Arrows sel  Ctrl+F find  F2 bm  F3 next  Tab switch");
+            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  Ctrl+H replace  :s/old/new/g :%%s/old/new/g  :w/:wa/:q/:e  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V  Shift+Arrows  Ctrl+F find  F2 bm  F3 next");
         }
     }
 

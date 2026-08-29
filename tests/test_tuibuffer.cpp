@@ -137,3 +137,39 @@ TEST(TuiBuffer, InsertReplacesSelection)
     b.insertChar(QChar('X'));
     EXPECT_EQ(b.text(), QStringLiteral("X world"));
 }
+
+TEST(TuiBuffer, ReplaceNext)
+{
+    TuiBuffer b(QString(), QStringLiteral("foo foo foo"));
+    b.setCursor(0, 0);
+    SearchOptions opts;
+    auto rr = b.replaceNext(QStringLiteral("foo"), QStringLiteral("bar"), opts);
+    EXPECT_TRUE(rr.found);
+    EXPECT_EQ(b.text(), QStringLiteral("bar foo foo"));
+    EXPECT_TRUE(b.canUndo());
+    b.undo();
+    EXPECT_EQ(b.text(), QStringLiteral("foo foo foo"));
+}
+
+TEST(TuiBuffer, ReplaceAll)
+{
+    TuiBuffer b(QString(), QStringLiteral("a a a"));
+    SearchOptions opts;
+    int cnt = b.replaceAll(QStringLiteral("a"), QStringLiteral("b"), opts);
+    EXPECT_EQ(cnt, 3);
+    EXPECT_EQ(b.text(), QStringLiteral("b b b"));
+    EXPECT_TRUE(b.undo());
+    EXPECT_EQ(b.text(), QStringLiteral("a a a"));
+}
+
+TEST(TuiBuffer, ReplaceUndoRedo)
+{
+    TuiBuffer b(QString(), QStringLiteral("hello hello"));
+    SearchOptions opts;
+    b.replaceAll(QStringLiteral("hello"), QStringLiteral("hi"), opts);
+    EXPECT_EQ(b.text(), QStringLiteral("hi hi"));
+    b.undo();
+    EXPECT_EQ(b.text(), QStringLiteral("hello hello"));
+    b.redo();
+    EXPECT_EQ(b.text(), QStringLiteral("hi hi"));
+}

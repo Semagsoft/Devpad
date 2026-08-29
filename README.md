@@ -177,7 +177,7 @@ cmake --build build -j$(nproc)
 In a non-TTY (CI / pipes) `Devpad --tui` cats the requested files to stdout instead of opening ncurses.
 Without `-DBUILD_TUI=ON`, `--tui` prints a hint and exits with code 1.
 
-TUI keys: `Ctrl+Q` quit, `Ctrl+S` save, `Ctrl+O` save-as, `Ctrl+G` goto line, `:w` `:w <path>` `:q` `:q!` `:wq` `:e <path>` `:wa` save-all, `Ctrl+Z` undo, `Ctrl+Y` redo, `Ctrl+A` select-all, `Ctrl+X`/`Ctrl+C`/`Ctrl+V` cut/copy/paste, `Shift+Arrows` select, `Ctrl+F` find, `F2` bookmark, `F3` find next, `F1` help, `Tab` switch tab, arrows / `Home`/`End` / `PageUp`/`Down` navigate, `Ctrl+W` close tab, `Ctrl+N` new buffer.
+TUI keys: `Ctrl+Q` quit, `Ctrl+S` save, `Ctrl+O` save-as, `Ctrl+G` goto line, `Ctrl+H` replace (find→replace), `:w` `:w <path>` `:q`/`:q!`/`:wq`/:`wa`/`:wqa` `:e <path>` `:e!` reload `:s/old/new/[g]` `:%s/old/new/[g]`, `Ctrl+Z` undo, `Ctrl+Y`/`Ctrl+R` redo, `Ctrl+A` select-all, `Ctrl+X`/`Ctrl+C`/`Ctrl+V` cut/copy/paste, `Shift+Arrows`/`Shift+Home/End` select, `Ctrl+F` find, `F2` bookmark, `F3` find next, `F1` help, `Tab` switch tab, arrows / `Home`/`End` / `PageUp`/`Down` navigate, `Ctrl+W` close tab, `Ctrl+N` new buffer. External file changes auto-reload when buffer clean, else `:e!` to force.
 
 ## Configuration
 
