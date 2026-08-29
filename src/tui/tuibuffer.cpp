@@ -29,6 +29,148 @@ void TuiBuffer::setText(const QString& t)
     m_cursorLine = 0;
     m_cursorCol = 0;
     m_modified = false;
+    m_undoStack.clear();
+    m_redoStack.clear();
+    clearSelection();
+}
+
+TuiBuffer::Snapshot TuiBuffer::snapshot() const
+{
+    return {m_lines, m_cursorLine, m_cursorCol, m_modified};
+}
+
+void TuiBuffer::restore(const Snapshot& s)
+{
+    m_lines = s.lines;
+    m_cursorLine = s.cursorLine;
+    m_cursorCol = s.cursorCol;
+    m_modified = s.modified;
+    ensureCursorValid();
+}
+
+void TuiBuffer::pushUndo()
+{
+    if (m_readOnly)
+        return;
+    m_undoStack.append(snapshot());
+    if (m_undoStack.size() > MaxUndoDepth)
+        m_undoStack.removeFirst();
+    m_redoStack.clear();
+}
+
+bool TuiBuffer::canUndo() const
+{
+    return !m_undoStack.isEmpty();
+}
+
+bool TuiBuffer::canRedo() const
+{
+    return !m_redoStack.isEmpty();
+}
+
+bool TuiBuffer::undo()
+{
+    if (!canUndo())
+        return false;
+    m_redoStack.append(snapshot());
+    Snapshot s = m_undoStack.takeLast();
+    restore(s);
+    clearSelection();
+    return true;
+}
+
+bool TuiBuffer::redo()
+{
+    if (!canRedo())
+        return false;
+    m_undoStack.append(snapshot());
+    Snapshot s = m_redoStack.takeLast();
+    restore(s);
+    clearSelection();
+    return true;
+}
+
+bool TuiBuffer::hasSelection() const
+{
+    return m_selAnchorLine != -1 && !(m_selAnchorLine == m_cursorLine && m_selAnchorCol == m_cursorCol);
+}
+
+void TuiBuffer::setSelectionAnchor(int line, int col)
+{
+    m_selAnchorLine = line;
+    m_selAnchorCol = col;
+}
+
+void TuiBuffer::clearSelection()
+{
+    m_selAnchorLine = -1;
+    m_selAnchorCol = -1;
+}
+
+QString TuiBuffer::selectedText() const
+{
+    if (!hasSelection())
+        return QString();
+    int aLine = m_selAnchorLine;
+    int aCol = m_selAnchorCol;
+    int cLine = m_cursorLine;
+    int cCol = m_cursorCol;
+    if (aLine > cLine || (aLine == cLine && aCol > cCol))
+    {
+        std::swap(aLine, cLine);
+        std::swap(aCol, cCol);
+    }
+    if (aLine == cLine)
+        return m_lines[aLine].mid(aCol, cCol - aCol);
+    QStringList parts;
+    parts.append(m_lines[aLine].mid(aCol));
+    for (int l = aLine + 1; l < cLine; ++l)
+        parts.append(m_lines[l]);
+    parts.append(m_lines[cLine].left(cCol));
+    return parts.join(QStringLiteral("\n"));
+}
+
+void TuiBuffer::deleteSelection()
+{
+    if (!hasSelection())
+        return;
+    pushUndo();
+    int aLine = m_selAnchorLine;
+    int aCol = m_selAnchorCol;
+    int cLine = m_cursorLine;
+    int cCol = m_cursorCol;
+    if (aLine > cLine || (aLine == cLine && aCol > cCol))
+    {
+        std::swap(aLine, cLine);
+        std::swap(aCol, cCol);
+    }
+    if (aLine == cLine)
+    {
+        m_lines[aLine].remove(aCol, cCol - aCol);
+        m_cursorLine = aLine;
+        m_cursorCol = aCol;
+    }
+    else
+    {
+        QString suffix = m_lines[cLine].mid(cCol);
+        m_lines[aLine] = m_lines[aLine].left(aCol) + suffix;
+        // Remove intermediate lines
+        for (int l = cLine; l > aLine; --l)
+            m_lines.removeAt(l);
+        m_cursorLine = aLine;
+        m_cursorCol = aCol;
+    }
+    clearSelection();
+    m_modified = true;
+    ensureCursorValid();
+}
+
+void TuiBuffer::selectAll()
+{
+    m_selAnchorLine = 0;
+    m_selAnchorCol = 0;
+    m_cursorLine = m_lines.size() - 1;
+    m_cursorCol = m_lines.last().size();
 }
 
 QStringList TuiBuffer::lines() const
@@ -57,6 +199,10 @@ void TuiBuffer::insertText(const QString& s)
 {
     if (m_readOnly || s.isEmpty())
         return;
+    if (hasSelection())
+        deleteSelection();
+    else
+        pushUndo();
     // Insert s at cursor, handling newlines
     QStringList parts = s.split(QStringLiteral("\n"));
     if (parts.size() == 1)
@@ -98,11 +244,16 @@ void TuiBuffer::backspace()
 {
     if (m_readOnly)
         return;
+    if (hasSelection())
+    {
+        deleteSelection();
+        return;
+    }
+    pushUndo();
     if (m_cursorCol > 0)
     {
         QString& line = m_lines[m_cursorLine];
         int col = m_cursorCol;
-        // Handle surrogate pairs: remove one QChar at col-1
         line.remove(col - 1, 1);
         m_cursorCol--;
         m_modified = true;
@@ -116,30 +267,53 @@ void TuiBuffer::backspace()
         m_cursorCol = prevLen;
         m_modified = true;
     }
+    else
+    {
+        // No change, pop the undo we just pushed
+        if (canUndo())
+            m_undoStack.removeLast();
+    }
+    clearSelection();
 }
 
 void TuiBuffer::deleteChar()
 {
     if (m_readOnly)
         return;
+    if (hasSelection())
+    {
+        deleteSelection();
+        return;
+    }
+    pushUndo();
     QString& line = m_lines[m_cursorLine];
+    bool changed = false;
     if (m_cursorCol < line.size())
     {
         line.remove(m_cursorCol, 1);
-        m_modified = true;
+        changed = true;
     }
     else if (m_cursorLine + 1 < m_lines.size())
     {
         line += m_lines[m_cursorLine + 1];
         m_lines.removeAt(m_cursorLine + 1);
-        m_modified = true;
+        changed = true;
     }
+    if (changed)
+        m_modified = true;
+    else if (canUndo())
+        m_undoStack.removeLast();
+    clearSelection();
 }
 
 void TuiBuffer::newLine()
 {
     if (m_readOnly)
         return;
+    if (hasSelection())
+        deleteSelection();
+    else
+        pushUndo();
     QString& line = m_lines[m_cursorLine];
     QString after = line.mid(m_cursorCol);
     line = line.left(m_cursorCol);
@@ -147,12 +321,14 @@ void TuiBuffer::newLine()
     m_cursorLine++;
     m_cursorCol = 0;
     m_modified = true;
+    clearSelection();
 }
 
 void TuiBuffer::deleteLine(int line)
 {
     if (line < 0 || line >= m_lines.size())
         return;
+    pushUndo();
     if (m_lines.size() == 1)
     {
         m_lines[0].clear();
@@ -167,6 +343,7 @@ void TuiBuffer::deleteLine(int line)
         m_cursorCol = qMin(m_cursorCol, m_lines[m_cursorLine].size());
     }
     m_modified = true;
+    clearSelection();
 }
 
 void TuiBuffer::toggleBookmark(int line)

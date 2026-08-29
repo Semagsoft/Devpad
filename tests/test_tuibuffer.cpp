@@ -74,3 +74,66 @@ TEST(TuiBuffer, CursorClamping)
     EXPECT_EQ(b.cursorLine(), 0);
     EXPECT_EQ(b.cursorCol(), 2);
 }
+
+TEST(TuiBuffer, UndoRedo)
+{
+    TuiBuffer b(QString(), QStringLiteral("hello"));
+    b.setCursor(0, 5);
+    b.insertChar(QChar('!'));
+    EXPECT_EQ(b.text(), QStringLiteral("hello!"));
+    EXPECT_TRUE(b.canUndo());
+    EXPECT_TRUE(b.undo());
+    EXPECT_EQ(b.text(), QStringLiteral("hello"));
+    EXPECT_FALSE(b.canUndo());
+    EXPECT_TRUE(b.canRedo());
+    EXPECT_TRUE(b.redo());
+    EXPECT_EQ(b.text(), QStringLiteral("hello!"));
+}
+
+TEST(TuiBuffer, UndoClearsRedo)
+{
+    TuiBuffer b(QString(), QStringLiteral("a"));
+    b.setCursor(0, 1);
+    b.insertChar(QChar('b'));
+    b.undo();
+    EXPECT_TRUE(b.canRedo());
+    b.setCursor(0, 1);
+    b.insertChar(QChar('c'));
+    EXPECT_FALSE(b.canRedo());
+    EXPECT_EQ(b.text(), QStringLiteral("ac"));
+}
+
+TEST(TuiBuffer, SelectionAndDelete)
+{
+    TuiBuffer b(QString(), QStringLiteral("hello world"));
+    b.setCursor(0, 0);
+    b.setSelectionAnchor(0, 0);
+    b.setCursor(0, 5);
+    EXPECT_TRUE(b.hasSelection());
+    EXPECT_EQ(b.selectedText(), QStringLiteral("hello"));
+    b.deleteSelection();
+    EXPECT_EQ(b.text(), QStringLiteral(" world"));
+    EXPECT_FALSE(b.hasSelection());
+}
+
+TEST(TuiBuffer, SelectAllAndCutPaste)
+{
+    TuiBuffer b(QString(), QStringLiteral("abc\ndef"));
+    b.selectAll();
+    EXPECT_TRUE(b.hasSelection());
+    EXPECT_EQ(b.selectedText(), QStringLiteral("abc\ndef"));
+    QString sel = b.selectedText();
+    b.deleteSelection();
+    EXPECT_EQ(b.text(), QStringLiteral(""));
+    b.insertText(sel);
+    EXPECT_EQ(b.text(), QStringLiteral("abc\ndef"));
+}
+
+TEST(TuiBuffer, InsertReplacesSelection)
+{
+    TuiBuffer b(QString(), QStringLiteral("hello world"));
+    b.setSelectionAnchor(0, 0);
+    b.setCursor(0, 5);
+    b.insertChar(QChar('X'));
+    EXPECT_EQ(b.text(), QStringLiteral("X world"));
+}

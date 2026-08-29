@@ -15,6 +15,7 @@
 #include <QFileInfo>
 #include <QTextStream>
 
+#include <algorithm>
 #include <unistd.h>
 
 #ifdef BUILD_TUI
@@ -139,6 +140,13 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     SearchResult lastSearch;
     bool findMode = false;
     QString findInput;
+    bool saveAsMode = false;
+    QString saveAsInput;
+    bool gotoMode = false;
+    QString gotoInput;
+    bool commandMode = false;
+    QString commandInput;
+    QString clipboard;
 
     auto saveCurrent = [&](TuiBuffer* buf) -> bool {
         if (!buf)
@@ -146,7 +154,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         QString path = buf->filePath();
         if (path.isEmpty() || path == QStringLiteral("Untitled"))
         {
-            statusMsg = QStringLiteral("No file name - cannot save untitled in TUI (use :w <path> pattern in future)");
+            statusMsg = QStringLiteral("No file name - use Ctrl+O or :w <path> to save");
             return false;
         }
         QString err;
@@ -161,6 +169,42 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             statusMsg = err;
         }
         return ok;
+    };
+
+    auto saveAs = [&](TuiBuffer* buf, const QString& newPath) -> bool {
+        if (!buf || newPath.isEmpty())
+            return false;
+        QString err;
+        bool ok = FileService::save(newPath, buf->text(), buf->encoding(), &err);
+        if (ok)
+        {
+            buf->setFilePath(newPath);
+            buf->setModified(false);
+            statusMsg = QStringLiteral("Saved as %1").arg(newPath);
+        }
+        else
+        {
+            statusMsg = err;
+        }
+        return ok;
+    };
+
+    auto saveAll = [&]() {
+        int saved = 0;
+        for (int i = 0; i < tabs.count(); ++i)
+        {
+            TuiBuffer* b = tabs.bufferAt(i);
+            if (b && b->isModified() && !b->filePath().isEmpty() && b->filePath() != QStringLiteral("Untitled"))
+            {
+                QString err;
+                if (FileService::save(b->filePath(), b->text(), b->encoding(), &err))
+                {
+                    b->setModified(false);
+                    saved++;
+                }
+            }
+        }
+        statusMsg = QStringLiteral("Saved %1 buffers").arg(saved);
     };
 
     int ch = 0;
@@ -258,8 +302,57 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 hScroll = cur->cursorCol() - avail + 1;
 
             QString visible = line.mid(hScroll, avail);
-            // Highlight search match if on this line
-            if (lastSearch.found && lastSearch.line == lineIdx)
+
+            // Compute selection highlight for this line
+            int selStart = -1;
+            int selEnd = -1;
+            if (cur->hasSelection())
+            {
+                int aLine = cur->selectionAnchorLine();
+                int aCol = cur->selectionAnchorCol();
+                int cLine = cur->cursorLine();
+                int cCol = cur->cursorCol();
+                if (aLine > cLine || (aLine == cLine && aCol > cCol))
+                {
+                    std::swap(aLine, cLine);
+                    std::swap(aCol, cCol);
+                }
+                if (lineIdx >= aLine && lineIdx <= cLine)
+                {
+                    if (aLine == cLine)
+                    {
+                        selStart = aCol - hScroll;
+                        selEnd = cCol - hScroll;
+                    }
+                    else if (lineIdx == aLine)
+                    {
+                        selStart = aCol - hScroll;
+                        selEnd = avail;
+                    }
+                    else if (lineIdx == cLine)
+                    {
+                        selStart = 0 - hScroll;
+                        if (selStart < 0)
+                            selStart = 0;
+                        selEnd = cCol - hScroll;
+                    }
+                    else
+                    {
+                        selStart = 0;
+                        selEnd = avail;
+                    }
+                    selStart = qBound(0, selStart, avail);
+                    selEnd = qBound(0, selEnd, avail);
+                    if (selStart == selEnd)
+                    {
+                        selStart = -1;
+                        selEnd = -1;
+                    }
+                }
+            }
+
+            // Highlight search match if on this line (and selection not covering)
+            if (lastSearch.found && lastSearch.line == lineIdx && selStart == -1)
             {
                 int start = lastSearch.column - hScroll;
                 int len = lastSearch.length;
@@ -281,6 +374,15 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 {
                     mvaddnstr(y, textX, visible.toUtf8().constData(), visible.toUtf8().size());
                 }
+            }
+            else if (selStart != -1)
+            {
+                mvaddnstr(y, textX, visible.left(selStart).toUtf8().constData(), selStart);
+                attron(A_REVERSE);
+                mvaddnstr(y, textX + selStart, visible.mid(selStart, selEnd - selStart).toUtf8().constData(), selEnd - selStart);
+                attroff(A_REVERSE);
+                if (selEnd < visible.size())
+                    mvaddnstr(y, textX + selEnd, visible.mid(selEnd).toUtf8().constData(), visible.size() - selEnd);
             }
             else
             {
@@ -316,8 +418,27 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         QString statusRight = QStringLiteral(" Tab %1/%2 ").arg(tabs.currentIndex() + 1).arg(tabs.count());
         mvaddnstr(statusY, 0, statusLeft.toUtf8().constData(), qMin(statusLeft.toUtf8().size(), cols - statusRight.toUtf8().size() - 1));
         mvaddnstr(statusY, cols - statusRight.toUtf8().size(), statusRight.toUtf8().constData(), statusRight.toUtf8().size());
-        QString msg = findMode ? QStringLiteral("Find: ") + findInput : statusMsg;
+        QString msg;
+        if (findMode)
+            msg = QStringLiteral("Find: ") + findInput;
+        else if (saveAsMode)
+            msg = QStringLiteral("Save As: ") + saveAsInput;
+        else if (gotoMode)
+            msg = QStringLiteral("Go to line: ") + gotoInput;
+        else if (commandMode)
+            msg = QStringLiteral(":") + commandInput;
+        else
+            msg = statusMsg;
         mvaddnstr(msgY, 0, msg.toUtf8().constData(), qMin(msg.toUtf8().size(), cols));
+        // Position cursor at end of input when in input modes
+        if (findMode)
+            move(msgY, 6 + findInput.size());
+        else if (saveAsMode)
+            move(msgY, 9 + saveAsInput.size());
+        else if (gotoMode)
+            move(msgY, 12 + gotoInput.size());
+        else if (commandMode)
+            move(msgY, 1 + commandInput.size());
         if (hasColors)
             attroff(COLOR_PAIR(1));
         else
@@ -366,6 +487,194 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             continue;
         }
 
+        if (saveAsMode)
+        {
+            if (ch == 27)
+            {
+                saveAsMode = false;
+                saveAsInput.clear();
+                statusMsg = QStringLiteral("Save cancelled");
+            }
+            else if (ch == '\n' || ch == KEY_ENTER || ch == 10 || ch == 13)
+            {
+                QString path = saveAsInput.trimmed();
+                if (!path.isEmpty())
+                {
+                    if (!QFileInfo(path).isAbsolute())
+                        path = QDir::current().absoluteFilePath(path);
+                    saveAs(cur, path);
+                }
+                saveAsMode = false;
+                saveAsInput.clear();
+            }
+            else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
+            {
+                if (!saveAsInput.isEmpty())
+                    saveAsInput.chop(1);
+            }
+            else if (ch >= 32 && ch < 127)
+            {
+                saveAsInput.append(QChar(ch));
+            }
+            continue;
+        }
+
+        if (gotoMode)
+        {
+            if (ch == 27)
+            {
+                gotoMode = false;
+                gotoInput.clear();
+            }
+            else if (ch == '\n' || ch == KEY_ENTER || ch == 10 || ch == 13)
+            {
+                bool ok = false;
+                int line = gotoInput.toInt(&ok);
+                if (ok && line >= 1 && line <= cur->lineCount())
+                {
+                    cur->setCursor(line - 1, 0);
+                    statusMsg = QStringLiteral("Go to line %1").arg(line);
+                }
+                else
+                {
+                    statusMsg = QStringLiteral("Invalid line: %1").arg(gotoInput);
+                }
+                gotoMode = false;
+                gotoInput.clear();
+            }
+            else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
+            {
+                if (!gotoInput.isEmpty())
+                    gotoInput.chop(1);
+            }
+            else if (ch >= 48 && ch <= 57)
+            {
+                gotoInput.append(QChar(ch));
+            }
+            continue;
+        }
+
+        if (commandMode)
+        {
+            if (ch == 27)
+            {
+                commandMode = false;
+                commandInput.clear();
+            }
+            else if (ch == '\n' || ch == KEY_ENTER || ch == 10 || ch == 13)
+            {
+                QString cmd = commandInput.trimmed();
+                commandMode = false;
+                commandInput.clear();
+                if (cmd == QStringLiteral("wa"))
+                {
+                    saveAll();
+                }
+                else if (cmd == QStringLiteral("wqa") || cmd == QStringLiteral("waq"))
+                {
+                    saveAll();
+                    bool anyModified = false;
+                    for (int i = 0; i < tabs.count(); ++i)
+                        if (tabs.bufferAt(i)->isModified() && tabs.bufferAt(i)->filePath().isEmpty())
+                            anyModified = true;
+                    if (!anyModified)
+                        break;
+                }
+                else if (cmd == QStringLiteral("w") || cmd.startsWith(QStringLiteral("w ")))
+                {
+                    QString arg = cmd.mid(1).trimmed();
+                    if (arg.isEmpty())
+                    {
+                        if (!saveCurrent(cur))
+                        {
+                            saveAsMode = true;
+                            saveAsInput.clear();
+                        }
+                    }
+                    else
+                    {
+                        if (!QFileInfo(arg).isAbsolute())
+                            arg = QDir::current().absoluteFilePath(arg);
+                        saveAs(cur, arg);
+                    }
+                }
+                else if (cmd == QStringLiteral("q"))
+                {
+                    bool anyModified = false;
+                    for (int i = 0; i < tabs.count(); ++i)
+                        if (tabs.bufferAt(i)->isModified())
+                            anyModified = true;
+                    if (!anyModified)
+                        break;
+                    statusMsg = QStringLiteral("Modified buffers - use :wq or :q! to force");
+                }
+                else if (cmd == QStringLiteral("q!"))
+                {
+                    break;
+                }
+                else if (cmd == QStringLiteral("wq") || cmd.startsWith(QStringLiteral("wq ")))
+                {
+                    QString arg = cmd.mid(2).trimmed();
+                    if (!arg.isEmpty())
+                    {
+                        if (!QFileInfo(arg).isAbsolute())
+                            arg = QDir::current().absoluteFilePath(arg);
+                        saveAs(cur, arg);
+                    }
+                    else
+                    {
+                        saveCurrent(cur);
+                    }
+                    bool anyModified = false;
+                    for (int i = 0; i < tabs.count(); ++i)
+                        if (tabs.bufferAt(i)->isModified() && tabs.bufferAt(i)->filePath().isEmpty())
+                            anyModified = true;
+                    if (!anyModified)
+                        break;
+                }
+                else if (cmd.startsWith(QStringLiteral("e ")))
+                {
+                    QString arg = cmd.mid(2).trimmed();
+                    if (!arg.isEmpty())
+                    {
+                        if (!QFileInfo(arg).isAbsolute())
+                            arg = QDir::current().absoluteFilePath(arg);
+                        FileLoadResult res = FileService::load(arg);
+                        if (res.ok)
+                        {
+                            TuiBuffer buf(arg, res.text, res.encoding);
+                            tabs.addBuffer(buf);
+                            statusMsg = QStringLiteral("Opened %1").arg(arg);
+                        }
+                        else
+                        {
+                            TuiBuffer buf(arg, QString(), QStringLiteral("UTF-8"));
+                            tabs.addBuffer(buf);
+                            statusMsg = QStringLiteral("New file %1").arg(arg);
+                        }
+                    }
+                }
+                else
+                {
+                    statusMsg = QStringLiteral("Unknown command: %1").arg(cmd);
+                }
+            }
+            else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
+            {
+                if (!commandInput.isEmpty())
+                    commandInput.chop(1);
+                else
+                {
+                    commandMode = false;
+                }
+            }
+            else if (ch >= 32 && ch < 127)
+            {
+                commandInput.append(QChar(ch));
+            }
+            continue;
+        }
+
         // Global shortcuts
         if (ch == 17) // Ctrl+Q
         {
@@ -378,22 +687,89 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             if (anyModified)
             {
                 statusMsg = QStringLiteral("Modified buffers exist. Press Ctrl+Q again to quit without saving, or save with Ctrl+S");
-                // Require second Ctrl+Q
                 int ch2 = getch();
                 if (ch2 != 17)
                 {
                     statusMsg = QStringLiteral("Quit cancelled");
-                    // push back handling for ch2? simplified: handle ch2 as next loop's ch
-                    if (ch2 == 19) // Ctrl+S
+                    if (ch2 == 19)
                         saveCurrent(cur);
                     continue;
                 }
             }
             break;
         }
-        else if (ch == 19) // Ctrl+S
+        else if (ch == 19) // Ctrl+S save
         {
             saveCurrent(cur);
+        }
+        else if (ch == 15) // Ctrl+O save as
+        {
+            saveAsMode = true;
+            saveAsInput = cur->filePath();
+            if (saveAsInput.isEmpty())
+                saveAsInput = QDir::current().absoluteFilePath(QStringLiteral("untitled.txt"));
+        }
+        else if (ch == 7) // Ctrl+G goto line
+        {
+            gotoMode = true;
+            gotoInput.clear();
+        }
+        else if (ch == 58) // : command mode
+        {
+            commandMode = true;
+            commandInput.clear();
+        }
+        else if (ch == 26) // Ctrl+Z undo
+        {
+            if (!cur->undo())
+                statusMsg = QStringLiteral("Nothing to undo");
+            else
+                statusMsg = QStringLiteral("Undo");
+        }
+        else if (ch == 25 || ch == 18) // Ctrl+Y or Ctrl+R redo (Ctrl+R=18)
+        {
+            if (!cur->redo())
+                statusMsg = QStringLiteral("Nothing to redo");
+            else
+                statusMsg = QStringLiteral("Redo");
+        }
+        else if (ch == 1) // Ctrl+A select all
+        {
+            cur->selectAll();
+            statusMsg = QStringLiteral("Selected all");
+        }
+        else if (ch == 3) // Ctrl+C copy
+        {
+            if (cur->hasSelection())
+            {
+                clipboard = cur->selectedText();
+                statusMsg = QStringLiteral("Copied %1 chars").arg(clipboard.size());
+            }
+            else
+            {
+                statusMsg = QStringLiteral("No selection");
+            }
+        }
+        else if (ch == 24) // Ctrl+X cut
+        {
+            if (cur->hasSelection())
+            {
+                clipboard = cur->selectedText();
+                cur->deleteSelection();
+                statusMsg = QStringLiteral("Cut %1 chars").arg(clipboard.size());
+            }
+            else
+            {
+                statusMsg = QStringLiteral("No selection");
+            }
+        }
+        else if (ch == 22) // Ctrl+V paste
+        {
+            if (!clipboard.isEmpty())
+            {
+                cur->insertText(clipboard);
+                statusMsg = QStringLiteral("Pasted");
+            }
         }
         else if (ch == 23) // Ctrl+W close tab
         {
@@ -434,10 +810,14 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         else if (ch == KEY_NPAGE) // PageDown
         {
+            if (cur->hasSelection())
+                cur->clearSelection();
             cur->moveCursor(editorH - 2, 0);
         }
         else if (ch == KEY_PPAGE) // PageUp
         {
+            if (cur->hasSelection())
+                cur->clearSelection();
             cur->moveCursor(-editorH + 2, 0);
         }
         else if (ch == KEY_F(3)) // Find next
@@ -454,15 +834,18 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                     statusMsg = QStringLiteral("Not found");
             }
         }
-        else if (ch == 9) // Tab -> next tab (Ctrl+Tab is often 9)
+        else if (ch == 9) // Tab -> next tab
         {
-            // Use Ctrl+Tab simulation: Tab cycles
             int next = (tabs.currentIndex() + 1) % tabs.count();
             tabs.setCurrentIndex(next);
             scrollTop = 0;
+            if (cur->hasSelection())
+                cur->clearSelection();
         }
         else if (ch == KEY_LEFT)
         {
+            if (cur->hasSelection())
+                cur->clearSelection();
             if (cur->cursorCol() > 0)
                 cur->setCursor(cur->cursorLine(), cur->cursorCol() - 1);
             else if (cur->cursorLine() > 0)
@@ -470,6 +853,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         else if (ch == KEY_RIGHT)
         {
+            if (cur->hasSelection())
+                cur->clearSelection();
             int lineLen = cur->lines().at(cur->cursorLine()).size();
             if (cur->cursorCol() < lineLen)
                 cur->setCursor(cur->cursorLine(), cur->cursorCol() + 1);
@@ -478,18 +863,71 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         else if (ch == KEY_UP)
         {
+            if (cur->hasSelection())
+                cur->clearSelection();
             cur->moveCursor(-1, 0);
         }
         else if (ch == KEY_DOWN)
         {
+            if (cur->hasSelection())
+                cur->clearSelection();
             cur->moveCursor(1, 0);
         }
-        else if (ch == KEY_HOME || ch == 1) // Ctrl+A
+#ifdef KEY_SLEFT
+        else if (ch == KEY_SLEFT)
         {
+            if (!cur->hasSelection())
+                cur->setSelectionAnchor(cur->cursorLine(), cur->cursorCol());
+            if (cur->cursorCol() > 0)
+                cur->setCursor(cur->cursorLine(), cur->cursorCol() - 1);
+            else if (cur->cursorLine() > 0)
+                cur->setCursor(cur->cursorLine() - 1, cur->lines().at(cur->cursorLine() - 1).size());
+        }
+        else if (ch == KEY_SRIGHT)
+        {
+            if (!cur->hasSelection())
+                cur->setSelectionAnchor(cur->cursorLine(), cur->cursorCol());
+            int lineLen = cur->lines().at(cur->cursorLine()).size();
+            if (cur->cursorCol() < lineLen)
+                cur->setCursor(cur->cursorLine(), cur->cursorCol() + 1);
+            else if (cur->cursorLine() + 1 < cur->lineCount())
+                cur->setCursor(cur->cursorLine() + 1, 0);
+        }
+        else if (ch == KEY_SR) // Shift + Up (scroll backward)
+        {
+            if (!cur->hasSelection())
+                cur->setSelectionAnchor(cur->cursorLine(), cur->cursorCol());
+            cur->moveCursor(-1, 0);
+        }
+        else if (ch == KEY_SF) // Shift + Down
+        {
+            if (!cur->hasSelection())
+                cur->setSelectionAnchor(cur->cursorLine(), cur->cursorCol());
+            cur->moveCursor(1, 0);
+        }
+        else if (ch == KEY_SHOME)
+        {
+            if (!cur->hasSelection())
+                cur->setSelectionAnchor(cur->cursorLine(), cur->cursorCol());
             cur->setCursor(cur->cursorLine(), 0);
         }
-        else if (ch == KEY_END || ch == 5) // Ctrl+E
+        else if (ch == KEY_SEND)
         {
+            if (!cur->hasSelection())
+                cur->setSelectionAnchor(cur->cursorLine(), cur->cursorCol());
+            cur->setCursor(cur->cursorLine(), cur->lines().at(cur->cursorLine()).size());
+        }
+#endif
+        else if (ch == KEY_HOME)
+        {
+            if (cur->hasSelection())
+                cur->clearSelection();
+            cur->setCursor(cur->cursorLine(), 0);
+        }
+        else if (ch == KEY_END)
+        {
+            if (cur->hasSelection())
+                cur->clearSelection();
             cur->setCursor(cur->cursorLine(), cur->lines().at(cur->cursorLine()).size());
         }
         else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
@@ -508,13 +946,13 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         {
             cur->insertChar(QChar(ch));
         }
-        else if (ch == 2) // Ctrl+B - toggle find whole words placeholder
+        else if (ch == 2) // Ctrl+B
         {
-            statusMsg = QStringLiteral("TUI: %1 buffers").arg(tabs.count());
+            statusMsg = QStringLiteral("TUI: %1 buffers  Undo:%2 Redo:%3 Sel:%4").arg(tabs.count()).arg(cur->canUndo() ? "Y" : "N").arg(cur->canRedo() ? "Y" : "N").arg(cur->hasSelection() ? "Y" : "N");
         }
         else if (ch == KEY_F(1))
         {
-            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+W close  Ctrl+N new  Ctrl+F find  F2 bookmark  F3 find next  Arrows move  Tab switch tab");
+            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  :w :q :wq :e  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V cut/copy/paste  Shift+Arrows sel  Ctrl+F find  F2 bm  F3 next  Tab switch");
         }
     }
 

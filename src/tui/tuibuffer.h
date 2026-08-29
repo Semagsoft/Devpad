@@ -55,11 +55,44 @@ public:
     void toggleBookmark(int line);
     bool hasBookmark(int line) const;
 
+    // Undo/Redo
+    void pushUndo();
+    bool canUndo() const;
+    bool canRedo() const;
+    bool undo();
+    bool redo();
+
+    // Selection
+    bool hasSelection() const;
+    void setSelectionAnchor(int line, int col);
+    void clearSelection();
+    int selectionAnchorLine() const { return m_selAnchorLine; }
+    int selectionAnchorCol() const { return m_selAnchorCol; }
+    QString selectedText() const;
+    void deleteSelection();
+    void selectAll();
+
     QString displayName() const;
     QString languageFromExtension() const;
 
 private:
     void ensureCursorValid();
+    struct Snapshot
+    {
+        QStringList lines;
+        int cursorLine = 0;
+        int cursorCol = 0;
+        bool modified = false;
+    };
+    Snapshot snapshot() const;
+    void restore(const Snapshot& s);
+
+    QList<Snapshot> m_undoStack;
+    QList<Snapshot> m_redoStack;
+    static constexpr int MaxUndoDepth = 200;
+
+    int m_selAnchorLine = -1;
+    int m_selAnchorCol = -1;
     QString m_filePath;
     QString m_encoding;
     QStringList m_lines;
