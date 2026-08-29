@@ -49,8 +49,16 @@ ActionManager::ActionManager(QObject* parent) : QObject(parent)
 
 void ActionManager::createActions()
 {
+    createFileActions();
+    createEditActions();
+    createBookmarkActions();
+    createLspActions();
+    createViewActions();
+    createHelpActions();
+}
 
-    // Devpad
+void ActionManager::createFileActions()
+{
     m_quitDevpadAct = createIconAction(":/icons/File/exit.svg", tr("Quit Devpad"), QKeySequence::Quit,
                                        [this]()
                                        {
@@ -58,7 +66,6 @@ void ActionManager::createActions()
                                            emit fileActionTriggered(FileAction::Quit);
                                        });
 
-    // File
     m_newAct = createIconAction(":/icons/File/newfile.svg", tr("New File"), QKeySequence::New,
                                 [this]()
                                 {
@@ -159,8 +166,10 @@ void ActionManager::createActions()
                                      emit exitTriggered();
                                      emit fileActionTriggered(FileAction::Exit);
                                  });
+}
 
-    // Edit
+void ActionManager::createEditActions()
+{
     m_undoAct = createIconAction(":/icons/Edit/undo.svg", tr("Undo"), QKeySequence::Undo,
                                  [this]()
                                  {
@@ -227,7 +236,16 @@ void ActionManager::createActions()
                                      emit goToLineTriggered();
                                      emit editActionTriggered(EditAction::GoToLine);
                                  });
-    // Bookmarks
+    m_formatSelectionAct = createIconAction(":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Ctrl+Shift+F"),
+                                            [this]()
+                                            {
+                                                emit formatSelectionTriggered();
+                                                emit editActionTriggered(EditAction::FormatSelection);
+                                            });
+}
+
+void ActionManager::createBookmarkActions()
+{
     m_toggleBookmarkAct = new QAction(QIcon(":/icons/Edit/togglebookmark.svg"), tr("Toggle Bookmark"), this);
     m_toggleBookmarkAct->setShortcut(QKeySequence("Ctrl+F2"));
     m_actionsWithShortcuts.append(m_toggleBookmarkAct);
@@ -264,13 +282,10 @@ void ActionManager::createActions()
                 emit clearBookmarksTriggered();
                 emit documentActionTriggered(DocumentAction::ClearBookmarks);
             });
-    m_formatSelectionAct = createIconAction(":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Ctrl+Shift+F"),
-                                            [this]()
-                                            {
-                                                emit formatSelectionTriggered();
-                                                emit editActionTriggered(EditAction::FormatSelection);
-                                            });
-    // LSP actions
+}
+
+void ActionManager::createLspActions()
+{
     m_goToDefinitionAct = createIconAction(":/icons/Edit/goto.svg", tr("Go to Definition"), QKeySequence("F12"),
                                            [this]()
                                            {
@@ -320,8 +335,10 @@ void ActionManager::createActions()
     m_shrinkSelectionAct->setShortcut(QKeySequence("Ctrl+Shift+-"));
     m_actionsWithShortcuts.append(m_shrinkSelectionAct);
     connect(m_shrinkSelectionAct, &QAction::triggered, this, [this]() { emit shrinkSelectionTriggered(); });
+}
 
-    // View
+void ActionManager::createViewActions()
+{
     m_zoomInAct = createIconAction(":/icons/View/zoomin.svg", tr("Zoom In"), QKeySequence("Ctrl+="),
                                    [this]()
                                    {
@@ -411,14 +428,15 @@ void ActionManager::createActions()
     m_menuTitlebarAct->setChecked(SettingsManager::instance().showMenuInTitlebar());
     connect(m_menuTitlebarAct, &QAction::triggered, this, [this]() { emit toggleMenuTitlebarTriggered(); });
 #endif
+}
 
-    // Tools
+void ActionManager::createHelpActions()
+{
     m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options"), QKeySequence(), [this]() { emit optionsTriggered(); });
 #ifdef Q_OS_MACOS
     m_optionsAct->setMenuRole(QAction::PreferencesRole);
 #endif
 
-    // Help
     m_donateAct = createIconAction(":/icons/Help/donate.svg", tr("Donate"), QKeySequence(), [this]() { emit donateTriggered(); });
     m_websiteAct = createIconAction(":/icons/Help/website.svg", tr("Website"), QKeySequence(), [this]() { emit websiteTriggered(); });
     m_aboutAct = createIconAction(":/icons/Help/about.svg", tr("About"), QKeySequence(), [this]() { emit aboutTriggered(); });
@@ -657,6 +675,17 @@ QToolBar* ActionManager::buildToolBar()
 
 void ActionManager::wireConnections(const ActionTargets& t)
 {
+    wireFileConnections(t);
+    wireEditConnections(t);
+    wireViewConnections(t);
+    wireDocumentConnections(t);
+    wireLspConnections(t);
+    wireHelpConnections(t);
+    wireMiscConnections(t);
+}
+
+void ActionManager::wireFileConnections(const ActionTargets& t)
+{
     auto* ec = t.editorController;
     auto* mw = t.mainWindow;
 
@@ -675,6 +704,12 @@ void ActionManager::wireConnections(const ActionTargets& t)
     connect(this, &ActionManager::exitTriggered, mw, &QWidget::close);
     connect(this, &ActionManager::quitDevpadTriggered, mw, &MainWindow::quitDevpad);
     connect(t.terminalPanel, &TerminalPanel::sessionExited, mw, &QWidget::close);
+}
+
+void ActionManager::wireEditConnections(const ActionTargets& t)
+{
+    auto* ec = t.editorController;
+    auto* mw = t.mainWindow;
 
     connect(this, &ActionManager::undoTriggered, ec, &EditorController::undo);
     connect(this, &ActionManager::redoTriggered, ec, &EditorController::redo);
@@ -689,6 +724,12 @@ void ActionManager::wireConnections(const ActionTargets& t)
     connect(this, &ActionManager::goToLineTriggered, mw, &MainWindow::goToLine);
     connect(this, &ActionManager::findNextTriggered, mw, &MainWindow::findNext);
     connect(this, &ActionManager::findPreviousTriggered, mw, &MainWindow::findPrevious);
+}
+
+void ActionManager::wireViewConnections(const ActionTargets& t)
+{
+    auto* ec = t.editorController;
+    auto* mw = t.mainWindow;
 
     connect(this, &ActionManager::zoomInTriggered, ec, &EditorController::zoomIn);
     connect(this, &ActionManager::zoomOutTriggered, ec, &EditorController::zoomOut);
@@ -734,6 +775,12 @@ void ActionManager::wireConnections(const ActionTargets& t)
                 m_statusBarAct->setChecked(!visible);
                 SettingsManager::instance().setShowStatusbar(!visible);
             });
+}
+
+void ActionManager::wireDocumentConnections(const ActionTargets& t)
+{
+    auto* ec = t.editorController;
+    auto* mw = t.mainWindow;
 
     connect(this, &ActionManager::toggleBookmarkTriggered, ec, &EditorController::toggleBookmark);
     connect(this, &ActionManager::nextBookmarkTriggered, ec, &EditorController::nextBookmark);
@@ -748,6 +795,11 @@ void ActionManager::wireConnections(const ActionTargets& t)
 
     connect(t.splitView, &SplitView::closeAllTabsRequested, ec, &EditorController::closeAllTabs);
     connect(t.splitView, &SplitView::tabPinToggled, this, t.tabPinToggled);
+}
+
+void ActionManager::wireLspConnections(const ActionTargets& t)
+{
+    auto* mw = t.mainWindow;
 
     connect(this, &ActionManager::goToDefinitionTriggered, mw, &MainWindow::goToDefinition);
     connect(this, &ActionManager::goToTypeDefinitionTriggered, mw, &MainWindow::goToTypeDefinition);
@@ -758,6 +810,12 @@ void ActionManager::wireConnections(const ActionTargets& t)
     connect(this, &ActionManager::findSymbolsTriggered, mw, &MainWindow::findSymbols);
     connect(this, &ActionManager::expandSelectionTriggered, mw, &MainWindow::expandSelection);
     connect(this, &ActionManager::shrinkSelectionTriggered, mw, &MainWindow::shrinkSelection);
+}
+
+void ActionManager::wireHelpConnections(const ActionTargets& t)
+{
+    auto* mw = t.mainWindow;
+
     connect(this, &ActionManager::optionsTriggered, mw, &MainWindow::showOptions);
     connect(this, &ActionManager::configureExternalToolsTriggered, this,
             [this, mw]()
@@ -772,6 +830,12 @@ void ActionManager::wireConnections(const ActionTargets& t)
             []() { QDesktopServices::openUrl(QUrl("https://www.paypal.com/ncp/payment/RFY5Z3KJ8UY8W")); });
     connect(this, &ActionManager::websiteTriggered, this, []() { QDesktopServices::openUrl(QUrl("https://semagsoft.com")); });
     connect(this, &ActionManager::externalToolTriggered, mw, &MainWindow::runExternalTool);
+}
+
+void ActionManager::wireMiscConnections(const ActionTargets& t)
+{
+    auto* ec = t.editorController;
+    auto* mw = t.mainWindow;
 
     connect(m_recentFilesHelper, &RecentFilesHelper::openRecentFileTriggered, this, &ActionManager::openRecentFileTriggered);
     connect(m_recentFilesHelper, &RecentFilesHelper::clearRecentFilesTriggered, this, &ActionManager::clearRecentFilesTriggered);
