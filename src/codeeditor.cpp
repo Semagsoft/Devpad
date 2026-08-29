@@ -135,9 +135,10 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
 
                 QString selectedText = QString::fromUtf8(selection);
 
-                if (SettingsManager::instance().predictiveSnippets() && selectedText.endsWith(QStringLiteral("\u00ABsnip\u00BB")))
+                static const QString marker = QStringLiteral("\u00ABsnip\u00BB");
+                if (SettingsManager::instance().predictiveSnippets() && selectedText.endsWith(marker))
                 {
-                    QString prefix = selectedText.left(selectedText.length() - 10);
+                    QString prefix = selectedText.left(selectedText.length() - marker.length());
                     if (SnippetManager* sm = SnippetManager::instance())
                     {
                         QList<Snippet> candidates = sm->snippetsByPrefix(prefix, m_syntax);

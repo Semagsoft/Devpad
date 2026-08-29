@@ -22,6 +22,7 @@
 #include "theme.h"
 
 #include <QApplication>
+#include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
 #include <array>
@@ -110,6 +111,15 @@ int main(int argc, char* argv[])
     app.setApplicationName("Devpad");
     app.setApplicationVersion(DEVPAD_VERSION);
 
+    QCommandLineParser parser;
+    parser.setApplicationDescription(QStringLiteral("Devpad - A C++/Qt6 code editor"));
+    parser.addHelpOption();
+    parser.addVersionOption();
+    QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"), QStringLiteral("file"));
+    parser.addOption(transferOpt);
+    parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
+    parser.process(app);
+
     initThemeSystem();
 
     {
@@ -120,17 +130,23 @@ int main(int argc, char* argv[])
 
     MainWindow mainWindow;
 
-    for (int i = 1; i < argc; ++i)
+    if (parser.isSet(transferOpt))
     {
-        QString arg = QString::fromLocal8Bit(argv[i]);
-
-        if (arg == "--transfer" && i + 1 < argc)
-        {
-            QString transferPath = QString::fromLocal8Bit(argv[++i]);
+        const QString transferPath = parser.value(transferOpt);
+        if (!transferPath.isEmpty())
             mainWindow.openTransferFile(transferPath);
+    }
+
+    // Legacy --transfer positional handling for drag-detached tabs
+    QStringList positional = parser.positionalArguments();
+    for (int i = 0; i < positional.size(); ++i)
+    {
+        QString arg = positional.at(i);
+        if (arg == QStringLiteral("--transfer") && i + 1 < positional.size())
+        {
+            mainWindow.openTransferFile(positional.at(++i));
             continue;
         }
-
         QString filePath = arg;
         if (!QFileInfo(filePath).isAbsolute())
             filePath = QDir::current().absoluteFilePath(filePath);

@@ -27,6 +27,12 @@
 
 SnippetEngine::SnippetEngine(CodeEditor* editor) : QObject(editor), m_editor(editor)
 {
+    connect(m_editor, &QsciScintilla::textChanged, this,
+            [this]()
+            {
+                if (m_snippetActive)
+                    recalculateTabStopPositions();
+            });
 }
 
 void SnippetEngine::insertSnippet(const Snippet& snippet)

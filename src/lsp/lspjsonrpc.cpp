@@ -29,7 +29,14 @@ void LspJsonRpc::registerPendingRequest(int id, ResponseCallback callback, int t
                                    auto it = guard->m_pendingRequests.find(id);
                                    if (it != guard->m_pendingRequests.end())
                                    {
+                                       ResponseCallback cb = it.value();
                                        guard->m_pendingRequests.erase(it);
+                                       QJsonObject err;
+                                       err["code"] = -32000;
+                                       err["message"] = QStringLiteral("Request timed out");
+                                       guard->responseReceived(id, QJsonValue(), err);
+                                       if (cb)
+                                           cb(QJsonValue());
                                    }
                                }
                            });
@@ -107,9 +114,10 @@ void LspJsonRpc::processMessage(const QByteArray& message)
             auto it = m_pendingRequests.find(id);
             if (it != m_pendingRequests.end())
             {
-                if (it.value() && errObj.isEmpty())
-                    it.value()(resultVal);
+                ResponseCallback cb = it.value();
                 m_pendingRequests.erase(it);
+                if (cb)
+                    cb(resultVal);
             }
         }
         else
@@ -125,9 +133,10 @@ void LspJsonRpc::processMessage(const QByteArray& message)
         auto it = m_pendingRequests.find(id);
         if (it != m_pendingRequests.end())
         {
-            if (it.value() && errObj.isEmpty())
-                it.value()(resultVal);
+            ResponseCallback cb = it.value();
             m_pendingRequests.erase(it);
+            if (cb)
+                cb(resultVal);
         }
     }
 }

@@ -339,110 +339,21 @@ void LspClient::requestDefinition(const QString& uri, const Position& pos)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.definitionProvider)
         return;
-
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          Location loc;
-                                          if (result.isObject())
-                                          {
-                                              QJsonObject obj = result.toObject();
-                                              if (obj.contains("range"))
-                                              {
-                                                  loc = Location::fromJson(obj);
-                                              }
-                                          }
-                                          else if (result.isArray())
-                                          {
-                                              QJsonArray arr = result.toArray();
-                                              if (!arr.isEmpty())
-                                                  loc = Location::fromJson(arr.first().toObject());
-                                          }
-                                          if (!loc.uri.isEmpty())
-                                              emit definitionReady(uri, loc);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/definition", params);
-    m_process->write(request);
+    requestLocation("textDocument/definition", uri, pos, "definitionReady");
 }
 
 void LspClient::requestTypeDefinition(const QString& uri, const Position& pos)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.typeDefinitionProvider)
         return;
-
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          Location loc;
-                                          if (result.isObject())
-                                          {
-                                              QJsonObject obj = result.toObject();
-                                              if (obj.contains("range"))
-                                                  loc = Location::fromJson(obj);
-                                          }
-                                          else if (result.isArray())
-                                          {
-                                              QJsonArray arr = result.toArray();
-                                              if (!arr.isEmpty())
-                                                  loc = Location::fromJson(arr.first().toObject());
-                                          }
-                                          if (!loc.uri.isEmpty())
-                                              emit typeDefinitionReady(uri, loc);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/typeDefinition", params);
-    m_process->write(request);
+    requestLocation("textDocument/typeDefinition", uri, pos, "typeDefinitionReady");
 }
 
 void LspClient::requestDeclaration(const QString& uri, const Position& pos)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.declarationProvider)
         return;
-
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          Location loc;
-                                          if (result.isObject())
-                                          {
-                                              QJsonObject obj = result.toObject();
-                                              if (obj.contains("range"))
-                                                  loc = Location::fromJson(obj);
-                                          }
-                                          else if (result.isArray())
-                                          {
-                                              QJsonArray arr = result.toArray();
-                                              if (!arr.isEmpty())
-                                                  loc = Location::fromJson(arr.first().toObject());
-                                          }
-                                          if (!loc.uri.isEmpty())
-                                              emit declarationReady(uri, loc);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/declaration", params);
-    m_process->write(request);
+    requestLocation("textDocument/declaration", uri, pos, "declarationReady");
 }
 
 void LspClient::requestCodeAction(const QString& uri, const Range& range, const QList<Diagnostic>& diagnostics)
@@ -882,6 +793,54 @@ void LspClient::sendDidChangeConfiguration(const QJsonObject& settings)
 
     QByteArray notification = m_jsonRpc->createNotification("workspace/didChangeConfiguration", params);
     m_process->write(notification);
+}
+
+int LspClient::sendRequest(const QString& method, const QJsonObject& params, LspJsonRpc::ResponseCallback callback)
+{
+    if (!m_process || !isRunning())
+        return -1;
+    int id = m_jsonRpc->nextRequestId();
+    m_jsonRpc->registerPendingRequest(id, std::move(callback));
+    QByteArray request = m_jsonRpc->createRequest(id, method, params);
+    m_process->write(request);
+    return id;
+}
+
+QJsonObject LspClient::makeTextDocumentParam(const QString& uri) const
+{
+    QJsonObject textDoc;
+    textDoc["uri"] = uri;
+    return textDoc;
+}
+
+QJsonObject LspClient::makePositionParam(const QString& uri, const Position& pos) const
+{
+    QJsonObject params;
+    params["textDocument"] = makeTextDocumentParam(uri);
+    params["position"] = pos.toJson();
+    return params;
+}
+
+void LspClient::requestLocation(const QString& method, const QString& uri, const Position& pos, const char* /*signalName*/)
+{
+    QJsonObject params = makePositionParam(uri, pos);
+    sendRequest(method, params,
+                [this, uri, method](const QJsonValue& result)
+                {
+                    Location loc;
+                    if (result.isObject() && result.toObject().contains("range"))
+                        loc = Location::fromJson(result.toObject());
+                    else if (result.isArray() && !result.toArray().isEmpty())
+                        loc = Location::fromJson(result.toArray().first().toObject());
+                    if (loc.uri.isEmpty())
+                        return;
+                    if (method == QLatin1String("textDocument/definition"))
+                        emit definitionReady(uri, loc);
+                    else if (method == QLatin1String("textDocument/typeDefinition"))
+                        emit typeDefinitionReady(uri, loc);
+                    else if (method == QLatin1String("textDocument/declaration"))
+                        emit declarationReady(uri, loc);
+                });
 }
 
 // ── Internal Slots ─────────────────────────────────────────────

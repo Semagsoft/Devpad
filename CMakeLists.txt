@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.16)
+﻿cmake_minimum_required(VERSION 3.23)
 project(Devpad VERSION 1.04 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
