@@ -167,6 +167,7 @@ add_library(Devpad_core STATIC
     src/tui/tuibuffer.cpp
     src/tui/tuitabmodel.cpp
     src/tui/tuisearchengine.cpp
+    src/tui/tuifiletree.cpp
 )
 target_compile_options(Devpad_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_core PUBLIC
@@ -415,6 +416,7 @@ if(BUILD_TESTS)
         tests/test_tuibuffer.cpp
         tests/test_tuitabmodel.cpp
         tests/test_tuisearchengine.cpp
+        tests/test_tuifiletree.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)

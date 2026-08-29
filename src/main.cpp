@@ -142,6 +142,8 @@ int main(int argc, char* argv[])
         // Also accept --transfer for compatibility but ignore in TUI
         QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"), QStringLiteral("file"));
         parser.addOption(transferOpt);
+        QCommandLineOption noSessionOpt(QStringList() << "no-session", QStringLiteral("Do not restore previous session"));
+        parser.addOption(noSessionOpt);
         parser.process(app);
 
 #ifdef BUILD_TUI

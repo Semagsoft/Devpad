@@ -6,7 +6,10 @@
 #include "tuiapp.h"
 
 #include "core/fileservice.h"
+#include "encodingutils.h"
+#include "managers/sessionmanager.h"
 #include "tui/tuibuffer.h"
+#include "tui/tuifiletree.h"
 #include "tui/tuisearchengine.h"
 #include "tui/tuitabmodel.h"
 
@@ -50,6 +53,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     return 1;
 #else
     TuiTabModel tabs;
+    TuiFileTree fileTree;
 
     // Load positional files via headless FileService
     for (const QString& arg : positionalFiles)
@@ -68,14 +72,14 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             }
             else
             {
-                // Open empty buffer with error noted in status
                 TuiBuffer buf(filePath, QString(), QStringLiteral("UTF-8"));
                 tabs.addBuffer(buf);
             }
         }
         else if (fi.isDir())
         {
-            // For TUI, opening a folder just notes it; actual file tree is out of scope for minimal build
+            if (!fileTree.hasRoot())
+                fileTree.setRootPath(filePath);
             QDir dir(filePath);
             QStringList entries = dir.entryList(QDir::Files, QDir::Name);
             for (const QString& e : entries)
@@ -93,7 +97,6 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         else
         {
-            // New untitled buffer for non-existent path interpreted as new file
             TuiBuffer buf(filePath, QString(), QStringLiteral("UTF-8"));
             tabs.addBuffer(buf);
         }
@@ -102,6 +105,57 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     if (tabs.isEmpty())
     {
         tabs.addBuffer(TuiBuffer(QString(), QString(), QStringLiteral("UTF-8")));
+    }
+
+    // Session restore (headless) if no positional files and not --no-session
+    {
+        bool noSession = parser.isSet(QStringLiteral("no-session"));
+        if (positionalFiles.isEmpty() && !noSession)
+        {
+            SessionManager sm;
+            QStringList sFiles = sm.sessionFiles();
+            if (!sFiles.isEmpty())
+            {
+                // Check if tabs is just single untitled empty buffer, then replace
+                bool isUntitledEmpty = (tabs.count() == 1 && tabs.bufferAt(0) && tabs.bufferAt(0)->filePath().isEmpty()
+                                        && tabs.bufferAt(0)->text().isEmpty());
+                if (isUntitledEmpty)
+                {
+                    TuiTabModel newTabs;
+                    auto bookmarks = sm.loadSessionBookmarks();
+                    QStringList sPinned = sm.loadSessionPinnedFiles();
+                    QSet<QString> pinnedSet;
+                    for (const QString& p : sPinned) pinnedSet.insert(p);
+                    int loaded = 0;
+                    for (const QString& fp : sFiles)
+                    {
+                        QFileInfo fi(fp);
+                        if (!fi.exists() || !fi.isFile())
+                            continue;
+                        FileLoadResult res = FileService::load(fp);
+                        if (res.ok)
+                        {
+                            TuiBuffer buf(fp, res.text, res.encoding);
+                            auto it = bookmarks.find(fp);
+                            if (it != bookmarks.end())
+                                buf.setBookmarks(it.value());
+                            newTabs.addBuffer(buf);
+                            ++loaded;
+                        }
+                    }
+                    if (loaded > 0)
+                    {
+                        tabs = newTabs;
+                        int active = sm.sessionActiveIndex();
+                        tabs.setCurrentIndex(qBound(0, active, tabs.count() - 1));
+                        tabs.setPinnedFiles(pinnedSet);
+                        QString proj = sm.sessionProjectPath();
+                        if (!proj.isEmpty() && QDir(proj).exists())
+                            fileTree.setRootPath(proj);
+                    }
+                }
+            }
+        }
     }
 
     // Ensure we have a tty; otherwise just cat files and exit (useful for CI)
@@ -137,7 +191,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     }
 
     int scrollTop = 0;
-    QString statusMsg = QStringLiteral("Ctrl+Q quit  Ctrl+S save  Ctrl+W close  Ctrl+N new  Ctrl+F find  F2 bookmark");
+    QString statusMsg = QStringLiteral("Ctrl+Q quit  Ctrl+S save  Ctrl+E tree  Ctrl+F find  F1 help");
     QString findQuery;
     SearchOptions findOpts;
     SearchResult lastSearch;
@@ -155,6 +209,11 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     QString commandInput;
     QString clipboard;
     QHash<QString, QDateTime> fileMtimes;
+    bool fileTreeVisible = fileTree.hasRoot();
+    bool fileTreeFocused = false;
+    int fileTreeScroll = 0;
+    bool fileTreeFilterMode = false;
+    QString fileTreeFilterInput;
 
     auto saveCurrent = [&](TuiBuffer* buf) -> bool {
         if (!buf)
@@ -318,6 +377,20 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         attroff(A_REVERSE);
 
+        const int treeWidth = 30;
+        const int editorXOffset = fileTreeVisible ? treeWidth + 1 : 0;
+        QList<TuiFileNode> treeNodes;
+        if (fileTreeVisible)
+        {
+            treeNodes = fileTree.visibleNodes();
+            if (fileTree.cursorIndex() < fileTreeScroll)
+                fileTreeScroll = fileTree.cursorIndex();
+            if (fileTree.cursorIndex() >= fileTreeScroll + editorH)
+                fileTreeScroll = fileTree.cursorIndex() - editorH + 1;
+            if (fileTreeScroll < 0)
+                fileTreeScroll = 0;
+        }
+
         // Draw editor
         for (int r = 0; r < editorH; ++r)
         {
@@ -326,8 +399,40 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             for (int c = 0; c < cols; ++c)
                 mvaddch(y, c, ' ');
 
+            // File tree pane
+            if (fileTreeVisible)
+            {
+                int treeRow = fileTreeScroll + r;
+                if (treeRow < treeNodes.size())
+                {
+                    const TuiFileNode& node = treeNodes[treeRow];
+                    bool isSelected = (treeRow == fileTree.cursorIndex());
+                    if (isSelected)
+                        attron(A_REVERSE);
+                    if (fileTreeFocused && isSelected)
+                        attron(A_BOLD);
+                    QString indent = QString(node.depth * 2, QLatin1Char(' '));
+                    QString prefix = node.isDir ? (node.expanded ? QStringLiteral("- ") : QStringLiteral("+ ")) : QStringLiteral("  ");
+                    QString label = indent + prefix + node.name + (node.isDir ? QStringLiteral("/") : QString());
+                    mvaddnstr(y, 0, label.toUtf8().constData(), qMin(label.toUtf8().size(), treeWidth));
+                    if (isSelected)
+                        attroff(A_REVERSE);
+                    if (fileTreeFocused && isSelected)
+                        attroff(A_BOLD);
+                }
+                mvaddch(y, treeWidth, ACS_VLINE);
+            }
+
             if (lineIdx >= cur->lineCount())
+            {
+                if (lineIdx == cur->cursorLine() && !fileTreeFocused)
+                {
+                    int curX = editorXOffset + 7 + (cur->cursorCol());
+                    if (curX >= editorXOffset && curX < cols)
+                        move(y, curX);
+                }
                 continue;
+            }
 
             QString line = cur->lines().at(lineIdx);
             bool isBm = cur->hasBookmark(lineIdx);
@@ -341,11 +446,11 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             QString lnStr = QStringLiteral("%1 ").arg(lineIdx + 1, 4);
             if (hasColors)
                 attron(COLOR_PAIR(2));
-            mvaddnstr(y, 0, lnStr.toUtf8().constData(), qMin(lnStr.toUtf8().size(), cols));
+            mvaddnstr(y, editorXOffset, lnStr.toUtf8().constData(), qMin(lnStr.toUtf8().size(), cols - editorXOffset));
             if (hasColors)
                 attroff(COLOR_PAIR(2));
 
-            int gutterX = 5;
+            int gutterX = editorXOffset + 5;
             if (hasColors && isBm)
                 attron(COLOR_PAIR(3));
             mvaddnstr(y, gutterX, gutter.toUtf8().constData(), gutter.size());
@@ -484,6 +589,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             msg = QStringLiteral("Find: ") + findInput;
         else if (replaceMode)
             msg = (replacePhase == 0 ? QStringLiteral("Find: ") + replaceFindInput : QStringLiteral("Replace: ") + replaceInput);
+        else if (fileTreeFilterMode)
+            msg = QStringLiteral("Filter: ") + fileTreeFilterInput;
         else if (saveAsMode)
             msg = QStringLiteral("Save As: ") + saveAsInput;
         else if (gotoMode)
@@ -492,6 +599,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             msg = QStringLiteral(":") + commandInput;
         else
             msg = statusMsg;
+        if (fileTreeVisible && !findMode && !replaceMode && !fileTreeFilterMode && !saveAsMode && !gotoMode && !commandMode)
+            msg = QStringLiteral("[Tree %1] ").arg(fileTreeFocused ? QStringLiteral("FOCUS") : QStringLiteral(" ")) + msg;
         mvaddnstr(msgY, 0, msg.toUtf8().constData(), qMin(msg.toUtf8().size(), cols));
         // Position cursor at end of input when in input modes
         if (findMode)
@@ -503,6 +612,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             else
                 move(msgY, 9 + replaceInput.size());
         }
+        else if (fileTreeFilterMode)
+            move(msgY, 8 + fileTreeFilterInput.size());
         else if (saveAsMode)
             move(msgY, 9 + saveAsInput.size());
         else if (gotoMode)
@@ -842,6 +953,88 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                         }
                     }
                 }
+                else if (cmd.startsWith(QStringLiteral("cd ")) || cmd == QStringLiteral("cd"))
+                {
+                    QString arg = cmd == QStringLiteral("cd") ? QDir::currentPath() : cmd.mid(3).trimmed();
+                    if (arg.isEmpty())
+                        arg = QDir::currentPath();
+                    if (!QFileInfo(arg).isAbsolute())
+                        arg = QDir::current().absoluteFilePath(arg);
+                    QFileInfo fi(arg);
+                    if (fi.isDir() && fi.exists())
+                    {
+                        fileTree.setRootPath(arg);
+                        fileTreeVisible = true;
+                        fileTreeFocused = true;
+                        fileMtimes.clear();
+                        // Refresh mtimes for existing tabs? Keep
+                        statusMsg = QStringLiteral("Project: %1").arg(arg);
+                    }
+                    else
+                    {
+                        statusMsg = QStringLiteral("No such directory: %1").arg(arg);
+                    }
+                }
+                else if (cmd.startsWith(QStringLiteral("set encoding")))
+                {
+                    QString arg = cmd.mid(QStringLiteral("set encoding").size()).trimmed();
+                    if (arg.isEmpty())
+                    {
+                        QStringList encs;
+                        for (const auto& ei : supportedEncodings())
+                            encs << ei.displayName;
+                        statusMsg = QStringLiteral("Encoding: %1 | Available: %2").arg(cur->encoding(), encs.join(QStringLiteral(", ")));
+                    }
+                    else
+                    {
+                        // Validate encoding name
+                        bool valid = false;
+                        for (const auto& ei : supportedEncodings())
+                        {
+                            if (ei.displayName.compare(arg, Qt::CaseInsensitive) == 0)
+                            {
+                                valid = true;
+                                arg = ei.displayName;
+                                break;
+                            }
+                        }
+                        if (!valid)
+                        {
+                            statusMsg = QStringLiteral("Unknown encoding: %1").arg(arg);
+                        }
+                        else
+                        {
+                            cur->setEncoding(arg);
+                            statusMsg = QStringLiteral("Encoding set to %1 (save to apply)").arg(arg);
+                        }
+                    }
+                }
+                else if (cmd.startsWith(QStringLiteral("reopen")))
+                {
+                    QString arg = cmd.mid(QStringLiteral("reopen").size()).trimmed();
+                    // Syntax: reopen  or  reopen <encoding>  or  reopen ++enc=<encoding>
+                    if (arg.startsWith(QStringLiteral("++enc=")))
+                        arg = arg.mid(6).trimmed();
+                    if (arg.isEmpty())
+                        arg = cur->encoding();
+                    FileLoadResult res = FileService::load(cur->filePath().isEmpty() ? QString() : cur->filePath(), arg);
+                    if (cur->filePath().isEmpty())
+                    {
+                        statusMsg = QStringLiteral("No file name");
+                    }
+                    else if (res.ok)
+                    {
+                        cur->setText(res.text);
+                        cur->setEncoding(res.encoding);
+                        cur->setModified(false);
+                        fileMtimes[cur->filePath()] = QFileInfo(cur->filePath()).lastModified();
+                        statusMsg = QStringLiteral("Reopened with %1").arg(res.encoding);
+                    }
+                    else
+                    {
+                        statusMsg = QStringLiteral("Reopen failed: %1").arg(res.error);
+                    }
+                }
                 else if (cmd.startsWith(QStringLiteral("s/")) || cmd.startsWith(QStringLiteral("%s/")))
                 {
                     bool global = cmd.startsWith(QStringLiteral("%"));
@@ -906,6 +1099,140 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             continue;
         }
 
+        if (fileTreeFilterMode)
+        {
+            if (ch == 27)
+            {
+                fileTreeFilterMode = false;
+                fileTreeFilterInput.clear();
+                fileTree.setFilter(QString());
+                statusMsg = QStringLiteral("Filter cleared");
+            }
+            else if (ch == '\n' || ch == KEY_ENTER || ch == 10 || ch == 13)
+            {
+                fileTree.setFilter(fileTreeFilterInput);
+                fileTreeFilterMode = false;
+                statusMsg = fileTreeFilterInput.isEmpty() ? QStringLiteral("Filter cleared") : QStringLiteral("Filter: %1").arg(fileTreeFilterInput);
+            }
+            else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
+            {
+                if (!fileTreeFilterInput.isEmpty())
+                    fileTreeFilterInput.chop(1);
+                else
+                    fileTreeFilterMode = false;
+                fileTree.setFilter(fileTreeFilterInput);
+            }
+            else if (ch >= 32 && ch < 127)
+            {
+                fileTreeFilterInput.append(QChar(ch));
+                fileTree.setFilter(fileTreeFilterInput);
+            }
+            continue;
+        }
+
+        // File tree focused navigation
+        if (fileTreeVisible && fileTreeFocused)
+        {
+            if (ch == 27) // Esc back to editor
+            {
+                fileTreeFocused = false;
+                statusMsg = QStringLiteral("Editor focus");
+                continue;
+            }
+            else if (ch == 5) // Ctrl+E toggle tree
+            {
+                fileTreeVisible = false;
+                fileTreeFocused = false;
+                statusMsg = QStringLiteral("File tree hidden");
+                continue;
+            }
+            else if (ch == KEY_UP)
+            {
+                fileTree.moveCursor(-1);
+                continue;
+            }
+            else if (ch == KEY_DOWN)
+            {
+                fileTree.moveCursor(1);
+                continue;
+            }
+            else if (ch == KEY_LEFT)
+            {
+                const TuiFileNode* n = fileTree.currentNode();
+                if (n && n->isDir && n->expanded)
+                    fileTree.setExpanded(n->absolutePath, false);
+                else if (n)
+                {
+                    // Move to parent
+                    QFileInfo fi(n->absolutePath);
+                    QString parent = fi.absolutePath();
+                    auto nodes = fileTree.visibleNodes();
+                    for (int i = fileTree.cursorIndex() - 1; i >= 0; --i)
+                    {
+                        const TuiFileNode* cand = fileTree.nodeAt(i);
+                        if (cand && cand->absolutePath == parent)
+                        {
+                            fileTree.setCursor(i);
+                            break;
+                        }
+                    }
+                }
+                continue;
+            }
+            else if (ch == KEY_RIGHT)
+            {
+                const TuiFileNode* n = fileTree.currentNode();
+                if (n && n->isDir && !n->expanded)
+                    fileTree.setExpanded(n->absolutePath, true);
+                continue;
+            }
+            else if (ch == '\n' || ch == KEY_ENTER || ch == 10 || ch == 13)
+            {
+                const TuiFileNode* n = fileTree.currentNode();
+                if (!n)
+                    continue;
+                if (n->isDir)
+                {
+                    fileTree.toggleExpanded(n->absolutePath);
+                }
+                else
+                {
+                    FileLoadResult res = FileService::load(n->absolutePath);
+                    if (res.ok)
+                    {
+                        TuiBuffer buf(n->absolutePath, res.text, res.encoding);
+                        tabs.addBuffer(buf);
+                        fileMtimes[n->absolutePath] = QFileInfo(n->absolutePath).lastModified();
+                        statusMsg = QStringLiteral("Opened %1").arg(n->absolutePath);
+                    }
+                    else
+                    {
+                        statusMsg = QStringLiteral("Cannot open %1").arg(n->absolutePath);
+                    }
+                    fileTreeFocused = false;
+                }
+                continue;
+            }
+            else if (ch == '/' || ch == 47)
+            {
+                fileTreeFilterMode = true;
+                fileTreeFilterInput = fileTree.filter();
+                continue;
+            }
+            else if (ch == KEY_NPAGE)
+            {
+                fileTree.moveCursor(10);
+                continue;
+            }
+            else if (ch == KEY_PPAGE)
+            {
+                fileTree.moveCursor(-10);
+                continue;
+            }
+            // Other keys when tree focused: ignore and stay
+            continue;
+        }
+
         // Global shortcuts
         if (ch == 17) // Ctrl+Q
         {
@@ -932,6 +1259,33 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         else if (ch == 19) // Ctrl+S save
         {
             saveCurrent(cur);
+        }
+        else if (ch == 5) // Ctrl+E file tree
+        {
+            if (!fileTreeVisible)
+            {
+                if (!fileTree.hasRoot())
+                    fileTree.setRootPath(QDir::currentPath());
+                fileTreeVisible = true;
+                fileTreeFocused = true;
+                statusMsg = QStringLiteral("File tree — arrows nav, Enter open/toggle, / filter, Esc editor");
+            }
+            else if (fileTreeFocused)
+            {
+                fileTreeFocused = false;
+                statusMsg = QStringLiteral("Editor focus");
+            }
+            else
+            {
+                fileTreeFocused = true;
+                statusMsg = QStringLiteral("File tree focus");
+            }
+        }
+        else if (ch == 11) // Ctrl+K encoding picker
+        {
+            commandMode = true;
+            commandInput = QStringLiteral("set encoding ");
+            statusMsg = QStringLiteral("Enter encoding (e.g., UTF-8, UTF-16LE, ISO-8859-1)");
         }
         else if (ch == 15) // Ctrl+O save as
         {
@@ -1190,8 +1544,28 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         else if (ch == KEY_F(1))
         {
-            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  Ctrl+H replace  :s/old/new/g :%%s/old/new/g  :w/:wa/:q/:e  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V  Shift+Arrows  Ctrl+F find  F2 bm  F3 next");
+            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  Ctrl+H replace  :s/old/new/g :%%s/old/new/g  :w/:wa/:q/:e/:cd/:set encoding/:reopen  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V  Shift+Arrows  Ctrl+F find  F2 bm  F3 next  Ctrl+E tree  Ctrl+K enc  / filter");
         }
+    }
+
+    // Session save (headless)
+    if (!parser.isSet(QStringLiteral("no-session")))
+    {
+        SessionManager sm;
+        QStringList files = tabs.allFilePaths();
+        int active = tabs.currentIndex();
+        QString proj = fileTree.hasRoot() ? fileTree.rootPath() : QString();
+        sm.saveSessionData(files, active, proj, QDir::currentPath());
+        QHash<QString, QList<int>> bms;
+        for (int i = 0; i < tabs.count(); ++i)
+        {
+            const TuiBuffer* b = tabs.bufferAt(i);
+            if (b && !b->filePath().isEmpty() && !b->bookmarks().isEmpty())
+                bms.insert(b->filePath(), b->bookmarks());
+        }
+        sm.saveSessionBookmarks(bms);
+        QStringList pinned = tabs.pinnedFiles().values();
+        sm.saveSessionPinnedFiles(pinned);
     }
 
     endwin();
