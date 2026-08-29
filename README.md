@@ -158,7 +158,26 @@ Dock icon.
 ./build/Devpad file.txt            # open a file
 ./build/Devpad file1.cpp file2.py  # open multiple files
 ./build/Devpad /path/to/project    # open a folder in project panel
+./build/Devpad --tui file.txt      # terminal UI (requires -DBUILD_TUI=ON)
+./build/Devpad -t                  # short alias for --tui
+DEVPAD_TUI=1 ./build/Devpad file.txt  # env-var trigger
 ```
+
+### TUI mode
+
+Build with ncurses support:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TUI=ON
+cmake --build build -j$(nproc)
+./build/Devpad --tui               # opens TUI with empty buffer
+./build/Devpad --tui file.txt      # edit in terminal
+```
+
+In a non-TTY (CI / pipes) `Devpad --tui` cats the requested files to stdout instead of opening ncurses.
+Without `-DBUILD_TUI=ON`, `--tui` prints a hint and exits with code 1.
+
+TUI keys: `Ctrl+Q` quit, `Ctrl+S` save, `Ctrl+W` close tab, `Ctrl+N` new buffer, `Ctrl+F` find, `F2` toggle bookmark, `F3` find next, `F1` help, `Tab` switch tab, arrows / `Home`/`End` / `PageUp`/`Down` navigate.
 
 ## Configuration
 

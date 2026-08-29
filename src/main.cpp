@@ -23,6 +23,7 @@
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <array>
@@ -105,6 +106,64 @@ int main(int argc, char* argv[])
     sigaction(SIGFPE, &sa, nullptr);
 #endif
 
+    // Early parser for --tui to decide application type.
+    // We must know before constructing QApplication (which needs a display server).
+    bool tuiRequested = false;
+    for (int i = 1; i < argc; ++i)
+    {
+        QString a = QString::fromLocal8Bit(argv[i]);
+        if (a == QStringLiteral("--tui") || a == QStringLiteral("--no-gui") || a == QStringLiteral("-t"))
+        {
+            tuiRequested = true;
+            break;
+        }
+        if (qEnvironmentVariableIsSet("DEVPAD_TUI"))
+        {
+            tuiRequested = true;
+            break;
+        }
+    }
+
+    if (tuiRequested)
+    {
+        QCoreApplication app(argc, argv);
+        app.setOrganizationName("Semagsoft");
+        app.setOrganizationDomain("semagsoft.com");
+        app.setApplicationName("Devpad");
+        app.setApplicationVersion(DEVPAD_VERSION);
+
+        QCommandLineParser parser;
+        parser.setApplicationDescription(QStringLiteral("Devpad - Terminal UI mode"));
+        parser.addHelpOption();
+        parser.addVersionOption();
+        QCommandLineOption tuiOpt(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
+        parser.addOption(tuiOpt);
+        parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
+        // Also accept --transfer for compatibility but ignore in TUI
+        QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"), QStringLiteral("file"));
+        parser.addOption(transferOpt);
+        parser.process(app);
+
+#ifdef BUILD_TUI
+        // Defer to TUI backend
+        extern int runTuiApp(QCoreApplication * app, const QCommandLineParser & parser, const QStringList & positional);
+        QStringList positional = parser.positionalArguments();
+        // Filter out --transfer value if present via positional handling already done by parser
+        if (parser.isSet(transferOpt))
+        {
+            QString v = parser.value(transferOpt);
+            if (!v.isEmpty())
+                positional.prepend(v);
+        }
+        return runTuiApp(&app, parser, positional);
+#else
+        QTextStream err(stderr);
+        err << "TUI mode requested but this build was configured without -DBUILD_TUI=ON\n";
+        err << "Reconfigure with: cmake -S . -B build -DBUILD_TUI=ON\n";
+        return 1;
+#endif
+    }
+
     QApplication app(argc, argv);
     app.setOrganizationName("Semagsoft");
     app.setOrganizationDomain("semagsoft.com");
@@ -117,6 +176,8 @@ int main(int argc, char* argv[])
     parser.addVersionOption();
     QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"), QStringLiteral("file"));
     parser.addOption(transferOpt);
+    QCommandLineOption tuiOpt(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
+    parser.addOption(tuiOpt);
     parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
     parser.process(app);
 
@@ -161,3 +222,16 @@ int main(int argc, char* argv[])
     mainWindow.show();
     return app.exec();
 }
+
+// TUI trampoline: defined in src/tui/tuiapp.cpp when BUILD_TUI=1, stub otherwise
+#ifndef BUILD_TUI
+int runTuiApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional)
+{
+    Q_UNUSED(app);
+    Q_UNUSED(parser);
+    Q_UNUSED(positional);
+    QTextStream err(stderr);
+    err << "TUI not built\n";
+    return 1;
+}
+#endif

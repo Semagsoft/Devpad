@@ -3,6 +3,7 @@ project(Devpad VERSION 1.04 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
+option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -157,15 +158,33 @@ configure_file(
     @ONLY
 )
 
+# ── Core static library (headless, no Widgets) ──────────────
+add_library(Devpad_core STATIC
+    src/logger.cpp
+    src/encodingutils.cpp
+    src/gitignore.cpp
+    src/core/fileservice.cpp
+    src/tui/tuibuffer.cpp
+    src/tui/tuitabmodel.cpp
+    src/tui/tuisearchengine.cpp
+)
+target_compile_options(Devpad_core PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_core PUBLIC
+    Qt6::Core
+    Qt6::Network
+)
+target_include_directories(Devpad_core PUBLIC
+    src
+    src/managers
+    ${CMAKE_BINARY_DIR}/generated
+)
+
 # ── Shared static library (avoids double compilation) ─────────
 add_library(Devpad_lib STATIC
     src/codeeditor.cpp
     src/keywords.cpp
     src/languageinfo.cpp
     src/theme.cpp
-    src/logger.cpp
-    src/encodingutils.cpp
-    src/gitignore.cpp
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp
@@ -218,12 +237,11 @@ add_library(Devpad_lib STATIC
 target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad_lib PUBLIC
-    Qt6::Core
+    Devpad_core
     Qt6::Gui
     Qt6::Widgets
     Qt6::PrintSupport
     Qt6::Multimedia
-    Qt6::Network
     Qt6::Svg
     ${TERMINAL_TARGET}
 )
@@ -236,6 +254,12 @@ target_include_directories(Devpad_lib PUBLIC
 )
 target_link_qscintilla(Devpad_lib)
 
+# ── TUI mode ──────────────────────────────────────────────────
+if(BUILD_TUI)
+    find_package(Curses REQUIRED)
+    message(STATUS "Building with TUI support (ncurses ${CURSES_VERSION})")
+endif()
+
 # ── Main executable ───────────────────────────────────────────
 add_executable(Devpad WIN32)
 
@@ -243,18 +267,26 @@ target_sources(Devpad PRIVATE
     src/main.cpp
     resources/resources.qrc
     $<$<PLATFORM_ID:Windows>:resources/appicon.rc>
+    $<$<BOOL:${BUILD_TUI}>:src/tui/tuiapp.cpp>
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad PRIVATE
     Devpad_lib
+    Devpad_core
 )
 target_link_qscintilla(Devpad)
 
 target_include_directories(Devpad PRIVATE
     src
 )
+
+if(BUILD_TUI)
+    target_compile_definitions(Devpad PRIVATE BUILD_TUI=1)
+    target_include_directories(Devpad PRIVATE ${CURSES_INCLUDE_DIRS})
+    target_link_libraries(Devpad PRIVATE ${CURSES_LIBRARIES})
+endif()
 
 # ── Install rules ─────────────────────────────────────────────
 install(TARGETS Devpad RUNTIME DESTINATION bin)
@@ -379,6 +411,10 @@ if(BUILD_TESTS)
         tests/test_updatechecker.cpp
         tests/test_projectpanel.cpp
         tests/test_lspclient.cpp
+        tests/test_fileservice.cpp
+        tests/test_tuibuffer.cpp
+        tests/test_tuitabmodel.cpp
+        tests/test_tuisearchengine.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)
