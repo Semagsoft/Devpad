@@ -8,8 +8,10 @@
 #include "core/fileservice.h"
 #include "encodingutils.h"
 #include "managers/sessionmanager.h"
+#include "managers/settingsmanager.h"
 #include "tui/tuibuffer.h"
 #include "tui/tuifiletree.h"
+#include "tui/tuifindinfiles.h"
 #include "tui/tuisearchengine.h"
 #include "tui/tuitabmodel.h"
 
@@ -191,6 +193,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     }
 
     int scrollTop = 0;
+    int wrapScrollTop = 0;
+    bool wordWrap = SettingsManager::instance().wordWrap();
     QString statusMsg = QStringLiteral("Ctrl+Q quit  Ctrl+S save  Ctrl+E tree  Ctrl+F find  F1 help");
     QString findQuery;
     SearchOptions findOpts;
@@ -345,11 +349,14 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         if (editorH < 1)
             editorH = 1;
 
-        // Keep cursor in view
-        if (cur->cursorLine() < scrollTop)
-            scrollTop = cur->cursorLine();
-        if (cur->cursorLine() >= scrollTop + editorH)
-            scrollTop = cur->cursorLine() - editorH + 1;
+        // Keep cursor in view (non-wrap)
+        if (!wordWrap)
+        {
+            if (cur->cursorLine() < scrollTop)
+                scrollTop = cur->cursorLine();
+            if (cur->cursorLine() >= scrollTop + editorH)
+                scrollTop = cur->cursorLine() - editorH + 1;
+        }
 
         // Draw tab bar
         attron(A_REVERSE);
@@ -379,6 +386,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
 
         const int treeWidth = 30;
         const int editorXOffset = fileTreeVisible ? treeWidth + 1 : 0;
+        const int textXGlobal = editorXOffset + 7;
+        const int availGlobal = (textXGlobal < cols) ? cols - textXGlobal : 0;
         QList<TuiFileNode> treeNodes;
         if (fileTreeVisible)
         {
@@ -389,6 +398,59 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 fileTreeScroll = fileTree.cursorIndex() - editorH + 1;
             if (fileTreeScroll < 0)
                 fileTreeScroll = 0;
+        }
+        struct WrapInfo
+        {
+            int line;
+            int startCol;
+            int len;
+        };
+        QList<WrapInfo> wrapInfos;
+        int cursorVisualRow = -1;
+        if (wordWrap && availGlobal > 0)
+        {
+            for (int i = 0; i < cur->lineCount(); ++i)
+            {
+                QString line = cur->lines().at(i);
+                if (line.isEmpty())
+                {
+                    wrapInfos.append({i, 0, 0});
+                    if (i == cur->cursorLine() && cur->cursorCol() == 0)
+                        cursorVisualRow = wrapInfos.size() - 1;
+                }
+                else
+                {
+                    for (int off = 0; off < line.size(); off += availGlobal)
+                    {
+                        int len = qMin(availGlobal, line.size() - off);
+                        wrapInfos.append({i, off, len});
+                        if (i == cur->cursorLine() && cur->cursorCol() >= off && cur->cursorCol() < off + len)
+                            cursorVisualRow = wrapInfos.size() - 1;
+                    }
+                    if (i == cur->cursorLine() && cur->cursorCol() == line.size())
+                    {
+                        // cursor at end of line -> last segment
+                        for (int v = wrapInfos.size() - 1; v >= 0; --v)
+                        {
+                            if (wrapInfos[v].line == i)
+                            {
+                                cursorVisualRow = v;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if (cursorVisualRow == -1 && !wrapInfos.isEmpty())
+                cursorVisualRow = 0;
+            if (cursorVisualRow < wrapScrollTop)
+                wrapScrollTop = cursorVisualRow;
+            if (cursorVisualRow >= wrapScrollTop + editorH)
+                wrapScrollTop = cursorVisualRow - editorH + 1;
+            if (wrapScrollTop < 0)
+                wrapScrollTop = 0;
+            if (wrapScrollTop >= wrapInfos.size())
+                wrapScrollTop = qMax(0, wrapInfos.size() - editorH);
         }
 
         // Draw editor
@@ -421,6 +483,96 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                         attroff(A_BOLD);
                 }
                 mvaddch(y, treeWidth, ACS_VLINE);
+            }
+
+            if (wordWrap && availGlobal > 0)
+            {
+                int vIdx = wrapScrollTop + r;
+                if (vIdx < 0 || vIdx >= wrapInfos.size())
+                    continue;
+                WrapInfo wi = wrapInfos[vIdx];
+                int wLineIdx = wi.line;
+                QString wLine = cur->lines().at(wLineIdx);
+                bool isFirstSeg = (wi.startCol == 0);
+                bool isBm = isFirstSeg && cur->hasBookmark(wLineIdx);
+                QString gutter = (hasColors && isBm) ? QString::fromUtf8("\xE2\x98\x85 ") : QStringLiteral("  ");
+                QString lnStr = isFirstSeg ? QStringLiteral("%1 ").arg(wLineIdx + 1, 4) : QStringLiteral("     ");
+                if (hasColors && isFirstSeg)
+                    attron(COLOR_PAIR(2));
+                mvaddnstr(y, editorXOffset, lnStr.toUtf8().constData(), qMin(lnStr.toUtf8().size(), cols - editorXOffset));
+                if (hasColors && isFirstSeg)
+                    attroff(COLOR_PAIR(2));
+                int gutterX = editorXOffset + 5;
+                if (hasColors && isBm)
+                    attron(COLOR_PAIR(3));
+                mvaddnstr(y, gutterX, gutter.toUtf8().constData(), gutter.size());
+                if (hasColors && isBm)
+                    attroff(COLOR_PAIR(3));
+                int textX = editorXOffset + 7;
+                QString visible = wLine.mid(wi.startCol, wi.len);
+                int selStart = -1, selEnd = -1;
+                if (cur->hasSelection())
+                {
+                    int aLine = cur->selectionAnchorLine();
+                    int aCol = cur->selectionAnchorCol();
+                    int cLine = cur->cursorLine();
+                    int cCol = cur->cursorCol();
+                    if (aLine > cLine || (aLine == cLine && aCol > cCol)) { std::swap(aLine,cLine); std::swap(aCol,cCol); }
+                    if (wLineIdx >= aLine && wLineIdx <= cLine)
+                    {
+                        if (aLine == cLine) { selStart = aCol - wi.startCol; selEnd = cCol - wi.startCol; }
+                        else if (wLineIdx == aLine) { selStart = aCol - wi.startCol; selEnd = wi.len; if (selStart < 0) selStart = 0; }
+                        else if (wLineIdx == cLine) { selStart = 0; selEnd = cCol - wi.startCol; }
+                        else { selStart = 0; selEnd = wi.len; }
+                        selStart = qBound(0, selStart, wi.len);
+                        selEnd = qBound(0, selEnd, wi.len);
+                        if (selStart == selEnd) selStart = -1;
+                    }
+                }
+                bool searchInSeg = false;
+                int searchStart = -1, searchLen = 0;
+                if (lastSearch.found && lastSearch.line == wLineIdx)
+                {
+                    int s = lastSearch.column;
+                    int e = s + lastSearch.length;
+                    int segS = wi.startCol;
+                    int segE = wi.startCol + wi.len;
+                    if (!(e <= segS || s >= segE))
+                    {
+                        searchInSeg = true;
+                        searchStart = qMax(0, s - segS);
+                        searchLen = qMin(e, segE) - qMax(s, segS);
+                    }
+                }
+                if (selStart != -1)
+                {
+                    mvaddnstr(y, textX, visible.left(selStart).toUtf8().constData(), selStart);
+                    attron(A_REVERSE);
+                    mvaddnstr(y, textX + selStart, visible.mid(selStart, selEnd - selStart).toUtf8().constData(), selEnd - selStart);
+                    attroff(A_REVERSE);
+                    if (selEnd < visible.size())
+                        mvaddnstr(y, textX + selEnd, visible.mid(selEnd).toUtf8().constData(), visible.size() - selEnd);
+                }
+                else if (searchInSeg)
+                {
+                    mvaddnstr(y, textX, visible.left(searchStart).toUtf8().constData(), searchStart);
+                    attron(A_REVERSE);
+                    mvaddnstr(y, textX + searchStart, visible.mid(searchStart, searchLen).toUtf8().constData(), searchLen);
+                    attroff(A_REVERSE);
+                    if (searchStart + searchLen < visible.size())
+                        mvaddnstr(y, textX + searchStart + searchLen, visible.mid(searchStart + searchLen).toUtf8().constData(), visible.size() - searchStart - searchLen);
+                }
+                else
+                {
+                    mvaddnstr(y, textX, visible.toUtf8().constData(), visible.toUtf8().size());
+                }
+                if (vIdx == cursorVisualRow && !fileTreeFocused)
+                {
+                    int curX = textX + (cur->cursorCol() - wi.startCol);
+                    if (curX >= textX && curX < cols)
+                        move(y, curX);
+                }
+                continue;
             }
 
             if (lineIdx >= cur->lineCount())
@@ -1035,6 +1187,131 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                         statusMsg = QStringLiteral("Reopen failed: %1").arg(res.error);
                     }
                 }
+                else if (cmd.startsWith(QStringLiteral("set wrap")))
+                {
+                    QString arg = cmd.mid(QStringLiteral("set wrap").size()).trimmed().toLower();
+                    if (arg.isEmpty())
+                    {
+                        statusMsg = QStringLiteral("Wrap is %1").arg(wordWrap ? QStringLiteral("on") : QStringLiteral("off"));
+                    }
+                    else if (arg == QStringLiteral("on") || arg == QStringLiteral("1") || arg == QStringLiteral("true"))
+                    {
+                        wordWrap = true;
+                        SettingsManager::instance().setWordWrap(true);
+                        statusMsg = QStringLiteral("Wrap on");
+                    }
+                    else if (arg == QStringLiteral("off") || arg == QStringLiteral("0") || arg == QStringLiteral("false"))
+                    {
+                        wordWrap = false;
+                        SettingsManager::instance().setWordWrap(false);
+                        wrapScrollTop = 0;
+                        statusMsg = QStringLiteral("Wrap off");
+                    }
+                    else
+                    {
+                        statusMsg = QStringLiteral("Usage: :set wrap [on|off]");
+                    }
+                }
+                else if (cmd == QStringLiteral("bn") || cmd == QStringLiteral("bnext"))
+                {
+                    int nLine;
+                    if (cur->nextBookmark(cur->cursorLine(), &nLine))
+                    {
+                        cur->setCursor(nLine, 0);
+                        statusMsg = QStringLiteral("Next bookmark %1").arg(nLine + 1);
+                    }
+                    else
+                        statusMsg = QStringLiteral("No bookmarks");
+                }
+                else if (cmd == QStringLiteral("bp") || cmd == QStringLiteral("bprev"))
+                {
+                    int pLine;
+                    if (cur->prevBookmark(cur->cursorLine(), &pLine))
+                    {
+                        cur->setCursor(pLine, 0);
+                        statusMsg = QStringLiteral("Prev bookmark %1").arg(pLine + 1);
+                    }
+                    else
+                        statusMsg = QStringLiteral("No bookmarks");
+                }
+                else if (cmd == QStringLiteral("bc") || cmd == QStringLiteral("bclear"))
+                {
+                    cur->clearBookmarks();
+                    statusMsg = QStringLiteral("Bookmarks cleared");
+                }
+                else if (cmd.startsWith(QStringLiteral("set searchcase")) || cmd.startsWith(QStringLiteral("set searchwhole")) || cmd.startsWith(QStringLiteral("set searchregex")))
+                {
+                    // Handled below as find options
+                    if (cmd.startsWith(QStringLiteral("set searchcase")))
+                    {
+                        QString arg = cmd.mid(QStringLiteral("set searchcase").size()).trimmed().toLower();
+                        if (arg == QStringLiteral("on") || arg == QStringLiteral("1")) findOpts.caseSensitive = true;
+                        else if (arg == QStringLiteral("off") || arg == QStringLiteral("0")) findOpts.caseSensitive = false;
+                        statusMsg = QStringLiteral("Search caseSensitive %1").arg(findOpts.caseSensitive ? QStringLiteral("on") : QStringLiteral("off"));
+                    }
+                    else if (cmd.startsWith(QStringLiteral("set searchwhole")))
+                    {
+                        QString arg = cmd.mid(QStringLiteral("set searchwhole").size()).trimmed().toLower();
+                        if (arg == QStringLiteral("on") || arg == QStringLiteral("1")) findOpts.wholeWords = true;
+                        else if (arg == QStringLiteral("off") || arg == QStringLiteral("0")) findOpts.wholeWords = false;
+                        statusMsg = QStringLiteral("Search wholeWords %1").arg(findOpts.wholeWords ? QStringLiteral("on") : QStringLiteral("off"));
+                    }
+                    else if (cmd.startsWith(QStringLiteral("set searchregex")))
+                    {
+                        QString arg = cmd.mid(QStringLiteral("set searchregex").size()).trimmed().toLower();
+                        if (arg == QStringLiteral("on") || arg == QStringLiteral("1")) findOpts.regex = true;
+                        else if (arg == QStringLiteral("off") || arg == QStringLiteral("0")) findOpts.regex = false;
+                        statusMsg = QStringLiteral("Search regex %1").arg(findOpts.regex ? QStringLiteral("on") : QStringLiteral("off"));
+                    }
+                }
+                else if (cmd.startsWith(QStringLiteral("grep")) || cmd.startsWith(QStringLiteral("findinfiles")))
+                {
+                    QString raw = cmd;
+                    QString pattern;
+                    QString dir;
+                    QString glob;
+                    if (raw.startsWith(QStringLiteral("grep")))
+                        raw = raw.mid(4).trimmed();
+                    else
+                        raw = raw.mid(11).trimmed();
+                    // raw may be "pattern [dir] [glob]" - split
+                    // Use simple split: first token pattern, rest dir/glob
+                    // Allow quoted pattern? Keep simple
+                    QStringList tokens = raw.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+                    if (!tokens.isEmpty())
+                        pattern = tokens[0];
+                    if (tokens.size() >= 2)
+                        dir = tokens[1];
+                    if (tokens.size() >= 3)
+                        glob = tokens[2];
+                    if (pattern.isEmpty())
+                    {
+                        statusMsg = QStringLiteral("Usage: :grep <pattern> [dir] [glob]");
+                    }
+                    else
+                    {
+                        QString root = dir.isEmpty() ? (fileTree.hasRoot() ? fileTree.rootPath() : QDir::currentPath()) : dir;
+                        if (!QFileInfo(root).isAbsolute())
+                            root = QDir::current().absoluteFilePath(root);
+                        QList<FindInFilesResult> results = TuiFindInFiles::search(root, pattern, findOpts, glob);
+                        if (results.isEmpty())
+                        {
+                            statusMsg = QStringLiteral("No matches for %1").arg(pattern);
+                        }
+                        else
+                        {
+                            QStringList lines;
+                            lines << QStringLiteral("Grep: %1 in %2 (%3 matches)").arg(pattern, root).arg(results.size());
+                            lines << QStringLiteral("---");
+                            for (const auto& r : results)
+                                lines << QStringLiteral("%1:%2:%3: %4").arg(r.filePath).arg(r.line + 1).arg(r.column + 1).arg(r.lineText);
+                            TuiBuffer resBuf(QStringLiteral("*grep*"), lines.join(QStringLiteral("\n")));
+                            resBuf.setReadOnly(true);
+                            tabs.addBuffer(resBuf);
+                            statusMsg = QStringLiteral("Found %1 matches — Enter on line to jump").arg(results.size());
+                        }
+                    }
+                }
                 else if (cmd.startsWith(QStringLiteral("s/")) || cmd.startsWith(QStringLiteral("%s/")))
                 {
                     bool global = cmd.startsWith(QStringLiteral("%"));
@@ -1400,6 +1677,33 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             cur->toggleBookmark(cur->cursorLine());
             statusMsg = cur->hasBookmark(cur->cursorLine()) ? QStringLiteral("Bookmark set") : QStringLiteral("Bookmark cleared");
         }
+        else if (ch == KEY_F(14)) // Shift+F2 next
+        {
+            int nLine;
+            if (cur->nextBookmark(cur->cursorLine(), &nLine))
+            {
+                cur->setCursor(nLine, 0);
+                statusMsg = QStringLiteral("Next bookmark %1").arg(nLine + 1);
+            }
+            else
+                statusMsg = QStringLiteral("No bookmarks");
+        }
+        else if (ch == KEY_F(26)) // Ctrl+F2 prev (also Shift+F2 fallback)
+        {
+            int pLine;
+            if (cur->prevBookmark(cur->cursorLine(), &pLine))
+            {
+                cur->setCursor(pLine, 0);
+                statusMsg = QStringLiteral("Prev bookmark %1").arg(pLine + 1);
+            }
+            else
+                statusMsg = QStringLiteral("No bookmarks");
+        }
+        else if (ch == KEY_F(38)) // Ctrl+Shift+F2 clear
+        {
+            cur->clearBookmarks();
+            statusMsg = QStringLiteral("Bookmarks cleared");
+        }
         else if (ch == KEY_NPAGE) // PageDown
         {
             if (cur->hasSelection())
@@ -1522,6 +1826,49 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 cur->clearSelection();
             cur->setCursor(cur->cursorLine(), cur->lines().at(cur->cursorLine()).size());
         }
+        else if (cur->filePath() == QStringLiteral("*grep*") && (ch == KEY_ENTER || ch == 10 || ch == 13))
+        {
+            QString line = cur->lines().at(cur->cursorLine());
+            QRegularExpression re(QStringLiteral("^(.*?):(\\d+):(\\d+):"));
+            auto m = re.match(line);
+            if (m.hasMatch())
+            {
+                QString fp = m.captured(1);
+                int l = m.captured(2).toInt() - 1;
+                int c = m.captured(3).toInt() - 1;
+                FileLoadResult res = FileService::load(fp);
+                if (res.ok)
+                {
+                    int idx = tabs.findByFilePath(fp);
+                    TuiBuffer* target = nullptr;
+                    if (idx != -1)
+                    {
+                        tabs.setCurrentIndex(idx);
+                        target = tabs.currentBuffer();
+                        // Refresh content if needed
+                        target->setText(res.text);
+                        target->setEncoding(res.encoding);
+                    }
+                    else
+                    {
+                        TuiBuffer buf(fp, res.text, res.encoding);
+                        tabs.addBuffer(buf);
+                        target = tabs.currentBuffer();
+                    }
+                    fileMtimes[fp] = QFileInfo(fp).lastModified();
+                    target->setCursor(l, c);
+                    statusMsg = QStringLiteral("Jumped to %1:%2").arg(fp).arg(l + 1);
+                }
+                else
+                {
+                    statusMsg = QStringLiteral("Cannot open %1").arg(fp);
+                }
+            }
+            else
+            {
+                statusMsg = QStringLiteral("No file on this line");
+            }
+        }
         else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
         {
             cur->backspace();
@@ -1544,7 +1891,14 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         else if (ch == KEY_F(1))
         {
-            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  Ctrl+H replace  :s/old/new/g :%%s/old/new/g  :w/:wa/:q/:e/:cd/:set encoding/:reopen  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V  Shift+Arrows  Ctrl+F find  F2 bm  F3 next  Ctrl+E tree  Ctrl+K enc  / filter");
+            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  Ctrl+H replace  :s/old/new/g :%%s/old/new/g  :w/:wa/:q/:e/:cd/:set encoding/:reopen/:set wrap  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V  Shift+Arrows  Ctrl+F find  F2 bm  F3 next  Ctrl+E tree  Ctrl+K enc  / filter  F4 wrap");
+        }
+        else if (ch == KEY_F(4))
+        {
+            wordWrap = !wordWrap;
+            SettingsManager::instance().setWordWrap(wordWrap);
+            wrapScrollTop = 0;
+            statusMsg = wordWrap ? QStringLiteral("Wrap on") : QStringLiteral("Wrap off");
         }
     }
 

@@ -168,6 +168,7 @@ add_library(Devpad_core STATIC
     src/tui/tuitabmodel.cpp
     src/tui/tuisearchengine.cpp
     src/tui/tuifiletree.cpp
+    src/tui/tuifindinfiles.cpp
 )
 target_compile_options(Devpad_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_core PUBLIC

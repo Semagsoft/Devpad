@@ -36,12 +36,13 @@ void TuiBuffer::setText(const QString& t)
 
 TuiBuffer::Snapshot TuiBuffer::snapshot() const
 {
-    return {m_lines, m_cursorLine, m_cursorCol, m_modified};
+    return {m_lines, m_bookmarks, m_cursorLine, m_cursorCol, m_modified};
 }
 
 void TuiBuffer::restore(const Snapshot& s)
 {
     m_lines = s.lines;
+    m_bookmarks = s.bookmarks;
     m_cursorLine = s.cursorLine;
     m_cursorCol = s.cursorCol;
     m_modified = s.modified;
@@ -152,9 +153,22 @@ void TuiBuffer::deleteSelection()
     }
     else
     {
+        // Check if any bookmark in deleted range should be preserved on aLine
+        bool hadBookmarkInDeleted = false;
+        for (int b : m_bookmarks)
+        {
+            if (b > aLine && b <= cLine)
+                hadBookmarkInDeleted = true;
+        }
         QString suffix = m_lines[cLine].mid(cCol);
         m_lines[aLine] = m_lines[aLine].left(aCol) + suffix;
         // Remove intermediate lines
+        shiftBookmarksOnDelete(aLine + 1, cLine - aLine);
+        if (hadBookmarkInDeleted && !m_bookmarks.contains(aLine))
+        {
+            m_bookmarks.append(aLine);
+            std::sort(m_bookmarks.begin(), m_bookmarks.end());
+        }
         for (int l = cLine; l > aLine; --l)
             m_lines.removeAt(l);
         m_cursorLine = aLine;
@@ -213,6 +227,9 @@ void TuiBuffer::insertText(const QString& s)
     }
     else
     {
+        int origLine = m_cursorLine;
+        int inserted = static_cast<int>(parts.size()) - 1;
+        shiftBookmarksOnInsert(origLine + 1, inserted);
         QString& curLine = m_lines[m_cursorLine];
         QString after = curLine.mid(m_cursorCol);
         curLine = curLine.left(m_cursorCol) + parts.first();
@@ -237,6 +254,39 @@ void TuiBuffer::insertChar(QChar ch)
         newLine();
         return;
     }
+    // Bracket auto-close and skip
+    if (m_autoCloseBrackets)
+    {
+        // Skip over closing bracket if next char is same
+        if (ch == QLatin1Char(')') || ch == QLatin1Char(']') || ch == QLatin1Char('}') || ch == QLatin1Char('"') || ch == QLatin1Char('\''))
+        {
+            QString line = m_lines[m_cursorLine];
+            if (m_cursorCol < line.size() && line[m_cursorCol] == ch)
+            {
+                // Simple check: if we are at closing char, skip
+                setCursor(m_cursorLine, m_cursorCol + 1);
+                return;
+            }
+        }
+        // Auto-close pairs
+        QChar closing;
+        bool doPair = false;
+        if (ch == QLatin1Char('(')) { closing = QLatin1Char(')'); doPair = true; }
+        else if (ch == QLatin1Char('[')) { closing = QLatin1Char(']'); doPair = true; }
+        else if (ch == QLatin1Char('{')) { closing = QLatin1Char('}'); doPair = true; }
+        else if (ch == QLatin1Char('"')) { closing = QLatin1Char('"'); doPair = true; }
+        else if (ch == QLatin1Char('\'')) { closing = QLatin1Char('\''); doPair = true; }
+        if (doPair)
+        {
+            // Insert opening, then closing, and place cursor between
+            insertText(QString(ch));
+            // Insert closing at current cursor (which is after opening)
+            QString& line = m_lines[m_cursorLine];
+            line.insert(m_cursorCol, QString(closing));
+            m_modified = true;
+            return;
+        }
+    }
     insertText(QString(ch));
 }
 
@@ -260,9 +310,18 @@ void TuiBuffer::backspace()
     }
     else if (m_cursorLine > 0)
     {
+        int removedLine = m_cursorLine;
         int prevLen = m_lines[m_cursorLine - 1].size();
-        m_lines[m_cursorLine - 1] += m_lines[m_cursorLine];
-        m_lines.removeAt(m_cursorLine);
+        // Preserve bookmark: if removed line had bookmark, move it to previous line if not already
+        bool hadMark = m_bookmarks.contains(removedLine);
+        shiftBookmarksOnDelete(removedLine, 1);
+        if (hadMark && !m_bookmarks.contains(removedLine - 1))
+        {
+            m_bookmarks.append(removedLine - 1);
+            std::sort(m_bookmarks.begin(), m_bookmarks.end());
+        }
+        m_lines[m_cursorLine - 1] += m_lines[removedLine];
+        m_lines.removeAt(removedLine);
         m_cursorLine--;
         m_cursorCol = prevLen;
         m_modified = true;
@@ -295,8 +354,16 @@ void TuiBuffer::deleteChar()
     }
     else if (m_cursorLine + 1 < m_lines.size())
     {
-        line += m_lines[m_cursorLine + 1];
-        m_lines.removeAt(m_cursorLine + 1);
+        int removedLine = m_cursorLine + 1;
+        bool hadMark = m_bookmarks.contains(removedLine);
+        shiftBookmarksOnDelete(removedLine, 1);
+        if (hadMark && !m_bookmarks.contains(m_cursorLine))
+        {
+            m_bookmarks.append(m_cursorLine);
+            std::sort(m_bookmarks.begin(), m_bookmarks.end());
+        }
+        line += m_lines[removedLine];
+        m_lines.removeAt(removedLine);
         changed = true;
     }
     if (changed)
@@ -314,6 +381,7 @@ void TuiBuffer::newLine()
         deleteSelection();
     else
         pushUndo();
+    shiftBookmarksOnInsert(m_cursorLine + 1, 1);
     QString& line = m_lines[m_cursorLine];
     QString after = line.mid(m_cursorCol);
     line = line.left(m_cursorCol);
@@ -332,11 +400,13 @@ void TuiBuffer::deleteLine(int line)
     if (m_lines.size() == 1)
     {
         m_lines[0].clear();
+        m_bookmarks.clear();
         m_cursorLine = 0;
         m_cursorCol = 0;
     }
     else
     {
+        shiftBookmarksOnDelete(line, 1);
         m_lines.removeAt(line);
         if (m_cursorLine >= m_lines.size())
             m_cursorLine = m_lines.size() - 1;
@@ -346,17 +416,102 @@ void TuiBuffer::deleteLine(int line)
     clearSelection();
 }
 
+void TuiBuffer::setBookmarks(const QList<int>& b)
+{
+    m_bookmarks = b;
+    std::sort(m_bookmarks.begin(), m_bookmarks.end());
+    m_bookmarks.erase(std::unique(m_bookmarks.begin(), m_bookmarks.end()), m_bookmarks.end());
+    // Clamp to valid range
+    for (int i = m_bookmarks.size() - 1; i >= 0; --i)
+    {
+        if (m_bookmarks[i] < 0 || m_bookmarks[i] >= m_lines.size())
+            m_bookmarks.removeAt(i);
+    }
+}
+
 void TuiBuffer::toggleBookmark(int line)
 {
     if (m_bookmarks.contains(line))
         m_bookmarks.removeAll(line);
     else
+    {
         m_bookmarks.append(line);
+        std::sort(m_bookmarks.begin(), m_bookmarks.end());
+    }
 }
 
 bool TuiBuffer::hasBookmark(int line) const
 {
     return m_bookmarks.contains(line);
+}
+
+bool TuiBuffer::nextBookmark(int currentLine, int* outLine) const
+{
+    if (m_bookmarks.isEmpty())
+        return false;
+    QList<int> sorted = m_bookmarks;
+    std::sort(sorted.begin(), sorted.end());
+    for (int b : sorted)
+    {
+        if (b > currentLine)
+        {
+            if (outLine) *outLine = b;
+            return true;
+        }
+    }
+    // wrap
+    if (outLine) *outLine = sorted.first();
+    return true;
+}
+
+bool TuiBuffer::prevBookmark(int currentLine, int* outLine) const
+{
+    if (m_bookmarks.isEmpty())
+        return false;
+    QList<int> sorted = m_bookmarks;
+    std::sort(sorted.begin(), sorted.end());
+    for (int i = sorted.size() - 1; i >= 0; --i)
+    {
+        if (sorted[i] < currentLine)
+        {
+            if (outLine) *outLine = sorted[i];
+            return true;
+        }
+    }
+    if (outLine) *outLine = sorted.last();
+    return true;
+}
+
+void TuiBuffer::clearBookmarks()
+{
+    m_bookmarks.clear();
+}
+
+void TuiBuffer::shiftBookmarksOnInsert(int atLine, int count)
+{
+    if (count <= 0 || m_bookmarks.isEmpty())
+        return;
+    for (int& b : m_bookmarks)
+    {
+        if (b >= atLine)
+            b += count;
+    }
+}
+
+void TuiBuffer::shiftBookmarksOnDelete(int atLine, int count)
+{
+    if (count <= 0 || m_bookmarks.isEmpty())
+        return;
+    QList<int> newMarks;
+    for (int b : m_bookmarks)
+    {
+        if (b < atLine)
+            newMarks.append(b);
+        else if (b >= atLine + count)
+            newMarks.append(b - count);
+        // else b in deleted range -> drop
+    }
+    m_bookmarks = newMarks;
 }
 
 TuiBuffer::ReplaceResult TuiBuffer::replaceNext(const QString& find, const QString& replace, const SearchOptions& opts, bool wrap)

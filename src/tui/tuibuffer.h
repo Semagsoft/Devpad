@@ -53,9 +53,13 @@ public:
 
     // Bookmark support
     QList<int> bookmarks() const { return m_bookmarks; }
-    void setBookmarks(const QList<int>& b) { m_bookmarks = b; }
+    void setBookmarks(const QList<int>& b);
     void toggleBookmark(int line);
     bool hasBookmark(int line) const;
+    bool nextBookmark(int currentLine, int* outLine) const;
+    bool prevBookmark(int currentLine, int* outLine) const;
+    void clearBookmarks();
+    int bookmarkCount() const { return m_bookmarks.size(); }
 
     // Undo/Redo
     void pushUndo();
@@ -85,14 +89,22 @@ public:
     ReplaceResult replaceNext(const QString& find, const QString& replace, const SearchOptions& opts, bool wrap = true);
     int replaceAll(const QString& find, const QString& replace, const SearchOptions& opts);
 
+    bool wordWrap() const { return m_wordWrap; }
+    void setWordWrap(bool w) { m_wordWrap = w; }
+    bool autoCloseBrackets() const { return m_autoCloseBrackets; }
+    void setAutoCloseBrackets(bool v) { m_autoCloseBrackets = v; }
+
     QString displayName() const;
     QString languageFromExtension() const;
 
 private:
     void ensureCursorValid();
+    void shiftBookmarksOnInsert(int atLine, int count);
+    void shiftBookmarksOnDelete(int atLine, int count);
     struct Snapshot
     {
         QStringList lines;
+        QList<int> bookmarks;
         int cursorLine = 0;
         int cursorCol = 0;
         bool modified = false;
@@ -111,6 +123,8 @@ private:
     QStringList m_lines;
     bool m_modified = false;
     bool m_readOnly = false;
+    bool m_wordWrap = false;
+    bool m_autoCloseBrackets = true;
     int m_cursorLine = 0;
     int m_cursorCol = 0;
     QList<int> m_bookmarks;
