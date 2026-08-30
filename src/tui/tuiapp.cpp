@@ -12,6 +12,7 @@
 #include "tui/tuibuffer.h"
 #include "tui/tuifiletree.h"
 #include "tui/tuifindinfiles.h"
+#include "tui/tuihighlighter.h"
 #include "tui/tuisearchengine.h"
 #include "tui/tuitabmodel.h"
 
@@ -190,11 +191,18 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         init_pair(1, COLOR_BLACK, COLOR_CYAN); // status bar
         init_pair(2, COLOR_YELLOW, -1); // line numbers
         init_pair(3, COLOR_CYAN, -1); // bookmark
+        init_pair(4, COLOR_BLUE, -1); // keyword
+        init_pair(5, COLOR_RED, -1); // string
+        init_pair(6, COLOR_GREEN, -1); // comment
+        init_pair(7, COLOR_MAGENTA, -1); // number
+        init_pair(8, COLOR_CYAN, -1); // preprocessor
     }
 
     int scrollTop = 0;
     int wrapScrollTop = 0;
     bool wordWrap = SettingsManager::instance().wordWrap();
+    bool syntaxEnabled = true;
+    TuiHighlighter::setEnabled(syntaxEnabled);
     QString statusMsg = QStringLiteral("Ctrl+Q quit  Ctrl+S save  Ctrl+E tree  Ctrl+F find  F1 help");
     QString findQuery;
     SearchOptions findOpts;
@@ -299,46 +307,50 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             cur = tabs.currentBuffer();
         }
 
-        // Poll for external file changes
-        if (!cur->filePath().isEmpty() && fileMtimes.contains(cur->filePath()))
+        // Poll for external file changes (all buffers)
+        for (int ti = 0; ti < tabs.count(); ++ti)
         {
-            QFileInfo fi(cur->filePath());
-            if (fi.exists())
+            TuiBuffer* b = tabs.bufferAt(ti);
+            if (!b || b->filePath().isEmpty())
+                continue;
+            QFileInfo fi(b->filePath());
+            if (!fi.exists())
+                continue;
+            QDateTime curMod = fi.lastModified();
+            if (!fileMtimes.contains(b->filePath()))
             {
-                QDateTime curMod = fi.lastModified();
-                QDateTime lastMod = fileMtimes.value(cur->filePath());
-                if (curMod.isValid() && lastMod.isValid() && curMod != lastMod)
+                fileMtimes[b->filePath()] = curMod;
+                continue;
+            }
+            QDateTime lastMod = fileMtimes.value(b->filePath());
+            if (!curMod.isValid() || !lastMod.isValid() || curMod == lastMod)
+                continue;
+            if (!b->isModified())
+            {
+                FileLoadResult res = FileService::load(b->filePath());
+                if (res.ok)
                 {
-                    if (!cur->isModified())
-                    {
-                        FileLoadResult res = FileService::load(cur->filePath());
-                        if (res.ok)
-                        {
-                            cur->setText(res.text);
-                            cur->setEncoding(res.encoding);
-                            cur->setModified(false);
-                            fileMtimes[cur->filePath()] = curMod;
-                            statusMsg = QStringLiteral("File reloaded (external change): %1").arg(cur->filePath());
-                        }
-                        else
-                        {
-                            fileMtimes[cur->filePath()] = curMod;
-                            statusMsg = QStringLiteral("External change detected but reload failed");
-                        }
-                    }
-                    else
-                    {
-                        // Modified buffer + external change -> warn, avoid spamming by updating mtime to current
-                        // User can :e! to force reload or :w to overwrite
-                        statusMsg = QStringLiteral("WARNING: File changed on disk — :e! to reload, :w to overwrite");
-                        fileMtimes[cur->filePath()] = curMod;
-                    }
+                    bool isCur = (b == cur);
+                    b->setText(res.text);
+                    b->setEncoding(res.encoding);
+                    b->setModified(false);
+                    fileMtimes[b->filePath()] = curMod;
+                    if (isCur)
+                        statusMsg = QStringLiteral("File reloaded (external change): %1").arg(b->filePath());
+                }
+                else
+                {
+                    fileMtimes[b->filePath()] = curMod;
+                    if (b == cur)
+                        statusMsg = QStringLiteral("External change detected but reload failed");
                 }
             }
-        }
-        else if (!cur->filePath().isEmpty() && !fileMtimes.contains(cur->filePath()) && QFile::exists(cur->filePath()))
-        {
-            fileMtimes[cur->filePath()] = QFileInfo(cur->filePath()).lastModified();
+            else
+            {
+                fileMtimes[b->filePath()] = curMod;
+                if (b == cur)
+                    statusMsg = QStringLiteral("WARNING: File changed on disk — :e! to reload, :w to overwrite");
+            }
         }
 
         int rows, cols;
@@ -453,6 +465,46 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 wrapScrollTop = qMax(0, wrapInfos.size() - editorH);
         }
 
+        auto drawSyntaxVisible = [&](int y, int x, const QString& visible, int offsetInLine, const QList<HighlightSegment>& segs) {
+            if (!syntaxEnabled || !hasColors || segs.isEmpty())
+            {
+                mvaddnstr(y, x, visible.toUtf8().constData(), visible.toUtf8().size());
+                return;
+            }
+            // Per-char color application
+            for (int i = 0; i < visible.size(); ++i)
+            {
+                int pos = offsetInLine + i;
+                HighlightKind kind = HighlightKind::Normal;
+                for (const auto& s : segs)
+                {
+                    if (pos >= s.start && pos < s.start + s.length)
+                    {
+                        kind = s.kind;
+                        break;
+                    }
+                }
+                int pair = 0;
+                switch (kind)
+                {
+                case HighlightKind::Keyword: pair = 4; break;
+                case HighlightKind::String: pair = 5; break;
+                case HighlightKind::Comment: pair = 6; break;
+                case HighlightKind::Number: pair = 7; break;
+                case HighlightKind::Preprocessor: pair = 8; break;
+                default: pair = 0; break;
+                }
+                if (pair)
+                    attron(COLOR_PAIR(pair));
+                // Handle unicode: take single QChar and convert to utf8
+                QString chStr = visible.mid(i, 1);
+                QByteArray utf = chStr.toUtf8();
+                mvaddnstr(y, x + i, utf.constData(), utf.size());
+                if (pair)
+                    attroff(COLOR_PAIR(pair));
+            }
+        };
+
         // Draw editor
         for (int r = 0; r < editorH; ++r)
         {
@@ -564,7 +616,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 }
                 else
                 {
-                    mvaddnstr(y, textX, visible.toUtf8().constData(), visible.toUtf8().size());
+                    auto segs = TuiHighlighter::highlightLine(wLine, TuiHighlighter::currentLanguage(cur->filePath()));
+                    drawSyntaxVisible(y, textX, visible, wi.startCol, segs);
                 }
                 if (vIdx == cursorVisualRow && !fileTreeFocused)
                 {
@@ -704,7 +757,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             }
             else
             {
-                mvaddnstr(y, textX, visible.toUtf8().constData(), visible.toUtf8().size());
+                auto segs = TuiHighlighter::highlightLine(line, TuiHighlighter::currentLanguage(cur->filePath()));
+                drawSyntaxVisible(y, textX, visible, hScroll, segs);
             }
 
             if (lineIdx == cur->cursorLine())
@@ -1212,6 +1266,18 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                         statusMsg = QStringLiteral("Usage: :set wrap [on|off]");
                     }
                 }
+                else if (cmd == QStringLiteral("syntax on") || cmd == QStringLiteral("set syntax on") || cmd == QStringLiteral("set syntax true"))
+                {
+                    syntaxEnabled = true;
+                    TuiHighlighter::setEnabled(true);
+                    statusMsg = QStringLiteral("Syntax on");
+                }
+                else if (cmd == QStringLiteral("syntax off") || cmd == QStringLiteral("set syntax off") || cmd == QStringLiteral("set syntax false"))
+                {
+                    syntaxEnabled = false;
+                    TuiHighlighter::setEnabled(false);
+                    statusMsg = QStringLiteral("Syntax off");
+                }
                 else if (cmd == QStringLiteral("bn") || cmd == QStringLiteral("bnext"))
                 {
                     int nLine;
@@ -1358,6 +1424,75 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 else
                 {
                     statusMsg = QStringLiteral("Unknown command: %1").arg(cmd);
+                }
+            }
+            else if (ch == 9) // Tab completion
+            {
+                // Command completion
+                QString input = commandInput;
+                QStringList allCmds = {
+                    QStringLiteral("w"), QStringLiteral("wa"), QStringLiteral("wqa"), QStringLiteral("wq"),
+                    QStringLiteral("q"), QStringLiteral("q!"), QStringLiteral("e "), QStringLiteral("e!"),
+                    QStringLiteral("cd "), QStringLiteral("set encoding "), QStringLiteral("set wrap "),
+                    QStringLiteral("set syntax on"), QStringLiteral("set syntax off"), QStringLiteral("syntax on"), QStringLiteral("syntax off"),
+                    QStringLiteral("set searchcase "), QStringLiteral("set searchwhole "), QStringLiteral("set searchregex "),
+                    QStringLiteral("reopen"), QStringLiteral("grep "), QStringLiteral("findinfiles "),
+                    QStringLiteral("s/"), QStringLiteral("%s/"), QStringLiteral("bn"), QStringLiteral("bnext"),
+                    QStringLiteral("bp"), QStringLiteral("bprev"), QStringLiteral("bc"), QStringLiteral("bclear")
+                };
+                // Handle set encoding completion with encodings list
+                if (input.startsWith(QStringLiteral("set encoding ")))
+                {
+                    QString prefix = input.mid(QStringLiteral("set encoding ").size());
+                    QStringList encs;
+                    for (const auto& ei : supportedEncodings())
+                        encs << ei.displayName;
+                    QStringList cands;
+                    for (const QString& e : encs)
+                        if (e.startsWith(prefix, Qt::CaseInsensitive))
+                            cands << e;
+                    if (cands.size() == 1)
+                        commandInput = QStringLiteral("set encoding ") + cands.first();
+                    else if (cands.size() > 1)
+                    {
+                        QString common = cands.first();
+                        for (int i=1; i<cands.size(); ++i)
+                        {
+                            int j=0;
+                            while (j < common.size() && j < cands[i].size() && common[j].toLower() == cands[i][j].toLower()) ++j;
+                            common = common.left(j);
+                        }
+                        if (common.size() > prefix.size())
+                            commandInput = QStringLiteral("set encoding ") + common;
+                        statusMsg = QStringLiteral("Encodings: %1").arg(cands.join(QStringLiteral(", ")));
+                    }
+                }
+                else
+                {
+                    QStringList cands;
+                    for (const QString& c : allCmds)
+                        if (c.startsWith(input))
+                            cands << c;
+                    if (cands.size() == 1)
+                    {
+                        commandInput = cands.first();
+                        // Add space if not already and not ending with /
+                        if (!commandInput.endsWith(QLatin1Char(' ')) && !commandInput.endsWith(QLatin1Char('/')))
+                            commandInput += QLatin1Char(' ');
+                    }
+                    else if (cands.size() > 1)
+                    {
+                        QString common = cands.first();
+                        for (int i=1; i<cands.size(); ++i)
+                        {
+                            int j=0;
+                            while (j < common.size() && j < cands[i].size() && common[j] == cands[i][j]) ++j;
+                            common = common.left(j);
+                        }
+                        if (common.size() > input.size())
+                            commandInput = common;
+                        statusMsg = QStringLiteral("Candidates: %1").arg(cands.join(QStringLiteral(", ")));
+                    }
                 }
             }
             else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
@@ -1891,7 +2026,7 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         }
         else if (ch == KEY_F(1))
         {
-            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  Ctrl+H replace  :s/old/new/g :%%s/old/new/g  :w/:wa/:q/:e/:cd/:set encoding/:reopen/:set wrap  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V  Shift+Arrows  Ctrl+F find  F2 bm  F3 next  Ctrl+E tree  Ctrl+K enc  / filter  F4 wrap");
+            statusMsg = QStringLiteral("Help: Ctrl+Q quit  Ctrl+S save  Ctrl+O saveAs  Ctrl+G goto  Ctrl+H replace  :s/old/new/g :%%s/old/new/g  :w/:wa/:q/:e/:cd/:set encoding/:reopen/:set wrap/:set syntax  Ctrl+Z undo  Ctrl+Y redo  Ctrl+A selAll  Ctrl+X/C/V  Shift+Arrows  Ctrl+F find  F2 bm/bnext/bprev/bclear  F3 next  Ctrl+E tree  Ctrl+K enc  / filter  F4 wrap  F5 syntax");
         }
         else if (ch == KEY_F(4))
         {
@@ -1899,6 +2034,12 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             SettingsManager::instance().setWordWrap(wordWrap);
             wrapScrollTop = 0;
             statusMsg = wordWrap ? QStringLiteral("Wrap on") : QStringLiteral("Wrap off");
+        }
+        else if (ch == KEY_F(5))
+        {
+            syntaxEnabled = !syntaxEnabled;
+            TuiHighlighter::setEnabled(syntaxEnabled);
+            statusMsg = syntaxEnabled ? QStringLiteral("Syntax on") : QStringLiteral("Syntax off");
         }
     }
 

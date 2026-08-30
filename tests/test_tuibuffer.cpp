@@ -173,3 +173,51 @@ TEST(TuiBuffer, ReplaceUndoRedo)
     b.redo();
     EXPECT_EQ(b.text(), QStringLiteral("hi hi"));
 }
+
+TEST(TuiBuffer, BookmarkNextPrevWrap)
+{
+    TuiBuffer b(QString(), QStringLiteral("a\nb\nc\nd"));
+    b.setBookmarks(QList<int>{1, 3});
+    int out = -1;
+    EXPECT_TRUE(b.nextBookmark(0, &out));
+    EXPECT_EQ(out, 1);
+    EXPECT_TRUE(b.nextBookmark(1, &out));
+    EXPECT_EQ(out, 3);
+    EXPECT_TRUE(b.nextBookmark(3, &out));
+    EXPECT_EQ(out, 1); // wrap
+    EXPECT_TRUE(b.prevBookmark(3, &out));
+    EXPECT_EQ(out, 1);
+    EXPECT_TRUE(b.prevBookmark(1, &out));
+    EXPECT_EQ(out, 3); // wrap
+    EXPECT_TRUE(b.prevBookmark(0, &out));
+    EXPECT_EQ(out, 3);
+}
+
+TEST(TuiBuffer, BookmarkShiftOnInsert)
+{
+    TuiBuffer b(QString(), QStringLiteral("a\nb\nc"));
+    b.setBookmarks(QList<int>{2});
+    b.setCursor(1, 0);
+    b.newLine(); // inserts at line 1, shifts bookmark 2 -> 3
+    EXPECT_TRUE(b.hasBookmark(3));
+    EXPECT_FALSE(b.hasBookmark(2));
+}
+
+TEST(TuiBuffer, BookmarkShiftOnDelete)
+{
+    TuiBuffer b(QString(), QStringLiteral("a\nb\nc\nd"));
+    b.setBookmarks(QList<int>{1, 3});
+    b.deleteLine(1); // removes line 1, bookmarks 3 -> 2
+    EXPECT_FALSE(b.hasBookmark(1));
+    EXPECT_TRUE(b.hasBookmark(2));
+    EXPECT_EQ(b.bookmarkCount(), 1);
+}
+
+TEST(TuiBuffer, BookmarkClear)
+{
+    TuiBuffer b(QString(), QStringLiteral("a\nb\nc"));
+    b.setBookmarks(QList<int>{0, 1, 2});
+    b.clearBookmarks();
+    EXPECT_EQ(b.bookmarkCount(), 0);
+    EXPECT_FALSE(b.hasBookmark(0));
+}
