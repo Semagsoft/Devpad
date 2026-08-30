@@ -1,4 +1,5 @@
 ﻿build/
+build-tui/
 build-appimage/
 build-asan/
 build_rel/
