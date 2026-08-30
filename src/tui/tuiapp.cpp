@@ -203,6 +203,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     bool wordWrap = SettingsManager::instance().wordWrap();
     bool syntaxEnabled = true;
     TuiHighlighter::setEnabled(syntaxEnabled);
+    qint64 lastTreePollMs = 0;
+    QDateTime lastTreeDirMTime;
     QString statusMsg = QStringLiteral("Ctrl+Q quit  Ctrl+S save  Ctrl+E tree  Ctrl+F find  F1 help");
     QString findQuery;
     SearchOptions findOpts;
@@ -350,6 +352,40 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
                 fileMtimes[b->filePath()] = curMod;
                 if (b == cur)
                     statusMsg = QStringLiteral("WARNING: File changed on disk — :e! to reload, :w to overwrite");
+            }
+        }
+
+        // Directory inotify for fileTree - throttled poll
+        if (fileTreeVisible && fileTree.hasRoot())
+        {
+            qint64 now = QDateTime::currentMSecsSinceEpoch();
+            if (now - lastTreePollMs > 1500)
+            {
+                lastTreePollMs = now;
+                QFileInfo dirFi(fileTree.rootPath());
+                QDateTime curDirMod = dirFi.exists() ? dirFi.lastModified() : QDateTime();
+                bool needRefresh = false;
+                if (!lastTreeDirMTime.isValid() || curDirMod != lastTreeDirMTime)
+                    needRefresh = true;
+                else
+                {
+                    // Periodic forced refresh for nested changes (every 5s)
+                    static qint64 lastForcedRefresh = 0;
+                    if (now - lastForcedRefresh > 5000)
+                    {
+                        lastForcedRefresh = now;
+                        needRefresh = true;
+                    }
+                }
+                if (needRefresh)
+                {
+                    int beforeCount = fileTree.visibleNodes().size();
+                    fileTree.refresh();
+                    int afterCount = fileTree.visibleNodes().size();
+                    if (beforeCount != afterCount)
+                        statusMsg = QStringLiteral("Tree refreshed (%1 items)").arg(afterCount);
+                    lastTreeDirMTime = curDirMod;
+                }
             }
         }
 
