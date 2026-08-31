@@ -1,5 +1,6 @@
 ﻿build/
 build-tui/
+build-tui-release/
 build-appimage/
 build-asan/
 build_rel/

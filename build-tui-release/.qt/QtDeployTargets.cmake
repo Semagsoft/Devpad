@@ -1,6 +1,0 @@
-set(__QT_DEPLOY_TARGET_Devpad_core_FILE /home/primo/Work/repos/Devpad/build-tui-release/libDevpad_core.a)
-set(__QT_DEPLOY_TARGET_Devpad_core_TYPE STATIC_LIBRARY)
-set(__QT_DEPLOY_TARGET_Devpad_lib_FILE /home/primo/Work/repos/Devpad/build-tui-release/libDevpad_lib.a)
-set(__QT_DEPLOY_TARGET_Devpad_lib_TYPE STATIC_LIBRARY)
-set(__QT_DEPLOY_TARGET_Devpad_FILE /home/primo/Work/repos/Devpad/build-tui-release/Devpad)
-set(__QT_DEPLOY_TARGET_Devpad_TYPE EXECUTABLE)
