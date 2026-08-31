@@ -170,6 +170,8 @@ add_library(Devpad_core STATIC
     src/tui/tuifiletree.cpp
     src/tui/tuifindinfiles.cpp
     src/tui/tuihighlighter.cpp
+    src/tui/tuiviewstate.cpp
+    src/tui/tuirenderer.cpp
 )
 target_compile_options(Devpad_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_core PUBLIC
@@ -230,6 +232,9 @@ add_library(Devpad_lib STATIC
     src/widgets/windowsframebridge.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/editorcontainer.cpp
+    src/tui/tuisession.cpp
+    src/tui/tuicommand.cpp
+    src/tui/tuiinput.cpp
     src/lsp/lspjsonrpc.cpp
     src/lsp/lspclient.cpp
     src/lsp/lspconnectionhelper.cpp
@@ -287,7 +292,11 @@ target_include_directories(Devpad PRIVATE
 
 if(BUILD_TUI)
     target_compile_definitions(Devpad PRIVATE BUILD_TUI=1)
+    target_compile_definitions(Devpad_core PRIVATE BUILD_TUI=1)
+    target_compile_definitions(Devpad_lib PRIVATE BUILD_TUI=1)
     target_include_directories(Devpad PRIVATE ${CURSES_INCLUDE_DIRS})
+    target_include_directories(Devpad_core PRIVATE ${CURSES_INCLUDE_DIRS})
+    target_include_directories(Devpad_lib PRIVATE ${CURSES_INCLUDE_DIRS})
     target_link_libraries(Devpad PRIVATE ${CURSES_LIBRARIES})
 endif()
 

@@ -187,6 +187,52 @@ void TuiBuffer::selectAll()
     m_cursorCol = m_lines.last().size();
 }
 
+bool TuiBuffer::selectionRangeForLine(int lineIdx, int hScroll, int avail, int* outStart, int* outEnd) const
+{
+    if (!hasSelection())
+        return false;
+    int aLine = m_selAnchorLine;
+    int aCol = m_selAnchorCol;
+    int cLine = m_cursorLine;
+    int cCol = m_cursorCol;
+    if (aLine > cLine || (aLine == cLine && aCol > cCol))
+        std::swap(aLine, cLine), std::swap(aCol, cCol);
+    if (lineIdx < aLine || lineIdx > cLine)
+        return false;
+    int s = -1, e = -1;
+    if (aLine == cLine)
+    {
+        s = aCol - hScroll;
+        e = cCol - hScroll;
+    }
+    else if (lineIdx == aLine)
+    {
+        s = aCol - hScroll;
+        e = avail;
+    }
+    else if (lineIdx == cLine)
+    {
+        s = 0 - hScroll;
+        if (s < 0)
+            s = 0;
+        e = cCol - hScroll;
+    }
+    else
+    {
+        s = 0;
+        e = avail;
+    }
+    s = qBound(0, s, avail);
+    e = qBound(0, e, avail);
+    if (s == e)
+        return false;
+    if (outStart)
+        *outStart = s;
+    if (outEnd)
+        *outEnd = e;
+    return true;
+}
+
 QStringList TuiBuffer::lines() const
 {
     return m_lines;

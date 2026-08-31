@@ -77,6 +77,8 @@ public:
     QString selectedText() const;
     void deleteSelection();
     void selectAll();
+    // Helper for renderer: compute visible selection range for a line (hScroll/visible length)
+    bool selectionRangeForLine(int lineIdx, int hScroll, int avail, int* outStart, int* outEnd) const;
 
     // Replace (delegates to TuiSearchEngine on m_lines with undo)
     struct ReplaceResult
