@@ -10,6 +10,8 @@
 #ifndef NEXTGENACTIONS_H
 #define NEXTGENACTIONS_H
 
+#include "theme.h"
+
 #include <QObject>
 #include <QStringList>
 
@@ -40,6 +42,11 @@ public:
     QStringList recentFiles() const;
     QStringList recentFolders() const;
     QString currentEncoding() const;
+
+    QStringList themeNames() const;
+    QString currentThemeName() const;
+    Q_INVOKABLE void setThemeByName(const QString& name);
+    Q_INVOKABLE void setThemeById(int id);
 
     Q_INVOKABLE void refreshRecent();
     Q_INVOKABLE void clearRecentFiles();
@@ -82,6 +89,8 @@ public slots:
     void reopenWithEncoding(const QString& enc);
     void saveWithEncoding(const QString& enc);
     void openRecentFile(const QString& path);
+    void toggleTerminal();
+    void findInFiles(const QString& pattern = QString());
 
 signals:
     void showToolbarChanged();
@@ -90,6 +99,7 @@ signals:
     void recentFilesChanged();
     void currentEncodingChanged();
     void editorChanged();
+    void themeChanged();
     void requestOpenFileDialog();
     void requestOpenFolderDialog();
     void requestSaveAsDialog();
@@ -98,6 +108,8 @@ signals:
     void requestReplaceDialog();
     void requestAboutDialog();
     void requestOptionsDialog();
+    void requestTerminalToggle();
+    void requestFindInFiles();
     void showMessage(const QString& msg);
 
 private:

@@ -10,8 +10,10 @@
 #include "primoshader.h"
 #include "theme.h"
 
+#include <QClipboard>
 #include <QFileInfo>
 #include <QFontMetricsF>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QQuickWindow>
@@ -48,6 +50,9 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
         scheduleHighlight();
         update();
     });
+    connect(m_doc, &PrimoDocument::canUndoChanged, this, &PrimoEditor::canUndoChanged);
+    connect(m_doc, &PrimoDocument::canRedoChanged, this, &PrimoEditor::canRedoChanged);
+    connect(m_doc, &PrimoDocument::undoDisabledChanged, this, &PrimoEditor::undoDisabledChanged);
 
     m_font = SettingsManager::instance().defaultFont();
     m_tabWidth = SettingsManager::instance().tabWidth();
@@ -141,6 +146,81 @@ QList<int> PrimoEditor::bookmarkLines() const { QList<int> l = m_bookmarks.value
 void PrimoEditor::clearBookmarks(){ m_bookmarks.clear(); emit bookmarksChanged(); update();}
 void PrimoEditor::setDiagnostics(const QList<int>& lines){ m_diagLines = QSet<int>(lines.begin(), lines.end()); emit diagnosticsChanged(); update();}
 void PrimoEditor::clearDiagnostics(){ m_diagLines.clear(); emit diagnosticsChanged(); update();}
+
+bool PrimoEditor::canUndo() const { return m_doc && m_doc->canUndo(); }
+bool PrimoEditor::canRedo() const { return m_doc && m_doc->canRedo(); }
+bool PrimoEditor::isUndoDisabled() const { return m_doc && m_doc->isUndoDisabled(); }
+void PrimoEditor::undo()
+{
+    if (m_readOnly || !m_doc || m_doc->isUndoDisabled()) return;
+    m_doc->undo();
+    // Clamp cursor after undo
+    QStringList ls = m_doc->text().split(QLatin1Char('\n'));
+    if (m_cursorLine >= ls.size()) m_cursorLine = qMax(0, ls.size()-1);
+    if (m_cursorLine >=0 && m_cursorColumn > ls[m_cursorLine].size()) m_cursorColumn = ls[m_cursorLine].size();
+    emit cursorChanged();
+    m_linesDirty = true;
+    m_highlightDirty = true;
+    m_highlightVersion++;
+    update();
+    scheduleHighlight();
+}
+void PrimoEditor::redo()
+{
+    if (m_readOnly || !m_doc || m_doc->isUndoDisabled()) return;
+    m_doc->redo();
+    QStringList ls = m_doc->text().split(QLatin1Char('\n'));
+    if (m_cursorLine >= ls.size()) m_cursorLine = qMax(0, ls.size()-1);
+    if (m_cursorLine >=0 && m_cursorColumn > ls[m_cursorLine].size()) m_cursorColumn = ls[m_cursorLine].size();
+    emit cursorChanged();
+    m_linesDirty = true;
+    m_highlightDirty = true;
+    m_highlightVersion++;
+    update();
+    scheduleHighlight();
+}
+void PrimoEditor::copy()
+{
+    if (!m_doc) return;
+    QString line = m_doc->lineAt(m_cursorLine);
+    if (line.isEmpty()) return;
+    if (auto* cb = QGuiApplication::clipboard()) cb->setText(line);
+}
+void PrimoEditor::cut()
+{
+    if (m_readOnly || !m_doc) return;
+    QString line = m_doc->lineAt(m_cursorLine);
+    if (auto* cb = QGuiApplication::clipboard()) cb->setText(line);
+    // Remove line
+    QStringList ls = m_doc->text().split(QLatin1Char('\n'));
+    if (m_cursorLine < 0 || m_cursorLine >= ls.size()) return;
+    ls.removeAt(m_cursorLine);
+    if (ls.isEmpty()) ls.append(QString());
+    if (m_cursorLine >= ls.size()) m_cursorLine = qMax(0, ls.size()-1);
+    m_cursorColumn = 0;
+    m_doc->setText(ls.join(QLatin1Char('\n')));
+    emit cursorChanged();
+}
+void PrimoEditor::paste()
+{
+    if (m_readOnly || !m_doc) return;
+    auto* cb = QGuiApplication::clipboard();
+    if (!cb) return;
+    QString txt = cb->text();
+    if (txt.isEmpty()) return;
+    // Insert at cursor, split by lines if multi-line paste
+    insertAtCursor(txt);
+}
+void PrimoEditor::selectAll()
+{
+    // For QSG, selectAll is visual placeholder: move cursor to end and emit
+    if (!m_doc) return;
+    m_cursorLine = qMax(0, m_doc->lineCount()-1);
+    QString last = m_doc->lineAt(m_cursorLine);
+    m_cursorColumn = last.size();
+    emit cursorChanged();
+    update();
+}
 
 void PrimoEditor::loadFile(const QString& path)
 {

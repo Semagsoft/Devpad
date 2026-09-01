@@ -12,6 +12,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QUndoStack>
 #include <QVector>
 
 class PrimoDocument : public QObject
@@ -22,6 +23,9 @@ class PrimoDocument : public QObject
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(bool modified READ isModified NOTIFY modifiedChanged)
     Q_PROPERTY(int lineCount READ lineCount NOTIFY textChanged)
+    Q_PROPERTY(bool canUndo READ canUndo NOTIFY canUndoChanged)
+    Q_PROPERTY(bool canRedo READ canRedo NOTIFY canRedoChanged)
+    Q_PROPERTY(bool undoDisabled READ isUndoDisabled NOTIFY undoDisabledChanged)
 
 public:
     explicit PrimoDocument(QObject* parent = nullptr);
@@ -53,25 +57,42 @@ public:
     bool loadFromFile(const QString& path, QString* error = nullptr);
     bool saveToFile(const QString& path, QString* error = nullptr) const;
 
+    // Undo/Redo (incremental disabled >50MB)
+    bool canUndo() const;
+    bool canRedo() const;
+    bool isUndoDisabled() const;
+    Q_INVOKABLE void undo();
+    Q_INVOKABLE void redo();
+    Q_INVOKABLE void clearUndoStack();
+    void setUndoDisabled(bool d);
+
 signals:
     void textChanged();
     void filePathChanged();
     void languageChanged();
     void modifiedChanged();
+    void canUndoChanged();
+    void canRedoChanged();
+    void undoDisabledChanged();
 
 private:
     void rebuildOffsets() const;
     void invalidateCache();
+    void pushUndo(const QString& oldText, const QString& newText);
 
     QString m_filePath;
     QString m_text;
     QString m_language;
     bool m_modified = false;
+    bool m_undoDisabled = false;
 
     mutable QVector<int> m_lineOffsets; // start offset per line
     mutable bool m_offsetsDirty = true;
     mutable QStringList m_linesCache;
     mutable bool m_linesDirty = true;
+
+    QUndoStack* m_undoStack = nullptr;
+    bool m_inUndoRedo = false;
 };
 
 #endif // PRIMODOCUMENT_H

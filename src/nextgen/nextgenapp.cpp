@@ -8,11 +8,15 @@
 #include "core/fileservice.h"
 #include "devpad_version.h"
 #include "nextgenactions.h"
+#include "nextgentabmodel.h"
+#include "primofindinfiles.h"
 #include "primoeditor.h"
+#include "primoterminal.h"
 
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
+#include <QSettings>
 #include <QTextStream>
 
 #ifdef BUILD_NEXTGEN
@@ -111,10 +115,73 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     auto* actions = new NextgenActions(app);
     engine.rootContext()->setContextProperty(QStringLiteral("nextgenActions"), actions);
 
+    // Tab model for draggable tabs + split – shared session if no files
+    auto* tabModel = new NextgenTabModel(app);
+    bool hasFiles = false;
+    for (auto &f : absFiles) {
+        QFileInfo fi(f);
+        if (fi.isFile() || !fi.exists()) { tabModel->addTab(f); hasFiles = true; }
+        if (fi.isDir()) hasFiles = true;
+    }
+    // Shared session: if no files and not --no-session, restore from QSettings (shared with Widgets)
+    if (!hasFiles && !parser.isSet(QStringLiteral("no-session"))) {
+        // Use SessionManager to load shared session
+        QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
+        // Find latest Session_* group (like SessionManager::loadSessionData)
+        QStringList groups = s.childGroups();
+        QStringList files;
+        for (auto &g : groups) if (g.startsWith(QStringLiteral("Session_"))) {
+            s.beginGroup(g);
+            QStringList f = s.value(QStringLiteral("Files")).toStringList();
+            s.endGroup();
+            files.append(f);
+        }
+        // Legacy fallback
+        if (files.isEmpty()) files = s.value(QStringLiteral("Session_Files")).toStringList();
+        for (auto &f : files) if (QFileInfo::exists(f)) tabModel->addTab(f);
+        if (!files.isEmpty() && initialFolder.isEmpty()) {
+            // Try to get project path
+            for (auto &g : groups) if (g.startsWith(QStringLiteral("Session_"))) {
+                s.beginGroup(g);
+                QString proj = s.value(QStringLiteral("ProjectPath")).toString();
+                s.endGroup();
+                if (!proj.isEmpty() && QDir(proj).exists()) { initialFolder = proj; break; }
+            }
+        }
+    }
+    engine.rootContext()->setContextProperty(QStringLiteral("tabModel"), tabModel);
+    // Save session on quit (shared)
+    QObject::connect(guiApp, &QGuiApplication::aboutToQuit, guiApp, [tabModel, initialFolder](){
+        QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
+        // Use nextgen-specific group to share with Widgets' SessionManager which aggregates all Session_*
+        QString grp = QStringLiteral("Session_%1").arg(QCoreApplication::applicationPid());
+        s.beginGroup(grp);
+        s.setValue(QStringLiteral("Files"), tabModel->tabs());
+        s.setValue(QStringLiteral("ProjectPath"), initialFolder);
+        s.endGroup();
+        s.sync();
+    });
+
+    // Shared terminal (singleton) – simple QML TextArea via QProcess, shared across windows
+    auto* term = PrimoTerminal::instance();
+    if (!initialFolder.isEmpty()) term->setCurrentDir(initialFolder);
+    else if (!tabModel->tabs().isEmpty()) {
+        QFileInfo fi(tabModel->tabAt(0));
+        if (fi.exists()) term->setCurrentDir(fi.absolutePath());
+    }
+    engine.rootContext()->setContextProperty(QStringLiteral("terminalInstance"), term);
+
+    // Find-in-Files (respects .gitignore + showHidden via SettingsManager)
+    auto* finder = new PrimoFindInFiles(app);
+    engine.rootContext()->setContextProperty(QStringLiteral("finderInstance"), finder);
+
     // Register primoEditor types for QML
     qmlRegisterType<PrimoEditor>("Devpad.Nextgen", 1, 0, "PrimoEditor");
     qmlRegisterType<PrimoDocument>("Devpad.Nextgen", 1, 0, "PrimoDocument");
     qmlRegisterType<NextgenActions>("Devpad.Nextgen", 1, 0, "NextgenActions");
+    qmlRegisterType<NextgenTabModel>("Devpad.Nextgen", 1, 0, "NextgenTabModel");
+    qmlRegisterType<PrimoTerminal>("Devpad.Nextgen", 1, 0, "PrimoTerminal");
+    qmlRegisterType<PrimoFindInFiles>("Devpad.Nextgen", 1, 0, "PrimoFindInFiles");
 
     // Try embedded QML first (resource), fallback to file system for dev builds
     const QUrl qmlUrl(QStringLiteral("qrc:/qml/nextgen/Main.qml"));

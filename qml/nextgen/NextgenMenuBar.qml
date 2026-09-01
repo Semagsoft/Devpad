@@ -54,6 +54,7 @@ MenuBar {
         Action { text: qsTr("&Replace..."); shortcut: "Ctrl+H"; onTriggered: actions.replace() }
         Action { text: qsTr("Find &Next"); shortcut: "F3"; onTriggered: actions.findNext() }
         Action { text: qsTr("Find &Previous"); shortcut: "Shift+F3"; onTriggered: actions.findPrevious() }
+        Action { text: qsTr("Find in &Files..."); shortcut: "Ctrl+Shift+F"; onTriggered: actions.findInFiles() }
         Action { text: qsTr("&Go to Line..."); shortcut: "Ctrl+G"; onTriggered: actions.goToLine() }
         MenuSeparator {}
         Action { text: qsTr("Toggle &Comment"); shortcut: "Ctrl+/"; onTriggered: actions.showMessage ? actions.showMessage("Toggle comment") : console.log("comment") }
@@ -74,6 +75,7 @@ MenuBar {
         Action { text: qsTr("Relative Line Numbers"); checkable: true; checked: editor ? editor.relativeNumbers : false; onTriggered: editor.relativeNumbers = checked }
         Action { text: qsTr("Show &Minimap"); checkable: true; checked: editor ? editor.minimapVisible : true; onTriggered: editor.minimapVisible = checked }
         Action { text: qsTr("&Word Wrap"); checkable: true; checked: editor ? editor.wordWrap : false; onTriggered: editor.wordWrap = checked; shortcut: "Alt+Z" }
+        Action { text: qsTr("&Terminal"); shortcut: "Ctrl+`"; checkable: true; onTriggered: actions.toggleTerminal() }
         MenuSeparator {}
         Action { text: qsTr("Zoom &In"); shortcut: "Ctrl++"; onTriggered: actions.zoomIn() }
         Action { text: qsTr("Zoom &Out"); shortcut: "Ctrl+-"; onTriggered: actions.zoomOut() }
@@ -81,6 +83,19 @@ MenuBar {
         Action { text: qsTr("Toggle &Full Screen"); shortcut: "F11"; onTriggered: actions.toggleFullScreen() }
         MenuSeparator {}
         Action { text: qsTr("Read &Only"); checkable: true; checked: editor ? editor.readOnly : false; onTriggered: editor.readOnly = checked }
+        MenuSeparator {}
+        Menu {
+            title: qsTr("&Theme")
+            Repeater {
+                model: actions ? actions.themeNames : []
+                MenuItem {
+                    text: modelData
+                    checkable: true
+                    checked: modelData === (actions ? actions.currentThemeName : "")
+                    onTriggered: actions.setThemeByName(modelData)
+                }
+            }
+        }
     }
 
     Menu {

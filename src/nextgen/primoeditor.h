@@ -41,6 +41,9 @@ class PrimoEditor : public QQuickItem
     Q_PROPERTY(bool readOnly READ isReadOnly WRITE setReadOnly NOTIFY readOnlyChanged)
     Q_PROPERTY(bool minimapVisible READ minimapVisible WRITE setMinimapVisible NOTIFY minimapVisibleChanged)
     Q_PROPERTY(qreal gutterWidth READ gutterWidth NOTIFY gutterWidthChanged)
+    Q_PROPERTY(bool canUndo READ canUndo NOTIFY canUndoChanged)
+    Q_PROPERTY(bool canRedo READ canRedo NOTIFY canRedoChanged)
+    Q_PROPERTY(bool undoDisabled READ isUndoDisabled NOTIFY undoDisabledChanged)
 
 public:
     explicit PrimoEditor(QQuickItem* parent = nullptr);
@@ -110,6 +113,17 @@ public:
     Q_INVOKABLE void setDiagnostics(const QList<int>& linesWithError);
     Q_INVOKABLE void clearDiagnostics();
 
+    // Undo/Clipboard (incremental disabled >50MB)
+    bool canUndo() const;
+    bool canRedo() const;
+    bool isUndoDisabled() const;
+    Q_INVOKABLE void undo();
+    Q_INVOKABLE void redo();
+    Q_INVOKABLE void copy();
+    Q_INVOKABLE void cut();
+    Q_INVOKABLE void paste();
+    Q_INVOKABLE void selectAll();
+
 signals:
     void filePathChanged();
     void textChanged();
@@ -129,6 +143,9 @@ signals:
     void gutterWidthChanged();
     void bookmarksChanged();
     void diagnosticsChanged();
+    void canUndoChanged();
+    void canRedoChanged();
+    void undoDisabledChanged();
     void fileLoaded(bool ok, const QString& error);
     void fileSaved(bool ok, const QString& error);
 

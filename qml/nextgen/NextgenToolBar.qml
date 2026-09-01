@@ -133,6 +133,20 @@ ToolBar {
             checked: editor ? editor.wordWrap : false
             onClicked: editor.wordWrap = !editor.wordWrap
         }
+        ToolButton {
+            icon.source: "qrc:/icons/Edit/findinfiles.svg"
+            ToolTip.text: qsTr("Find in Files (Ctrl+Shift+F)")
+            ToolTip.visible: hovered
+            display: AbstractButton.IconOnly
+            onClicked: actions.findInFiles()
+        }
+        ToolButton {
+            icon.source: "qrc:/icons/View/terminal.svg"
+            ToolTip.text: qsTr("Terminal (Ctrl+`)")
+            ToolTip.visible: hovered
+            display: AbstractButton.IconOnly
+            onClicked: actions.toggleTerminal()
+        }
 
         Item { Layout.fillWidth: true }
 

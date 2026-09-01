@@ -7,6 +7,7 @@
 
 #include "managers/settingsmanager.h"
 #include "nextgen/primoeditor.h"
+#include "theme.h"
 
 #include <QApplication>
 #include <QFileDialog>
@@ -49,6 +50,49 @@ void NextgenActions::setShowMenuBar(bool v) { SettingsManager::instance().setSho
 QStringList NextgenActions::recentFiles() const { return SettingsManager::instance().recentFiles(); }
 QStringList NextgenActions::recentFolders() const { return SettingsManager::instance().recentFolders(); }
 QString NextgenActions::currentEncoding() const { return m_editor ? m_editor->encoding() : QStringLiteral("UTF-8"); }
+QStringList NextgenActions::themeNames() const {
+    QStringList names;
+    for (auto id : allBuiltInThemes()) names << themeDisplayName(id);
+    names << customThemeNames();
+    return names;
+}
+QString NextgenActions::currentThemeName() const {
+    // If custom theme stored as ThemeId::System? For now return built-in name
+    ThemeId tid = SettingsManager::instance().theme();
+    // Check if custom? For simplicity, if currentTheme is beyond Count, treat as custom
+    // SettingsManager stores ThemeId, so custom not yet; just return built-in
+    return themeDisplayName(tid);
+}
+void NextgenActions::setThemeByName(const QString& name) {
+    for (auto id : allBuiltInThemes()) {
+        if (themeDisplayName(id) == name) { setThemeById(static_cast<int>(id)); return; }
+    }
+    // Try custom
+    QStringList customs = customThemeNames();
+    if (customs.contains(name)) {
+        ThemeColors c = getCustomThemeColors(name);
+        if (m_editor) {
+            m_editor->setBackgroundColor(c.background);
+            m_editor->setForegroundColor(c.foreground);
+            // also update highlight theme
+            // PrimoEditor will need to know custom theme? For now set via background/foreground
+        }
+        emit themeChanged();
+    }
+}
+void NextgenActions::setThemeById(int id) {
+    if (id < 0 || id >= static_cast<int>(ThemeId::Count)) return;
+    ThemeId tid = static_cast<ThemeId>(id);
+    SettingsManager::instance().setTheme(tid);
+    if (m_editor) {
+        ThemeColors c = getThemeColors(tid);
+        m_editor->setBackgroundColor(c.background);
+        m_editor->setForegroundColor(c.foreground);
+        // trigger highlight re-evaluation
+        m_editor->setLanguage(m_editor->language());
+    }
+    emit themeChanged();
+}
 void NextgenActions::refreshRecent() { emit recentFilesChanged(); }
 void NextgenActions::clearRecentFiles() { SettingsManager::instance().clearRecentFiles(); emit recentFilesChanged(); }
 
@@ -68,12 +112,12 @@ void NextgenActions::saveFileAs() { emit requestSaveAsDialog(); }
 void NextgenActions::saveFileAsDialog() { emit requestSaveAsDialog(); }
 void NextgenActions::closeFile() { newFile(); }
 void NextgenActions::exitApp() { QApplication::quit(); }
-void NextgenActions::undo() { if (m_editor && !m_editor->isReadOnly()) { /* PrimoDocument undo not yet separate – placeholder */ emit showMessage(QStringLiteral("Undo not yet implemented in primoEditor")); } }
-void NextgenActions::redo() { emit showMessage(QStringLiteral("Redo not yet implemented")); }
-void NextgenActions::cut() { emit showMessage(QStringLiteral("Cut via Ctrl+X in editor")); }
-void NextgenActions::copy() { emit showMessage(QStringLiteral("Copy via Ctrl+C in editor")); }
-void NextgenActions::paste() { emit showMessage(QStringLiteral("Paste via Ctrl+V in editor")); }
-void NextgenActions::selectAll() { if(m_editor){ m_editor->setCursorPosition(0,0); /* select all placeholder */ } }
+void NextgenActions::undo() { if (m_editor && !m_editor->isReadOnly() && m_editor->canUndo()) m_editor->undo(); else if (m_editor && m_editor->isUndoDisabled()) emit showMessage(QStringLiteral("Undo disabled for large file >50MB (perf)")); }
+void NextgenActions::redo() { if (m_editor && m_editor->canRedo()) m_editor->redo(); }
+void NextgenActions::cut() { if (m_editor) m_editor->cut(); }
+void NextgenActions::copy() { if (m_editor) m_editor->copy(); }
+void NextgenActions::paste() { if (m_editor) m_editor->paste(); }
+void NextgenActions::selectAll() { if(m_editor) m_editor->selectAll(); }
 void NextgenActions::find() { emit requestFindDialog(); }
 void NextgenActions::replace() { emit requestReplaceDialog(); }
 void NextgenActions::findNext() { emit showMessage(QStringLiteral("Find Next placeholder")); }
@@ -94,3 +138,5 @@ void NextgenActions::reopenWithEncoding(const QString& enc) { if(m_editor){ m_ed
         emit currentEncodingChanged(); emit showMessage(QStringLiteral("Reopen with ")+enc); } }
 void NextgenActions::saveWithEncoding(const QString& enc) { if(m_editor){ m_editor->setEncoding(enc); m_editor->save(); emit currentEncodingChanged(); } }
 void NextgenActions::openRecentFile(const QString& path) { openFile(path); }
+void NextgenActions::toggleTerminal() { emit requestTerminalToggle(); }
+void NextgenActions::findInFiles(const QString& pattern) { Q_UNUSED(pattern); emit requestFindInFiles(); }

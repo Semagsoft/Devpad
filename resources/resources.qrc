@@ -98,5 +98,9 @@
         <file alias="NextgenMenuBar.qml">../qml/nextgen/NextgenMenuBar.qml</file>
         <file alias="NextgenToolBar.qml">../qml/nextgen/NextgenToolBar.qml</file>
         <file alias="NextgenStatusBar.qml">../qml/nextgen/NextgenStatusBar.qml</file>
+        <file alias="FindBar.qml">../qml/nextgen/FindBar.qml</file>
+        <file alias="DraggableTabBar.qml">../qml/nextgen/DraggableTabBar.qml</file>
+        <file alias="TerminalPane.qml">../qml/nextgen/TerminalPane.qml</file>
+        <file alias="FindInFilesDrawer.qml">../qml/nextgen/FindInFilesDrawer.qml</file>
     </qresource>
 </RCC>
