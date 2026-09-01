@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  */
@@ -427,7 +427,7 @@ bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiF
 {
     Q_UNUSED(fileMtimes);
     if (!cur)
-        return false;
+      return false;
 
     // We need ncurses for getch second prompt on Ctrl+Q/Ctrl+W; handle those with direct ncurses calls
 #ifdef BUILD_TUI
