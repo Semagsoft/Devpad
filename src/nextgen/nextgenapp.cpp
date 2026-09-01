@@ -7,6 +7,7 @@
 
 #include "core/fileservice.h"
 #include "devpad_version.h"
+#include "nextgenactions.h"
 #include "primoeditor.h"
 
 #include <QCommandLineParser>
@@ -79,6 +80,14 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
     QQmlApplicationEngine engine;
+    QObject::connect(&engine, &QQmlApplicationEngine::warnings, &engine, [](const QList<QQmlError>& warns){
+        QTextStream err(stderr);
+        for (auto &w : warns) err << "QML warning: " << w.toString() << "\n";
+    });
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &engine, [](const QUrl& url){
+        QTextStream err(stderr);
+        err << "QML objectCreationFailed: " << url.toString() << "\n";
+    });
 
     // Expose initial files to QML
     QStringList absFiles;
@@ -98,9 +107,14 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     engine.rootContext()->setContextProperty(QStringLiteral("initialFolder"), initialFolder);
     engine.rootContext()->setContextProperty(QStringLiteral("devpadVersion"), QStringLiteral(DEVPAD_VERSION));
 
+    // Bridge for Menu/Toolbar/StatusBar (persists showToolbar/showStatusbar via SettingsManager)
+    auto* actions = new NextgenActions(app);
+    engine.rootContext()->setContextProperty(QStringLiteral("nextgenActions"), actions);
+
     // Register primoEditor types for QML
     qmlRegisterType<PrimoEditor>("Devpad.Nextgen", 1, 0, "PrimoEditor");
     qmlRegisterType<PrimoDocument>("Devpad.Nextgen", 1, 0, "PrimoDocument");
+    qmlRegisterType<NextgenActions>("Devpad.Nextgen", 1, 0, "NextgenActions");
 
     // Try embedded QML first (resource), fallback to file system for dev builds
     const QUrl qmlUrl(QStringLiteral("qrc:/qml/nextgen/Main.qml"));

@@ -95,5 +95,8 @@
     <qresource prefix="/qml/nextgen">
         <file alias="Main.qml">../qml/nextgen/Main.qml</file>
         <file alias="Minimap.qml">../qml/nextgen/Minimap.qml</file>
+        <file alias="NextgenMenuBar.qml">../qml/nextgen/NextgenMenuBar.qml</file>
+        <file alias="NextgenToolBar.qml">../qml/nextgen/NextgenToolBar.qml</file>
+        <file alias="NextgenStatusBar.qml">../qml/nextgen/NextgenStatusBar.qml</file>
     </qresource>
 </RCC>

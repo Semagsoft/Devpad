@@ -288,6 +288,7 @@ target_sources(Devpad PRIVATE
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primodocument.cpp>
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primohighlighter.cpp>
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoshader.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgenactions.cpp>
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
