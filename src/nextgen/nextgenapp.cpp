@@ -9,8 +9,8 @@
 #include "devpad_version.h"
 #include "nextgenactions.h"
 #include "nextgentabmodel.h"
-#include "primofindinfiles.h"
 #include "primoeditor.h"
+#include "primofindinfiles.h"
 #include "primoterminal.h"
 
 #include <QCommandLineParser>
@@ -84,14 +84,19 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
     QQmlApplicationEngine engine;
-    QObject::connect(&engine, &QQmlApplicationEngine::warnings, &engine, [](const QList<QQmlError>& warns){
-        QTextStream err(stderr);
-        for (auto &w : warns) err << "QML warning: " << w.toString() << "\n";
-    });
-    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &engine, [](const QUrl& url){
-        QTextStream err(stderr);
-        err << "QML objectCreationFailed: " << url.toString() << "\n";
-    });
+    QObject::connect(&engine, &QQmlApplicationEngine::warnings, &engine,
+                     [](const QList<QQmlError>& warns)
+                     {
+                         QTextStream err(stderr);
+                         for (auto& w : warns)
+                             err << "QML warning: " << w.toString() << "\n";
+                     });
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &engine,
+                     [](const QUrl& url)
+                     {
+                         QTextStream err(stderr);
+                         err << "QML objectCreationFailed: " << url.toString() << "\n";
+                     });
 
     // Expose initial files to QML
     QStringList absFiles;
@@ -118,56 +123,80 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     // Tab model for draggable tabs + split – shared session if no files
     auto* tabModel = new NextgenTabModel(app);
     bool hasFiles = false;
-    for (auto &f : absFiles) {
+    for (auto& f : absFiles)
+    {
         QFileInfo fi(f);
-        if (fi.isFile() || !fi.exists()) { tabModel->addTab(f); hasFiles = true; }
-        if (fi.isDir()) hasFiles = true;
+        if (fi.isFile() || !fi.exists())
+        {
+            tabModel->addTab(f);
+            hasFiles = true;
+        }
+        if (fi.isDir())
+            hasFiles = true;
     }
     // Shared session: if no files and not --no-session, restore from QSettings (shared with Widgets)
-    if (!hasFiles && !parser.isSet(QStringLiteral("no-session"))) {
+    if (!hasFiles && !parser.isSet(QStringLiteral("no-session")))
+    {
         // Use SessionManager to load shared session
         QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
         // Find latest Session_* group (like SessionManager::loadSessionData)
         QStringList groups = s.childGroups();
         QStringList files;
-        for (auto &g : groups) if (g.startsWith(QStringLiteral("Session_"))) {
-            s.beginGroup(g);
-            QStringList f = s.value(QStringLiteral("Files")).toStringList();
-            s.endGroup();
-            files.append(f);
-        }
-        // Legacy fallback
-        if (files.isEmpty()) files = s.value(QStringLiteral("Session_Files")).toStringList();
-        for (auto &f : files) if (QFileInfo::exists(f)) tabModel->addTab(f);
-        if (!files.isEmpty() && initialFolder.isEmpty()) {
-            // Try to get project path
-            for (auto &g : groups) if (g.startsWith(QStringLiteral("Session_"))) {
+        for (auto& g : groups)
+            if (g.startsWith(QStringLiteral("Session_")))
+            {
                 s.beginGroup(g);
-                QString proj = s.value(QStringLiteral("ProjectPath")).toString();
+                QStringList f = s.value(QStringLiteral("Files")).toStringList();
                 s.endGroup();
-                if (!proj.isEmpty() && QDir(proj).exists()) { initialFolder = proj; break; }
+                files.append(f);
             }
+        // Legacy fallback
+        if (files.isEmpty())
+            files = s.value(QStringLiteral("Session_Files")).toStringList();
+        for (auto& f : files)
+            if (QFileInfo::exists(f))
+                tabModel->addTab(f);
+        if (!files.isEmpty() && initialFolder.isEmpty())
+        {
+            // Try to get project path
+            for (auto& g : groups)
+                if (g.startsWith(QStringLiteral("Session_")))
+                {
+                    s.beginGroup(g);
+                    QString proj = s.value(QStringLiteral("ProjectPath")).toString();
+                    s.endGroup();
+                    if (!proj.isEmpty() && QDir(proj).exists())
+                    {
+                        initialFolder = proj;
+                        break;
+                    }
+                }
         }
     }
     engine.rootContext()->setContextProperty(QStringLiteral("tabModel"), tabModel);
     // Save session on quit (shared)
-    QObject::connect(guiApp, &QGuiApplication::aboutToQuit, guiApp, [tabModel, initialFolder](){
-        QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-        // Use nextgen-specific group to share with Widgets' SessionManager which aggregates all Session_*
-        QString grp = QStringLiteral("Session_%1").arg(QCoreApplication::applicationPid());
-        s.beginGroup(grp);
-        s.setValue(QStringLiteral("Files"), tabModel->tabs());
-        s.setValue(QStringLiteral("ProjectPath"), initialFolder);
-        s.endGroup();
-        s.sync();
-    });
+    QObject::connect(guiApp, &QGuiApplication::aboutToQuit, guiApp,
+                     [tabModel, initialFolder]()
+                     {
+                         QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
+                         // Use nextgen-specific group to share with Widgets' SessionManager which aggregates all Session_*
+                         QString grp = QStringLiteral("Session_%1").arg(QCoreApplication::applicationPid());
+                         s.beginGroup(grp);
+                         s.setValue(QStringLiteral("Files"), tabModel->tabs());
+                         s.setValue(QStringLiteral("ProjectPath"), initialFolder);
+                         s.endGroup();
+                         s.sync();
+                     });
 
     // Shared terminal (singleton) – simple QML TextArea via QProcess, shared across windows
     auto* term = PrimoTerminal::instance();
-    if (!initialFolder.isEmpty()) term->setCurrentDir(initialFolder);
-    else if (!tabModel->tabs().isEmpty()) {
+    if (!initialFolder.isEmpty())
+        term->setCurrentDir(initialFolder);
+    else if (!tabModel->tabs().isEmpty())
+    {
         QFileInfo fi(tabModel->tabAt(0));
-        if (fi.exists()) term->setCurrentDir(fi.absolutePath());
+        if (fi.exists())
+            term->setCurrentDir(fi.absolutePath());
     }
     engine.rootContext()->setContextProperty(QStringLiteral("terminalInstance"), term);
 

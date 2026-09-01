@@ -15,9 +15,12 @@
 #include <QFileInfo>
 #include <QVariantMap>
 
-PrimoFindInFiles::PrimoFindInFiles(QObject* parent) : QObject(parent) {}
+PrimoFindInFiles::PrimoFindInFiles(QObject* parent) : QObject(parent)
+{
+}
 
-QVariantList PrimoFindInFiles::search(const QString& pattern, const QString& rootPath, const QString& fileGlob, bool caseSensitive, bool wholeWord, bool useRegex)
+QVariantList PrimoFindInFiles::search(const QString& pattern, const QString& rootPath, const QString& fileGlob, bool caseSensitive, bool wholeWord,
+                                      bool useRegex)
 {
     emit searchStarted();
     m_lastPattern = pattern;
@@ -26,14 +29,16 @@ QVariantList PrimoFindInFiles::search(const QString& pattern, const QString& roo
     emit lastRootChanged();
     m_results.clear();
 
-    if (pattern.isEmpty() || rootPath.isEmpty()) {
+    if (pattern.isEmpty() || rootPath.isEmpty())
+    {
         emit resultCountChanged();
         emit searchFinished(0);
         return m_results;
     }
 
     QDir rootDir(rootPath);
-    if (!rootDir.exists()) {
+    if (!rootDir.exists())
+    {
         emit resultCountChanged();
         emit searchFinished(0);
         return m_results;
@@ -51,17 +56,25 @@ QVariantList PrimoFindInFiles::search(const QString& pattern, const QString& roo
     QList<FindInFilesResult> raw = TuiFindInFiles::search(rootPath, pattern, opts, fileGlob, {});
 
     // Filter showHidden if needed
-    if (!showHidden) {
+    if (!showHidden)
+    {
         QList<FindInFilesResult> filtered;
-        for (auto &r : raw) {
+        for (auto& r : raw)
+        {
             QFileInfo fi(r.filePath);
             QString rel = rootDir.relativeFilePath(r.filePath);
             // Skip hidden files/dirs (any component starting with .)
             bool hidden = false;
-            for (auto part : rel.split(QLatin1Char('/'))) {
-                if (part.startsWith(QLatin1Char('.'))) { hidden = true; break; }
+            for (auto part : rel.split(QLatin1Char('/')))
+            {
+                if (part.startsWith(QLatin1Char('.')))
+                {
+                    hidden = true;
+                    break;
+                }
             }
-            if (hidden) continue;
+            if (hidden)
+                continue;
             // Also skip if gitignore disabled, still respect hidden
             filtered.append(r);
         }
@@ -69,18 +82,19 @@ QVariantList PrimoFindInFiles::search(const QString& pattern, const QString& roo
     }
 
     // If useGitIgnore is false, we should not have filtered via gitIgnore, but TuiFindInFiles always does gitignore
-    // So if useGitIgnore is false, we need to re-include gitignored files? For now, if disabled, we just not filter, but TuiFindInFiles already filtered.
-    // To respect setting, if disabled, we should re-search without gitignore? For MVP, we keep gitignore always (most users want it)
+    // So if useGitIgnore is false, we need to re-include gitignored files? For now, if disabled, we just not filter, but TuiFindInFiles already
+    // filtered. To respect setting, if disabled, we should re-search without gitignore? For MVP, we keep gitignore always (most users want it)
     Q_UNUSED(useGitIgnore);
 
-    for (auto &r : raw) {
+    for (auto& r : raw)
+    {
         QVariantMap m;
         m.insert(QStringLiteral("filePath"), r.filePath);
         m.insert(QStringLiteral("line"), r.line);
         m.insert(QStringLiteral("column"), r.column);
         m.insert(QStringLiteral("length"), r.length);
         m.insert(QStringLiteral("lineText"), r.lineText);
-        m.insert(QStringLiteral("display"), QStringLiteral("%1:%2: %3").arg(r.filePath).arg(r.line+1).arg(r.lineText));
+        m.insert(QStringLiteral("display"), QStringLiteral("%1:%2: %3").arg(r.filePath).arg(r.line + 1).arg(r.lineText));
         m_results.append(m);
     }
 
@@ -97,18 +111,21 @@ void PrimoFindInFiles::clear()
 
 QVariantMap PrimoFindInFiles::resultAt(int idx) const
 {
-    if (idx <0 || idx >= m_results.size()) return {};
+    if (idx < 0 || idx >= m_results.size())
+        return {};
     return m_results.at(idx).toMap();
 }
 
 QString PrimoFindInFiles::fileAt(int idx) const
 {
-    if (idx <0 || idx >= m_results.size()) return {};
+    if (idx < 0 || idx >= m_results.size())
+        return {};
     return m_results.at(idx).toMap().value(QStringLiteral("filePath")).toString();
 }
 
 int PrimoFindInFiles::lineAt(int idx) const
 {
-    if (idx <0 || idx >= m_results.size()) return -1;
+    if (idx < 0 || idx >= m_results.size())
+        return -1;
     return m_results.at(idx).toMap().value(QStringLiteral("line")).toInt();
 }

@@ -588,7 +588,9 @@ const QStringList& markdownKeywords()
 const QStringList& jsonKeywords()
 {
     static const QStringList keywords = {
-        "true", "false", "null",
+        "true",
+        "false",
+        "null",
     };
     return keywords;
 }
@@ -715,8 +717,8 @@ const QStringList& cmakeKeywords()
 const QStringList& luaKeywords()
 {
     static const QStringList keywords = {
-        "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if",
-        "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
+        "and",   "break", "do",  "else", "elseif", "end",    "false", "for",  "function", "if",    "in",
+        "local", "nil",   "not", "or",   "repeat", "return", "then",  "true", "until",    "while",
     };
     return keywords;
 }
@@ -724,17 +726,73 @@ const QStringList& luaKeywords()
 const QStringList& qmlKeywords()
 {
     static const QStringList keywords = {
-        "import", "property", "signal", "readonly", "id", "alias", "default", "as",
-        "Item", "Rectangle", "Text", "Button", "MouseArea", "ListView", "GridView",
-        "Component", "Model", "VisualItemModel", "ListModel", "ListElement",
-        "Timer", "State", "Transition", "PropertyChanges", "NumberAnimation",
-        "ColorAnimation", "Behavior", "AnchorChanges", "ParentAnimation",
-        "Connections", "WorkerScript", "Qt", "console", "parent", "children",
-        "anchors", "transform", "states", "transitions", "true", "false", "null",
-        "function", "var", "let", "const", "if", "else", "for", "while", "return",
-        "switch", "case", "break", "continue", "try", "catch", "finally", "new",
-        "this", "delete", "typeof", "instanceof", "in", "void", "with", "debugger",
+        "import",
+        "property",
+        "signal",
+        "readonly",
+        "id",
+        "alias",
+        "default",
+        "as",
+        "Item",
+        "Rectangle",
+        "Text",
+        "Button",
+        "MouseArea",
+        "ListView",
+        "GridView",
+        "Component",
+        "Model",
+        "VisualItemModel",
+        "ListModel",
+        "ListElement",
+        "Timer",
+        "State",
+        "Transition",
+        "PropertyChanges",
+        "NumberAnimation",
+        "ColorAnimation",
+        "Behavior",
+        "AnchorChanges",
+        "ParentAnimation",
+        "Connections",
+        "WorkerScript",
+        "Qt",
+        "console",
+        "parent",
+        "children",
+        "anchors",
+        "transform",
+        "states",
+        "transitions",
+        "true",
+        "false",
+        "null",
+        "function",
+        "var",
+        "let",
+        "const",
+        "if",
+        "else",
+        "for",
+        "while",
+        "return",
+        "switch",
+        "case",
+        "break",
+        "continue",
+        "try",
+        "catch",
+        "finally",
+        "new",
+        "this",
+        "delete",
+        "typeof",
+        "instanceof",
+        "in",
+        "void",
+        "with",
+        "debugger",
     };
     return keywords;
 }
-

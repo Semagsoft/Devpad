@@ -11,8 +11,8 @@
 #include "tuitabmodel.h"
 #include "tuiviewstate.h"
 
-#include <QHash>
 #include <QDateTime>
+#include <QHash>
 
 class TuiCommand
 {
@@ -26,9 +26,8 @@ public:
     // Dispatch a single : command string (without leading ':'). Returns Quit if app should exit.
     // May mutate tabs/cur/fileTree/view/statusMsg/lastSearch/findOpts/fileMtimes.
     // Flags for saveAsMode/commandMode handling are output via outSaveAsRequest.
-    static Result dispatch(const QString& rawCmd, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiViewState& view,
-                           QString& statusMsg, SearchResult& lastSearch, SearchOptions& findOpts,
-                           QHash<QString, QDateTime>& fileMtimes, bool& outSaveAsRequest);
+    static Result dispatch(const QString& rawCmd, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiViewState& view, QString& statusMsg,
+                           SearchResult& lastSearch, SearchOptions& findOpts, QHash<QString, QDateTime>& fileMtimes, bool& outSaveAsRequest);
 
     // Tab completion for command input. Mutates commandInput and statusMsg.
     static void complete(QString& commandInput, QString& statusMsg);

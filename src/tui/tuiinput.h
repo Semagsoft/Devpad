@@ -63,8 +63,7 @@ public:
                                  QHash<QString, QDateTime>& fileMtimes);
 
     // Handle file-tree focused navigation. Returns true if handled.
-    static bool handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState& st, TuiTabModel& tabs,
-                                    QHash<QString, QDateTime>& fileMtimes);
+    static bool handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState& st, TuiTabModel& tabs, QHash<QString, QDateTime>& fileMtimes);
 
     // Handle global shortcuts + editing. Returns true if should quit app.
     static bool handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiInputState& st,

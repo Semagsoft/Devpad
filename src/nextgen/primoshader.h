@@ -9,11 +9,11 @@
 #ifndef PRIMOSHADER_H
 #define PRIMOSHADER_H
 
+#include <QColor>
 #include <QSGGeometryNode>
 #include <QSGMaterial>
 #include <QSGMaterialShader>
 #include <QSGVertexColorMaterial>
-#include <QColor>
 
 class PrimoGradientMaterial : public QSGMaterial
 {

@@ -28,7 +28,9 @@ class PrimoHighlighter : public QObject
 {
     Q_OBJECT
 public:
-    explicit PrimoHighlighter(QObject* parent = nullptr) : QObject(parent) {}
+    explicit PrimoHighlighter(QObject* parent = nullptr) : QObject(parent)
+    {
+    }
 
     static QVector<QTextLayout::FormatRange> formatsForLine(const QString& line, const QString& language, const ThemeColors& colors);
     static QColor colorForKind(int kind, const ThemeColors& colors);

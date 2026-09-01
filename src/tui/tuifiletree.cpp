@@ -84,9 +84,8 @@ void TuiFileTree::refresh()
 QStringList TuiFileTree::listEntries(const QString& dirPath) const
 {
     QDir dir(dirPath);
-    QFileInfoList infos = dir.entryInfoList(
-        (m_showHidden ? QDir::AllEntries | QDir::Hidden : QDir::AllEntries) | QDir::NoDotAndDotDot,
-        QDir::DirsFirst | QDir::Name | QDir::IgnoreCase);
+    QFileInfoList infos = dir.entryInfoList((m_showHidden ? QDir::AllEntries | QDir::Hidden : QDir::AllEntries) | QDir::NoDotAndDotDot,
+                                            QDir::DirsFirst | QDir::Name | QDir::IgnoreCase);
 
     QStringList out;
     for (const QFileInfo& fi : infos)
@@ -133,8 +132,8 @@ void TuiFileTree::buildVisible(QList<TuiFileNode>& out, const QString& dirPath, 
         }
         else if (!m_filter.isEmpty() && node.isDir)
         {
-            // Check if this dir or any descendant would be visible; if filter set and dir name doesn't contain filter, we still want to show if descendants match.
-            // Build temp child list to see if any descendant visible
+            // Check if this dir or any descendant would be visible; if filter set and dir name doesn't contain filter, we still want to show if
+            // descendants match. Build temp child list to see if any descendant visible
             QList<TuiFileNode> temp;
             buildVisible(temp, abs, depth + 1);
             if (temp.isEmpty() && !fi.fileName().contains(m_filter, Qt::CaseInsensitive))

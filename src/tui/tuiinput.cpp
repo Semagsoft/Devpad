@@ -263,8 +263,7 @@ bool TuiInput::handleInputModes(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiFi
             st.commandMode = false;
             st.commandInput.clear();
             bool saveAsReq = false;
-            auto res = TuiCommand::dispatch(cmd, tabs, cur, fileTree, st.view, st.statusMsg, st.lastSearch, st.findOpts, fileMtimes,
-                                            saveAsReq);
+            auto res = TuiCommand::dispatch(cmd, tabs, cur, fileTree, st.view, st.statusMsg, st.lastSearch, st.findOpts, fileMtimes, saveAsReq);
             if (saveAsReq)
             {
                 st.saveAsMode = true;
@@ -302,8 +301,8 @@ bool TuiInput::handleInputModes(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiFi
         {
             fileTree.setFilter(st.fileTreeFilterInput);
             st.fileTreeFilterMode = false;
-            st.statusMsg = st.fileTreeFilterInput.isEmpty() ? QStringLiteral("Filter cleared")
-                                                            : QStringLiteral("Filter: %1").arg(st.fileTreeFilterInput);
+            st.statusMsg =
+                st.fileTreeFilterInput.isEmpty() ? QStringLiteral("Filter cleared") : QStringLiteral("Filter: %1").arg(st.fileTreeFilterInput);
         }
         else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8)
         {
@@ -324,8 +323,7 @@ bool TuiInput::handleInputModes(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiFi
     return false;
 }
 
-bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState& st, TuiTabModel& tabs,
-                                   QHash<QString, QDateTime>& fileMtimes)
+bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState& st, TuiTabModel& tabs, QHash<QString, QDateTime>& fileMtimes)
 {
     if (!st.fileTreeVisible || !st.fileTreeFocused)
         return false;
@@ -636,8 +634,7 @@ bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiF
     {
         if (!st.findQuery.isEmpty())
         {
-            SearchResult r =
-                TuiSearchEngine::findNext(cur->lines(), st.findQuery, st.findOpts, cur->cursorLine(), cur->cursorCol() + 1, true, true);
+            SearchResult r = TuiSearchEngine::findNext(cur->lines(), st.findQuery, st.findOpts, cur->cursorLine(), cur->cursorCol() + 1, true, true);
             if (r.found)
             {
                 cur->setCursor(r.line, r.column);
@@ -821,4 +818,3 @@ bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiF
 #endif
     return false; // false = not quit, true = quit (only CtrlQ)
 }
-

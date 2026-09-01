@@ -30,9 +30,8 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
     result.size = fileSize;
     if (fileSize > MaxFileSize)
     {
-        result.error = QStringLiteral("File too large (%1 MB). Maximum size is %2 MB.")
-                           .arg(fileSize / (1024LL * 1024))
-                           .arg(MaxFileSize / (1024LL * 1024));
+        result.error =
+            QStringLiteral("File too large (%1 MB). Maximum size is %2 MB.").arg(fileSize / (1024LL * 1024)).arg(MaxFileSize / (1024LL * 1024));
         Logger::instance().error(result.error);
         return result;
     }

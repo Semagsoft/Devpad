@@ -29,13 +29,12 @@ public:
 #ifdef BUILD_TUI
     static void drawTabBar(const TuiTabModel& tabs, int cols);
     static void drawStatusBar(const TuiBuffer* cur, const TuiTabModel& tabs, const QString& statusMsg, const TuiFileTree& fileTree,
-                              bool fileTreeVisible, bool fileTreeFocused, bool findMode, const QString& findInput, bool replaceMode,
-                              int replacePhase, const QString& replaceFindInput, const QString& replaceInput, bool fileTreeFilterMode,
+                              bool fileTreeVisible, bool fileTreeFocused, bool findMode, const QString& findInput, bool replaceMode, int replacePhase,
+                              const QString& replaceFindInput, const QString& replaceInput, bool fileTreeFilterMode,
                               const QString& fileTreeFilterInput, bool saveAsMode, const QString& saveAsInput, bool gotoMode,
                               const QString& gotoInput, bool commandMode, const QString& commandInput, int cols, int rows, bool hasColors);
-    static void drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTree& fileTree, TuiViewState& view, int editorH, int cols,
-                           int tabBarH, int treeWidth, bool fileTreeVisible, bool fileTreeFocused, bool hasColors,
-                           const SearchResult& lastSearch);
+    static void drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTree& fileTree, TuiViewState& view, int editorH, int cols, int tabBarH,
+                           int treeWidth, bool fileTreeVisible, bool fileTreeFocused, bool hasColors, const SearchResult& lastSearch);
 #endif
 };
 

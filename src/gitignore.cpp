@@ -228,19 +228,19 @@ bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
             continue;
 
         for (const Pattern& p : it.value())
-            {
-                if (p.dirOnly && !isDir)
-                    continue;
+        {
+            if (p.dirOnly && !isDir)
+                continue;
 
-                QString matchTarget;
-                if (!p.dirOnly && !p.anchored && !p.hasSlash && relPath.contains('/'))
-                    matchTarget = relPath.section('/', -1);
-                else
-                    matchTarget = relPath;
+            QString matchTarget;
+            if (!p.dirOnly && !p.anchored && !p.hasSlash && relPath.contains('/'))
+                matchTarget = relPath.section('/', -1);
+            else
+                matchTarget = relPath;
 
-                if (p.regex.match(matchTarget).hasMatch())
-                    ignored = !p.negate;
-            }
+            if (p.regex.match(matchTarget).hasMatch())
+                ignored = !p.negate;
+        }
     }
 
     return ignored;

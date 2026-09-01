@@ -15,7 +15,8 @@ static PrimoTerminal* s_instance = nullptr;
 
 PrimoTerminal* PrimoTerminal::instance()
 {
-    if (!s_instance) {
+    if (!s_instance)
+    {
         s_instance = new PrimoTerminal(QCoreApplication::instance());
     }
     return s_instance;
@@ -34,10 +35,12 @@ PrimoTerminal::PrimoTerminal(QObject* parent) : QObject(parent)
 
 PrimoTerminal::~PrimoTerminal()
 {
-    if (m_proc && m_proc->state() != QProcess::NotRunning) {
+    if (m_proc && m_proc->state() != QProcess::NotRunning)
+    {
         m_proc->terminate();
         m_proc->waitForFinished(500);
-        if (m_proc->state() != QProcess::NotRunning) m_proc->kill();
+        if (m_proc->state() != QProcess::NotRunning)
+            m_proc->kill();
     }
 }
 
@@ -45,40 +48,62 @@ QString PrimoTerminal::detectShell() const
 {
 #ifdef Q_OS_WIN
     QString comspec = qEnvironmentVariable("COMSPEC");
-    if (!comspec.isEmpty() && QFileInfo::exists(comspec)) return comspec;
+    if (!comspec.isEmpty() && QFileInfo::exists(comspec))
+        return comspec;
     return QStringLiteral("cmd.exe");
 #else
     QString shell = qEnvironmentVariable("SHELL");
-    if (!shell.isEmpty() && QFileInfo::exists(shell)) return shell;
+    if (!shell.isEmpty() && QFileInfo::exists(shell))
+        return shell;
     // Fallback simple shell
-    if (QFileInfo::exists(QStringLiteral("/bin/bash"))) return QStringLiteral("/bin/bash");
-    if (QFileInfo::exists(QStringLiteral("/bin/sh"))) return QStringLiteral("/bin/sh");
+    if (QFileInfo::exists(QStringLiteral("/bin/bash")))
+        return QStringLiteral("/bin/bash");
+    if (QFileInfo::exists(QStringLiteral("/bin/sh")))
+        return QStringLiteral("/bin/sh");
     return QStringLiteral("/bin/bash");
 #endif
 }
 
-QString PrimoTerminal::output() const { return m_output; }
-QString PrimoTerminal::currentDir() const { return m_currentDir; }
+QString PrimoTerminal::output() const
+{
+    return m_output;
+}
+QString PrimoTerminal::currentDir() const
+{
+    return m_currentDir;
+}
 void PrimoTerminal::setCurrentDir(const QString& dir)
 {
-    if (m_currentDir == dir) return;
+    if (m_currentDir == dir)
+        return;
     QDir d(dir);
-    if (!d.exists()) return;
+    if (!d.exists())
+        return;
     m_currentDir = d.absolutePath();
-    if (m_proc && m_proc->state() != QProcess::NotRunning) {
+    if (m_proc && m_proc->state() != QProcess::NotRunning)
+    {
         // Change dir via cd command
         write(QStringLiteral("cd \"") + m_currentDir + QStringLiteral("\"\n"));
-    } else {
+    }
+    else
+    {
         m_proc->setWorkingDirectory(m_currentDir);
     }
     emit currentDirChanged();
 }
-bool PrimoTerminal::isRunning() const { return m_running; }
-QString PrimoTerminal::shellProgram() const { return m_shell; }
+bool PrimoTerminal::isRunning() const
+{
+    return m_running;
+}
+QString PrimoTerminal::shellProgram() const
+{
+    return m_shell;
+}
 
 void PrimoTerminal::start()
 {
-    if (m_running) return;
+    if (m_running)
+        return;
     m_proc->setWorkingDirectory(m_currentDir);
 #ifdef Q_OS_WIN
     m_proc->setProgram(m_shell);
@@ -90,20 +115,25 @@ void PrimoTerminal::start()
     m_proc->setProcessEnvironment(QProcessEnvironment::systemEnvironment());
     appendOutput(QStringLiteral("$ ") + m_shell + QStringLiteral(" started in ") + m_currentDir + QStringLiteral("\n"));
     m_proc->start();
-    if (m_proc->waitForStarted(2000)) {
+    if (m_proc->waitForStarted(2000))
+    {
         m_running = true;
         emit runningChanged();
         emit shellProgramChanged();
-    } else {
+    }
+    else
+    {
         appendOutput(QStringLiteral("Failed to start shell: ") + m_proc->errorString() + QStringLiteral("\n"));
     }
 }
 
 void PrimoTerminal::stop()
 {
-    if (!m_running) return;
+    if (!m_running)
+        return;
     m_proc->terminate();
-    if (!m_proc->waitForFinished(1000)) m_proc->kill();
+    if (!m_proc->waitForFinished(1000))
+        m_proc->kill();
     m_running = false;
     emit runningChanged();
 }
@@ -116,8 +146,10 @@ void PrimoTerminal::restart()
 
 void PrimoTerminal::write(const QString& text)
 {
-    if (!m_running) start();
-    if (!m_proc || m_proc->state() == QProcess::NotRunning) return;
+    if (!m_running)
+        start();
+    if (!m_proc || m_proc->state() == QProcess::NotRunning)
+        return;
     // Ensure newline handling: QProcess expects bytes
     QByteArray data = text.toUtf8();
     // If not ending with newline, keep as is for interactive
@@ -155,7 +187,8 @@ void PrimoTerminal::appendOutput(const QString& text)
 {
     m_output += text;
     // Keep output bounded: trim oldest if > 500KB
-    if (m_output.size() > 500 * 1024) {
+    if (m_output.size() > 500 * 1024)
+    {
         m_output = m_output.right(400 * 1024);
     }
     emit outputChanged();

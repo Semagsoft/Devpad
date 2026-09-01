@@ -32,14 +32,26 @@ public:
     explicit TuiFileTree();
 
     void setRootPath(const QString& path);
-    QString rootPath() const { return m_rootPath; }
-    bool hasRoot() const { return !m_rootPath.isEmpty() && QDir(m_rootPath).exists(); }
+    QString rootPath() const
+    {
+        return m_rootPath;
+    }
+    bool hasRoot() const
+    {
+        return !m_rootPath.isEmpty() && QDir(m_rootPath).exists();
+    }
 
     void setShowHidden(bool show);
-    bool showHidden() const { return m_showHidden; }
+    bool showHidden() const
+    {
+        return m_showHidden;
+    }
 
     void setFilter(const QString& filter);
-    QString filter() const { return m_filter; }
+    QString filter() const
+    {
+        return m_filter;
+    }
 
     void setExpanded(const QString& path, bool expanded);
     bool isExpanded(const QString& path) const;
@@ -50,7 +62,10 @@ public:
     // Visible nodes in order, considering expand state and filter
     QList<TuiFileNode> visibleNodes() const;
 
-    int cursorIndex() const { return m_cursor; }
+    int cursorIndex() const
+    {
+        return m_cursor;
+    }
     void setCursor(int idx);
     void moveCursor(int delta);
     TuiFileNode* nodeAt(int idx);

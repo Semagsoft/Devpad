@@ -36,9 +36,18 @@ class TuiHighlighter
 public:
     static QList<HighlightSegment> highlightLine(const QString& line, const QString& language);
     static QString languageForFile(const QString& filePath);
-    static bool isSyntaxEnabled() { return s_enabled; }
-    static void setEnabled(bool e) { s_enabled = e; }
-    static void setLanguageOverride(const QString& lang) { s_override = lang; }
+    static bool isSyntaxEnabled()
+    {
+        return s_enabled;
+    }
+    static void setEnabled(bool e)
+    {
+        s_enabled = e;
+    }
+    static void setLanguageOverride(const QString& lang)
+    {
+        s_override = lang;
+    }
     static QString currentLanguage(const QString& filePath);
 
 private:

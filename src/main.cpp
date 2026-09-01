@@ -139,7 +139,7 @@ int main(int argc, char* argv[])
     if (nextgenRequested)
     {
 #ifdef BUILD_NEXTGEN
-        extern int runNextgenApp(QCoreApplication * app, const QCommandLineParser & parser, const QStringList & positional);
+        extern int runNextgenApp(QCoreApplication * app, const QCommandLineParser& parser, const QStringList& positional);
         // Use QGuiApplication for QML; QCoreApplication is enough for non-GUI fallback.
         // We use QGuiApplication here; if no display, QML will fail gracefully.
         QGuiApplication app(argc, argv);
@@ -157,7 +157,8 @@ int main(int argc, char* argv[])
         QCommandLineOption tuiOpt2(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
         parser.addOption(tuiOpt2);
         parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
-        QCommandLineOption transferOpt2(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"), QStringLiteral("file"));
+        QCommandLineOption transferOpt2(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"),
+                                        QStringLiteral("file"));
         parser.addOption(transferOpt2);
         QCommandLineOption noSessionOpt2(QStringList() << "no-session", QStringLiteral("Do not restore previous session"));
         parser.addOption(noSessionOpt2);
@@ -196,7 +197,8 @@ int main(int argc, char* argv[])
         parser.addOption(tuiOpt);
         parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
         // Also accept --transfer for compatibility but ignore in TUI
-        QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"), QStringLiteral("file"));
+        QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"),
+                                       QStringLiteral("file"));
         parser.addOption(transferOpt);
         QCommandLineOption noSessionOpt(QStringList() << "no-session", QStringLiteral("Do not restore previous session"));
         parser.addOption(noSessionOpt);
@@ -204,7 +206,7 @@ int main(int argc, char* argv[])
 
 #ifdef BUILD_TUI
         // Defer to TUI backend
-        extern int runTuiApp(QCoreApplication * app, const QCommandLineParser & parser, const QStringList & positional);
+        extern int runTuiApp(QCoreApplication * app, const QCommandLineParser& parser, const QStringList& positional);
         QStringList positional = parser.positionalArguments();
         // Filter out --transfer value if present via positional handling already done by parser
         if (parser.isSet(transferOpt))
@@ -232,7 +234,8 @@ int main(int argc, char* argv[])
     parser.setApplicationDescription(QStringLiteral("Devpad - A C++/Qt6 code editor"));
     parser.addHelpOption();
     parser.addVersionOption();
-    QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"), QStringLiteral("file"));
+    QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"),
+                                   QStringLiteral("file"));
     parser.addOption(transferOpt);
     QCommandLineOption tuiOpt(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
     parser.addOption(tuiOpt);

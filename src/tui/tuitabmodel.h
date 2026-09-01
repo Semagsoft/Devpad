@@ -17,10 +17,19 @@ class TuiTabModel
 public:
     TuiTabModel() = default;
 
-    int count() const { return m_buffers.size(); }
-    bool isEmpty() const { return m_buffers.isEmpty(); }
+    int count() const
+    {
+        return m_buffers.size();
+    }
+    bool isEmpty() const
+    {
+        return m_buffers.isEmpty();
+    }
 
-    int currentIndex() const { return m_currentIndex; }
+    int currentIndex() const
+    {
+        return m_currentIndex;
+    }
     void setCurrentIndex(int idx);
 
     TuiBuffer* currentBuffer();
@@ -35,8 +44,14 @@ public:
 
     int findByFilePath(const QString& filePath) const;
 
-    QSet<QString> pinnedFiles() const { return m_pinned; }
-    void setPinnedFiles(const QSet<QString>& p) { m_pinned = p; }
+    QSet<QString> pinnedFiles() const
+    {
+        return m_pinned;
+    }
+    void setPinnedFiles(const QSet<QString>& p)
+    {
+        m_pinned = p;
+    }
     bool isPinned(int idx) const;
     void setPinned(int idx, bool pinned);
 

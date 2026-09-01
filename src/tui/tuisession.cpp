@@ -12,8 +12,7 @@
 #include <QDir>
 #include <QFileInfo>
 
-bool TuiSession::tryRestore(const QCommandLineParser& parser, const QStringList& positionalFiles, TuiTabModel& tabs,
-                            TuiFileTree& fileTree)
+bool TuiSession::tryRestore(const QCommandLineParser& parser, const QStringList& positionalFiles, TuiTabModel& tabs, TuiFileTree& fileTree)
 {
     bool noSession = parser.isSet(QStringLiteral("no-session"));
     if (!positionalFiles.isEmpty() || noSession)
@@ -22,8 +21,7 @@ bool TuiSession::tryRestore(const QCommandLineParser& parser, const QStringList&
     QStringList sFiles = sm.sessionFiles();
     if (sFiles.isEmpty())
         return false;
-    bool isUntitledEmpty = (tabs.count() == 1 && tabs.bufferAt(0) && tabs.bufferAt(0)->filePath().isEmpty()
-                            && tabs.bufferAt(0)->text().isEmpty());
+    bool isUntitledEmpty = (tabs.count() == 1 && tabs.bufferAt(0) && tabs.bufferAt(0)->filePath().isEmpty() && tabs.bufferAt(0)->text().isEmpty());
     if (!isUntitledEmpty)
         return false;
 

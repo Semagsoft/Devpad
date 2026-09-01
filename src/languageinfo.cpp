@@ -29,11 +29,11 @@
 #include <Qsci/qscilexerhtml.h>
 #include <Qsci/qscilexerjava.h>
 #include <Qsci/qscilexerjavascript.h>
+#include <Qsci/qscilexerjson.h>
 #include <Qsci/qscilexerlua.h>
 #include <Qsci/qscilexermarkdown.h>
 #include <Qsci/qscilexerpython.h>
 #include <Qsci/qscilexersql.h>
-#include <Qsci/qscilexerjson.h>
 #include <Qsci/qscilexerxml.h>
 
 const ThemeApplicator& cppThemeApplicator()
@@ -308,14 +308,14 @@ const ThemeApplicator& qmlThemeApplicator()
 const QHash<QString, ThemeApplicator>& themeApplicatorCache()
 {
     static const QHash<QString, ThemeApplicator> cache = {
-        {"QsciLexerCPP", cppThemeApplicator()},       {"QsciLexerPython", pythonThemeApplicator()},
-        {"QsciLexerHTML", htmlThemeApplicator()},     {"QsciLexerJavaScript", javascriptThemeApplicator()},
-        {"QsciLexerCSharp", csharpThemeApplicator()}, {"QsciLexerJava", javaThemeApplicator()},
-        {"QsciLexerCSS", cssThemeApplicator()},       {"QsciLexerXML", xmlThemeApplicator()},
-        {"QsciLexerSQL", sqlThemeApplicator()},       {"QsciLexerBash", bashThemeApplicator()},
-        {"QsciLexerJSON", jsonThemeApplicator()},
-        {"QsciLexerCMake", cmakeThemeApplicator()},   {"QsciLexerLua", luaThemeApplicator()},
-        {"QsciLexerMarkdown", markdownThemeApplicator()}, {"QsciLexerJavaScript", qmlThemeApplicator()},
+        {"QsciLexerCPP", cppThemeApplicator()},        {"QsciLexerPython", pythonThemeApplicator()},
+        {"QsciLexerHTML", htmlThemeApplicator()},      {"QsciLexerJavaScript", javascriptThemeApplicator()},
+        {"QsciLexerCSharp", csharpThemeApplicator()},  {"QsciLexerJava", javaThemeApplicator()},
+        {"QsciLexerCSS", cssThemeApplicator()},        {"QsciLexerXML", xmlThemeApplicator()},
+        {"QsciLexerSQL", sqlThemeApplicator()},        {"QsciLexerBash", bashThemeApplicator()},
+        {"QsciLexerJSON", jsonThemeApplicator()},      {"QsciLexerCMake", cmakeThemeApplicator()},
+        {"QsciLexerLua", luaThemeApplicator()},        {"QsciLexerMarkdown", markdownThemeApplicator()},
+        {"QsciLexerJavaScript", qmlThemeApplicator()},
     };
     return cache;
 }

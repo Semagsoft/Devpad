@@ -97,7 +97,8 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
                 if (data.size() > MaxRemoteFileSize)
                 {
                     reply->deleteLater();
-                    emit downloadFailed(urlStr, tr("Remote file too large (%1 bytes, limit %2 MB).").arg(data.size()).arg(MaxRemoteFileSize / (1024 * 1024)));
+                    emit downloadFailed(urlStr,
+                                        tr("Remote file too large (%1 bytes, limit %2 MB).").arg(data.size()).arg(MaxRemoteFileSize / (1024 * 1024)));
                     return;
                 }
                 QString fileName = QUrl(urlStr).fileName();

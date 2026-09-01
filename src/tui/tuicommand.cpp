@@ -15,14 +15,15 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 
-TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree,
-                                        TuiViewState& view, QString& statusMsg, SearchResult& lastSearch, SearchOptions& findOpts,
-                                        QHash<QString, QDateTime>& fileMtimes, bool& outSaveAsRequest)
+TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiViewState& view,
+                                        QString& statusMsg, SearchResult& lastSearch, SearchOptions& findOpts, QHash<QString, QDateTime>& fileMtimes,
+                                        bool& outSaveAsRequest)
 {
     outSaveAsRequest = false;
     QString cmd = rawCmd.trimmed();
 
-    auto saveCurrent = [&](TuiBuffer* buf) -> bool {
+    auto saveCurrent = [&](TuiBuffer* buf) -> bool
+    {
         if (!buf)
             return false;
         QString path = buf->filePath();
@@ -46,7 +47,8 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         return ok;
     };
 
-    auto saveAs = [&](TuiBuffer* buf, const QString& newPath) -> bool {
+    auto saveAs = [&](TuiBuffer* buf, const QString& newPath) -> bool
+    {
         if (!buf || newPath.isEmpty())
             return false;
         QString err;
@@ -65,7 +67,8 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         return ok;
     };
 
-    auto saveAll = [&]() {
+    auto saveAll = [&]()
+    {
         int saved = 0;
         for (int i = 0; i < tabs.count(); ++i)
         {
@@ -237,8 +240,8 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
             QStringList encs;
             for (const auto& ei : supportedEncodings())
                 encs << ei.displayName;
-            statusMsg = QStringLiteral("Encoding: %1 | Available: %2")
-                            .arg(cur ? cur->encoding() : QStringLiteral("UTF-8"), encs.join(QStringLiteral(", ")));
+            statusMsg =
+                QStringLiteral("Encoding: %1 | Available: %2").arg(cur ? cur->encoding() : QStringLiteral("UTF-8"), encs.join(QStringLiteral(", ")));
         }
         else
         {
@@ -353,8 +356,8 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
             cur->clearBookmarks();
         statusMsg = QStringLiteral("Bookmarks cleared");
     }
-    else if (cmd.startsWith(QStringLiteral("set searchcase")) || cmd.startsWith(QStringLiteral("set searchwhole"))
-             || cmd.startsWith(QStringLiteral("set searchregex")))
+    else if (cmd.startsWith(QStringLiteral("set searchcase")) || cmd.startsWith(QStringLiteral("set searchwhole")) ||
+             cmd.startsWith(QStringLiteral("set searchregex")))
     {
         if (cmd.startsWith(QStringLiteral("set searchcase")))
         {

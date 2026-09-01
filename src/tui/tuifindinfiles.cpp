@@ -13,8 +13,8 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 
-QList<FindInFilesResult> TuiFindInFiles::search(const QString& rootPath, const QString& pattern, const SearchOptions& opts,
-                                                const QString& fileGlob, const QStringList& excludeDirs)
+QList<FindInFilesResult> TuiFindInFiles::search(const QString& rootPath, const QString& pattern, const SearchOptions& opts, const QString& fileGlob,
+                                                const QStringList& excludeDirs)
 {
     QList<FindInFilesResult> results;
     if (pattern.isEmpty() || rootPath.isEmpty())
@@ -30,7 +30,8 @@ QList<FindInFilesResult> TuiFindInFiles::search(const QString& rootPath, const Q
     // Prepare exclude set
     QStringList excludes = excludeDirs;
     if (excludes.isEmpty())
-        excludes << QStringLiteral(".git") << QStringLiteral("node_modules") << QStringLiteral("__pycache__") << QStringLiteral("build") << QStringLiteral("_build");
+        excludes << QStringLiteral(".git") << QStringLiteral("node_modules") << QStringLiteral("__pycache__") << QStringLiteral("build")
+                 << QStringLiteral("_build");
 
     GitIgnore gitIgnore;
     gitIgnore.setRootPath(rootPath);

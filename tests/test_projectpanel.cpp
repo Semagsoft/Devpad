@@ -1,8 +1,8 @@
 #include "panels/projectpanel.h"
 
 #include <QDir>
-#include <QTemporaryDir>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 
 #include <gtest/gtest.h>
 

@@ -389,8 +389,7 @@ void TabManager::updateCloseButton(int tabIndex, QTabWidget* pane, CloseButtonMo
                     int tabIdx = -1;
                     for (int i = 0; i < pane->count(); ++i)
                     {
-                        if (bar->tabButton(i, QTabBar::RightSide) == buttonGuard.data()
-                            || bar->tabButton(i, QTabBar::LeftSide) == buttonGuard.data())
+                        if (bar->tabButton(i, QTabBar::RightSide) == buttonGuard.data() || bar->tabButton(i, QTabBar::LeftSide) == buttonGuard.data())
                         {
                             tabIdx = i;
                             break;

@@ -183,12 +183,12 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
         const int treeWidth = 30;
 
         TuiRenderer::drawTabBar(tabs, cols);
-        TuiRenderer::drawEditor(cur, tabs, fileTree, st.view, editorH, cols, tabBarH, treeWidth, st.fileTreeVisible,
-                                st.fileTreeFocused, hasColors, st.lastSearch);
-        TuiRenderer::drawStatusBar(cur, tabs, st.statusMsg, fileTree, st.fileTreeVisible, st.fileTreeFocused, st.findMode,
-                                   st.findInput, st.replaceMode, st.replacePhase, st.replaceFindInput, st.replaceInput,
-                                   st.fileTreeFilterMode, st.fileTreeFilterInput, st.saveAsMode, st.saveAsInput, st.gotoMode,
-                                   st.gotoInput, st.commandMode, st.commandInput, cols, rows, hasColors);
+        TuiRenderer::drawEditor(cur, tabs, fileTree, st.view, editorH, cols, tabBarH, treeWidth, st.fileTreeVisible, st.fileTreeFocused, hasColors,
+                                st.lastSearch);
+        TuiRenderer::drawStatusBar(cur, tabs, st.statusMsg, fileTree, st.fileTreeVisible, st.fileTreeFocused, st.findMode, st.findInput,
+                                   st.replaceMode, st.replacePhase, st.replaceFindInput, st.replaceInput, st.fileTreeFilterMode,
+                                   st.fileTreeFilterInput, st.saveAsMode, st.saveAsInput, st.gotoMode, st.gotoInput, st.commandMode, st.commandInput,
+                                   cols, rows, hasColors);
 
         refresh();
         ch = getch();

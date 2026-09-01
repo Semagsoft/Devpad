@@ -19,7 +19,7 @@ TEST(TuiHighlighter, KeywordsCpp)
 {
     auto segs = TuiHighlighter::highlightLine(QStringLiteral("int main() { return 0; }"), QStringLiteral("cpp"));
     bool hasKeyword = false;
-    for (auto &s : segs)
+    for (auto& s : segs)
         if (s.kind == HighlightKind::Keyword)
             hasKeyword = true;
     EXPECT_TRUE(hasKeyword);
@@ -29,7 +29,7 @@ TEST(TuiHighlighter, StringHighlight)
 {
     auto segs = TuiHighlighter::highlightLine(QStringLiteral("\"hello\""), QStringLiteral("cpp"));
     bool hasString = false;
-    for (auto &s : segs)
+    for (auto& s : segs)
         if (s.kind == HighlightKind::String)
             hasString = true;
     EXPECT_TRUE(hasString);
@@ -39,7 +39,7 @@ TEST(TuiHighlighter, CommentHighlight)
 {
     auto segs = TuiHighlighter::highlightLine(QStringLiteral("// comment"), QStringLiteral("cpp"));
     bool hasComment = false;
-    for (auto &s : segs)
+    for (auto& s : segs)
         if (s.kind == HighlightKind::Comment)
             hasComment = true;
     EXPECT_TRUE(hasComment);

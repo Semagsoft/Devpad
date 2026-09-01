@@ -16,8 +16,8 @@
 
 #include <QFont>
 #include <QQuickItem>
-#include <QSet>
 #include <QSGNode>
+#include <QSet>
 #include <QTextLayout>
 
 class PrimoEditor : public QQuickItem

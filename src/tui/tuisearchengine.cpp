@@ -18,8 +18,8 @@ QRegularExpression TuiSearchEngine::buildPattern(const QString& query, const Sea
     return QRegularExpression(pattern, flags);
 }
 
-SearchResult TuiSearchEngine::findNext(const QStringList& lines, const QString& query, const SearchOptions& opts, int startLine, int startCol, bool forward,
-                                       bool wrap)
+SearchResult TuiSearchEngine::findNext(const QStringList& lines, const QString& query, const SearchOptions& opts, int startLine, int startCol,
+                                       bool forward, bool wrap)
 {
     if (query.isEmpty() || lines.isEmpty())
         return {};
@@ -28,7 +28,8 @@ SearchResult TuiSearchEngine::findNext(const QStringList& lines, const QString& 
     if (!re.isValid())
         return {};
 
-    auto searchInLine = [&](int lineIdx, int fromCol, bool isFirstLine) -> SearchResult {
+    auto searchInLine = [&](int lineIdx, int fromCol, bool isFirstLine) -> SearchResult
+    {
         const QString& line = lines[lineIdx];
         int offset = isFirstLine ? fromCol : 0;
         if (!forward)

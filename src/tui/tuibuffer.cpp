@@ -317,11 +317,31 @@ void TuiBuffer::insertChar(QChar ch)
         // Auto-close pairs
         QChar closing;
         bool doPair = false;
-        if (ch == QLatin1Char('(')) { closing = QLatin1Char(')'); doPair = true; }
-        else if (ch == QLatin1Char('[')) { closing = QLatin1Char(']'); doPair = true; }
-        else if (ch == QLatin1Char('{')) { closing = QLatin1Char('}'); doPair = true; }
-        else if (ch == QLatin1Char('"')) { closing = QLatin1Char('"'); doPair = true; }
-        else if (ch == QLatin1Char('\'')) { closing = QLatin1Char('\''); doPair = true; }
+        if (ch == QLatin1Char('('))
+        {
+            closing = QLatin1Char(')');
+            doPair = true;
+        }
+        else if (ch == QLatin1Char('['))
+        {
+            closing = QLatin1Char(']');
+            doPair = true;
+        }
+        else if (ch == QLatin1Char('{'))
+        {
+            closing = QLatin1Char('}');
+            doPair = true;
+        }
+        else if (ch == QLatin1Char('"'))
+        {
+            closing = QLatin1Char('"');
+            doPair = true;
+        }
+        else if (ch == QLatin1Char('\''))
+        {
+            closing = QLatin1Char('\'');
+            doPair = true;
+        }
         if (doPair)
         {
             // Insert opening, then closing, and place cursor between
@@ -501,12 +521,14 @@ bool TuiBuffer::nextBookmark(int currentLine, int* outLine) const
     {
         if (b > currentLine)
         {
-            if (outLine) *outLine = b;
+            if (outLine)
+                *outLine = b;
             return true;
         }
     }
     // wrap
-    if (outLine) *outLine = sorted.first();
+    if (outLine)
+        *outLine = sorted.first();
     return true;
 }
 
@@ -520,11 +542,13 @@ bool TuiBuffer::prevBookmark(int currentLine, int* outLine) const
     {
         if (sorted[i] < currentLine)
         {
-            if (outLine) *outLine = sorted[i];
+            if (outLine)
+                *outLine = sorted[i];
             return true;
         }
     }
-    if (outLine) *outLine = sorted.last();
+    if (outLine)
+        *outLine = sorted.last();
     return true;
 }
 

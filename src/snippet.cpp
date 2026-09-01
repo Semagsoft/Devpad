@@ -28,8 +28,10 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
     // Protect escaped dollar-brace sequences before placeholder parsing:
     //  \$  -> sentinel so it is not treated as tab stop
     //  \\  -> sentinel so \\n is not prematurely converted
-    static const QString escDollar = QStringLiteral("\x01""ESC_DOLLAR\x01");
-    static const QString escBackslash = QStringLiteral("\x01""ESC_BS\x01");
+    static const QString escDollar = QStringLiteral("\x01"
+                                                    "ESC_DOLLAR\x01");
+    static const QString escBackslash = QStringLiteral("\x01"
+                                                       "ESC_BS\x01");
     joined.replace(QStringLiteral("\\$"), escDollar);
     joined.replace(QStringLiteral("\\\\"), escBackslash);
 

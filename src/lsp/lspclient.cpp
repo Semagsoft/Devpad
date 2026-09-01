@@ -416,8 +416,7 @@ void LspClient::incomingCalls(const QString& uri, const QString& itemId)
         return;
 
     QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
-    sendRequest("callHierarchy/incomingCalls", params,
-                [this, uri](const QJsonValue& result) { emit incomingCallsReady(uri, result.toArray()); });
+    sendRequest("callHierarchy/incomingCalls", params, [this, uri](const QJsonValue& result) { emit incomingCallsReady(uri, result.toArray()); });
 }
 
 void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
@@ -426,8 +425,7 @@ void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
         return;
 
     QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
-    sendRequest("callHierarchy/outgoingCalls", params,
-                [this, uri](const QJsonValue& result) { emit outgoingCallsReady(uri, result.toArray()); });
+    sendRequest("callHierarchy/outgoingCalls", params, [this, uri](const QJsonValue& result) { emit outgoingCallsReady(uri, result.toArray()); });
 }
 
 void LspClient::requestSemanticTokensFull(const QString& uri)

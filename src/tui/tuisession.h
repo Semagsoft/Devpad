@@ -19,8 +19,7 @@ class TuiSession
 {
 public:
     // Restore session into tabs/fileTree if applicable. Returns true if restored.
-    static bool tryRestore(const QCommandLineParser& parser, const QStringList& positionalFiles, TuiTabModel& tabs,
-                           TuiFileTree& fileTree);
+    static bool tryRestore(const QCommandLineParser& parser, const QStringList& positionalFiles, TuiTabModel& tabs, TuiFileTree& fileTree);
 
     static void save(const QCommandLineParser& parser, const TuiTabModel& tabs, const TuiFileTree& fileTree);
 

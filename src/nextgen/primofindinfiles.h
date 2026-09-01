@@ -25,11 +25,21 @@ class PrimoFindInFiles : public QObject
 public:
     explicit PrimoFindInFiles(QObject* parent = nullptr);
 
-    QString lastPattern() const { return m_lastPattern; }
-    QString lastRoot() const { return m_lastRoot; }
-    int resultCount() const { return m_results.size(); }
+    QString lastPattern() const
+    {
+        return m_lastPattern;
+    }
+    QString lastRoot() const
+    {
+        return m_lastRoot;
+    }
+    int resultCount() const
+    {
+        return m_results.size();
+    }
 
-    Q_INVOKABLE QVariantList search(const QString& pattern, const QString& rootPath, const QString& fileGlob = QString(), bool caseSensitive = false, bool wholeWord = false, bool useRegex = false);
+    Q_INVOKABLE QVariantList search(const QString& pattern, const QString& rootPath, const QString& fileGlob = QString(), bool caseSensitive = false,
+                                    bool wholeWord = false, bool useRegex = false);
     Q_INVOKABLE void clear();
     Q_INVOKABLE QVariantMap resultAt(int idx) const;
     Q_INVOKABLE QString fileAt(int idx) const;

@@ -40,5 +40,4 @@ const QStringList& cmakeKeywords();
 const QStringList& luaKeywords();
 const QStringList& qmlKeywords();
 
-
 #endif

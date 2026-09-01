@@ -150,12 +150,24 @@ static void drawSyntaxVisible(int y, int x, const QString& visible, int offsetIn
         int pair = 0;
         switch (kind)
         {
-        case HighlightKind::Keyword: pair = 4; break;
-        case HighlightKind::String: pair = 5; break;
-        case HighlightKind::Comment: pair = 6; break;
-        case HighlightKind::Number: pair = 7; break;
-        case HighlightKind::Preprocessor: pair = 8; break;
-        default: pair = 0; break;
+        case HighlightKind::Keyword:
+            pair = 4;
+            break;
+        case HighlightKind::String:
+            pair = 5;
+            break;
+        case HighlightKind::Comment:
+            pair = 6;
+            break;
+        case HighlightKind::Number:
+            pair = 7;
+            break;
+        case HighlightKind::Preprocessor:
+            pair = 8;
+            break;
+        default:
+            pair = 0;
+            break;
         }
         if (pair)
             attron(COLOR_PAIR(pair));
@@ -263,9 +275,8 @@ void TuiRenderer::drawStatusBar(const TuiBuffer* cur, const TuiTabModel& tabs, c
     Q_UNUSED(fileTree);
 }
 
-void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTree& fileTree, TuiViewState& view, int editorH, int cols,
-                             int tabBarH, int treeWidth, bool fileTreeVisible, bool fileTreeFocused, bool hasColors,
-                             const SearchResult& lastSearch)
+void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTree& fileTree, TuiViewState& view, int editorH, int cols, int tabBarH,
+                             int treeWidth, bool fileTreeVisible, bool fileTreeFocused, bool hasColors, const SearchResult& lastSearch)
 {
     Q_UNUSED(tabs);
     const int editorXOffset = fileTreeVisible ? treeWidth + 1 : 0;
