@@ -92,4 +92,7 @@
         <file>icons/Common/filetypes/shellscript.svg</file>
         <file>fileicons.json</file>
     </qresource>
+    <qresource prefix="/qml/nextgen">
+        <file alias="Main.qml">../qml/nextgen/Main.qml</file>
+    </qresource>
 </RCC>

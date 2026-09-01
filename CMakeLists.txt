@@ -4,6 +4,7 @@ project(Devpad VERSION 1.04 LANGUAGES CXX)
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
 option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)
+option(BUILD_NEXTGEN "Build next-gen QML/high-perf mode (primoEditor)" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -268,6 +269,12 @@ if(BUILD_TUI)
     message(STATUS "Building with TUI support (ncurses ${CURSES_VERSION})")
 endif()
 
+# ── Next-gen / QML mode ─────────────────────────────────────────
+if(BUILD_NEXTGEN)
+    find_package(Qt6 6.2 REQUIRED COMPONENTS Quick Qml QuickControls2)
+    message(STATUS "Building with NEXTGEN support (QML + primoEditor)")
+endif()
+
 # ── Main executable ───────────────────────────────────────────
 add_executable(Devpad WIN32)
 
@@ -276,6 +283,9 @@ target_sources(Devpad PRIVATE
     resources/resources.qrc
     $<$<PLATFORM_ID:Windows>:resources/appicon.rc>
     $<$<BOOL:${BUILD_TUI}>:src/tui/tuiapp.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgenapp.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoeditor.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primodocument.cpp>
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
@@ -298,6 +308,17 @@ if(BUILD_TUI)
     target_include_directories(Devpad_core PRIVATE ${CURSES_INCLUDE_DIRS})
     target_include_directories(Devpad_lib PRIVATE ${CURSES_INCLUDE_DIRS})
     target_link_libraries(Devpad PRIVATE ${CURSES_LIBRARIES})
+endif()
+
+if(BUILD_NEXTGEN)
+    target_compile_definitions(Devpad PRIVATE BUILD_NEXTGEN=1)
+    target_compile_definitions(Devpad_core PRIVATE BUILD_NEXTGEN=1)
+    target_compile_definitions(Devpad_lib PRIVATE BUILD_NEXTGEN=1)
+    target_link_libraries(Devpad PRIVATE
+        Qt6::Quick
+        Qt6::Qml
+        Qt6::QuickControls2
+    )
 endif()
 
 # ── Install rules ─────────────────────────────────────────────

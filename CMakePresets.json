@@ -45,6 +45,17 @@
                 "CMAKE_CXX_FLAGS": "--coverage -O0",
                 "CMAKE_EXE_LINKER_FLAGS": "--coverage"
             }
+        },
+        {
+            "name": "nextgen",
+            "displayName": "Nextgen (QML)",
+            "description": "Release build with next-gen QML/primoEditor",
+            "binaryDir": "${sourceDir}/build-nextgen",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_NEXTGEN": "ON",
+                "BUILD_TESTS": "OFF"
+            }
         }
     ],
     "buildPresets": [

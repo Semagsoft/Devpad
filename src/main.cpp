@@ -26,6 +26,8 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QGuiApplication>
+#include <QTextStream>
 #include <array>
 #include <cstdlib>
 #include <iostream>
@@ -106,22 +108,76 @@ int main(int argc, char* argv[])
     sigaction(SIGFPE, &sa, nullptr);
 #endif
 
-    // Early parser for --tui to decide application type.
+    // Early parser for --tui / --nextgen to decide application type.
     // We must know before constructing QApplication (which needs a display server).
     bool tuiRequested = false;
+    bool nextgenRequested = false;
     for (int i = 1; i < argc; ++i)
     {
         QString a = QString::fromLocal8Bit(argv[i]);
         if (a == QStringLiteral("--tui") || a == QStringLiteral("--no-gui") || a == QStringLiteral("-t"))
         {
             tuiRequested = true;
-            break;
         }
-        if (qEnvironmentVariableIsSet("DEVPAD_TUI"))
+        if (a == QStringLiteral("--nextgen") || a == QStringLiteral("-n"))
         {
-            tuiRequested = true;
-            break;
+            nextgenRequested = true;
         }
+    }
+    if (qEnvironmentVariableIsSet("DEVPAD_TUI"))
+        tuiRequested = true;
+    if (qEnvironmentVariableIsSet("DEVPAD_NEXTGEN"))
+        nextgenRequested = true;
+
+    if (tuiRequested && nextgenRequested)
+    {
+        QTextStream err(stderr);
+        err << "Cannot combine --tui and --nextgen. Choose one mode.\n";
+        return 1;
+    }
+
+    if (nextgenRequested)
+    {
+#ifdef BUILD_NEXTGEN
+        extern int runNextgenApp(QCoreApplication * app, const QCommandLineParser & parser, const QStringList & positional);
+        // Use QGuiApplication for QML; QCoreApplication is enough for non-GUI fallback.
+        // We use QGuiApplication here; if no display, QML will fail gracefully.
+        QGuiApplication app(argc, argv);
+        app.setOrganizationName("Semagsoft");
+        app.setOrganizationDomain("semagsoft.com");
+        app.setApplicationName("Devpad");
+        app.setApplicationVersion(DEVPAD_VERSION);
+
+        QCommandLineParser parser;
+        parser.setApplicationDescription(QStringLiteral("Devpad - Next-gen QML mode (primoEditor)"));
+        parser.addHelpOption();
+        parser.addVersionOption();
+        QCommandLineOption nextgenOpt(QStringList() << "nextgen" << "n", QStringLiteral("Run in next-gen QML/high-perf mode (primoEditor)"));
+        parser.addOption(nextgenOpt);
+        QCommandLineOption tuiOpt2(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
+        parser.addOption(tuiOpt2);
+        parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
+        QCommandLineOption transferOpt2(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"), QStringLiteral("file"));
+        parser.addOption(transferOpt2);
+        QCommandLineOption noSessionOpt2(QStringList() << "no-session", QStringLiteral("Do not restore previous session"));
+        parser.addOption(noSessionOpt2);
+        parser.process(app);
+
+        QStringList positional = parser.positionalArguments();
+        if (parser.isSet(transferOpt2))
+        {
+            QString v = parser.value(transferOpt2);
+            if (!v.isEmpty())
+                positional.prepend(v);
+        }
+        // Cast QGuiApplication to QCoreApplication for unified runNextgenApp signature
+        return runNextgenApp(static_cast<QCoreApplication*>(&app), parser, positional);
+#else
+        QTextStream err(stderr);
+        err << "Next-gen mode requested but this build was configured without -DBUILD_NEXTGEN=ON\n";
+        err << "Reconfigure with: cmake -S . -B build -DBUILD_NEXTGEN=ON\n";
+        return 1;
+#endif
     }
 
     if (tuiRequested)
@@ -180,6 +236,8 @@ int main(int argc, char* argv[])
     parser.addOption(transferOpt);
     QCommandLineOption tuiOpt(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
     parser.addOption(tuiOpt);
+    QCommandLineOption nextgenOpt(QStringList() << "nextgen" << "n", QStringLiteral("Run in next-gen QML/high-perf mode (primoEditor)"));
+    parser.addOption(nextgenOpt);
     parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
     parser.process(app);
 
@@ -234,6 +292,19 @@ int runTuiApp(QCoreApplication* app, const QCommandLineParser& parser, const QSt
     Q_UNUSED(positional);
     QTextStream err(stderr);
     err << "TUI not built\n";
+    return 1;
+}
+#endif
+
+// Next-gen trampoline: defined in src/nextgen/nextgenapp.cpp when BUILD_NEXTGEN=1, stub otherwise
+#ifndef BUILD_NEXTGEN
+int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional)
+{
+    Q_UNUSED(app);
+    Q_UNUSED(parser);
+    Q_UNUSED(positional);
+    QTextStream err(stderr);
+    err << "Next-gen not built\n";
     return 1;
 }
 #endif
