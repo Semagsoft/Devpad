@@ -45,378 +45,378 @@
 <context>
     <name>ActionManager</name>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="54"/>
+        <location filename="../src/managers/actionmanager.cpp" line="62"/>
         <source>Quit Devpad</source>
         <translation>Quitter Devpad</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="62"/>
+        <location filename="../src/managers/actionmanager.cpp" line="69"/>
         <source>New File</source>
         <translation>Nouveau fichier</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="68"/>
+        <location filename="../src/managers/actionmanager.cpp" line="75"/>
         <source>New Window</source>
         <translation>Nouvelle fenêtre</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="74"/>
+        <location filename="../src/managers/actionmanager.cpp" line="81"/>
         <source>Open File...</source>
         <translation>Ouvrir un fichier…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="80"/>
+        <location filename="../src/managers/actionmanager.cpp" line="87"/>
         <source>Open Folder...</source>
         <translation>Ouvrir un dossier…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="86"/>
+        <location filename="../src/managers/actionmanager.cpp" line="93"/>
         <source>Open Remote...</source>
         <translation>Ouvrir un fichier distant…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="92"/>
+        <location filename="../src/managers/actionmanager.cpp" line="99"/>
         <source>Save</source>
         <translation>Enregistrer</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="98"/>
+        <location filename="../src/managers/actionmanager.cpp" line="105"/>
         <source>Save As...</source>
         <translation>Enregistrer sous…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="104"/>
+        <location filename="../src/managers/actionmanager.cpp" line="111"/>
         <source>Save All</source>
         <translation>Tout enregistrer</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="110"/>
+        <location filename="../src/managers/actionmanager.cpp" line="117"/>
         <source>Revert</source>
         <translation>Restaurer</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="116"/>
+        <location filename="../src/managers/actionmanager.cpp" line="123"/>
         <source>Read Only</source>
         <translation>Lecture seule</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="124"/>
-        <location filename="../src/managers/actionmanager.cpp" line="493"/>
+        <location filename="../src/managers/actionmanager.cpp" line="131"/>
+        <location filename="../src/managers/actionmanager.cpp" line="511"/>
         <source>Print</source>
         <translation>Imprimer</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="125"/>
+        <location filename="../src/managers/actionmanager.cpp" line="132"/>
         <source>Page Setup...</source>
         <translation>Mise en page…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="131"/>
+        <location filename="../src/managers/actionmanager.cpp" line="138"/>
         <source>Print Preview...</source>
         <translation>Aperçu avant impression…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="137"/>
+        <location filename="../src/managers/actionmanager.cpp" line="144"/>
         <source>Close Editor</source>
         <translation>Fermer l&apos;éditeur</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="143"/>
+        <location filename="../src/managers/actionmanager.cpp" line="150"/>
         <source>Close All</source>
         <translation>Tout fermer</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="149"/>
+        <location filename="../src/managers/actionmanager.cpp" line="156"/>
         <source>Close Folder</source>
         <translation>Fermer le dossier</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="156"/>
+        <location filename="../src/managers/actionmanager.cpp" line="163"/>
         <source>Close Window</source>
         <translation>Fermer la fenêtre</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="164"/>
+        <location filename="../src/managers/actionmanager.cpp" line="173"/>
         <source>Undo</source>
         <translation>Annuler</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="170"/>
+        <location filename="../src/managers/actionmanager.cpp" line="179"/>
         <source>Redo</source>
         <translation>Rétablir</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="176"/>
+        <location filename="../src/managers/actionmanager.cpp" line="185"/>
         <source>Cut</source>
         <translation>Couper</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="182"/>
+        <location filename="../src/managers/actionmanager.cpp" line="191"/>
         <source>Copy</source>
         <translation>Copier</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="188"/>
+        <location filename="../src/managers/actionmanager.cpp" line="197"/>
         <source>Paste</source>
         <translation>Coller</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="194"/>
+        <location filename="../src/managers/actionmanager.cpp" line="203"/>
         <source>Delete</source>
         <translation>Supprimer</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="200"/>
+        <location filename="../src/managers/actionmanager.cpp" line="209"/>
         <source>Select All</source>
         <translation>Tout sélectionner</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="206"/>
+        <location filename="../src/managers/actionmanager.cpp" line="215"/>
         <source>Find...</source>
         <translation>Rechercher…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="212"/>
+        <location filename="../src/managers/actionmanager.cpp" line="221"/>
         <source>Replace...</source>
         <translation>Remplacer…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="218"/>
+        <location filename="../src/managers/actionmanager.cpp" line="227"/>
         <source>Find In Files...</source>
         <translation>Chercher dans les fichiers…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="224"/>
+        <location filename="../src/managers/actionmanager.cpp" line="233"/>
         <source>Go To Line...</source>
         <translation>Aller à la ligne…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="231"/>
+        <location filename="../src/managers/actionmanager.cpp" line="249"/>
         <source>Toggle Bookmark</source>
         <translation>Basculer le signet</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="240"/>
+        <location filename="../src/managers/actionmanager.cpp" line="258"/>
         <source>Next Bookmark</source>
         <translation>Signet suivant</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="249"/>
+        <location filename="../src/managers/actionmanager.cpp" line="267"/>
         <source>Previous Bookmark</source>
         <translation>Signet précédent</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="258"/>
+        <location filename="../src/managers/actionmanager.cpp" line="276"/>
         <source>Clear All Bookmarks</source>
         <translation>Effacer tous les signets</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="267"/>
+        <location filename="../src/managers/actionmanager.cpp" line="239"/>
         <source>Format Selection</source>
         <translation>Formater la sélection</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="274"/>
+        <location filename="../src/managers/actionmanager.cpp" line="289"/>
         <source>Go to Definition</source>
         <translation>Aller à la définition</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="280"/>
+        <location filename="../src/managers/actionmanager.cpp" line="295"/>
         <source>Go to Type Definition</source>
         <translation>Aller à la définition de type</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="286"/>
+        <location filename="../src/managers/actionmanager.cpp" line="301"/>
         <source>Go to Declaration</source>
         <translation>Aller à la déclaration</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="292"/>
+        <location filename="../src/managers/actionmanager.cpp" line="307"/>
         <source>Find References</source>
         <translation>Trouver les références</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="298"/>
+        <location filename="../src/managers/actionmanager.cpp" line="313"/>
         <source>Trigger Completion</source>
         <translation>Déclencher la complétion</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="304"/>
+        <location filename="../src/managers/actionmanager.cpp" line="319"/>
         <source>Rename Symbol</source>
         <translation>Renommer le symbole</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="311"/>
+        <location filename="../src/managers/actionmanager.cpp" line="326"/>
         <source>Find Symbol...</source>
         <translation>Chercher un symbole…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="314"/>
+        <location filename="../src/managers/actionmanager.cpp" line="329"/>
         <source>Expand Selection</source>
         <translation>Étendre la sélection</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="319"/>
+        <location filename="../src/managers/actionmanager.cpp" line="334"/>
         <source>Shrink Selection</source>
         <translation>Réduire la sélection</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="325"/>
+        <location filename="../src/managers/actionmanager.cpp" line="342"/>
         <source>Zoom In</source>
         <translation>Zoom avant</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="331"/>
+        <location filename="../src/managers/actionmanager.cpp" line="348"/>
         <source>Zoom Out</source>
         <translation>Zoom arrière</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="337"/>
+        <location filename="../src/managers/actionmanager.cpp" line="354"/>
         <source>Reset Zoom</source>
         <translation>Réinitialiser le zoom</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="343"/>
+        <location filename="../src/managers/actionmanager.cpp" line="360"/>
         <source>Fullscreen</source>
         <translation>Plein écran</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="354"/>
+        <location filename="../src/managers/actionmanager.cpp" line="371"/>
         <source>Project Panel</source>
         <translation>Panneau de projet</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="365"/>
+        <location filename="../src/managers/actionmanager.cpp" line="382"/>
         <source>Terminal Panel</source>
         <translation>Panneau de terminal</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="376"/>
+        <location filename="../src/managers/actionmanager.cpp" line="393"/>
         <source>Error List</source>
         <translation>Liste d&apos;erreurs</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="381"/>
+        <location filename="../src/managers/actionmanager.cpp" line="398"/>
         <source>Menu Bar	Ctrl+Alt+M</source>
         <translation>Barre de menu	Ctrl+Alt+M</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="390"/>
+        <location filename="../src/managers/actionmanager.cpp" line="407"/>
         <source>Toolbar</source>
         <translation>Barre d&apos;outils</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="399"/>
+        <location filename="../src/managers/actionmanager.cpp" line="416"/>
         <source>Status Bar</source>
         <translation>Barre d&apos;état</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="409"/>
+        <location filename="../src/managers/actionmanager.cpp" line="426"/>
         <source>Menu in Titlebar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="416"/>
+        <location filename="../src/managers/actionmanager.cpp" line="435"/>
         <source>Options</source>
         <translation>Options</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="422"/>
+        <location filename="../src/managers/actionmanager.cpp" line="440"/>
         <source>Donate</source>
         <translation>Faire un don</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="423"/>
+        <location filename="../src/managers/actionmanager.cpp" line="441"/>
         <source>Website</source>
         <translation>Site web</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="424"/>
+        <location filename="../src/managers/actionmanager.cpp" line="442"/>
         <source>About</source>
         <translation>À propos</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="426"/>
+        <location filename="../src/managers/actionmanager.cpp" line="444"/>
         <source>Check for Updates</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="437"/>
+        <location filename="../src/managers/actionmanager.cpp" line="455"/>
         <source>Devpad</source>
         <translation>Devpad</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="443"/>
+        <location filename="../src/managers/actionmanager.cpp" line="461"/>
         <source>|</source>
         <translation>|</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="448"/>
+        <location filename="../src/managers/actionmanager.cpp" line="466"/>
         <source>File</source>
         <translation>Fichier</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="451"/>
+        <location filename="../src/managers/actionmanager.cpp" line="469"/>
         <source>Edit</source>
         <translation>Édition</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="454"/>
+        <location filename="../src/managers/actionmanager.cpp" line="472"/>
         <source>View</source>
         <translation>Affichage</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="457"/>
+        <location filename="../src/managers/actionmanager.cpp" line="475"/>
         <source>Tools</source>
         <translation>Outils</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="460"/>
+        <location filename="../src/managers/actionmanager.cpp" line="478"/>
         <source>Help</source>
         <translation>Aide</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="466"/>
+        <location filename="../src/managers/actionmanager.cpp" line="484"/>
         <source>New</source>
         <translation>Nouveau</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="470"/>
+        <location filename="../src/managers/actionmanager.cpp" line="488"/>
         <source>Open</source>
         <translation>Ouvrir</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="487"/>
+        <location filename="../src/managers/actionmanager.cpp" line="505"/>
         <source>Properties</source>
         <translation>Propriétés</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="521"/>
+        <location filename="../src/managers/actionmanager.cpp" line="539"/>
         <source>Bookmarks</source>
         <translation>Signets</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="532"/>
+        <location filename="../src/managers/actionmanager.cpp" line="550"/>
         <source>Language Server</source>
         <translation>Serveur de langage</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="609"/>
+        <location filename="../src/managers/actionmanager.cpp" line="627"/>
         <source>External Tools...</source>
         <translation>Outils externes…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="637"/>
+        <location filename="../src/managers/actionmanager.cpp" line="655"/>
         <source>Main</source>
         <translation>Principal</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="812"/>
+        <location filename="../src/managers/actionmanager.cpp" line="876"/>
         <source>Line: 1, Col: 1</source>
         <translation>Ligne : 1, Col : 1</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="817"/>
+        <location filename="../src/managers/actionmanager.cpp" line="881"/>
         <source>Plain Text</source>
         <translation>Texte brut</translation>
     </message>
@@ -424,97 +424,97 @@
 <context>
     <name>CodeEditor</name>
     <message>
-        <location filename="../src/codeeditor.cpp" line="886"/>
+        <location filename="../src/codeeditor.cpp" line="887"/>
         <source>Undo</source>
         <translation>Annuler</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="890"/>
+        <location filename="../src/codeeditor.cpp" line="891"/>
         <source>Redo</source>
         <translation>Rétablir</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="896"/>
+        <location filename="../src/codeeditor.cpp" line="897"/>
         <source>Cut</source>
         <translation>Couper</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="900"/>
+        <location filename="../src/codeeditor.cpp" line="901"/>
         <source>Copy</source>
         <translation>Copier</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="904"/>
+        <location filename="../src/codeeditor.cpp" line="905"/>
         <source>Paste</source>
         <translation>Coller</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="908"/>
+        <location filename="../src/codeeditor.cpp" line="909"/>
         <source>Delete</source>
         <translation>Supprimer</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="914"/>
+        <location filename="../src/codeeditor.cpp" line="915"/>
         <source>Select All</source>
         <translation>Tout sélectionner</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="919"/>
+        <location filename="../src/codeeditor.cpp" line="920"/>
         <source>Find...</source>
         <translation>Rechercher…</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="922"/>
+        <location filename="../src/codeeditor.cpp" line="923"/>
         <source>Replace...</source>
         <translation>Remplacer…</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="925"/>
+        <location filename="../src/codeeditor.cpp" line="926"/>
         <source>Go To Line...</source>
         <translation>Aller à la ligne…</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="930"/>
+        <location filename="../src/codeeditor.cpp" line="931"/>
         <source>Bookmarks</source>
         <translation>Signets</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="932"/>
+        <location filename="../src/codeeditor.cpp" line="933"/>
         <source>Toggle Bookmark</source>
         <translation>Basculer le signet</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="936"/>
+        <location filename="../src/codeeditor.cpp" line="937"/>
         <source>Next Bookmark</source>
         <translation>Signet suivant</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="939"/>
+        <location filename="../src/codeeditor.cpp" line="940"/>
         <source>Previous Bookmark</source>
         <translation>Signet précédent</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="944"/>
+        <location filename="../src/codeeditor.cpp" line="945"/>
         <source>Clear All Bookmarks</source>
         <translation>Effacer tous les signets</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="949"/>
+        <location filename="../src/codeeditor.cpp" line="950"/>
         <source>Insert Snippet...</source>
         <translation>Insérer un snippet…</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="955"/>
+        <location filename="../src/codeeditor.cpp" line="956"/>
         <source>Toggle Comment</source>
         <translation>Basculer le commentaire</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="1149"/>
+        <location filename="../src/codeeditor.cpp" line="1150"/>
         <source>Rename Symbol</source>
         <translation>Renommer le symbole</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="1149"/>
+        <location filename="../src/codeeditor.cpp" line="1150"/>
         <source>New name:</source>
         <translation>Nouveau nom :</translation>
     </message>
@@ -980,122 +980,122 @@ Voulez-vous la restaurer ?</translation>
 <context>
     <name>FindInFilesDialog</name>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="205"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="210"/>
         <source>Find in Files</source>
         <translation>Chercher dans les fichiers</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="228"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="233"/>
         <source>Find:</source>
         <translation>Rechercher :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="230"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="235"/>
         <source>Enter search text...</source>
         <translation>Saisissez le texte à rechercher…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="235"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="240"/>
         <source>In:</source>
         <translation>Dans :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="237"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="242"/>
         <source>Search directory...</source>
         <translation>Répertoire de recherche…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="239"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="244"/>
         <source>Browse...</source>
         <translation>Parcourir…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="244"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="249"/>
         <source>Filter:</source>
         <translation>Filtre :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="246"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="251"/>
         <source>e.g. *.cpp *.h *.py (space-separated, * for all)</source>
         <translation>ex. *.cpp *.h *.py (séparés par des espaces, * pour tous)</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="251"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="256"/>
         <source>Match case</source>
         <translation>Respecter la casse</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="252"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="257"/>
         <source>Whole word</source>
         <translation>Mot entier</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="253"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="258"/>
         <source>Regex</source>
         <translation>Expr. régulière</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="261"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="266"/>
         <source>File</source>
         <translation>Fichier</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="261"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="266"/>
         <source>Line</source>
         <translation>Ligne</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="261"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="266"/>
         <source>Match</source>
         <translation>Correspondance</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="276"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="281"/>
         <source>Search</source>
         <translation>Rechercher</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="277"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="282"/>
         <source>Stop</source>
         <translation>Arrêter</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="279"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="284"/>
         <source>Close</source>
         <translation>Fermer</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="308"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="313"/>
         <source>Searching...</source>
         <translation>Recherche…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="317"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="322"/>
         <source>Invalid directory.</source>
         <translation>Répertoire invalide.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="404"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="409"/>
         <source>Found %1 match(es)...</source>
         <translation>%1 correspondance(s) trouvée(s)…</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="414"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="419"/>
         <source>No results found.</source>
         <translation>Aucun résultat trouvé.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="416"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="421"/>
         <source>Found %1 match(es) in %2 file(s).</source>
         <translation>%1 correspondance(s) trouvée(s) dans %2 fichier(s).</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="426"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="431"/>
         <source>Error: %1</source>
         <translation>Erreur : %1</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="431"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="436"/>
         <source>Select Search Directory</source>
         <translation>Choisir le répertoire de recherche</translation>
     </message>
@@ -1103,7 +1103,7 @@ Voulez-vous la restaurer ?</translation>
 <context>
     <name>FindInFilesWorker</name>
     <message>
-        <location filename="../src/dialogs/findinfilesdialog.cpp" line="166"/>
+        <location filename="../src/dialogs/findinfilesdialog.cpp" line="153"/>
         <source>Invalid regex: %1</source>
         <translation>Expression régulière invalide : %1</translation>
     </message>
@@ -1279,7 +1279,7 @@ Voulez-vous la restaurer ?</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="779"/>
-        <location filename="../src/mainwindow.cpp" line="1105"/>
+        <location filename="../src/mainwindow.cpp" line="1106"/>
         <source>Error</source>
         <translation>Erreur</translation>
     </message>
@@ -1369,27 +1369,37 @@ Voulez-vous la restaurer ?</translation>
         <translation>CMake</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1049"/>
+        <location filename="../src/mainwindow.cpp" line="1043"/>
+        <source>QML</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1043"/>
+        <source>Lua</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1050"/>
         <source> | Read Only</source>
         <translation> | Lecture seule</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1083"/>
+        <location filename="../src/mainwindow.cpp" line="1084"/>
         <source>&amp;%1 %2</source>
         <translation>&amp;%1 %2</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1105"/>
+        <location filename="../src/mainwindow.cpp" line="1106"/>
         <source>Cannot revert an unsaved file.</source>
         <translation>Impossible de restaurer un fichier non enregistré.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1112"/>
+        <location filename="../src/mainwindow.cpp" line="1113"/>
         <source>Revert</source>
         <translation>Restaurer</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1112"/>
+        <location filename="../src/mainwindow.cpp" line="1113"/>
         <source>The file has unsaved changes.
 
 Do you want to discard them and reload from disk?</source>
@@ -1398,12 +1408,12 @@ Do you want to discard them and reload from disk?</source>
 Voulez-vous les annuler et recharger depuis le disque ?</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1499"/>
+        <location filename="../src/mainwindow.cpp" line="1500"/>
         <source>Checking for updates...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1619"/>
+        <location filename="../src/mainwindow.cpp" line="1620"/>
         <source>The file &quot;%1&quot; has been modified outside of Devpad.
 
 Your version has unsaved changes.
@@ -1416,7 +1426,7 @@ Votre version contient des modifications non enregistrées.
 Voulez-vous recharger le fichier ? (Les modifications non enregistrées seront perdues)</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1625"/>
+        <location filename="../src/mainwindow.cpp" line="1626"/>
         <source>The file &quot;%1&quot; has been modified outside of Devpad.
 
 Do you want to reload the file?</source>
@@ -1425,7 +1435,7 @@ Do you want to reload the file?</source>
 Voulez-vous recharger le fichier ?</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1630"/>
+        <location filename="../src/mainwindow.cpp" line="1631"/>
         <source>File Modified</source>
         <translation>Fichier modifié</translation>
     </message>
@@ -1563,387 +1573,397 @@ Voulez-vous recharger le fichier ?</translation>
         <translation>CMake</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="129"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="124"/>
+        <source>QML</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="125"/>
+        <source>Lua</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="131"/>
         <source>Default format:</source>
         <translation>Format par défaut :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="135"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="137"/>
         <source>Default encoding:</source>
         <translation>Encodage par défaut :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="166"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="168"/>
         <source>General</source>
         <translation>Général</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="174"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="176"/>
         <source>Theme</source>
         <translation>Thème</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="191"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="193"/>
         <source>Theme:</source>
         <translation>Thème :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="201"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="203"/>
         <source>Accent color:</source>
         <translation>Couleur d&apos;accentuation :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="202"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="204"/>
         <source>Clear</source>
         <translation>Effacer</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="223"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="225"/>
         <source>Choose Accent Color</source>
         <translation>Choisir une couleur d&apos;accentuation</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="247"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="249"/>
         <source>Interface Font</source>
         <translation>Police de l&apos;interface</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="254"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="295"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="418"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="256"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="297"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="420"/>
         <source>Font face:</source>
         <translation>Police :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="259"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="300"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="423"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="261"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="302"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="425"/>
         <source>Font size:</source>
         <translation>Taille de police :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="262"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="264"/>
         <source>Tabs</source>
         <translation>Tabulations</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="265"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="267"/>
         <source>Always Show</source>
         <translation>Toujours afficher</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="265"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="267"/>
         <source>Show Two-plus</source>
         <translation>Afficher si deux ou plus</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="265"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="267"/>
         <source>Never Show</source>
         <translation>Ne jamais afficher</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="266"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="268"/>
         <source>Tab display:</source>
         <translation>Affichage des onglets :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="268"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="403"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="429"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="270"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="405"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="431"/>
         <source>Right</source>
         <translation>Droite</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="268"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="429"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="270"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="431"/>
         <source>Left</source>
         <translation>Gauche</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="269"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="271"/>
         <source>Close button position:</source>
         <translation>Position du bouton fermer :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="271"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="273"/>
         <source>Top</source>
         <translation>Haut</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="271"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="403"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="273"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="405"/>
         <source>Bottom</source>
         <translation>Bas</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="272"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="274"/>
         <source>Tab bar position:</source>
         <translation>Position de la barre d&apos;onglets :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="277"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="279"/>
         <source>Appearance</source>
         <translation>Apparence</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="285"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="287"/>
         <source>Font</source>
         <translation>Police</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="303"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="305"/>
         <source>Cursor</source>
         <translation>Curseur</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="308"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="310"/>
         <source> spaces</source>
         <translation> espaces</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="309"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="311"/>
         <source>Tab width:</source>
         <translation>Largeur de tabulation :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="311"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="313"/>
         <source>Line</source>
         <translation>Ligne</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="311"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="313"/>
         <source>Block</source>
         <translation>Bloc</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="311"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="313"/>
         <source>Underline</source>
         <translation>Souligné</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="312"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="314"/>
         <source>Cursor style:</source>
         <translation>Style du curseur :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="313"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="315"/>
         <source>Cursor blinking</source>
         <translation>Curseur clignotant</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="317"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="319"/>
         <source>Display</source>
         <translation>Affichage</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="319"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="321"/>
         <source>Show line numbers</source>
         <translation>Afficher les numéros de ligne</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="320"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="322"/>
         <source>Scroll past content</source>
         <translation>Défiler au-delà du contenu</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="321"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="323"/>
         <source>Word wrap</source>
         <translation>Retour à la ligne</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="322"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="324"/>
         <source>Code collapsing</source>
         <translation>Plier le code</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="323"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="325"/>
         <source>Show whitespace</source>
         <translation>Afficher les espaces</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="332"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="334"/>
         <source>Auto-Completion</source>
         <translation>Auto-complétion</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="334"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="336"/>
         <source>Enable auto-completion</source>
         <translation>Activer l&apos;auto-complétion</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="146"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="339"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="148"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="341"/>
         <source> character(s)</source>
         <translation> caractère(s)</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="340"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="342"/>
         <source>Trigger after:</source>
         <translation>Déclencher après :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="341"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="343"/>
         <source>Case sensitive</source>
         <translation>Respecter la casse</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="344"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="346"/>
         <source>Snippets</source>
         <translation>Snippets</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="346"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="348"/>
         <source>Enable snippets</source>
         <translation>Activer les snippets</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="348"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="350"/>
         <source>Show snippets in auto-completion (predictive)</source>
         <translation>Afficher les snippets dans l&apos;auto-complétion (prédictif)</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="355"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="357"/>
         <source>Typing</source>
         <translation>Saisie</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="357"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="359"/>
         <source>Auto-close brackets and quotes</source>
         <translation>Fermeture auto. des parenthèses et guillemets</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="362"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="364"/>
         <source>Editor Display</source>
         <translation>Affichage de l&apos;éditeur</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="364"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="366"/>
         <source>Highlight current line</source>
         <translation>Surligner la ligne courante</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="367"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="369"/>
         <source>Show vertical edge at column:</source>
         <translation>Afficher la marge verticale à la colonne :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="378"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="380"/>
         <source>Auto-Save</source>
         <translation>Sauvegarde auto.</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="380"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="382"/>
         <source>Enable auto-save</source>
         <translation>Activer la sauvegarde automatique</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="385"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="387"/>
         <source> seconds</source>
         <translation> secondes</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="386"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="388"/>
         <source>Interval:</source>
         <translation>Intervalle :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="392"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="394"/>
         <source>Editor</source>
         <translation>Éditeur</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="400"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="402"/>
         <source>Terminal</source>
         <translation>Terminal</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="403"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="405"/>
         <source>Tab</source>
         <translation>Onglet</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="404"/>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="430"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="406"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="432"/>
         <source>Panel position:</source>
         <translation>Position du panneau :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="408"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="410"/>
         <source> px</source>
         <translation> px</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="409"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="411"/>
         <source>Minimum width:</source>
         <translation>Largeur minimale :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="426"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="428"/>
         <source>Project</source>
         <translation>Projet</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="432"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="434"/>
         <source>Single Click</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="432"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="434"/>
         <source>Double Click</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="433"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="435"/>
         <source>Open file on:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="434"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="436"/>
         <source>Show hidden files</source>
         <translation>Afficher les fichiers cachés</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="436"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="438"/>
         <source>Use .gitignore filtering</source>
         <translation>Utiliser le filtrage .gitignore</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="441"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="443"/>
         <source>Panels</source>
         <translation>Panneaux</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="138"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="140"/>
         <source>Language Server Protocol</source>
         <translation>Language Server Protocol</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="140"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="142"/>
         <source>Enable LSP (Language Server Protocol)</source>
         <translation>Activer LSP (Language Server Protocol)</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="147"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="149"/>
         <source>Completion trigger after:</source>
         <translation>Déclencher la complétion après :</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="151"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="153"/>
         <source>Server Commands</source>
         <translation>Commandes du serveur</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="155"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="157"/>
         <source>Language</source>
         <translation>Langage</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="155"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="157"/>
         <source>Command</source>
         <translation>Commande</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/optionsdialog.cpp" line="155"/>
+        <location filename="../src/dialogs/optionsdialog.cpp" line="157"/>
         <source>Arguments</source>
         <translation>Arguments</translation>
     </message>
@@ -2258,44 +2278,49 @@ Voulez-vous recharger le fichier ?</translation>
         <translation>Téléchargement de %1…</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="144"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="152"/>
         <source>Downloading %1 via SSH...</source>
         <translation>Téléchargement de %1 via SSH…</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="119"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="127"/>
         <source>SSH URL must include host and path.
 Example: ssh://user@host/path/to/file</source>
         <translation>L&apos;URL SSH doit inclure l&apos;hôte et le chemin.
 Exemple : ssh://utilisateur@hôte/chemin/vers/fichier</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="128"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="100"/>
+        <source>Remote file too large (%1 bytes, limit %2 MB).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/managers/remotefileservice.cpp" line="136"/>
         <source>SSH URL contains invalid characters.</source>
         <translation>L&apos;URL SSH contient des caractères non valides.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="135"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="143"/>
         <source>Invalid SSH URL: host, user, or path starts with &apos;-&apos;.</source>
         <translation>URL SSH invalide : l&apos;hôte, l&apos;utilisateur ou le chemin commence par &apos;-&apos;.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="176"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="184"/>
         <source>Failed to create temp file.</source>
         <translation>Échec de la création du fichier temporaire.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="200"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="208"/>
         <source>Unknown error</source>
         <translation>Erreur inconnue</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="215"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="223"/>
         <source>Failed to read downloaded file.</source>
         <translation>Échec de la lecture du fichier téléchargé.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="231"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="239"/>
         <source>Failed to start SCP process.</source>
         <translation>Échec du démarrage du processus SCP.</translation>
     </message>
@@ -2391,8 +2416,8 @@ Exemple : ssh://utilisateur@hôte/chemin/vers/fichier</translation>
     <name>TerminalPanel</name>
     <message>
         <location filename="../src/panels/terminalpanel.cpp" line="43"/>
-        <location filename="../src/panels/terminalpanel.cpp" line="376"/>
-        <location filename="../src/panels/terminalpanel.cpp" line="410"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="379"/>
+        <location filename="../src/panels/terminalpanel.cpp" line="415"/>
         <source>Terminal</source>
         <translation>Terminal</translation>
     </message>
@@ -2522,17 +2547,17 @@ Please paste it into your browser to download the update.</source>
         <translation>Délai d&apos;attente au démarrage du serveur de langage: %1</translation>
     </message>
     <message>
-        <location filename="../src/lsp/lspclient.cpp" line="987"/>
+        <location filename="../src/lsp/lspclient.cpp" line="767"/>
         <source>Language server failed to start for %1</source>
         <translation>Échec du démarrage du serveur de langage pour %1</translation>
     </message>
     <message>
-        <location filename="../src/lsp/lspclient.cpp" line="991"/>
+        <location filename="../src/lsp/lspclient.cpp" line="773"/>
         <source>Language server timed out for %1</source>
         <translation>Délai d&apos;attente du serveur de langage dépassé pour %1</translation>
     </message>
     <message>
-        <location filename="../src/lsp/lspclient.cpp" line="994"/>
+        <location filename="../src/lsp/lspclient.cpp" line="776"/>
         <source>Language server process error for %1</source>
         <translation>Erreur de processus du serveur de langage pour %1</translation>
     </message>
