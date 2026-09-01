@@ -191,6 +191,8 @@ CodeEditor::~CodeEditor()
     // Detach lexer from QsciScintilla before QScopedPointer destroys it,
     // preventing use-after-free in ~QsciScintilla.
     setLexer(nullptr);
+    delete m_snippetEngine;
+    m_snippetEngine = nullptr;
 }
 
 void CodeEditor::dragEnterEvent(QDragEnterEvent* event)

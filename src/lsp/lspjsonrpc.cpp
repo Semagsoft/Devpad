@@ -99,7 +99,12 @@ void LspJsonRpc::processMessage(const QByteArray& message)
 
     QJsonValue paramsVal = obj.value("params");
     QJsonValue resultVal = obj.value("result");
-    QJsonObject errObj = obj.value("error").toObject();
+
+    QJsonObject errObj;
+    if (obj.contains("error") && obj["error"].isObject())
+        errObj = obj["error"].toObject();
+    else
+        errObj = QJsonObject();
 
     if (obj.contains("method"))
     {
