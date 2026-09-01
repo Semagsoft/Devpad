@@ -86,7 +86,10 @@ if (-not (Test-Path (Join-Path $DistDir "Devpad.exe"))) {
     Write-Step "Running windeployqt..."
     $windeployqt = Find-InPath "windeployqt" @("$MsysPrefix\bin", "$msysBase\bin")
     if (-not $windeployqt) { Write-Fail "windeployqt not found on PATH or under the MSYS2 prefix." }
-    & $windeployqt (Join-Path $BuildDir "Devpad.exe") "--dir" $DistDir
+    $qmldir = Join-Path $PSScriptRoot "..\qml"
+    $windeployArgs = @((Join-Path $BuildDir "Devpad.exe"), "--dir", $DistDir)
+    if (Test-Path $qmldir) { $windeployArgs += @("--qmldir", $qmldir) }
+    & $windeployqt @windeployArgs
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[!] windeployqt exited with code $LASTEXITCODE; continuing (verification gate will catch any gaps)"
     }

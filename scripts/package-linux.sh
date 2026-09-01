@@ -72,6 +72,8 @@ ESSENTIAL_PLUGIN_CATEGORIES=(
     tls
     egldeviceintegrations
     generic
+    qmltooling
+    scenegraph
 )
 
 # Exclude KDE-internal plugins that drag in the entire desktop
@@ -187,6 +189,30 @@ if [ -d "$QT_PLUGIN_SRC" ]; then
     done
 fi
 
+# ─── QML imports (QtQuick / QML) for NEXTGEN mode ────────────────
+QT_QML_SRC="$(qmake6 -query QT_INSTALL_QML 2>/dev/null || echo "")"
+if [ -n "$QT_QML_SRC" ] && [ -d "$QT_QML_SRC" ]; then
+    info "Bundling QML imports for NEXTGEN (QtQuick.Controls, etc)..."
+    QML_DEST="${STAGING}/qml"
+    mkdir -p "${QML_DEST}"
+    for mod in QtQuick QtQml QtQuick.Controls QtQuick.Templates QtQuick.Layouts; do
+        if [ -d "${QT_QML_SRC}/${mod}" ]; then
+            info "  qml/${mod}/"
+            cp -a "${QT_QML_SRC}/${mod}" "${QML_DEST}/" 2>/dev/null || true
+        fi
+    done
+    # Scan QML plugins for deps as well
+    for qmlplugin in $(find "${QML_DEST}" -name '*.so' -type f 2>/dev/null | head -20); do
+        while IFS= read -r line; do
+            [[ "$line" != *"=> "* ]] && continue
+            path=$(echo "$line" | awk '{print $3}')
+            [ -z "$path" ] && continue
+            [ -f "$path" ] || continue
+            copy_lib_files "$(dirname "$(readlink -f "$path")")" "$(basename "$(readlink -f "$path")" | sed 's/\.so.*/.so/')"
+        done < <(ldd "$qmlplugin" 2>/dev/null || true)
+    done
+fi
+
 # ─── Step 5: Fix rpaths ──────────────────────────────────────────
 if $HAS_PATCHELF; then
     info "Setting rpath on binary and bundled libraries..."
@@ -220,6 +246,7 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$(cd "${SELF_DIR}/.." && pwd)"
 export QT_PLUGIN_PATH="${APP_DIR}/plugins"
+export QML2_IMPORT_PATH="${APP_DIR}/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
 exec "${SELF_DIR}/Devpad" "$@"
 WRAPPER
 else
@@ -230,6 +257,7 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$(cd "${SELF_DIR}/.." && pwd)"
 export LD_LIBRARY_PATH="${APP_DIR}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export QT_PLUGIN_PATH="${APP_DIR}/plugins"
+export QML2_IMPORT_PATH="${APP_DIR}/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
 exec "${SELF_DIR}/Devpad" "$@"
 WRAPPER
 fi

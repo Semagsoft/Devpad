@@ -2,9 +2,8 @@
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
- * PrimoDocument: in-house document model for next-gen editor.
- * High-perf piece-table / rope backing for primoEditor.
- * MVP wraps QString for correctness; future: incremental rope + gap buffer.
+ * PrimoDocument: high-perf document model (piece-table-ish).
+ * Optimized for QSG visible-range culling: line offsets cache.
  */
 
 #ifndef PRIMODOCUMENT_H
@@ -13,6 +12,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QVector>
 
 class PrimoDocument : public QObject
 {
@@ -47,6 +47,8 @@ public:
     Q_INVOKABLE void insertText(int position, const QString& t);
     Q_INVOKABLE void removeText(int position, int length);
     Q_INVOKABLE int length() const;
+    Q_INVOKABLE int lineStartOffset(int line) const;
+    Q_INVOKABLE QStringList visibleLines(int firstLine, int count) const;
 
     bool loadFromFile(const QString& path, QString* error = nullptr);
     bool saveToFile(const QString& path, QString* error = nullptr) const;
@@ -58,10 +60,18 @@ signals:
     void modifiedChanged();
 
 private:
+    void rebuildOffsets() const;
+    void invalidateCache();
+
     QString m_filePath;
     QString m_text;
     QString m_language;
     bool m_modified = false;
+
+    mutable QVector<int> m_lineOffsets; // start offset per line
+    mutable bool m_offsetsDirty = true;
+    mutable QStringList m_linesCache;
+    mutable bool m_linesDirty = true;
 };
 
 #endif // PRIMODOCUMENT_H

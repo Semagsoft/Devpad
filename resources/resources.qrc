@@ -94,5 +94,6 @@
     </qresource>
     <qresource prefix="/qml/nextgen">
         <file alias="Main.qml">../qml/nextgen/Main.qml</file>
+        <file alias="Minimap.qml">../qml/nextgen/Minimap.qml</file>
     </qresource>
 </RCC>
