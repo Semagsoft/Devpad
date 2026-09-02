@@ -873,6 +873,8 @@ void ActionManager::wireMiscConnections(const ActionTargets& t)
 
 void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectPanel, TerminalPanel* terminalPanel)
 {
+    m_projectPanel = projectPanel;
+    m_terminalPanel = terminalPanel;
     m_lineColLabel = new QLabel(tr("Line: 1, Col: 1"));
     m_encodingComboBox = new QComboBox(statusBar);
     m_encodingComboBox->setFocusPolicy(Qt::NoFocus);

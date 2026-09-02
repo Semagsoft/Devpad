@@ -610,6 +610,8 @@ private:
     QLabel* m_fileTypeLabel = nullptr;
     QToolButton* m_projectPanelButton = nullptr;
     QToolButton* m_terminalPanelButton = nullptr;
+    ProjectPanel* m_projectPanel = nullptr;
+    TerminalPanel* m_terminalPanel = nullptr;
     QToolButton* m_errorListPanelButton = nullptr;
 };
 
