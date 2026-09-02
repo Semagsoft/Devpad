@@ -84,8 +84,7 @@ void TuiFileTree::refresh()
 QStringList TuiFileTree::listEntries(const QString& dirPath) const
 {
     QDir dir(dirPath);
-    QFileInfoList infos = dir.entryInfoList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot,
-                                            QDir::DirsFirst | QDir::Name | QDir::IgnoreCase);
+    QFileInfoList infos = dir.entryInfoList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot, QDir::DirsFirst | QDir::Name | QDir::IgnoreCase);
 
     QStringList out;
     for (const QFileInfo& fi : infos)
