@@ -17,7 +17,14 @@ void ThemePreviewWidget::setThemeColors(const ThemeColors& colors)
 
 static QColor blendPreview(const QColor& a, const QColor& b, double t)
 {
-    auto clamp = [](int v) { if (v < 0) return 0; if (v > 255) return 255; return v; };
+    auto clamp = [](int v)
+    {
+        if (v < 0)
+            return 0;
+        if (v > 255)
+            return 255;
+        return v;
+    };
     return QColor(clamp(qRound(a.red() * (1.0 - t) + b.red() * t)), clamp(qRound(a.green() * (1.0 - t) + b.green() * t)),
                   clamp(qRound(a.blue() * (1.0 - t) + b.blue() * t)));
 }

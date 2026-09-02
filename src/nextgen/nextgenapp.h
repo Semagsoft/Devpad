@@ -20,7 +20,6 @@ public:
     NextgenApp() = delete;
 
 private:
-
-int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional);
+    int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional);
 
 #endif // NEXTGENAPP_H

@@ -409,16 +409,16 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         else
         {
             QString root;
-    if (dir.isEmpty())
-    {
-        root = fileTree.hasRoot() ? fileTree.rootPath() : QDir::currentPath();
-    }
-    else
-    {
-        root = dir;
-    }
-    if (!QFileInfo(root).isAbsolute())
-        root = QDir::current().absoluteFilePath(root);
+            if (dir.isEmpty())
+            {
+                root = fileTree.hasRoot() ? fileTree.rootPath() : QDir::currentPath();
+            }
+            else
+            {
+                root = dir;
+            }
+            if (!QFileInfo(root).isAbsolute())
+                root = QDir::current().absoluteFilePath(root);
             QList<FindInFilesResult> results = TuiFindInFiles::search(root, pattern, findOpts, glob);
             if (results.isEmpty())
                 statusMsg = QStringLiteral("No matches for %1").arg(pattern);
