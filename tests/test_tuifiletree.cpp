@@ -51,10 +51,10 @@ TEST(TuiFileTree, Filter)
     QTemporaryDir dir;
     ASSERT_TRUE(dir.isValid());
     QFile f1(dir.filePath("hello.txt"));
-    f1.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f1.open(QIODevice::WriteOnly));
     f1.close();
     QFile f2(dir.filePath("world.cpp"));
-    f2.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f2.open(QIODevice::WriteOnly));
     f2.close();
 
     TuiFileTree tree;
@@ -79,10 +79,10 @@ TEST(TuiFileTree, ShowHidden)
     QTemporaryDir dir;
     ASSERT_TRUE(dir.isValid());
     QFile f1(dir.filePath(".hidden"));
-    f1.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f1.open(QIODevice::WriteOnly));
     f1.close();
     QFile f2(dir.filePath("visible.txt"));
-    f2.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f2.open(QIODevice::WriteOnly));
     f2.close();
 
     TuiFileTree tree;
@@ -112,10 +112,10 @@ TEST(TuiFileTree, GitIgnore)
     ignore.write("ignored.txt\n");
     ignore.close();
     QFile f1(dir.filePath("ignored.txt"));
-    f1.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f1.open(QIODevice::WriteOnly));
     f1.close();
     QFile f2(dir.filePath("kept.txt"));
-    f2.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f2.open(QIODevice::WriteOnly));
     f2.close();
 
     TuiFileTree tree;
@@ -140,7 +140,7 @@ TEST(TuiFileTree, Cursor)
     for (int i = 0; i < 3; ++i)
     {
         QFile f(dir.filePath(QString("f%1.txt").arg(i)));
-        f.open(QIODevice::WriteOnly);
+        ASSERT_TRUE(f.open(QIODevice::WriteOnly));
         f.close();
     }
     TuiFileTree tree;

@@ -35,11 +35,11 @@ TEST(TuiFindInFiles, GlobFiltering)
     QTemporaryDir dir;
     ASSERT_TRUE(dir.isValid());
     QFile f1(dir.filePath("a.cpp"));
-    f1.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f1.open(QIODevice::WriteOnly));
     f1.write("hello");
     f1.close();
     QFile f2(dir.filePath("b.txt"));
-    f2.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f2.open(QIODevice::WriteOnly));
     f2.write("hello");
     f2.close();
 
@@ -58,11 +58,11 @@ TEST(TuiFindInFiles, GitIgnore)
     ignore.write("ignored.txt\n");
     ignore.close();
     QFile f1(dir.filePath("ignored.txt"));
-    f1.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f1.open(QIODevice::WriteOnly));
     f1.write("hello");
     f1.close();
     QFile f2(dir.filePath("kept.txt"));
-    f2.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f2.open(QIODevice::WriteOnly));
     f2.write("hello");
     f2.close();
 
@@ -85,7 +85,7 @@ TEST(TuiFindInFiles, Regex)
     QTemporaryDir dir;
     ASSERT_TRUE(dir.isValid());
     QFile f(dir.filePath("a.txt"));
-    f.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(f.open(QIODevice::WriteOnly));
     f.write("a1 b2 c3");
     f.close();
     SearchOptions opts;
