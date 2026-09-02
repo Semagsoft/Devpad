@@ -871,7 +871,7 @@ void ActionManager::wireMiscConnections(const ActionTargets& t)
     connect(this, &ActionManager::actionsWithShortcutsChanged, this, [this, mw]() { mw->addActions(actionsWithShortcuts()); });
 }
 
-void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel*, TerminalPanel*)
+void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectPanel, TerminalPanel* terminalPanel)
 {
     m_lineColLabel = new QLabel(tr("Line: 1, Col: 1"));
     m_encodingComboBox = new QComboBox(statusBar);

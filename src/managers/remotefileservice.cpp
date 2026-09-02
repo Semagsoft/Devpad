@@ -56,13 +56,9 @@ void RemoteFileService::openRemote(const QString& urlStr)
 
     bool isSsh = urlStr.startsWith("ssh://", Qt::CaseInsensitive);
     if (isSsh)
-    {
         downloadSsh(url, urlStr);
-    }
     else
-    {
         downloadHttp(url, urlStr);
-    }
 }
 
 void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
@@ -98,7 +94,7 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
                 {
                     reply->deleteLater();
                     emit downloadFailed(urlStr,
-                                        tr("Remote file too large (%1 bytes, limit %2 MB).").arg(data.size()).arg(MaxRemoteFileSize / (1024 * 1024)));
+                                        tr("Remote file too large (%1 bytes, limit %2 MB).").arg(data.size()).arg(static_cast<qint64>(MaxRemoteFileSize) / (1024 * 1024)));
                     return;
                 }
                 QString fileName = QUrl(urlStr).fileName();

@@ -17,10 +17,9 @@ class NextgenApp
 {
 public:
     static int run(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positionalFiles);
+    NextgenApp() = delete;
 
 private:
-    NextgenApp() = delete;
-};
 
 int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional);
 

@@ -39,9 +39,12 @@
 #include <execinfo.h>
 #include <unistd.h>
 
-static void crashHandler(int sig, siginfo_t* info, void*)
+static void crashHandler(int sig, siginfo_t* info, void* userData)
 {
     const char* msg = "\n=== CRASH ===\nSignal: ";
+    (void)sig;
+    (void)info;
+    (void)userData;
     if (write(STDERR_FILENO, msg, strlen(msg)) == -1)
     {
     }

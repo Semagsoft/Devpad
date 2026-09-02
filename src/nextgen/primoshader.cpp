@@ -9,10 +9,7 @@
 #include <QSGGeometry>
 #include <QSGVertexColorMaterial>
 
-PrimoGradientMaterial::PrimoGradientMaterial()
-{
-    setFlag(Blending, true);
-}
+PrimoGradientMaterial::PrimoGradientMaterial() = default;
 
 QSGMaterialType* PrimoGradientMaterial::type() const
 {
@@ -37,10 +34,7 @@ int PrimoGradientMaterial::compare(const QSGMaterial* other) const
     return 0;
 }
 
-PrimoGradientShader::PrimoGradientShader()
-{
-    // Use vertex-color shader (no external .qsb needed) – gradient via vertex colors
-}
+PrimoGradientShader::PrimoGradientShader() = default;
 
 bool PrimoGradientShader::updateUniformData(RenderState& state, QSGMaterial* newMaterial, QSGMaterial* /*oldMaterial*/)
 {

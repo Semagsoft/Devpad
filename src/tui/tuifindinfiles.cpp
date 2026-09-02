@@ -81,7 +81,7 @@ QList<FindInFilesResult> TuiFindInFiles::search(const QString& rootPath, const Q
         // Skip large files
         if (fi.size() > FileService::MaxFileSize)
             continue;
-        if (fi.size() > 10 * 1024 * 1024) // 10MB cap for find-in-files
+        if (fi.size() > static_cast<qint64>(10) * 1024 * 1024) // 10MB cap for find-in-files
             continue;
 
         FileLoadResult res = FileService::load(filePath);

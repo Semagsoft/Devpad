@@ -336,7 +336,7 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
         st.statusMsg = QStringLiteral("Editor focus");
         return true;
     }
-    else if (ch == CtrlE)
+    if (ch == CtrlE)
     {
         st.fileTreeVisible = false;
         st.fileTreeFocused = false;

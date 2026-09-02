@@ -245,25 +245,12 @@ QString FileManager::detectEncoding(const QByteArray& buffer)
         if (nullRatio > 0.5)
         {
             if (nullAt0or1 > nullAt2or3)
-            {
                 return "UTF-32BE";
-            }
-            else
-            {
-                return "UTF-32LE";
-            }
+            return "UTF-32LE";
         }
-        else
-        {
-            if (nullAtEven > nullAtOdd)
-            {
-                return "UTF-16BE";
-            }
-            else
-            {
-                return "UTF-16LE";
-            }
-        }
+        if (nullAtEven > nullAtOdd)
+            return "UTF-16BE";
+        return "UTF-16LE";
     }
 
     // Validate UTF-8 encoding

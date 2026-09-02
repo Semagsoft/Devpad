@@ -8,9 +8,7 @@
 #include <QDir>
 #include <QFileInfo>
 
-TuiFileTree::TuiFileTree()
-{
-}
+TuiFileTree::TuiFileTree() = default;
 
 void TuiFileTree::setRootPath(const QString& path)
 {

@@ -91,7 +91,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #ifndef Q_OS_WIN
-#include <qtermwidget.h>
+// #include <QTermWidget>  // Removed - QTermWidget not available in Qt6
 #endif
 
 #ifdef Q_OS_MACOS

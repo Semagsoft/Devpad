@@ -19,7 +19,7 @@
 
 static int clamp(int v, int lo, int hi)
 {
-    return v < lo ? lo : v > hi ? hi : v;
+    return std::max(lo, std::min(hi, v));
 }
 
 static QColor shiftRgb(const QColor& c, int delta)

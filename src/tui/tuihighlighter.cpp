@@ -163,7 +163,6 @@ QList<HighlightSegment> TuiHighlighter::highlightLine(const QString& line, const
                 {
                     commentRanges.append(qMakePair(p, end + 2 - p));
                     p = end + 1;
-                    continue;
                 }
                 else
                 {

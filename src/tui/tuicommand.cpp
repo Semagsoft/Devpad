@@ -408,9 +408,17 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
             statusMsg = QStringLiteral("Usage: :grep <pattern> [dir] [glob]");
         else
         {
-            QString root = dir.isEmpty() ? (fileTree.hasRoot() ? fileTree.rootPath() : QDir::currentPath()) : dir;
-            if (!QFileInfo(root).isAbsolute())
-                root = QDir::current().absoluteFilePath(root);
+            QString root;
+    if (dir.isEmpty())
+    {
+        root = fileTree.hasRoot() ? fileTree.rootPath() : QDir::currentPath();
+    }
+    else
+    {
+        root = dir;
+    }
+    if (!QFileInfo(root).isAbsolute())
+        root = QDir::current().absoluteFilePath(root);
             QList<FindInFilesResult> results = TuiFindInFiles::search(root, pattern, findOpts, glob);
             if (results.isEmpty())
                 statusMsg = QStringLiteral("No matches for %1").arg(pattern);

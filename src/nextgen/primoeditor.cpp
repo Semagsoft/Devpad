@@ -472,7 +472,7 @@ void PrimoEditor::loadFile(const QString& path)
         // respect default readOnly false unless previously set?
         // keep as is, but ensure not stuck readOnly from previous large file
         // Reset if previous was large and new is small
-        if (fi.size() <= 50 * 1024 * 1024 && m_readOnly)
+        if (fi.size() <= static_cast<qint64>(50) * 1024 * 1024 && m_readOnly)
         {
             // only clear if it was due to large file; keep otherwise? For now clear
             m_readOnly = false;
@@ -495,7 +495,7 @@ void PrimoEditor::loadFile(const QString& path)
         emit cursorChanged();
         emit fileLoaded(true, QString());
         // For large files, emit warning error string as info?
-        if (fi.size() > 50 * 1024 * 1024)
+        if (fi.size() > static_cast<qint64>(50) * 1024 * 1024)
         {
             // emit as second signal? Use fileLoaded with ok but also log
             // QML will show banner via readOnly

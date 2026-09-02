@@ -65,7 +65,7 @@ QVariantList PrimoFindInFiles::search(const QString& pattern, const QString& roo
             QString rel = rootDir.relativeFilePath(r.filePath);
             // Skip hidden files/dirs (any component starting with .)
             bool hidden = false;
-            for (auto part : rel.split(QLatin1Char('/')))
+            for (const auto& part : rel.split(QLatin1Char('/')))
             {
                 if (part.startsWith(QLatin1Char('.')))
                 {

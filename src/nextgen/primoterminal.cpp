@@ -85,7 +85,7 @@ void PrimoTerminal::setCurrentDir(const QString& dir)
         // Change dir via cd command
         write(QStringLiteral("cd \"") + m_currentDir + QStringLiteral("\"\n"));
     }
-    else
+    if (m_proc)
     {
         m_proc->setWorkingDirectory(m_currentDir);
     }
@@ -187,9 +187,9 @@ void PrimoTerminal::appendOutput(const QString& text)
 {
     m_output += text;
     // Keep output bounded: trim oldest if > 500KB
-    if (m_output.size() > 500 * 1024)
+    if (m_output.size() > static_cast<qsizetype>(500) * 1024)
     {
-        m_output = m_output.right(400 * 1024);
+        m_output = m_output.right(static_cast<qsizetype>(400) * 1024);
     }
     emit outputChanged();
 }

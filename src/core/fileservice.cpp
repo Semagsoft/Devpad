@@ -170,16 +170,11 @@ QString FileService::detectEncoding(const QByteArray& buffer)
         {
             if (nullAt0or1 > nullAt2or3)
                 return QStringLiteral("UTF-32BE");
-            else
-                return QStringLiteral("UTF-32LE");
+            return QStringLiteral("UTF-32LE");
         }
-        else
-        {
-            if (nullAtEven > nullAtOdd)
-                return QStringLiteral("UTF-16BE");
-            else
-                return QStringLiteral("UTF-16LE");
-        }
+        if (nullAtEven > nullAtOdd)
+            return QStringLiteral("UTF-16BE");
+        return QStringLiteral("UTF-16LE");
     }
 
     bool validUtf8 = true;

@@ -57,15 +57,12 @@ SearchResult TuiSearchEngine::findNext(const QStringList& lines, const QString& 
             }
             return best;
         }
-        else
+        QRegularExpressionMatch m = re.match(line, offset);
+        if (m.hasMatch())
         {
-            QRegularExpressionMatch m = re.match(line, offset);
-            if (m.hasMatch())
-            {
-                return {true, lineIdx, static_cast<int>(m.capturedStart()), static_cast<int>(m.capturedLength())};
-            }
-            return {};
+            return {true, lineIdx, static_cast<int>(m.capturedStart()), static_cast<int>(m.capturedLength())};
         }
+        return {};
     };
 
     if (forward)

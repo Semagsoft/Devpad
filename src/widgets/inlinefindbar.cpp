@@ -276,7 +276,7 @@ bool InlineFindBar::useRegex() const
 
 // ── Slots ────────────────────────────────────────────────────
 
-void InlineFindBar::onFindTextChanged(const QString&)
+void InlineFindBar::onFindTextChanged(const QString& findText)
 {
     if (isVisible())
         m_debounceTimer->start();
