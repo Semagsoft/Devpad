@@ -44,6 +44,7 @@
 #endif
 #endif
 
+#ifdef BUILD_TUI
 static bool saveCurrentHelper(TuiBuffer* buf, QString& statusMsg, QHash<QString, QDateTime>& fileMtimes)
 {
     if (!buf)
@@ -66,6 +67,7 @@ static bool saveCurrentHelper(TuiBuffer* buf, QString& statusMsg, QHash<QString,
         statusMsg = err;
     return ok;
 }
+#endif
 
 static bool saveAsHelper(TuiBuffer* buf, const QString& newPath, QString& statusMsg, QHash<QString, QDateTime>& fileMtimes)
 {
@@ -425,6 +427,10 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
 bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiInputState& st,
                                  QHash<QString, QDateTime>& fileMtimes, int editorH)
 {
+    Q_UNUSED(ch);
+    Q_UNUSED(tabs);
+    Q_UNUSED(fileTree);
+    Q_UNUSED(st);
     Q_UNUSED(fileMtimes);
     if (!cur)
     {
