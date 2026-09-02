@@ -84,7 +84,7 @@ void TuiFileTree::refresh()
 QStringList TuiFileTree::listEntries(const QString& dirPath) const
 {
     QDir dir(dirPath);
-    QFileInfoList infos = dir.entryInfoList((m_showHidden ? QDir::AllEntries | QDir::Hidden : QDir::AllEntries) | QDir::NoDotAndDotDot,
+    QFileInfoList infos = dir.entryInfoList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot,
                                             QDir::DirsFirst | QDir::Name | QDir::IgnoreCase);
 
     QStringList out;
@@ -104,6 +104,9 @@ QStringList TuiFileTree::listEntries(const QString& dirPath) const
             if (!isDir)
                 continue;
         }
+        // Hide . and .. and hidden files when m_showHidden is false
+        if (!m_showHidden && fi.fileName().startsWith('.'))
+            continue;
         out.append(abs);
     }
     return out;
