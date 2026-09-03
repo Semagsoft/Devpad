@@ -31,24 +31,69 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            cmake build-essential clang-tidy \
+            cmake build-essential clang-18 clang-tidy-18 \
             qt6-base-dev qt6-multimedia-dev qt6-svg-dev \
-            qt6-tools-dev \
+            qt6-tools-dev qt6-declarative-dev \
             libgl-dev \
-            libqscintilla2-qt6-dev
+            libqscintilla2-qt6-dev \
+            libncurses-dev
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        env:
+          CC: clang-18
+          CXX: clang++-18
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DBUILD_TUI=ON -DBUILD_NEXTGEN=ON -DBUILD_TESTS=ON
+
+      - name: Build (generate MOC/external headers for tidy)
+        run: cmake --build build -j$(nproc)
 
       - name: Run clang-tidy on source
         run: |
-          find src \( -name '*.cpp' -and -not -name '*kodoterm*' -and -not -name '*qtermwidget*' \) -print0 | \
-            xargs -0 clang-tidy --extra-arg=-Wno-unknown-argument -p build
+          set -euo pipefail
+          # Lint only files actually in the compilation database so every
+          # TU (incl. BUILD_TUI/BUILD_NEXTGEN sources) has real compile args.
+          # Parsing files without a DB entry misparses Qt headers (qcolor.h
+          # errors) and fails the job with exit 123.
+          python3 - <<'EOF' > /tmp/tidy_src.txt
+          import json
+          with open('build/compile_commands.json') as f:
+              db = json.load(f)
+          seen = set()
+          for e in db:
+              p = e['file']
+              if '/src/' in p and p.endswith('.cpp'):
+                  low = p.lower()
+                  if 'kodoterm' in low or 'qtermwidget' in low:
+                      continue
+                  seen.add(p)
+          print('\n'.join(sorted(seen)))
+          EOF
+          xargs -a /tmp/tidy_src.txt -d '\n' -r -n 1 -P "$(nproc)" \
+            clang-tidy-18 --quiet \
+            --header-filter="^${GITHUB_WORKSPACE}/src/.*" \
+            --extra-arg=-Wno-unknown-argument -p build
 
       - name: Run clang-tidy on tests
         run: |
-          find tests \( -name '*.cpp' \) -print0 | \
-            xargs -0 clang-tidy --extra-arg=-Wno-unknown-argument -p build
+          set -euo pipefail
+          python3 - <<'EOF' > /tmp/tidy_tests.txt
+          import json
+          with open('build/compile_commands.json') as f:
+              db = json.load(f)
+          seen = set()
+          for e in db:
+              p = e['file']
+              if '/tests/' in p and p.endswith('.cpp'):
+                  seen.add(p)
+          print('\n'.join(sorted(seen)))
+          EOF
+          xargs -a /tmp/tidy_tests.txt -d '\n' -r -n 1 -P "$(nproc)" \
+            clang-tidy-18 --quiet \
+            --header-filter="^${GITHUB_WORKSPACE}/(src|tests)/.*" \
+            --extra-arg=-Wno-unknown-argument -p build
 
   build:
     name: Build and test (${{ matrix.compiler }})
