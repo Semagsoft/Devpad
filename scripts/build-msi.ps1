@@ -5,7 +5,8 @@ param(
     [string]$Version = "1.04",
     [ValidateSet("x64", "arm64")]
     [string]$Arch = "x64",
-    [string]$OutputMsi = ""
+    [string]$OutputMsi = "",
+    [switch]$SkipDeploy
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,27 +23,41 @@ if (-not $OutputMsi) {
 # The .wxs Platform attribute is set via -dPlatform to match.
 $wixArch = $Arch
 
-# Ensure WiX tools are available
-$wixBin = if (Test-Path $WixDir) { $WixDir } else { (Get-Command candle.exe -ErrorAction SilentlyContinue).Directory }
-if (-not $wixBin) {
-    $wixCandidates = Get-ChildItem "C:\Program Files (x86)\WiX Toolset v3*" -Directory -ErrorAction SilentlyContinue
-    if ($wixCandidates) {
-        $wixBin = $wixCandidates[0].FullName + "\bin"
-    }
+# Ensure WiX v3 tools are available (heat/candle/light CLI).
+# Search order: explicit -WixDir (dir or bin) -> PATH -> well-known install
+# locations (emulated x86 + native ARM64 program-files paths).
+$wixBin = $null
+if ($WixDir) {
+    if (Test-Path (Join-Path $WixDir "heat.exe")) { $wixBin = $WixDir }
+    elseif (Test-Path (Join-Path $WixDir "bin\heat.exe")) { $wixBin = Join-Path $WixDir "bin" }
 }
 if (-not $wixBin) {
-    Write-Error "WiX Toolset not found. Install via: winget install WiXToolset.WiXToolset"
+    $heatCmd = Get-Command heat.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($heatCmd -and $heatCmd.Source) { $wixBin = Split-Path $heatCmd.Source }
+}
+if (-not $wixBin) {
+    $wixCandidates = @()
+    $wixCandidates += Get-ChildItem "C:\Program Files (x86)\WiX Toolset v3*" -Directory -ErrorAction SilentlyContinue
+    $wixCandidates += Get-ChildItem "C:\Program Files\WiX Toolset v3*" -Directory -ErrorAction SilentlyContinue
+    $first = $wixCandidates | Select-Object -First 1
+    if ($first) { $wixBin = Join-Path $first.FullName "bin" }
+}
+if (-not $wixBin -or -not (Test-Path (Join-Path $wixBin "heat.exe"))) {
+    Write-Error "WiX Toolset v3 not found (heat.exe missing). Install via: choco install wixtoolset -y"
     exit 1
 }
 
 $env:Path = "$wixBin;$env:Path"
 
 # Step 1: Deploy Qt + runtime dependencies into a self-contained dist
+# (skipped when CI already deployed via deploy-windows-deps.ps1).
 $distDir = Join-Path $BuildDir "dist"
-& (Join-Path $PSScriptRoot "deploy-windows-deps.ps1") -BuildDir $BuildDir -DistDir $distDir
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Dependency deployment failed (deploy-windows-deps.ps1)"
-    exit 1
+if (-not $SkipDeploy) {
+    & (Join-Path $PSScriptRoot "deploy-windows-deps.ps1") -BuildDir $BuildDir -DistDir $distDir
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Dependency deployment failed (deploy-windows-deps.ps1)"
+        exit 1
+    }
 }
 
 # Step 2: Ensure we're in the installer directory
