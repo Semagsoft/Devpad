@@ -141,7 +141,7 @@ void LspClient::sendInitialize()
     QJsonObject clientInfo;
     clientInfo["name"] = QStringLiteral("Devpad");
     clientInfo["version"] = QCoreApplication::applicationVersion();
-    params["processId"] = static_cast<qint64>(QCoreApplication::applicationPid());
+    params["processId"] = QCoreApplication::applicationPid();
     params["clientInfo"] = clientInfo;
     params["rootUri"] = m_rootUri;
 

@@ -187,10 +187,10 @@ int main(int argc, char* argv[])
     if (tuiRequested)
     {
         QCoreApplication app(argc, argv);
-        app.setOrganizationName("Semagsoft");
-        app.setOrganizationDomain("semagsoft.com");
-        app.setApplicationName("Devpad");
-        app.setApplicationVersion(DEVPAD_VERSION);
+        QCoreApplication::setOrganizationName("Semagsoft");
+        QCoreApplication::setOrganizationDomain("semagsoft.com");
+        QCoreApplication::setApplicationName("Devpad");
+        QCoreApplication::setApplicationVersion(DEVPAD_VERSION);
 
         QCommandLineParser parser;
         parser.setApplicationDescription(QStringLiteral("Devpad - Terminal UI mode"));
@@ -228,10 +228,10 @@ int main(int argc, char* argv[])
     }
 
     QApplication app(argc, argv);
-    app.setOrganizationName("Semagsoft");
-    app.setOrganizationDomain("semagsoft.com");
-    app.setApplicationName("Devpad");
-    app.setApplicationVersion(DEVPAD_VERSION);
+    QApplication::setOrganizationName("Semagsoft");
+    QApplication::setOrganizationDomain("semagsoft.com");
+    QApplication::setApplicationName("Devpad");
+    QApplication::setApplicationVersion(DEVPAD_VERSION);
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Devpad - A C++/Qt6 code editor"));

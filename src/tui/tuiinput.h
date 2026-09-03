@@ -19,6 +19,9 @@
 // Holds all transient input-mode state (extracted from tuiapp.cpp locals)
 struct TuiInputState
 {
+    // other
+    QHash<QString, QDateTime> fileMtimes;
+
     // find
     QString findQuery;
     SearchOptions findOpts;
@@ -47,12 +50,9 @@ struct TuiInputState
     // other
     QString statusMsg = QStringLiteral("Ctrl+Q quit  Ctrl+S save  Ctrl+E tree  Ctrl+F find  F1 help");
     QString clipboard;
-    QHash<QString, QDateTime> fileMtimes;
     bool fileTreeVisible = false;
     bool fileTreeFocused = false;
-
     TuiViewState view;
-    bool wordWrapInitDone = false;
 };
 
 class TuiInput

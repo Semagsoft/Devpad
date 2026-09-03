@@ -19,6 +19,7 @@ public:
     static int run(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positionalFiles);
     NextgenApp() = delete;
 
-} private : int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional);
+private:
+    int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional);
 
 #endif // NEXTGENAPP_H
