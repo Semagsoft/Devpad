@@ -136,10 +136,7 @@ void TuiFileTree::buildVisible(QList<TuiFileNode>& out, const QString& dirPath, 
             // descendants match. Build temp child list to see if any descendant visible
             QList<TuiFileNode> temp;
             buildVisible(temp, abs, depth + 1);
-            if (temp.isEmpty() && !fi.fileName().contains(m_filter, Qt::CaseInsensitive))
-                shouldAdd = false;
-            else
-                shouldAdd = true;
+            shouldAdd = !temp.isEmpty() || fi.fileName().contains(m_filter, Qt::CaseInsensitive);
         }
 
         if (!shouldAdd)

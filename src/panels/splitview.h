@@ -54,7 +54,7 @@ public:
         return m_primaryWidget;
     }
     QTabWidget* addNewPane(QTabWidget* relativeTo, Qt::Orientation orientation, bool after);
-    void removePane(QTabWidget* tabWidget);
+    void removePane(QTabWidget* tw);
     bool moveTabToPane(int tabIndex, QTabWidget* source, QTabWidget* target, int insertIndex = -1);
     void detachTabToWindow(int tabIndex, QTabWidget* source);
 

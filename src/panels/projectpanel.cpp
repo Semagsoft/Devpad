@@ -113,7 +113,7 @@ QVariant FileFilterProxyModel::data(const QModelIndex& index, int role) const
         {
             return QIcon(iconMap.value(ext));
         }
-        else if (ext.isEmpty() && fileInfo.isExecutable())
+        if (ext.isEmpty() && fileInfo.isExecutable())
         {
             return QIcon(":/icons/Common/filetypes/executable.svg");
         }
@@ -190,10 +190,7 @@ void FileFilterProxyModel::setGitIgnoreRootPath(const QString& rootPath)
     {
         m_gitIgnore.reset();
     }
-    else
-    {
-        m_gitIgnore = std::make_unique<GitIgnore>(rootPath);
-    }
+    m_gitIgnore = std::make_unique<GitIgnore>(rootPath);
     invalidateFilterCompat();
 }
 

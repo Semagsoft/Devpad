@@ -7,6 +7,8 @@
 
 #include "keywords.h"
 
+#include <algorithm>
+
 #include <QFileInfo>
 #include <QRegularExpression>
 
@@ -199,13 +201,12 @@ QList<HighlightSegment> TuiHighlighter::highlightLine(const QString& line, const
     if (inString && stringStart != -1)
         stringRanges.append(qMakePair(stringStart, n - stringStart));
 
-    auto isInRanges = [&](int pos, const QList<QPair<int, int>>& ranges) -> bool
-    {
-        for (auto& pr : ranges)
-            if (pos >= pr.first && pos < pr.first + pr.second)
-                return true;
-        return false;
-    };
+auto isInRanges = [&](int pos, const QList<QPair<int, int>>& ranges) -> bool
+{
+    return std::any_of(ranges.constBegin(), ranges.constEnd(), [pos](const QPair<int, int>& pr) {
+        return pos >= pr.first && pos < pr.first + pr.second;
+    });
+};
 
     // Add string segments
     for (auto& pr : stringRanges)

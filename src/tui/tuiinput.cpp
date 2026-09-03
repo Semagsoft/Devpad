@@ -330,7 +330,7 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
     if (!st.fileTreeVisible || !st.fileTreeFocused)
         return false;
 
-    if (ch == 27)
+if (ch == 27)
     {
         st.fileTreeFocused = false;
         st.statusMsg = QStringLiteral("Editor focus");
@@ -343,7 +343,7 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
         st.statusMsg = QStringLiteral("File tree hidden");
         return true;
     }
-    else if (ch == KEY_UP)
+    if (ch == KEY_UP)
     {
         fileTree.moveCursor(-1);
         return true;

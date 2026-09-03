@@ -93,7 +93,7 @@ bool TuiBuffer::redo()
 
 bool TuiBuffer::hasSelection() const
 {
-    return m_selAnchorLine != -1 && !(m_selAnchorLine == m_cursorLine && m_selAnchorCol == m_cursorCol);
+    return m_selAnchorLine != -1 && (m_selAnchorLine != m_cursorLine || m_selAnchorCol != m_cursorCol);
 }
 
 void TuiBuffer::setSelectionAnchor(int line, int col)

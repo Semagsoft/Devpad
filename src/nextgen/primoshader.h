@@ -25,7 +25,7 @@ public:
 
     QColor colorTop = QColor(0xc4, 0xa7, 0xe7, 180);
     QColor colorBottom = QColor(0x89, 0xb4, 0xfa, 180);
-    float opacity = 1.0f;
+    float opacity = 1.0F;
 };
 
 class PrimoGradientShader : public QSGMaterialShader
@@ -35,6 +35,6 @@ public:
     bool updateUniformData(RenderState& state, QSGMaterial* newMaterial, QSGMaterial* oldMaterial) override;
 };
 
-QSGGeometryNode* createGradientRectNode(const QRectF& rect, const QColor& top, const QColor& bottom, float opacity = 1.0f);
+QSGGeometryNode* createGradientRectNode(const QRectF& rect, const QColor& top, const QColor& bottom, float opacity = 1.0F);
 
 #endif // PRIMOSHADER_H
