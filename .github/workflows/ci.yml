@@ -354,15 +354,33 @@ jobs:
         with:
           update: true
           msystem: CLANGARM64
-          install: >-
-            mingw-w64-clang-aarch64-qt6-base
-            mingw-w64-clang-aarch64-qt6-multimedia
-            mingw-w64-clang-aarch64-qt6-svg
-            mingw-w64-clang-aarch64-qt6-tools
-            mingw-w64-clang-aarch64-qscintilla-qt6
-            mingw-w64-clang-aarch64-cmake
-            mingw-w64-clang-aarch64-cc
-            mingw-w64-clang-aarch64-ccache
+
+      # Installed in a separate step (instead of setup-msys2's `install:`)
+      # so transient mirror failures ("Operation too slow", download
+      # library errors on the ~350 MiB Qt/FFmpeg closure) can be retried.
+      - name: Install CLANGARM64 dependencies
+        run: |
+          PKGS="mingw-w64-clang-aarch64-qt6-base \
+            mingw-w64-clang-aarch64-qt6-multimedia \
+            mingw-w64-clang-aarch64-qt6-svg \
+            mingw-w64-clang-aarch64-qt6-tools \
+            mingw-w64-clang-aarch64-qscintilla-qt6 \
+            mingw-w64-clang-aarch64-cmake \
+            mingw-w64-clang-aarch64-cc \
+            mingw-w64-clang-aarch64-ccache"
+          for attempt in 1 2 3 4 5; do
+            echo "Install attempt $attempt/5..."
+            if pacman -S --noconfirm --needed --disable-download-timeout $PKGS; then
+              echo "Dependencies installed."
+              break
+            fi
+            echo "Install attempt $attempt failed, retrying in 20s..."
+            sleep 20
+            if [ "$attempt" = 5 ]; then
+              echo "Dependency installation failed after 5 attempts."
+              exit 1
+            fi
+          done
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2.23
