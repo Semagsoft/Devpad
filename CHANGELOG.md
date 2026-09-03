@@ -13,7 +13,8 @@ What's new in Devpad 1.04:
 
 Bug fixes for version 1.04:
 
-JS syntax highlighting improved on dark themes. SHA: TBD
+- (CI) Version/archatecture prefix added to the flatpak artifact.
+- JS syntax highlighting improved on dark themes. SHA: TBD
 
 ## [1.03] - 2026-08-16
 
