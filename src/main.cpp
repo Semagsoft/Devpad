@@ -286,7 +286,7 @@ int main(int argc, char* argv[])
     }
 
     mainWindow.show();
-    return app.exec();
+    return QApplication::exec();
 }
 
 // TUI trampoline: defined in src/tui/tuiapp.cpp when BUILD_TUI=1, stub otherwise

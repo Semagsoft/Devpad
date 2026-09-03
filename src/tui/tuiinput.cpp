@@ -375,7 +375,7 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
         }
         return true;
     }
-    else if (ch == KEY_RIGHT)
+    if (ch == KEY_RIGHT)
     {
         const TuiFileNode* n = fileTree.currentNode();
         if (n && n->isDir && !n->expanded)
