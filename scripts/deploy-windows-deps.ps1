@@ -53,13 +53,14 @@ function Find-MsysPrefix {
         $dir = Split-Path $dir -Parent
         $msysBase = Split-Path $dir -Parent
         if ($msysBase) {
-            foreach ($sub in @("ucrt64", "mingw64", "clang64")) {
+            foreach ($sub in @("clangarm64", "ucrt64", "mingw64", "clang64")) {
                 $candidate = Join-Path $msysBase $sub
                 if (Test-Path (Join-Path $candidate "bin")) { return $candidate }
             }
         }
     }
 
+    if (Test-Path "C:\msys64\clangarm64") { return "C:\msys64\clangarm64" }
     if (Test-Path "C:\msys64\ucrt64") { return "C:\msys64\ucrt64" }
     if (Test-Path "C:\msys64\mingw64") { return "C:\msys64\mingw64" }
     return ""

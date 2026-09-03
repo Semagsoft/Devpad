@@ -76,13 +76,27 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/
 cmake --build build -j
 ```
 
-**Windows (MSYS2 UCRT64):**
+**Windows (MSYS2 UCRT64, x64):**
 ```bash
 pacman -S mingw-w64-ucrt-x86_64-qt6 mingw-w64-ucrt-x86_64-qscintilla \
           mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-gcc
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 ```
+
+**Windows ARM64 (MSYS2 CLANGARM64, native):**
+```bash
+# On an ARM64 machine, or the GitHub-hosted windows-11-arm runner
+# (MSYSTEM=CLANGARM64 shell):
+pacman -S mingw-w64-clang-aarch64-qt6 mingw-w64-clang-aarch64-qscintilla \
+          mingw-w64-clang-aarch64-cmake mingw-w64-clang-aarch64-cc
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_QSCINTILLA=OFF
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
+```
+The x64 build also runs on ARM64 via Windows emulation (Prism), but the
+CLANGARM64 build above is the native ARM64 binary. CI builds both:
+`Devpad-<version>-Setup.exe` / `.msi` / `-windows-x86_64.zip` for x64 and
+`Devpad-<version>-arm64-Setup.exe` / `-arm64.msi` / `-windows-arm64.zip` for ARM64.
 
 **macOS (Homebrew):**
 ```bash

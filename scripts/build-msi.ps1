@@ -3,10 +3,24 @@ param(
     [string]$InstallerDir = (Join-Path $PSScriptRoot "..\installer"),
     [string]$WixDir = "C:\ProgramData\wix314",
     [string]$Version = "1.04",
-    [string]$OutputMsi = (Join-Path $PSScriptRoot "..\Devpad-$Version.msi")
+    [ValidateSet("x64", "arm64")]
+    [string]$Arch = "x64",
+    [string]$OutputMsi = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $OutputMsi) {
+    if ($Arch -eq "arm64") {
+        $OutputMsi = Join-Path $PSScriptRoot "..\Devpad-$Version-arm64.msi"
+    } else {
+        $OutputMsi = Join-Path $PSScriptRoot "..\Devpad-$Version.msi"
+    }
+}
+
+# WiX candle architecture flag matches the target arch (x64 or arm64).
+# The .wxs Platform attribute is set via -dPlatform to match.
+$wixArch = $Arch
 
 # Ensure WiX tools are available
 $wixBin = if (Test-Path $WixDir) { $WixDir } else { (Get-Command candle.exe -ErrorAction SilentlyContinue).Directory }
@@ -40,12 +54,12 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "heat failed" }
 
     # Step 4: Compile .wxs to .wixobj
-    Write-Host "Compiling Heat.wxs..."
-    & candle.exe -arch x64 "-dProductVersion=$Version" "-dDistDir=$distDir" -out Heat.wixobj Heat.wxs
+    Write-Host "Compiling Heat.wxs ($wixArch)..."
+    & candle.exe -arch $wixArch "-dProductVersion=$Version" "-dPlatform=$wixArch" "-dDistDir=$distDir" -out Heat.wixobj Heat.wxs
     if ($LASTEXITCODE -ne 0) { throw "candle Heat.wxs failed" }
 
-    Write-Host "Compiling Devpad.wxs..."
-    & candle.exe -arch x64 "-dProductVersion=$Version" -out Devpad.wixobj Devpad.wxs
+    Write-Host "Compiling Devpad.wxs ($wixArch)..."
+    & candle.exe -arch $wixArch "-dProductVersion=$Version" "-dPlatform=$wixArch" -out Devpad.wixobj Devpad.wxs
     if ($LASTEXITCODE -ne 0) { throw "candle failed" }
 
     # Step 5: Link .wixobj to .msi

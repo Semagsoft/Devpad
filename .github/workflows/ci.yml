@@ -210,7 +210,7 @@ jobs:
           fail_on_unmatched_files: false
 
   windows:
-    name: Build and test (Windows MSYS2)
+    name: Build and test (Windows MSYS2 x64)
     runs-on: windows-2022
     defaults:
       run:
@@ -303,9 +303,9 @@ jobs:
           try {
             & heat.exe dir "..\build\dist" -nologo -gg -srd -dr INSTALLDIR -cg DeployedFiles -var var.DistDir -out Heat.wxs
             if ($LASTEXITCODE -ne 0) { throw "heat failed" }
-            & candle.exe -arch x64 "-dProductVersion=$version" "-dDistDir=..\build\dist" -out Heat.wixobj Heat.wxs
+            & candle.exe -arch x64 "-dProductVersion=$version" "-dPlatform=x64" "-dDistDir=..\build\dist" -out Heat.wixobj Heat.wxs
             if ($LASTEXITCODE -ne 0) { throw "candle Heat.wxs failed" }
-            & candle.exe -arch x64 "-dProductVersion=$version" -out Devpad.wixobj Devpad.wxs
+            & candle.exe -arch x64 "-dProductVersion=$version" "-dPlatform=x64" -out Devpad.wixobj Devpad.wxs
             if ($LASTEXITCODE -ne 0) { throw "candle failed" }
             & light.exe -out "..\Devpad-$version.msi" -ext WixUIExtension Devpad.wixobj Heat.wixobj
             if ($LASTEXITCODE -ne 0) { throw "light failed" }
@@ -324,7 +324,138 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          name: Devpad-Windows-${{ steps.version.outputs.version }}
+          name: Devpad-Windows-x86_64-${{ steps.version.outputs.version }}
+          path: |
+            Devpad-*-Setup.exe
+            Devpad-*.msi
+            Devpad-*.zip
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            Devpad-*-Setup.exe
+            Devpad-*.msi
+            Devpad-*.zip
+          fail_on_unmatched_files: false
+
+  windows-arm64:
+    name: Build and test (Windows ARM64, CLANGARM64)
+    runs-on: windows-11-arm
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup MSYS2 (CLANGARM64)
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: CLANGARM64
+          install: >-
+            mingw-w64-clang-aarch64-qt6-base
+            mingw-w64-clang-aarch64-qt6-multimedia
+            mingw-w64-clang-aarch64-qt6-svg
+            mingw-w64-clang-aarch64-qt6-tools
+            mingw-w64-clang-aarch64-qscintilla-qt6
+            mingw-w64-clang-aarch64-cmake
+            mingw-w64-clang-aarch64-cc
+            mingw-w64-clang-aarch64-ccache
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: windows-arm64
+
+      - name: Configure
+        run: |
+          export CCACHE_BASEDIR=${{ github.workspace }}
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-Werror" \
+            -DBUILD_TESTS=ON \
+            -DBUILD_QSCINTILLA=OFF
+        env:
+          CCACHE_DIR: D:\a\ccache
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Extract version
+        id: version
+        shell: msys2 {0}
+        run: |
+          VERSION=$(grep 'project(Devpad VERSION' CMakeLists.txt | sed 's/.*VERSION \([^ ]*\).*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Deploy Qt and runtime dependencies
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        run: |
+          powershell -ExecutionPolicy Bypass -File scripts/deploy-windows-deps.ps1 \
+            -BuildDir "$GITHUB_WORKSPACE\build" \
+            -DistDir "$GITHUB_WORKSPACE\build\dist"
+
+      - name: Install NSIS
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        shell: powershell
+        run: choco install nsis -y --no-progress
+
+      - name: Build NSIS installer (arm64)
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        shell: powershell
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $outfile = Join-Path $env:GITHUB_WORKSPACE "Devpad-$version-arm64-Setup.exe"
+          & "C:\Program Files (x86)\NSIS\makensis.exe" "/DPRODUCT_VERSION=$version" "/DPRODUCT_ARCH=arm64" "/DPRODUCT_OUTFILE=$outfile" installer/installer.nsi
+          if ($LASTEXITCODE -ne 0) { throw "makensis failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path $outfile)) {
+            Get-ChildItem -Path . -Recurse -Filter "Devpad-*-Setup.exe" | ForEach-Object { Copy-Item $_.FullName $outfile -Force }
+          }
+
+      - name: Build MSI installer (arm64)
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        shell: powershell
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $wixDir = if (Test-Path "C:\Program Files (x86)\WiX Toolset v3*") {
+            (Get-ChildItem "C:\Program Files (x86)\WiX Toolset v3*" -Directory | Select-Object -First 1).FullName
+          } else {
+            "C:\ProgramData\wix314"
+          }
+          $env:Path = "$wixDir\bin;$env:Path"
+          Push-Location installer
+          try {
+            & heat.exe dir "..\build\dist" -nologo -gg -srd -dr INSTALLDIR -cg DeployedFiles -var var.DistDir -out Heat.wxs
+            if ($LASTEXITCODE -ne 0) { throw "heat failed" }
+            & candle.exe -arch arm64 "-dProductVersion=$version" "-dPlatform=arm64" "-dDistDir=..\build\dist" -out Heat.wixobj Heat.wxs
+            if ($LASTEXITCODE -ne 0) { throw "candle Heat.wxs failed" }
+            & candle.exe -arch arm64 "-dProductVersion=$version" "-dPlatform=arm64" -out Devpad.wixobj Devpad.wxs
+            if ($LASTEXITCODE -ne 0) { throw "candle failed" }
+            & light.exe -out "..\Devpad-$version-arm64.msi" -ext WixUIExtension Devpad.wixobj Heat.wixobj
+            if ($LASTEXITCODE -ne 0) { throw "light failed" }
+          } finally {
+            Remove-Item "Heat.wxs", "Heat.wixobj", "Devpad.wixobj", "Devpad.wixpdb" -ErrorAction SilentlyContinue
+            Pop-Location
+          }
+
+      - name: Package portable zip (arm64)
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        shell: powershell
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          Compress-Archive -Path build/dist/* -DestinationPath "Devpad-$version-windows-arm64.zip" -CompressionLevel Optimal
+
+      - uses: actions/upload-artifact@v6
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          name: Devpad-Windows-arm64-${{ steps.version.outputs.version }}
           path: |
             Devpad-*-Setup.exe
             Devpad-*.msi

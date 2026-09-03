@@ -5,6 +5,12 @@
 !ifndef PRODUCT_OUTFILE
 !define PRODUCT_OUTFILE "Devpad-${PRODUCT_VERSION}-Setup.exe"
 !endif
+; Target architecture: "x64" (default) or "arm64". Passed as
+; /DPRODUCT_ARCH=arm64 for Windows ARM64 builds. $PROGRAMFILES64
+; resolves to the native Program Files on both architectures.
+!ifndef PRODUCT_ARCH
+!define PRODUCT_ARCH "x64"
+!endif
 !define PRODUCT_PUBLISHER "Semagsoft"
 !define PRODUCT_WEB_SITE "https://semagsoft.com"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\Devpad.exe"
@@ -135,6 +141,8 @@ Section -Uninstaller
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
+    ; Target architecture of the packaged binaries ("x64" or "arm64").
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "Architecture" "${PRODUCT_ARCH}"
     WriteRegDWORD HKLM "${PRODUCT_UNINST_KEY}" "NoModify" 1
     WriteRegDWORD HKLM "${PRODUCT_UNINST_KEY}" "NoRepair" 1
 SectionEnd
