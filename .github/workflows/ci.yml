@@ -299,10 +299,10 @@ jobs:
         shell: powershell
         run: |
           powershell -ExecutionPolicy Bypass -File scripts/build-msi.ps1 `
-            -BuildDir "$GITHUB_WORKSPACE\build" `
+            -BuildDir "$env:GITHUB_WORKSPACE\build" `
             -Version "${{ steps.version.outputs.version }}" `
             -Arch x64 `
-            -OutputMsi "$GITHUB_WORKSPACE\Devpad-${{ steps.version.outputs.version }}.msi" `
+            -OutputMsi "$env:GITHUB_WORKSPACE\Devpad-${{ steps.version.outputs.version }}.msi" `
             -SkipDeploy
 
       - name: Package portable zip
@@ -438,10 +438,10 @@ jobs:
         shell: powershell
         run: |
           powershell -ExecutionPolicy Bypass -File scripts/build-msi.ps1 `
-            -BuildDir "$GITHUB_WORKSPACE\build" `
+            -BuildDir "$env:GITHUB_WORKSPACE\build" `
             -Version "${{ steps.version.outputs.version }}" `
             -Arch arm64 `
-            -OutputMsi "$GITHUB_WORKSPACE\Devpad-${{ steps.version.outputs.version }}-arm64.msi" `
+            -OutputMsi "$env:GITHUB_WORKSPACE\Devpad-${{ steps.version.outputs.version }}-arm64.msi" `
             -SkipDeploy
 
       - name: Package portable zip (arm64)
