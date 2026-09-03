@@ -17,7 +17,7 @@ QSGMaterialType* PrimoGradientMaterial::type() const
     return &t;
 }
 
-QSGMaterialShader* PrimoGradientMaterial::createShader(QSGRendererInterface::RenderMode) const
+QSGMaterialShader* PrimoGradientMaterial::createShader(QSGRendererInterface::RenderMode renderMode) const
 {
     return new PrimoGradientShader;
 }

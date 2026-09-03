@@ -348,7 +348,7 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
         fileTree.moveCursor(-1);
         return true;
     }
-    else if (ch == KEY_DOWN)
+    if (ch == KEY_DOWN)
     {
         fileTree.moveCursor(1);
         return true;
@@ -358,7 +358,7 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
         const TuiFileNode* n = fileTree.currentNode();
         if (n && n->isDir && n->expanded)
             fileTree.setExpanded(n->absolutePath, false);
-        else if (n)
+        if (n)
         {
             QFileInfo fi(n->absolutePath);
             QString parent = fi.absolutePath();

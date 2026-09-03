@@ -207,7 +207,19 @@ qreal PrimoEditor::contentHeight() const
         int lines = txt.isEmpty() ? 1 : txt.count(QLatin1Char('\n')) + 1;
         return lines * m_lineHeight + 8;
     }
-    int lines = m_linesCache.isEmpty() ? (m_doc && !m_doc->text().isEmpty() ? m_doc->text().count(QLatin1Char('\n')) + 1 : 1) : m_linesCache.size();
+    int lines;
+    if (!m_linesCache.isEmpty())
+    {
+        lines = m_linesCache.size();
+    }
+    else if (m_doc && !m_doc->text().isEmpty())
+    {
+        lines = m_doc->text().count(QLatin1Char('\n')) + 1;
+    }
+    else
+    {
+        lines = 1;
+    }
     if (m_linesCache.isEmpty() && m_doc)
     {
         lines = m_doc->text().isEmpty() ? 1 : m_doc->text().count(QLatin1Char('\n')) + 1;
