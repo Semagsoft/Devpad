@@ -133,34 +133,95 @@ CompletionItem CompletionItem::fromJson(const QJsonObject& obj)
 ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
 {
     ServerCapabilities c;
-    QJsonObject td = caps["textDocument"].toObject();
-    c.completionProvider = td.contains("completion");
-    c.definitionProvider = td.contains("definition");
-    c.referencesProvider = td.contains("references");
-    c.hoverProvider = td.contains("hover");
-    c.documentSymbolProvider = td.contains("documentSymbol");
-    c.signatureHelpProvider = td.contains("signatureHelp");
-    c.formattingProvider = td.contains("formatting");
-    c.codeActionProvider = td.contains("codeAction");
-    c.renameProvider = td.contains("rename");
-    c.documentHighlightProvider = td.contains("documentHighlight");
-    c.typeDefinitionProvider = td.contains("typeDefinition");
-    c.declarationProvider = td.contains("declaration");
-    c.selectionRangeProvider = td.contains("selectionRange");
-    c.linkedEditingRangeProvider = td.contains("linkedEditingRange");
-    c.callHierarchyProvider = td.contains("callHierarchy");
-    c.semanticTokensProvider = td.contains("semanticTokens");
-    c.diagnosticProvider = caps.contains("diagnostic");
+    // Per LSP spec ServerCapabilities are top-level keys
+    auto hasTopLevel = [&caps](const QString& key) { return caps.contains(key); };
+    auto hasCompletionTrigger = [&caps](QStringList& out) -> bool
+    {
+        QJsonValue compVal = caps["completionProvider"];
+        if (compVal.isObject())
+        {
+            QJsonObject compObj = compVal.toObject();
+            QJsonArray arr = compObj["triggerCharacters"].toArray();
+            for (const auto& ch : arr)
+                out.append(ch.toString());
+            return true;
+        }
+        return compVal.isBool() && compVal.toBool();
+    };
 
-    QJsonObject ws = caps["workspace"].toObject();
-    c.workspaceSymbolProvider = ws.contains("symbol");
+    c.completionProvider = hasTopLevel("completionProvider");
+    c.definitionProvider = hasTopLevel("definitionProvider");
+    c.referencesProvider = hasTopLevel("referencesProvider");
+    c.hoverProvider = hasTopLevel("hoverProvider");
+    c.documentSymbolProvider = hasTopLevel("documentSymbolProvider");
+    c.signatureHelpProvider = hasTopLevel("signatureHelpProvider");
+    c.formattingProvider = hasTopLevel("documentFormattingProvider") || hasTopLevel("formattingProvider");
+    c.codeActionProvider = hasTopLevel("codeActionProvider");
+    c.renameProvider = hasTopLevel("renameProvider");
+    c.documentHighlightProvider = hasTopLevel("documentHighlightProvider");
+    c.typeDefinitionProvider = hasTopLevel("typeDefinitionProvider");
+    c.declarationProvider = hasTopLevel("declarationProvider");
+    c.selectionRangeProvider = hasTopLevel("selectionRangeProvider");
+    c.linkedEditingRangeProvider = hasTopLevel("linkedEditingRangeProvider");
+    c.callHierarchyProvider = hasTopLevel("callHierarchyProvider");
+    c.semanticTokensProvider = hasTopLevel("semanticTokensProvider");
+    c.diagnosticProvider = hasTopLevel("diagnosticProvider") || hasTopLevel("diagnostic");
+
+    // Workspace symbols
+    QJsonValue wsVal = caps["workspaceSymbolProvider"];
+    if (!wsVal.isUndefined())
+    {
+        c.workspaceSymbolProvider = wsVal.isBool() ? wsVal.toBool() : true;
+    }
+    else
+    {
+        QJsonObject ws = caps["workspace"].toObject();
+        c.workspaceSymbolProvider = ws.contains("symbol") || ws.contains("workspaceSymbol");
+    }
+
+    // Legacy fallback: some servers embed capabilities under textDocument.* (previous bug)
+    if (!c.completionProvider || !c.definitionProvider)
+    {
+        QJsonObject td = caps["textDocument"].toObject();
+        if (!td.isEmpty())
+        {
+            c.completionProvider = c.completionProvider || td.contains("completion");
+            c.definitionProvider = c.definitionProvider || td.contains("definition");
+            c.referencesProvider = c.referencesProvider || td.contains("references");
+            c.hoverProvider = c.hoverProvider || td.contains("hover");
+            c.documentSymbolProvider = c.documentSymbolProvider || td.contains("documentSymbol");
+            c.signatureHelpProvider = c.signatureHelpProvider || td.contains("signatureHelp");
+            c.formattingProvider = c.formattingProvider || td.contains("formatting");
+            c.codeActionProvider = c.codeActionProvider || td.contains("codeAction");
+            c.renameProvider = c.renameProvider || td.contains("rename");
+            c.documentHighlightProvider = c.documentHighlightProvider || td.contains("documentHighlight");
+            c.typeDefinitionProvider = c.typeDefinitionProvider || td.contains("typeDefinition");
+            c.declarationProvider = c.declarationProvider || td.contains("declaration");
+            c.selectionRangeProvider = c.selectionRangeProvider || td.contains("selectionRange");
+            c.linkedEditingRangeProvider = c.linkedEditingRangeProvider || td.contains("linkedEditingRange");
+            c.callHierarchyProvider = c.callHierarchyProvider || td.contains("callHierarchy");
+            c.semanticTokensProvider = c.semanticTokensProvider || td.contains("semanticTokens");
+            QJsonObject ws = caps["workspace"].toObject();
+            c.workspaceSymbolProvider = c.workspaceSymbolProvider || ws.contains("symbol");
+        }
+    }
 
     if (c.completionProvider)
     {
-        QJsonObject comp = td["completion"].toObject();
-        QJsonObject compOpts = comp["completionItem"].toObject();
-        for (const auto& ch : compOpts["triggerCharacters"].toArray())
-            c.completionTriggerChars.append(ch.toString());
+        QStringList triggers;
+        if (hasCompletionTrigger(triggers))
+        {
+            c.completionTriggerChars = triggers;
+        }
+        else
+        {
+            // Legacy path: completionItem.triggerCharacters nested incorrectly
+            QJsonObject td = caps["textDocument"].toObject();
+            QJsonObject comp = td["completion"].toObject();
+            QJsonObject compOpts = comp["completionItem"].toObject();
+            for (const auto& ch : compOpts["triggerCharacters"].toArray())
+                c.completionTriggerChars.append(ch.toString());
+        }
     }
     return c;
 }

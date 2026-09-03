@@ -54,7 +54,7 @@ public:
         return m_primaryWidget;
     }
     QTabWidget* addNewPane(QTabWidget* relativeTo, Qt::Orientation orientation, bool after);
-    void removePane(QTabWidget* tabWidget);
+    void removePane(QTabWidget* tw);
     bool moveTabToPane(int tabIndex, QTabWidget* source, QTabWidget* target, int insertIndex = -1);
     void detachTabToWindow(int tabIndex, QTabWidget* source);
 
@@ -107,6 +107,25 @@ private:
     DropZoneOverlay* overlay();
     void handleDrop(QDropEvent* event);
     int totalTabCount() const;
+
+    // handleDrop decomposition
+    struct DropContext
+    {
+        QTabWidget* srcPane = nullptr;
+        int srcIndex = -1;
+        QString filePath;
+        quint64 dragId = 0;
+        qint64 srcPid = 0;
+        QPoint globalPos;
+    };
+    bool decodeDrop(const QDropEvent* event, DropContext& out) const;
+    bool handleCrossProcessDrop(const DropContext& ctx, QDropEvent* event);
+    bool handleTabBarDrop(const DropContext& ctx, QDropEvent* event);
+    bool handleZoneDrop(const DropContext& ctx, QDropEvent* event);
+    void handleFallbackDrop(const DropContext& ctx, QDropEvent* event);
+    void moveTabWithinPane(QTabWidget* pane, int from, int to);
+    void moveTabBetweenPanes(QTabWidget* src, int srcIdx, QTabWidget* dst, int dstIdx);
+    void cleanupEmptySourcePane(QTabWidget* src);
 
     // Nested splitter helpers
     QSplitter* parentSplitterFor(QWidget* widget) const;

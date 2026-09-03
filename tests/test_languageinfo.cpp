@@ -3,6 +3,7 @@
 
 #include <Qsci/qsciapis.h>
 #include <Qsci/qscilexer.h>
+#include <Qsci/qscilexerjavascript.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -95,6 +96,11 @@ TEST_F(LanguageInfoTest, FindLanguageReturnsCorrectEntry)
     ASSERT_NE(lang, nullptr);
     EXPECT_EQ(lang->name, "javascript");
     EXPECT_EQ(lang->lexerClassName, "QsciLexerJavaScript");
+
+    const auto* jsonLang = findLanguage("json");
+    ASSERT_NE(jsonLang, nullptr);
+    EXPECT_EQ(jsonLang->name, "json");
+    EXPECT_EQ(jsonLang->lexerClassName, "QsciLexerJSON");
 }
 
 TEST_F(LanguageInfoTest, ThemeApplicatorCacheContainsExpectedKeys)
@@ -122,6 +128,33 @@ TEST_F(LanguageInfoTest, ThemeApplicatorDoesNotCrash)
         QsciLexer* lexer = lang.factory(nullptr);
         ASSERT_NE(lexer, nullptr);
         EXPECT_NO_THROW(lang.themeApplicator(lexer, colors)) << "themeApplicator crashed for " << lang.name.toStdString();
+        delete lexer;
+    }
+}
+
+TEST_F(LanguageInfoTest, JavaScriptAndQmlApplicatorsCoverDarkThemeStyles)
+{
+    const ThemeColors dark = getThemeColors(ThemeId::Dark);
+
+    for (const QString& name : {QStringLiteral("javascript"), QStringLiteral("qml")})
+    {
+        const LanguageInfo* lang = findLanguage(name);
+        ASSERT_NE(lang, nullptr);
+        EXPECT_EQ(lang->lexerClassName, "QsciLexerJavaScript");
+
+        QsciLexer* lexer = lang->factory(nullptr);
+        ASSERT_NE(lexer, nullptr);
+        lang->themeApplicator(lexer, dark);
+        auto* js = static_cast<QsciLexerJavaScript*>(lexer);
+
+        EXPECT_EQ(js->color(QsciLexerJavaScript::Operator), dark.operator_);
+        EXPECT_EQ(js->color(QsciLexerJavaScript::Default), dark.operator_);
+        EXPECT_EQ(js->color(QsciLexerJavaScript::CommentDoc), dark.comment);
+        EXPECT_EQ(js->color(QsciLexerJavaScript::CommentLineDoc), dark.comment);
+        EXPECT_EQ(js->color(QsciLexerJavaScript::UnclosedString), dark.string);
+        EXPECT_EQ(js->color(QsciLexerJavaScript::Regex), dark.foreground);
+        EXPECT_NE(js->color(QsciLexerJavaScript::Regex), QColor(0x3f, 0x7f, 0x3f));
+
         delete lexer;
     }
 }

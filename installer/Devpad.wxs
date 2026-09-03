@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <?ifndef ProductVersion ?>
-    <?define ProductVersion = "1.03" ?>
+    <?define ProductVersion = "1.04" ?>
+    <?endif?>
+    <?ifndef Platform ?>
+    <?define Platform = "x64" ?>
     <?endif?>
     <Product Id="*"
              Name="Devpad"
@@ -17,7 +20,7 @@
                  Description="Devpad Code Editor"
                  Keywords="editor,code,qt"
                  Comments="Devpad is a C++/Qt6 code editor"
-                 Platform="x64" />
+                 Platform="$(var.Platform)" />
 
         <Media Id="1" Cabinet="devpad.cab" EmbedCab="yes" />
 
@@ -39,6 +42,8 @@
                             Type="raw" />
         </Property>
 
+        <!-- ProgramFiles64Folder resolves to the native 64-bit Program Files
+             on both x64 and arm64 (candle -arch arm64 + -dPlatform=arm64). -->
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="ProgramFiles64Folder">
                 <Directory Id="INSTALLDIR" Name="Devpad" />

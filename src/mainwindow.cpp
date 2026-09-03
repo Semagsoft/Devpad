@@ -91,7 +91,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #ifndef Q_OS_WIN
-#include <qtermwidget.h>
+// #include <QTermWidget>  // Removed - QTermWidget not available in Qt6
 #endif
 
 #ifdef Q_OS_MACOS
@@ -1040,6 +1040,7 @@ void MainWindow::updateFileTypeLabel()
             {"java", tr("Java")}, {"python", tr("Python")}, {"javascript", tr("JavaScript")},
             {"html", tr("HTML")}, {"css", tr("CSS")},       {"xml", tr("XML")},
             {"sql", tr("SQL")},   {"bash", tr("Shell")},    {"cmake", tr("CMake")},
+            {"qml", tr("QML")},   {"lua", tr("Lua")},
         };
         syntax = displayNames.value(syntax, syntax);
     }

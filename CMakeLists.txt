@@ -1,8 +1,10 @@
-﻿cmake_minimum_required(VERSION 3.16)
-project(Devpad VERSION 1.03 LANGUAGES CXX)
+﻿cmake_minimum_required(VERSION 3.23)
+project(Devpad VERSION 1.04 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
+option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)
+option(BUILD_NEXTGEN "Build next-gen QML/high-perf mode (primoEditor)" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -157,15 +159,38 @@ configure_file(
     @ONLY
 )
 
+# ── Core static library (headless, no Widgets) ──────────────
+add_library(Devpad_core STATIC
+    src/logger.cpp
+    src/encodingutils.cpp
+    src/gitignore.cpp
+    src/core/fileservice.cpp
+    src/tui/tuibuffer.cpp
+    src/tui/tuitabmodel.cpp
+    src/tui/tuisearchengine.cpp
+    src/tui/tuifiletree.cpp
+    src/tui/tuifindinfiles.cpp
+    src/tui/tuihighlighter.cpp
+    src/tui/tuiviewstate.cpp
+    src/tui/tuirenderer.cpp
+)
+target_compile_options(Devpad_core PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_core PUBLIC
+    Qt6::Core
+    Qt6::Network
+)
+target_include_directories(Devpad_core PUBLIC
+    src
+    src/managers
+    ${CMAKE_BINARY_DIR}/generated
+)
+
 # ── Shared static library (avoids double compilation) ─────────
 add_library(Devpad_lib STATIC
     src/codeeditor.cpp
     src/keywords.cpp
     src/languageinfo.cpp
     src/theme.cpp
-    src/logger.cpp
-    src/encodingutils.cpp
-    src/gitignore.cpp
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp
@@ -208,6 +233,9 @@ add_library(Devpad_lib STATIC
     src/widgets/windowsframebridge.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/editorcontainer.cpp
+    src/tui/tuisession.cpp
+    src/tui/tuicommand.cpp
+    src/tui/tuiinput.cpp
     src/lsp/lspjsonrpc.cpp
     src/lsp/lspclient.cpp
     src/lsp/lspconnectionhelper.cpp
@@ -218,12 +246,11 @@ add_library(Devpad_lib STATIC
 target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad_lib PUBLIC
-    Qt6::Core
+    Devpad_core
     Qt6::Gui
     Qt6::Widgets
     Qt6::PrintSupport
     Qt6::Multimedia
-    Qt6::Network
     Qt6::Svg
     ${TERMINAL_TARGET}
 )
@@ -236,6 +263,18 @@ target_include_directories(Devpad_lib PUBLIC
 )
 target_link_qscintilla(Devpad_lib)
 
+# ── TUI mode ──────────────────────────────────────────────────
+if(BUILD_TUI)
+    find_package(Curses REQUIRED)
+    message(STATUS "Building with TUI support (ncurses ${CURSES_VERSION})")
+endif()
+
+# ── Next-gen / QML mode ─────────────────────────────────────────
+if(BUILD_NEXTGEN)
+    find_package(Qt6 6.2 REQUIRED COMPONENTS Quick Qml QuickControls2)
+    message(STATUS "Building with NEXTGEN support (QML + primoEditor)")
+endif()
+
 # ── Main executable ───────────────────────────────────────────
 add_executable(Devpad WIN32)
 
@@ -243,18 +282,50 @@ target_sources(Devpad PRIVATE
     src/main.cpp
     resources/resources.qrc
     $<$<PLATFORM_ID:Windows>:resources/appicon.rc>
+    $<$<BOOL:${BUILD_TUI}>:src/tui/tuiapp.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgenapp.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoeditor.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primodocument.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primohighlighter.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoshader.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgenactions.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgentabmodel.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoterminal.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primofindinfiles.cpp>
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad PRIVATE
     Devpad_lib
+    Devpad_core
 )
 target_link_qscintilla(Devpad)
 
 target_include_directories(Devpad PRIVATE
     src
 )
+
+if(BUILD_TUI)
+    target_compile_definitions(Devpad PRIVATE BUILD_TUI=1)
+    target_compile_definitions(Devpad_core PRIVATE BUILD_TUI=1)
+    target_compile_definitions(Devpad_lib PRIVATE BUILD_TUI=1)
+    target_include_directories(Devpad PRIVATE ${CURSES_INCLUDE_DIRS})
+    target_include_directories(Devpad_core PRIVATE ${CURSES_INCLUDE_DIRS})
+    target_include_directories(Devpad_lib PRIVATE ${CURSES_INCLUDE_DIRS})
+    target_link_libraries(Devpad PRIVATE ${CURSES_LIBRARIES})
+endif()
+
+if(BUILD_NEXTGEN)
+    target_compile_definitions(Devpad PRIVATE BUILD_NEXTGEN=1)
+    target_compile_definitions(Devpad_core PRIVATE BUILD_NEXTGEN=1)
+    target_compile_definitions(Devpad_lib PRIVATE BUILD_NEXTGEN=1)
+    target_link_libraries(Devpad PRIVATE
+        Qt6::Quick
+        Qt6::Qml
+        Qt6::QuickControls2
+    )
+endif()
 
 # ── Install rules ─────────────────────────────────────────────
 install(TARGETS Devpad RUNTIME DESTINATION bin)
@@ -377,6 +448,15 @@ if(BUILD_TESTS)
         tests/test_lspjsonrpc.cpp
         tests/test_splitview.cpp
         tests/test_updatechecker.cpp
+        tests/test_projectpanel.cpp
+        tests/test_lspclient.cpp
+        tests/test_fileservice.cpp
+        tests/test_tuibuffer.cpp
+        tests/test_tuitabmodel.cpp
+        tests/test_tuisearchengine.cpp
+        tests/test_tuifiletree.cpp
+        tests/test_tuihighlighter.cpp
+        tests/test_tuifindinfiles.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)

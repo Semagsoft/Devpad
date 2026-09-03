@@ -88,6 +88,8 @@ void GitIgnore::addPattern(const QString& line, const QString& dirPath)
     if (anchored)
         pattern = pattern.mid(1);
 
+    bool hasSlash = pattern.contains('/');
+
     QRegularExpression regex = patternToRegex(pattern, anchored);
     if (!regex.isValid())
         return;
@@ -99,7 +101,7 @@ void GitIgnore::addPattern(const QString& line, const QString& dirPath)
         regex = QRegularExpression(p);
     }
 
-    m_patterns[dirPath].append({regex, negate, dirOnly, anchored});
+    m_patterns[dirPath].append({regex, negate, dirOnly, anchored, hasSlash});
 }
 
 QString GitIgnore::relativePath(const QString& filePath, const QString& dirPath) const
@@ -230,7 +232,11 @@ bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
             if (p.dirOnly && !isDir)
                 continue;
 
-            QString matchTarget = (!p.dirOnly && !p.anchored && relPath.contains('/')) ? relPath.section('/', -1) : relPath;
+            QString matchTarget;
+            if (!p.dirOnly && !p.anchored && !p.hasSlash && relPath.contains('/'))
+                matchTarget = relPath.section('/', -1);
+            else
+                matchTarget = relPath;
 
             if (p.regex.match(matchTarget).hasMatch())
                 ignored = !p.negate;

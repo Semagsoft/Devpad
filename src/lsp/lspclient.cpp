@@ -141,7 +141,7 @@ void LspClient::sendInitialize()
     QJsonObject clientInfo;
     clientInfo["name"] = QStringLiteral("Devpad");
     clientInfo["version"] = QCoreApplication::applicationVersion();
-    params["processId"] = static_cast<qint64>(QCoreApplication::applicationPid());
+    params["processId"] = QCoreApplication::applicationPid();
     params["clientInfo"] = clientInfo;
     params["rootUri"] = m_rootUri;
 
@@ -298,151 +298,49 @@ void LspClient::requestCompletion(const QString& uri, const Position& pos, int t
     if (!isRunning() || !m_initialized || !m_capabilities.completionProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
+    QJsonObject params = makePositionParam(uri, pos);
+    params["context"] = QJsonObject{{"triggerKind", triggerKind}};
 
-    QJsonObject context;
-    context["triggerKind"] = triggerKind;
-    params["context"] = context;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          CompletionList list;
-                                          QJsonArray items;
-                                          QJsonObject obj = result.toObject();
-                                          if (result.isObject() && obj.contains("items"))
-                                          {
-                                              items = obj["items"].toArray();
-                                              list.isIncomplete = obj["isIncomplete"].toBool();
-                                          }
-                                          else if (result.isArray())
-                                          {
-                                              items = result.toArray();
-                                          }
-                                          for (const auto& item : items)
-                                          {
-                                              list.items.append(CompletionItem::fromJson(item.toObject()));
-                                          }
-                                          emit completionReady(uri, list);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/completion", params);
-    m_process->write(request);
+    sendRequest("textDocument/completion", params,
+                [this, uri](const QJsonValue& result)
+                {
+                    CompletionList list;
+                    QJsonArray items;
+                    QJsonObject obj = result.toObject();
+                    if (result.isObject() && obj.contains("items"))
+                    {
+                        items = obj["items"].toArray();
+                        list.isIncomplete = obj["isIncomplete"].toBool();
+                    }
+                    else if (result.isArray())
+                    {
+                        items = result.toArray();
+                    }
+                    for (const auto& item : items)
+                        list.items.append(CompletionItem::fromJson(item.toObject()));
+                    emit completionReady(uri, list);
+                });
 }
 
 void LspClient::requestDefinition(const QString& uri, const Position& pos)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.definitionProvider)
         return;
-
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          Location loc;
-                                          if (result.isObject())
-                                          {
-                                              QJsonObject obj = result.toObject();
-                                              if (obj.contains("range"))
-                                              {
-                                                  loc = Location::fromJson(obj);
-                                              }
-                                          }
-                                          else if (result.isArray())
-                                          {
-                                              QJsonArray arr = result.toArray();
-                                              if (!arr.isEmpty())
-                                                  loc = Location::fromJson(arr.first().toObject());
-                                          }
-                                          if (!loc.uri.isEmpty())
-                                              emit definitionReady(uri, loc);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/definition", params);
-    m_process->write(request);
+    requestLocation("textDocument/definition", uri, pos, "definitionReady");
 }
 
 void LspClient::requestTypeDefinition(const QString& uri, const Position& pos)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.typeDefinitionProvider)
         return;
-
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          Location loc;
-                                          if (result.isObject())
-                                          {
-                                              QJsonObject obj = result.toObject();
-                                              if (obj.contains("range"))
-                                                  loc = Location::fromJson(obj);
-                                          }
-                                          else if (result.isArray())
-                                          {
-                                              QJsonArray arr = result.toArray();
-                                              if (!arr.isEmpty())
-                                                  loc = Location::fromJson(arr.first().toObject());
-                                          }
-                                          if (!loc.uri.isEmpty())
-                                              emit typeDefinitionReady(uri, loc);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/typeDefinition", params);
-    m_process->write(request);
+    requestLocation("textDocument/typeDefinition", uri, pos, "typeDefinitionReady");
 }
 
 void LspClient::requestDeclaration(const QString& uri, const Position& pos)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.declarationProvider)
         return;
-
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          Location loc;
-                                          if (result.isObject())
-                                          {
-                                              QJsonObject obj = result.toObject();
-                                              if (obj.contains("range"))
-                                                  loc = Location::fromJson(obj);
-                                          }
-                                          else if (result.isArray())
-                                          {
-                                              QJsonArray arr = result.toArray();
-                                              if (!arr.isEmpty())
-                                                  loc = Location::fromJson(arr.first().toObject());
-                                          }
-                                          if (!loc.uri.isEmpty())
-                                              emit declarationReady(uri, loc);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/declaration", params);
-    m_process->write(request);
+    requestLocation("textDocument/declaration", uri, pos, "declarationReady");
 }
 
 void LspClient::requestCodeAction(const QString& uri, const Range& range, const QList<Diagnostic>& diagnostics)
@@ -451,33 +349,22 @@ void LspClient::requestCodeAction(const QString& uri, const Range& range, const 
         return;
 
     QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
+    params["textDocument"] = makeTextDocumentParam(uri);
     params["range"] = range.toJson();
-
-    QJsonObject ctx;
     QJsonArray diags;
     for (const auto& d : diagnostics)
         diags.append(d.toJson());
-    ctx["diagnostics"] = diags;
-    params["context"] = ctx;
+    params["context"] = QJsonObject{{"diagnostics", diags}};
 
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          QList<QJsonObject> actions;
-                                          if (result.isArray())
-                                          {
-                                              for (const auto& v : result.toArray())
-                                                  actions.append(v.toObject());
-                                          }
-                                          emit codeActionReady(uri, actions);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/codeAction", params);
-    m_process->write(request);
+    sendRequest("textDocument/codeAction", params,
+                [this, uri](const QJsonValue& result)
+                {
+                    QList<QJsonObject> actions;
+                    if (result.isArray())
+                        for (const auto& v : result.toArray())
+                            actions.append(v.toObject());
+                    emit codeActionReady(uri, actions);
+                });
 }
 
 void LspClient::requestWorkspaceSymbols(const QString& query)
@@ -485,14 +372,8 @@ void LspClient::requestWorkspaceSymbols(const QString& query)
     if (!isRunning() || !m_initialized || !m_capabilities.workspaceSymbolProvider)
         return;
 
-    QJsonObject params;
-    params["query"] = query;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, query](const QJsonValue& result) { emit workspaceSymbolsReady(query, result.toArray()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "workspace/symbol", params);
-    m_process->write(request);
+    QJsonObject params{{"query", query}};
+    sendRequest("workspace/symbol", params, [this, query](const QJsonValue& result) { emit workspaceSymbolsReady(query, result.toArray()); });
 }
 
 void LspClient::requestSelectionRanges(const QString& uri, const QList<Position>& positions)
@@ -501,19 +382,12 @@ void LspClient::requestSelectionRanges(const QString& uri, const QList<Position>
         return;
 
     QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
+    params["textDocument"] = makeTextDocumentParam(uri);
     QJsonArray posArr;
     for (const auto& p : positions)
         posArr.append(p.toJson());
     params["positions"] = posArr;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit selectionRangesReady(uri, result.toArray()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/selectionRange", params);
-    m_process->write(request);
+    sendRequest("textDocument/selectionRange", params, [this, uri](const QJsonValue& result) { emit selectionRangesReady(uri, result.toArray()); });
 }
 
 void LspClient::requestLinkedEditingRange(const QString& uri, const Position& pos)
@@ -521,17 +395,9 @@ void LspClient::requestLinkedEditingRange(const QString& uri, const Position& po
     if (!isRunning() || !m_initialized || !m_capabilities.linkedEditingRangeProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit linkedEditingRangeReady(uri, result.toObject()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/linkedEditingRange", params);
-    m_process->write(request);
+    QJsonObject params = makePositionParam(uri, pos);
+    sendRequest("textDocument/linkedEditingRange", params,
+                [this, uri](const QJsonValue& result) { emit linkedEditingRangeReady(uri, result.toObject()); });
 }
 
 void LspClient::prepareCallHierarchy(const QString& uri, const Position& pos)
@@ -539,17 +405,9 @@ void LspClient::prepareCallHierarchy(const QString& uri, const Position& pos)
     if (!isRunning() || !m_initialized || !m_capabilities.callHierarchyProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit callHierarchyReady(uri, result.toArray()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/prepareCallHierarchy", params);
-    m_process->write(request);
+    QJsonObject params = makePositionParam(uri, pos);
+    sendRequest("textDocument/prepareCallHierarchy", params,
+                [this, uri](const QJsonValue& result) { emit callHierarchyReady(uri, result.toArray()); });
 }
 
 void LspClient::incomingCalls(const QString& uri, const QString& itemId)
@@ -557,17 +415,8 @@ void LspClient::incomingCalls(const QString& uri, const QString& itemId)
     if (!isRunning() || !m_initialized || !m_capabilities.callHierarchyProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject item;
-    item["kind"] = 12; // Function
-    item["name"] = itemId;
-    params["item"] = item;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit incomingCallsReady(uri, result.toArray()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "callHierarchy/incomingCalls", params);
-    m_process->write(request);
+    QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
+    sendRequest("callHierarchy/incomingCalls", params, [this, uri](const QJsonValue& result) { emit incomingCallsReady(uri, result.toArray()); });
 }
 
 void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
@@ -575,17 +424,8 @@ void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
     if (!isRunning() || !m_initialized || !m_capabilities.callHierarchyProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject item;
-    item["kind"] = 12;
-    item["name"] = itemId;
-    params["item"] = item;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit outgoingCallsReady(uri, result.toArray()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "callHierarchy/outgoingCalls", params);
-    m_process->write(request);
+    QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
+    sendRequest("callHierarchy/outgoingCalls", params, [this, uri](const QJsonValue& result) { emit outgoingCallsReady(uri, result.toArray()); });
 }
 
 void LspClient::requestSemanticTokensFull(const QString& uri)
@@ -593,21 +433,9 @@ void LspClient::requestSemanticTokensFull(const QString& uri)
     if (!isRunning() || !m_initialized || !m_capabilities.semanticTokensProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          QJsonObject obj = result.toObject();
-                                          emit semanticTokensFullReady(uri, obj["data"].toArray());
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/semanticTokens/full", params);
-    m_process->write(request);
+    QJsonObject params{{"textDocument", makeTextDocumentParam(uri)}};
+    sendRequest("textDocument/semanticTokens/full", params,
+                [this, uri](const QJsonValue& result) { emit semanticTokensFullReady(uri, result.toObject()["data"].toArray()); });
 }
 
 void LspClient::requestReferences(const QString& uri, const Position& pos)
@@ -615,28 +443,18 @@ void LspClient::requestReferences(const QString& uri, const Position& pos)
     if (!isRunning() || !m_initialized || !m_capabilities.referencesProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
+    QJsonObject params = makePositionParam(uri, pos);
     params["context"] = QJsonObject{{"includeDeclaration", true}};
 
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          QList<Location> locations;
-                                          if (result.isArray())
-                                          {
-                                              for (const auto& v : result.toArray())
-                                                  locations.append(Location::fromJson(v.toObject()));
-                                          }
-                                          emit referencesReady(uri, locations);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/references", params);
-    m_process->write(request);
+    sendRequest("textDocument/references", params,
+                [this, uri](const QJsonValue& result)
+                {
+                    QList<Location> locations;
+                    if (result.isArray())
+                        for (const auto& v : result.toArray())
+                            locations.append(Location::fromJson(v.toObject()));
+                    emit referencesReady(uri, locations);
+                });
 }
 
 void LspClient::requestHover(const QString& uri, const Position& pos)
@@ -644,44 +462,31 @@ void LspClient::requestHover(const QString& uri, const Position& pos)
     if (!isRunning() || !m_initialized || !m_capabilities.hoverProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          QString contents;
-                                          QJsonObject obj = result.toObject();
-                                          QJsonValue val = obj["contents"];
-                                          if (val.isString())
-                                          {
-                                              contents = val.toString();
-                                          }
-                                          else if (val.isObject())
-                                          {
-                                              contents = val.toObject()["value"].toString();
-                                          }
-                                          else if (val.isArray())
-                                          {
-                                              QStringList parts;
-                                              for (const auto& v : val.toArray())
-                                              {
-                                                  if (v.isString())
-                                                      parts.append(v.toString());
-                                                  else if (v.isObject())
-                                                      parts.append(v.toObject()["value"].toString());
-                                              }
-                                              contents = parts.join("\n");
-                                          }
-                                          emit hoverReady(uri, contents);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/hover", params);
-    m_process->write(request);
+    QJsonObject params = makePositionParam(uri, pos);
+    sendRequest("textDocument/hover", params,
+                [this, uri](const QJsonValue& result)
+                {
+                    QString contents;
+                    QJsonObject obj = result.toObject();
+                    QJsonValue val = obj["contents"];
+                    if (val.isString())
+                        contents = val.toString();
+                    else if (val.isObject())
+                        contents = val.toObject()["value"].toString();
+                    else if (val.isArray())
+                    {
+                        QStringList parts;
+                        for (const auto& v : val.toArray())
+                        {
+                            if (v.isString())
+                                parts.append(v.toString());
+                            else if (v.isObject())
+                                parts.append(v.toObject()["value"].toString());
+                        }
+                        contents = parts.join("\n");
+                    }
+                    emit hoverReady(uri, contents);
+                });
 }
 
 void LspClient::requestDocumentSymbols(const QString& uri)
@@ -689,29 +494,17 @@ void LspClient::requestDocumentSymbols(const QString& uri)
     if (!isRunning() || !m_initialized || !m_capabilities.documentSymbolProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          QJsonArray symbols;
-                                          if (result.isArray())
-                                              symbols = result.toArray();
-                                          else if (result.isObject())
-                                          {
-                                              QJsonObject obj = result.toObject();
-                                              if (obj.contains("symbols"))
-                                                  symbols = obj["symbols"].toArray();
-                                          }
-                                          emit documentSymbolsReady(uri, symbols);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/documentSymbol", params);
-    m_process->write(request);
+    QJsonObject params{{"textDocument", makeTextDocumentParam(uri)}};
+    sendRequest("textDocument/documentSymbol", params,
+                [this, uri](const QJsonValue& result)
+                {
+                    QJsonArray symbols;
+                    if (result.isArray())
+                        symbols = result.toArray();
+                    else if (result.isObject() && result.toObject().contains("symbols"))
+                        symbols = result.toObject()["symbols"].toArray();
+                    emit documentSymbolsReady(uri, symbols);
+                });
 }
 
 void LspClient::requestFormatting(const QString& uri, int tabSize, bool insertSpaces)
@@ -720,29 +513,17 @@ void LspClient::requestFormatting(const QString& uri, int tabSize, bool insertSp
         return;
 
     QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    QJsonObject options;
-    options["tabSize"] = tabSize;
-    options["insertSpaces"] = insertSpaces;
-    params["options"] = options;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          QList<QJsonObject> edits;
-                                          if (result.isArray())
-                                          {
-                                              for (const auto& v : result.toArray())
-                                                  edits.append(v.toObject());
-                                          }
-                                          emit formattingReady(uri, edits);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/formatting", params);
-    m_process->write(request);
+    params["textDocument"] = makeTextDocumentParam(uri);
+    params["options"] = QJsonObject{{"tabSize", tabSize}, {"insertSpaces", insertSpaces}};
+    sendRequest("textDocument/formatting", params,
+                [this, uri](const QJsonValue& result)
+                {
+                    QList<QJsonObject> edits;
+                    if (result.isArray())
+                        for (const auto& v : result.toArray())
+                            edits.append(v.toObject());
+                    emit formattingReady(uri, edits);
+                });
 }
 
 void LspClient::requestRangeFormatting(const QString& uri, const Range& range, int tabSize, bool insertSpaces)
@@ -751,30 +532,18 @@ void LspClient::requestRangeFormatting(const QString& uri, const Range& range, i
         return;
 
     QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
+    params["textDocument"] = makeTextDocumentParam(uri);
     params["range"] = range.toJson();
-    QJsonObject options;
-    options["tabSize"] = tabSize;
-    options["insertSpaces"] = insertSpaces;
-    params["options"] = options;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this, uri](const QJsonValue& result)
-                                      {
-                                          QList<QJsonObject> edits;
-                                          if (result.isArray())
-                                          {
-                                              for (const auto& v : result.toArray())
-                                                  edits.append(v.toObject());
-                                          }
-                                          emit rangeFormattingReady(uri, edits);
-                                      });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/rangeFormatting", params);
-    m_process->write(request);
+    params["options"] = QJsonObject{{"tabSize", tabSize}, {"insertSpaces", insertSpaces}};
+    sendRequest("textDocument/rangeFormatting", params,
+                [this, uri](const QJsonValue& result)
+                {
+                    QList<QJsonObject> edits;
+                    if (result.isArray())
+                        for (const auto& v : result.toArray())
+                            edits.append(v.toObject());
+                    emit rangeFormattingReady(uri, edits);
+                });
 }
 
 void LspClient::requestSignatureHelp(const QString& uri, const Position& pos)
@@ -782,57 +551,29 @@ void LspClient::requestSignatureHelp(const QString& uri, const Position& pos)
     if (!isRunning() || !m_initialized || !m_capabilities.signatureHelpProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit signatureHelpReady(uri, result.toObject()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/signatureHelp", params);
-    m_process->write(request);
+    QJsonObject params = makePositionParam(uri, pos);
+    sendRequest("textDocument/signatureHelp", params, [this, uri](const QJsonValue& result) { emit signatureHelpReady(uri, result.toObject()); });
 }
 
 void LspClient::requestDiagnostics(const QString& uri)
 {
-    if (!isRunning() || !m_initialized)
+    if (!isRunning() || !m_initialized || !m_capabilities.diagnosticProvider)
         return;
 
-    // For servers that support the pull model (3.17+), request diagnostics
-    if (m_capabilities.diagnosticProvider)
-    {
-        QJsonObject params;
-        QJsonObject textDoc;
-        textDoc["uri"] = uri;
-        params["textDocument"] = textDoc;
-        params["identifier"] = QStringLiteral("default");
-
-        int id = m_jsonRpc->nextRequestId();
-        m_jsonRpc->registerPendingRequest(id,
-                                          [this, uri](const QJsonValue& result)
-                                          {
-                                              QList<Diagnostic> diagnostics;
-                                              QJsonArray items;
-                                              if (result.isObject())
-                                              {
-                                                  QJsonObject obj = result.toObject();
-                                                  if (obj.contains("items"))
-                                                      items = obj["items"].toArray();
-                                              }
-                                              else if (result.isArray())
-                                              {
-                                                  items = result.toArray();
-                                              }
-                                              for (const auto& v : items)
-                                                  diagnostics.append(Diagnostic::fromJson(v.toObject()));
-                                              emit diagnosticsReady(uri, diagnostics);
-                                          });
-
-        QByteArray request = m_jsonRpc->createRequest(id, "textDocument/diagnostic", params);
-        m_process->write(request);
-    }
+    QJsonObject params{{"textDocument", makeTextDocumentParam(uri)}, {"identifier", QStringLiteral("default")}};
+    sendRequest("textDocument/diagnostic", params,
+                [this, uri](const QJsonValue& result)
+                {
+                    QList<Diagnostic> diagnostics;
+                    QJsonArray items;
+                    if (result.isObject() && result.toObject().contains("items"))
+                        items = result.toObject()["items"].toArray();
+                    else if (result.isArray())
+                        items = result.toArray();
+                    for (const auto& v : items)
+                        diagnostics.append(Diagnostic::fromJson(v.toObject()));
+                    emit diagnosticsReady(uri, diagnostics);
+                });
 }
 
 void LspClient::requestRename(const QString& uri, const Position& pos, const QString& newName)
@@ -840,18 +581,9 @@ void LspClient::requestRename(const QString& uri, const Position& pos, const QSt
     if (!isRunning() || !m_initialized || !m_capabilities.renameProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
+    QJsonObject params = makePositionParam(uri, pos);
     params["newName"] = newName;
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit renameReady(uri, result.toObject()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/rename", params);
-    m_process->write(request);
+    sendRequest("textDocument/rename", params, [this, uri](const QJsonValue& result) { emit renameReady(uri, result.toObject()); });
 }
 
 void LspClient::requestDocumentHighlight(const QString& uri, const Position& pos)
@@ -859,17 +591,9 @@ void LspClient::requestDocumentHighlight(const QString& uri, const Position& pos
     if (!isRunning() || !m_initialized || !m_capabilities.documentHighlightProvider)
         return;
 
-    QJsonObject params;
-    QJsonObject textDoc;
-    textDoc["uri"] = uri;
-    params["textDocument"] = textDoc;
-    params["position"] = pos.toJson();
-
-    int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this, uri](const QJsonValue& result) { emit documentHighlightReady(uri, result.toArray()); });
-
-    QByteArray request = m_jsonRpc->createRequest(id, "textDocument/documentHighlight", params);
-    m_process->write(request);
+    QJsonObject params = makePositionParam(uri, pos);
+    sendRequest("textDocument/documentHighlight", params,
+                [this, uri](const QJsonValue& result) { emit documentHighlightReady(uri, result.toArray()); });
 }
 
 void LspClient::sendDidChangeConfiguration(const QJsonObject& settings)
@@ -882,6 +606,54 @@ void LspClient::sendDidChangeConfiguration(const QJsonObject& settings)
 
     QByteArray notification = m_jsonRpc->createNotification("workspace/didChangeConfiguration", params);
     m_process->write(notification);
+}
+
+int LspClient::sendRequest(const QString& method, const QJsonObject& params, LspJsonRpc::ResponseCallback callback)
+{
+    if (!m_process || !isRunning())
+        return -1;
+    int id = m_jsonRpc->nextRequestId();
+    m_jsonRpc->registerPendingRequest(id, std::move(callback));
+    QByteArray request = m_jsonRpc->createRequest(id, method, params);
+    m_process->write(request);
+    return id;
+}
+
+QJsonObject LspClient::makeTextDocumentParam(const QString& uri) const
+{
+    QJsonObject textDoc;
+    textDoc["uri"] = uri;
+    return textDoc;
+}
+
+QJsonObject LspClient::makePositionParam(const QString& uri, const Position& pos) const
+{
+    QJsonObject params;
+    params["textDocument"] = makeTextDocumentParam(uri);
+    params["position"] = pos.toJson();
+    return params;
+}
+
+void LspClient::requestLocation(const QString& method, const QString& uri, const Position& pos, const char* /*signalName*/)
+{
+    QJsonObject params = makePositionParam(uri, pos);
+    sendRequest(method, params,
+                [this, uri, method](const QJsonValue& result)
+                {
+                    Location loc;
+                    if (result.isObject() && result.toObject().contains("range"))
+                        loc = Location::fromJson(result.toObject());
+                    else if (result.isArray() && !result.toArray().isEmpty())
+                        loc = Location::fromJson(result.toArray().first().toObject());
+                    if (loc.uri.isEmpty())
+                        return;
+                    if (method == QLatin1String("textDocument/definition"))
+                        emit definitionReady(uri, loc);
+                    else if (method == QLatin1String("textDocument/typeDefinition"))
+                        emit typeDefinitionReady(uri, loc);
+                    else if (method == QLatin1String("textDocument/declaration"))
+                        emit declarationReady(uri, loc);
+                });
 }
 
 // ── Internal Slots ─────────────────────────────────────────────
@@ -922,6 +694,10 @@ void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
         return;
     }
 
+    // Guard against double emission if cleanupProcess was already called via error path
+    if (!m_process)
+        return;
+
     emit serverStopped();
 
     if (status == QProcess::CrashExit && m_retryCount < MAX_RETRIES)
@@ -937,6 +713,7 @@ void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
 
 void LspClient::cleanupProcess()
 {
+    bool hadProcess = (m_process != nullptr);
     if (m_process)
     {
         m_process->disconnect();
@@ -945,7 +722,8 @@ void LspClient::cleanupProcess()
     }
     m_starting = false;
     m_stopping = false;
-    emit serverStopped();
+    if (hadProcess)
+        emit serverStopped();
 }
 
 void LspClient::flushPendingDocOps()
@@ -985,7 +763,9 @@ void LspClient::onProcessError(QProcess::ProcessError error)
     {
     case QProcess::FailedToStart:
         emit serverError(tr("Language server failed to start for %1").arg(m_language));
-        cleanupProcess();
+        // onProcessFinished will also fire; let cleanup be handled there to avoid double emission
+        if (m_process && m_process->state() == QProcess::NotRunning)
+            cleanupProcess();
         break;
     case QProcess::Timedout:
         emit serverError(tr("Language server timed out for %1").arg(m_language));

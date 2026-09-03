@@ -515,6 +515,23 @@ private:
     void buildToolsMenu(QMenu* toolsMenu);
     void buildHelpMenu(QMenu* helpMenu);
 
+    // Action creation split by domain
+    void createFileActions();
+    void createEditActions();
+    void createBookmarkActions();
+    void createLspActions();
+    void createViewActions();
+    void createHelpActions();
+
+    // Connection wiring split by domain
+    void wireFileConnections(const ActionTargets& t);
+    void wireEditConnections(const ActionTargets& t);
+    void wireViewConnections(const ActionTargets& t);
+    void wireDocumentConnections(const ActionTargets& t);
+    void wireLspConnections(const ActionTargets& t);
+    void wireHelpConnections(const ActionTargets& t);
+    void wireMiscConnections(const ActionTargets& t);
+
     QAction* m_menuBarAct = nullptr;
     QAction* m_newAct = nullptr;
     QAction* m_newWindowAct = nullptr;
@@ -593,6 +610,8 @@ private:
     QLabel* m_fileTypeLabel = nullptr;
     QToolButton* m_projectPanelButton = nullptr;
     QToolButton* m_terminalPanelButton = nullptr;
+    ProjectPanel* m_projectPanel = nullptr;
+    TerminalPanel* m_terminalPanel = nullptr;
     QToolButton* m_errorListPanelButton = nullptr;
 };
 

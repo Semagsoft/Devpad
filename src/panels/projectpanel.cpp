@@ -103,24 +103,22 @@ QVariant FileFilterProxyModel::data(const QModelIndex& index, int role) const
             }
             return m_closedFolderIcon;
         }
-        else
+
+        QString filePath = sourceModel()->data(sourceIndex, QFileSystemModel::FilePathRole).toString();
+        QFileInfo fileInfo(filePath);
+        QString ext = fileInfo.suffix().toLower();
+
+        const auto& iconMap = fileIconMap();
+        if (iconMap.contains(ext))
         {
-            QString filePath = sourceModel()->data(sourceIndex, QFileSystemModel::FilePathRole).toString();
-            QFileInfo fileInfo(filePath);
-            QString ext = fileInfo.suffix().toLower();
-
-            const auto& iconMap = fileIconMap();
-            if (iconMap.contains(ext))
-            {
-                return QIcon(iconMap.value(ext));
-            }
-            else if (ext.isEmpty() && fileInfo.isExecutable())
-            {
-                return QIcon(":/icons/Common/filetypes/executable.svg");
-            }
-
-            return m_fileIconProvider.icon(fileInfo);
+            return QIcon(iconMap.value(ext));
         }
+        if (ext.isEmpty() && fileInfo.isExecutable())
+        {
+            return QIcon(":/icons/Common/filetypes/executable.svg");
+        }
+
+        return m_fileIconProvider.icon(fileInfo);
     }
     return QSortFilterProxyModel::data(index, role);
 }
@@ -192,10 +190,7 @@ void FileFilterProxyModel::setGitIgnoreRootPath(const QString& rootPath)
     {
         m_gitIgnore.reset();
     }
-    else
-    {
-        m_gitIgnore = std::make_unique<GitIgnore>(rootPath);
-    }
+    m_gitIgnore = std::make_unique<GitIgnore>(rootPath);
     invalidateFilterCompat();
 }
 

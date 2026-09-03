@@ -30,48 +30,14 @@
 static const QHash<QString, QString>& buildExtensionMap()
 {
     static QHash<QString, QString> map = {
-        {"cpp", "cpp"},
-        {"c", "c"},
-        {"h", "cpp"},
-        {"hpp", "cpp"},
-        {"cc", "cpp"},
-        {"cxx", "cpp"},
-        {"hxx", "cpp"},
-        {"c++", "cpp"},
-        {"h++", "cpp"},
-        {"cs", "csharp"},
-        {"java", "java"},
-        {"py", "python"},
-        {"pyw", "python"},
-        {"pyi", "python"},
-        {"js", "javascript"},
-        {"mjs", "javascript"},
-        {"cjs", "javascript"},
-        {"html", "html"},
-        {"htm", "html"},
-        {"xhtml", "html"},
-        {"css", "css"},
-        {"xml", "xml"},
-        {"xaml", "xml"},
-        {"xsl", "xml"},
-        {"xslt", "xml"},
-        {"svg", "xml"},
-        {"sql", "sql"},
-        {"ddl", "sql"},
-        {"ts", "typescript"},
-        {"tsx", "typescript"},
-        {"rs", "rust"},
-        {"go", "go"},
-        {"md", "markdown"},
-        {"mdx", "markdown"},
-        {"markdown", "markdown"},
-        {"sh", "bash"},
-        {"bash", "bash"},
-        {"zsh", "bash"},
-        {"ksh", "bash"},
-        {"fish", "bash"},
-        {"cmake", "cmake"},
-        {"txt", "text"},
+        {"cpp", "cpp"},        {"c", "c"},        {"h", "cpp"},         {"hpp", "cpp"},        {"cc", "cpp"},         {"cxx", "cpp"},
+        {"hxx", "cpp"},        {"c++", "cpp"},    {"h++", "cpp"},       {"cs", "csharp"},      {"java", "java"},      {"py", "python"},
+        {"pyw", "python"},     {"pyi", "python"}, {"js", "javascript"}, {"mjs", "javascript"}, {"cjs", "javascript"}, {"html", "html"},
+        {"htm", "html"},       {"xhtml", "html"}, {"css", "css"},       {"xml", "xml"},        {"xaml", "xml"},       {"xsl", "xml"},
+        {"xslt", "xml"},       {"svg", "xml"},    {"json", "json"},     {"sql", "sql"},        {"ddl", "sql"},        {"ts", "typescript"},
+        {"tsx", "typescript"}, {"rs", "rust"},    {"go", "go"},         {"md", "markdown"},    {"mdx", "markdown"},   {"markdown", "markdown"},
+        {"sh", "bash"},        {"bash", "bash"},  {"zsh", "bash"},      {"ksh", "bash"},       {"fish", "bash"},      {"cmake", "cmake"},
+        {"lua", "lua"},        {"qml", "qml"},    {"txt", "text"},
     };
     return map;
 }
@@ -145,7 +111,7 @@ void SettingsManager::ensureSettingsVersion()
 void SettingsManager::loadCache()
 {
     m_cache.editor.defaultFontFamily = m_settings.value("Options_DefaultFont", "Monospace").toString();
-    m_cache.editor.defaultFontSize = m_settings.value("Options_DefaultFontSize", 12).toInt();
+    m_cache.editor.defaultFontSize = qBound(6, m_settings.value("Options_DefaultFontSize", 12).toInt(), 72);
     m_cache.editor.showLineNumbers = m_settings.value("Options_ShowLineNumbers", true).toBool();
     m_cache.editor.scrollPastContent = m_settings.value("Options_ScrollPastContent", false).toBool();
     m_cache.editor.codeCollapsing = m_settings.value("Options_CodeCollapsing", false).toBool();
@@ -160,15 +126,15 @@ void SettingsManager::loadCache()
     m_cache.editor.defaultFormat = m_settings.value("Options_DefaultFormat", 0).toInt();
     m_cache.editor.showWhitespace = m_settings.value("Options_ShowWhitespace", false).toBool();
     m_cache.editor.autoCompletionEnabled = m_settings.value("Options_AutoCompletion", true).toBool();
-    m_cache.editor.autoCompletionThreshold = m_settings.value("Options_AutoCompletionThreshold", 2).toInt();
+    m_cache.editor.autoCompletionThreshold = qBound(1, m_settings.value("Options_AutoCompletionThreshold", 2).toInt(), 10);
     m_cache.editor.autoCompletionCaseSensitive = m_settings.value("Options_AutoCompletionCaseSensitive", false).toBool();
     m_cache.editor.autoCloseBrackets = m_settings.value("Options_AutoCloseBrackets", true).toBool();
-    m_cache.editor.tabWidth = m_settings.value("Options_TabWidth", 4).toInt();
+    m_cache.editor.tabWidth = qBound(1, m_settings.value("Options_TabWidth", 4).toInt(), 16);
     m_cache.editor.cursorStyle = static_cast<CursorStyle>(m_settings.value("Options_CursorStyle", static_cast<int>(CursorStyle::Line)).toInt());
     m_cache.editor.cursorBlinking = m_settings.value("Options_CursorBlinking", true).toBool();
     m_cache.editor.highlightCurrentLine = m_settings.value("Options_HighlightCurrentLine", true).toBool();
     m_cache.editor.verticalEdgeEnabled = m_settings.value("Options_VerticalEdgeEnabled", false).toBool();
-    m_cache.editor.verticalEdgeColumn = m_settings.value("Options_VerticalEdgeColumn", 80).toInt();
+    m_cache.editor.verticalEdgeColumn = qBound(1, m_settings.value("Options_VerticalEdgeColumn", 80).toInt(), 500);
     m_cache.editor.snippetsEnabled = m_settings.value("Options_SnippetsEnabled", true).toBool();
     m_cache.editor.predictiveSnippets = m_settings.value("Options_PredictiveSnippets", true).toBool();
 
@@ -207,6 +173,23 @@ void SettingsManager::loadCache()
     m_cache.lsp.enabled = m_settings.value("LSP/Enabled", true).toBool();
     m_cache.lsp.showErrorList = m_settings.value("LSP/ShowErrorList", true).toBool();
     m_cache.lsp.completionTriggerChars = m_settings.value("LSP/CompletionTriggerChars", 2).toInt();
+
+    // Load LSP server commands/args into cache so lspSettings() is complete
+    m_cache.lsp.serverCommands.clear();
+    m_cache.lsp.serverArgs.clear();
+    m_settings.beginGroup("LSP/Server");
+    for (const QString& lang : m_settings.childGroups())
+    {
+        m_settings.beginGroup(lang);
+        QString cmd = m_settings.value("Command").toString();
+        if (!cmd.isEmpty())
+            m_cache.lsp.serverCommands.insert(lang, cmd);
+        QStringList args = m_settings.value("Args").toStringList();
+        if (!args.isEmpty())
+            m_cache.lsp.serverArgs.insert(lang, args);
+        m_settings.endGroup();
+    }
+    m_settings.endGroup();
 
     QVariant accentVar = m_settings.value("Options_AccentColor");
     m_cache.hasAccentColor = accentVar.isValid() && accentVar.value<QColor>().isValid();
@@ -435,6 +418,7 @@ void SettingsManager::setDefaultFontFamily(const QString& family)
 }
 void SettingsManager::setDefaultFontSize(int size)
 {
+    size = qBound(6, size, 72);
     writeCached("Options_DefaultFontSize", m_cache.editor.defaultFontSize, size);
 }
 void SettingsManager::setShowLineNumbers(bool visible)
@@ -480,6 +464,7 @@ void SettingsManager::clearAccentColor()
     m_cache.accentColor = QColor();
     m_cache.hasAccentColor = false;
     m_settings.remove("Options_AccentColor");
+    emit settingsChanged();
 }
 void SettingsManager::setDefaultEncoding(int encoding)
 {
@@ -500,6 +485,7 @@ void SettingsManager::setAutoCompletionEnabled(bool enabled)
 }
 void SettingsManager::setAutoCompletionThreshold(int threshold)
 {
+    threshold = qBound(1, threshold, 10);
     writeCached("Options_AutoCompletionThreshold", m_cache.editor.autoCompletionThreshold, threshold);
 }
 void SettingsManager::setAutoCompletionCaseSensitive(bool sensitive)
@@ -512,6 +498,7 @@ void SettingsManager::setAutoCloseBrackets(bool enabled)
 }
 void SettingsManager::setTabWidth(int width)
 {
+    width = qBound(1, width, 16);
     writeCached("Options_TabWidth", m_cache.editor.tabWidth, width);
 }
 void SettingsManager::setCursorStyle(CursorStyle style)
@@ -532,6 +519,7 @@ void SettingsManager::setVerticalEdgeEnabled(bool enabled)
 }
 void SettingsManager::setVerticalEdgeColumn(int column)
 {
+    column = qBound(1, column, 500);
     writeCached("Options_VerticalEdgeColumn", m_cache.editor.verticalEdgeColumn, column);
 }
 bool SettingsManager::snippetsEnabled() const

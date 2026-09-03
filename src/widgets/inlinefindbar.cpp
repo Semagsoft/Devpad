@@ -276,10 +276,12 @@ bool InlineFindBar::useRegex() const
 
 // ── Slots ────────────────────────────────────────────────────
 
-void InlineFindBar::onFindTextChanged(const QString&)
+void InlineFindBar::onFindTextChanged(const QString& findText)
 {
-    if (isVisible())
-        m_debounceTimer->start();
+    m_findInput->blockSignals(true);
+    m_findInput->setText(findText);
+    m_findInput->blockSignals(false);
+    performSearch();
 }
 
 void InlineFindBar::onDebounceTimeout()

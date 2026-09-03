@@ -76,13 +76,27 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/
 cmake --build build -j
 ```
 
-**Windows (MSYS2 UCRT64):**
+**Windows (MSYS2 UCRT64, x64):**
 ```bash
 pacman -S mingw-w64-ucrt-x86_64-qt6 mingw-w64-ucrt-x86_64-qscintilla \
           mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-gcc
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(getconf _NPROCESSORS_ONLN)
 ```
+
+**Windows ARM64 (MSYS2 CLANGARM64, native):**
+```bash
+# On an ARM64 machine, or the GitHub-hosted windows-11-arm runner
+# (MSYSTEM=CLANGARM64 shell):
+pacman -S mingw-w64-clang-aarch64-qt6 mingw-w64-clang-aarch64-qscintilla \
+          mingw-w64-clang-aarch64-cmake mingw-w64-clang-aarch64-cc
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_QSCINTILLA=OFF
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
+```
+The x64 build also runs on ARM64 via Windows emulation (Prism), but the
+CLANGARM64 build above is the native ARM64 binary. CI builds both:
+`Devpad-<version>-Setup.exe` / `.msi` / `-windows-x86_64.zip` for x64 and
+`Devpad-<version>-arm64-Setup.exe` / `-arm64.msi` / `-windows-arm64.zip` for ARM64.
 
 **macOS (Homebrew):**
 ```bash
@@ -158,7 +172,48 @@ Dock icon.
 ./build/Devpad file.txt            # open a file
 ./build/Devpad file1.cpp file2.py  # open multiple files
 ./build/Devpad /path/to/project    # open a folder in project panel
+./build/Devpad --tui file.txt      # terminal UI (requires -DBUILD_TUI=ON)
+./build/Devpad -t                  # short alias for --tui
+DEVPAD_TUI=1 ./build/Devpad file.txt  # env-var trigger
+./build/Devpad --nextgen file.txt  # next-gen QML/high-perf (requires -DBUILD_NEXTGEN=ON)
+./build/Devpad -n                  # short alias for --nextgen
+DEVPAD_NEXTGEN=1 ./build/Devpad file.txt  # env-var trigger
 ```
+
+### TUI mode
+
+Build with ncurses support:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TUI=ON
+cmake --build build -j$(nproc)
+./build/Devpad --tui               # opens TUI with empty buffer
+./build/Devpad --tui file.txt      # edit in terminal
+```
+
+In a non-TTY (CI / pipes) `Devpad --tui` cats the requested files to stdout instead of opening ncurses.
+Without `-DBUILD_TUI=ON`, `--tui` prints a hint and exits with code 1.
+
+TUI keys: `Ctrl+Q` quit, `Ctrl+S` save, `Ctrl+O` save-as, `Ctrl+G` goto line, `Ctrl+H` replace (find→replace), `:w` `:w <path>` `:q`/`:q!`/`:wq`/:`wa`/`:wqa` `:e <path>` `:e!` reload `:s/old/new/[g]` `:%s/old/new/[g]` `:cd <path>` `:set encoding <name>` (`UTF-8`, `UTF-16LE`…)/`:reopen [enc]` `:set encoding` list, `Ctrl+Z` undo, `Ctrl+Y`/`Ctrl+R` redo, `Ctrl+A` select-all, `Ctrl+X`/`Ctrl+C`/`Ctrl+V` cut/copy/paste, `Shift+Arrows`/`Shift+Home/End` select, `Ctrl+F` find, `F2` bookmark, `F3` find next, `F1` help, `Tab` switch tab, arrows / `Home`/`End` / `PageUp`/`Down` navigate, `Ctrl+W` close tab, `Ctrl+N` new buffer, `Ctrl+E` file tree (arrows nav, `Enter` open/toggle, `/` filter, `Esc` editor), `Ctrl+K` encoding (`:set encoding`). File tree honors `.gitignore` and `showHidden`; `:` commands `:cd` set project. Session restore via `SessionManager` (QSettings+QLockFile) when launched without files (use `--no-session` to skip); external file changes auto-reload when clean, else `:e!`.
+
+### Next-gen mode (QML + primoEditor)
+
+High-perf GPU-accelerated frontend using QML and the in-house `primoEditor` (replacement for QScintilla `CodeEditor`).
+
+Build with QML support:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_NEXTGEN=ON
+cmake --build build -j$(nproc)
+./build/Devpad --nextgen           # opens QML window with empty buffer
+./build/Devpad --nextgen file.txt  # edit in next-gen
+./build/Devpad -n                  # short alias
+DEVPAD_NEXTGEN=1 ./build/Devpad file.txt  # env-var trigger
+```
+
+Without `-DBUILD_NEXTGEN=ON`, `--nextgen` prints a hint and exits with code 1. `--tui` and `--nextgen` are mutually exclusive.
+
+`primoEditor` is a new `QObject`-backed editor (`src/nextgen/primoeditor.h:11`, `src/nextgen/primodocument.h:11`) exposed to QML as `Devpad.Nextgen.PrimoEditor`/`PrimoDocument`. QML shell lives at `qml/nextgen/Main.qml` (loaded via `src/nextgen/nextgenapp.cpp:45`). In headless/offscreen/pipe mode `Devpad --nextgen` cats files to stdout (like TUI). Future work: custom `QSG` rope rendering, async highlighting, LSP bridge reusing `src/lsp/*`.
 
 ## Configuration
 

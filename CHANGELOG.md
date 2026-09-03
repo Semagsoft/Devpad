@@ -1,6 +1,22 @@
 ﻿# Changelog
 
-## [1.03] - WIP/TBD
+## [1.04] - TBD
+
+What's new in Devpad 1.04:
+
+- New Windows ARM64 support. SHA: TBD
+- New TUI mode(WIP.) SHA: TBD
+- New NextGen mode(WIP.) SHA: TBD
+- Added Json support. SHA: TBD
+- Added Lua support. SHA: TBD
+- Added QML (Qt Meta-object Language) support. SHA: TBD
+
+Bug fixes for version 1.04:
+
+- (CI) Version/archatecture prefix added to the flatpak artifact.
+- JS syntax highlighting improved on dark themes. SHA: TBD
+
+## [1.03] - 2026-08-16
 
 What's new in Devpad 1.03:
 

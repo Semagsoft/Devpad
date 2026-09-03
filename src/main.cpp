@@ -22,8 +22,12 @@
 #include "theme.h"
 
 #include <QApplication>
+#include <QCommandLineParser>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QGuiApplication>
+#include <QTextStream>
 #include <array>
 #include <cstdlib>
 #include <iostream>
@@ -35,9 +39,12 @@
 #include <execinfo.h>
 #include <unistd.h>
 
-static void crashHandler(int sig, siginfo_t* info, void*)
+static void crashHandler(int sig, siginfo_t* info, void* userData)
 {
     const char* msg = "\n=== CRASH ===\nSignal: ";
+    (void)sig;
+    (void)info;
+    (void)userData;
     if (write(STDERR_FILENO, msg, strlen(msg)) == -1)
     {
     }
@@ -104,11 +111,141 @@ int main(int argc, char* argv[])
     sigaction(SIGFPE, &sa, nullptr);
 #endif
 
+    // Early parser for --tui / --nextgen to decide application type.
+    // We must know before constructing QApplication (which needs a display server).
+    bool tuiRequested = false;
+    bool nextgenRequested = false;
+    for (int i = 1; i < argc; ++i)
+    {
+        QString a = QString::fromLocal8Bit(argv[i]);
+        if (a == QStringLiteral("--tui") || a == QStringLiteral("--no-gui") || a == QStringLiteral("-t"))
+        {
+            tuiRequested = true;
+        }
+        if (a == QStringLiteral("--nextgen") || a == QStringLiteral("-n"))
+        {
+            nextgenRequested = true;
+        }
+    }
+    if (qEnvironmentVariableIsSet("DEVPAD_TUI"))
+        tuiRequested = true;
+    if (qEnvironmentVariableIsSet("DEVPAD_NEXTGEN"))
+        nextgenRequested = true;
+
+    if (tuiRequested && nextgenRequested)
+    {
+        QTextStream err(stderr);
+        err << "Cannot combine --tui and --nextgen. Choose one mode.\n";
+        return 1;
+    }
+
+    if (nextgenRequested)
+    {
+#ifdef BUILD_NEXTGEN
+        extern int runNextgenApp(QCoreApplication * app, const QCommandLineParser& parser, const QStringList& positional);
+        // Use QGuiApplication for QML; QCoreApplication is enough for non-GUI fallback.
+        // We use QGuiApplication here; if no display, QML will fail gracefully.
+        QGuiApplication app(argc, argv);
+        app.setOrganizationName("Semagsoft");
+        app.setOrganizationDomain("semagsoft.com");
+        app.setApplicationName("Devpad");
+        app.setApplicationVersion(DEVPAD_VERSION);
+
+        QCommandLineParser parser;
+        parser.setApplicationDescription(QStringLiteral("Devpad - Next-gen QML mode (primoEditor)"));
+        parser.addHelpOption();
+        parser.addVersionOption();
+        QCommandLineOption nextgenOpt(QStringList() << "nextgen" << "n", QStringLiteral("Run in next-gen QML/high-perf mode (primoEditor)"));
+        parser.addOption(nextgenOpt);
+        QCommandLineOption tuiOpt2(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
+        parser.addOption(tuiOpt2);
+        parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
+        QCommandLineOption transferOpt2(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"),
+                                        QStringLiteral("file"));
+        parser.addOption(transferOpt2);
+        QCommandLineOption noSessionOpt2(QStringList() << "no-session", QStringLiteral("Do not restore previous session"));
+        parser.addOption(noSessionOpt2);
+        parser.process(app);
+
+        QStringList positional = parser.positionalArguments();
+        if (parser.isSet(transferOpt2))
+        {
+            QString v = parser.value(transferOpt2);
+            if (!v.isEmpty())
+                positional.prepend(v);
+        }
+        // Cast QGuiApplication to QCoreApplication for unified runNextgenApp signature
+        return runNextgenApp(static_cast<QCoreApplication*>(&app), parser, positional);
+#else
+        QTextStream err(stderr);
+        err << "Next-gen mode requested but this build was configured without -DBUILD_NEXTGEN=ON\n";
+        err << "Reconfigure with: cmake -S . -B build -DBUILD_NEXTGEN=ON\n";
+        return 1;
+#endif
+    }
+
+    if (tuiRequested)
+    {
+        QCoreApplication app(argc, argv);
+        QCoreApplication::setOrganizationName("Semagsoft");
+        QCoreApplication::setOrganizationDomain("semagsoft.com");
+        QCoreApplication::setApplicationName("Devpad");
+        QCoreApplication::setApplicationVersion(DEVPAD_VERSION);
+
+        QCommandLineParser parser;
+        parser.setApplicationDescription(QStringLiteral("Devpad - Terminal UI mode"));
+        parser.addHelpOption();
+        parser.addVersionOption();
+        QCommandLineOption tuiOpt(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
+        parser.addOption(tuiOpt);
+        parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
+        // Also accept --transfer for compatibility but ignore in TUI
+        QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"),
+                                       QStringLiteral("file"));
+        parser.addOption(transferOpt);
+        QCommandLineOption noSessionOpt(QStringList() << "no-session", QStringLiteral("Do not restore previous session"));
+        parser.addOption(noSessionOpt);
+        parser.process(app);
+
+#ifdef BUILD_TUI
+        // Defer to TUI backend
+        extern int runTuiApp(QCoreApplication * app, const QCommandLineParser& parser, const QStringList& positional);
+        QStringList positional = parser.positionalArguments();
+        // Filter out --transfer value if present via positional handling already done by parser
+        if (parser.isSet(transferOpt))
+        {
+            QString v = parser.value(transferOpt);
+            if (!v.isEmpty())
+                positional.prepend(v);
+        }
+        return runTuiApp(&app, parser, positional);
+#else
+        QTextStream err(stderr);
+        err << "TUI mode requested but this build was configured without -DBUILD_TUI=ON\n";
+        err << "Reconfigure with: cmake -S . -B build -DBUILD_TUI=ON\n";
+        return 1;
+#endif
+    }
+
     QApplication app(argc, argv);
-    app.setOrganizationName("Semagsoft");
-    app.setOrganizationDomain("semagsoft.com");
-    app.setApplicationName("Devpad");
-    app.setApplicationVersion(DEVPAD_VERSION);
+    QApplication::setOrganizationName("Semagsoft");
+    QApplication::setOrganizationDomain("semagsoft.com");
+    QApplication::setApplicationName("Devpad");
+    QApplication::setApplicationVersion(DEVPAD_VERSION);
+
+    QCommandLineParser parser;
+    parser.setApplicationDescription(QStringLiteral("Devpad - A C++/Qt6 code editor"));
+    parser.addHelpOption();
+    parser.addVersionOption();
+    QCommandLineOption transferOpt(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"),
+                                   QStringLiteral("file"));
+    parser.addOption(transferOpt);
+    QCommandLineOption tuiOpt(QStringList() << "tui" << "no-gui" << "t", QStringLiteral("Run in terminal UI mode"));
+    parser.addOption(tuiOpt);
+    QCommandLineOption nextgenOpt(QStringList() << "nextgen" << "n", QStringLiteral("Run in next-gen QML/high-perf mode (primoEditor)"));
+    parser.addOption(nextgenOpt);
+    parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
+    parser.process(app);
 
     initThemeSystem();
 
@@ -120,17 +257,23 @@ int main(int argc, char* argv[])
 
     MainWindow mainWindow;
 
-    for (int i = 1; i < argc; ++i)
+    if (parser.isSet(transferOpt))
     {
-        QString arg = QString::fromLocal8Bit(argv[i]);
-
-        if (arg == "--transfer" && i + 1 < argc)
-        {
-            QString transferPath = QString::fromLocal8Bit(argv[++i]);
+        const QString transferPath = parser.value(transferOpt);
+        if (!transferPath.isEmpty())
             mainWindow.openTransferFile(transferPath);
+    }
+
+    // Legacy --transfer positional handling for drag-detached tabs
+    QStringList positional = parser.positionalArguments();
+    for (int i = 0; i < positional.size(); ++i)
+    {
+        QString arg = positional.at(i);
+        if (arg == QStringLiteral("--transfer") && i + 1 < positional.size())
+        {
+            mainWindow.openTransferFile(positional.at(++i));
             continue;
         }
-
         QString filePath = arg;
         if (!QFileInfo(filePath).isAbsolute())
             filePath = QDir::current().absoluteFilePath(filePath);
@@ -143,5 +286,31 @@ int main(int argc, char* argv[])
     }
 
     mainWindow.show();
-    return app.exec();
+    return QApplication::exec();
 }
+
+// TUI trampoline: defined in src/tui/tuiapp.cpp when BUILD_TUI=1, stub otherwise
+#ifndef BUILD_TUI
+int runTuiApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional)
+{
+    Q_UNUSED(app);
+    Q_UNUSED(parser);
+    Q_UNUSED(positional);
+    QTextStream err(stderr);
+    err << "TUI not built\n";
+    return 1;
+}
+#endif
+
+// Next-gen trampoline: defined in src/nextgen/nextgenapp.cpp when BUILD_NEXTGEN=1, stub otherwise
+#ifndef BUILD_NEXTGEN
+int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positional)
+{
+    Q_UNUSED(app);
+    Q_UNUSED(parser);
+    Q_UNUSED(positional);
+    QTextStream err(stderr);
+    err << "Next-gen not built\n";
+    return 1;
+}
+#endif

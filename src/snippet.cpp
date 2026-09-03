@@ -25,16 +25,18 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 {
     QString joined = bodyLines.join('\n');
 
-    // Handle escape sequences first
-    joined.replace(QStringLiteral("\\n"), QStringLiteral("\n"));
-    joined.replace(QStringLiteral("\\t"), QStringLiteral("\t"));
-    joined.replace(QStringLiteral("\\\\"), QStringLiteral("\\"));
-    joined.replace(QStringLiteral("\\$"), QStringLiteral("$"));
-    joined.replace(QStringLiteral("\\}"), QStringLiteral("}"));
+    // Protect escaped dollar-brace sequences before placeholder parsing:
+    //  \$  -> sentinel so it is not treated as tab stop
+    //  \\  -> sentinel so \\n is not prematurely converted
+    static const QString escDollar = QStringLiteral("\x01"
+                                                    "ESC_DOLLAR\x01");
+    static const QString escBackslash = QStringLiteral("\x01"
+                                                       "ESC_BS\x01");
+    joined.replace(QStringLiteral("\\$"), escDollar);
+    joined.replace(QStringLiteral("\\\\"), escBackslash);
 
     ExpandedSnippet result;
     QMap<int, TabStop> tabStopMap;
-    QList<QPair<int, int>> mirrorRanges; // position, number (for $n without braces)
 
     // Replace ${n:default} placeholders
     static const QRegularExpression placeholderRe(R"(\$\{(\d+):([^}]*)\})");
@@ -164,6 +166,13 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
             tabStopMap.insert(pr.number, ts);
         }
     }
+
+    // Restore escaped sequences and handle remaining escapes (\n, \t, \}, etc.)
+    joined.replace(escDollar, QStringLiteral("$"));
+    joined.replace(escBackslash, QStringLiteral("\\"));
+    joined.replace(QStringLiteral("\\n"), QStringLiteral("\n"));
+    joined.replace(QStringLiteral("\\t"), QStringLiteral("\t"));
+    joined.replace(QStringLiteral("\\}"), QStringLiteral("}"));
 
     result.text = joined;
 

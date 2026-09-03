@@ -25,6 +25,7 @@ private:
         bool negate = false;
         bool dirOnly = false;
         bool anchored = false;
+        bool hasSlash = false;
     };
 
     void parseFile(const QString& filePath, const QString& dirPath);

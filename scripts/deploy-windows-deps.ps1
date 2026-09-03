@@ -53,13 +53,14 @@ function Find-MsysPrefix {
         $dir = Split-Path $dir -Parent
         $msysBase = Split-Path $dir -Parent
         if ($msysBase) {
-            foreach ($sub in @("ucrt64", "mingw64", "clang64")) {
+            foreach ($sub in @("clangarm64", "ucrt64", "mingw64", "clang64")) {
                 $candidate = Join-Path $msysBase $sub
                 if (Test-Path (Join-Path $candidate "bin")) { return $candidate }
             }
         }
     }
 
+    if (Test-Path "C:\msys64\clangarm64") { return "C:\msys64\clangarm64" }
     if (Test-Path "C:\msys64\ucrt64") { return "C:\msys64\ucrt64" }
     if (Test-Path "C:\msys64\mingw64") { return "C:\msys64\mingw64" }
     return ""
@@ -86,7 +87,10 @@ if (-not (Test-Path (Join-Path $DistDir "Devpad.exe"))) {
     Write-Step "Running windeployqt..."
     $windeployqt = Find-InPath "windeployqt" @("$MsysPrefix\bin", "$msysBase\bin")
     if (-not $windeployqt) { Write-Fail "windeployqt not found on PATH or under the MSYS2 prefix." }
-    & $windeployqt (Join-Path $BuildDir "Devpad.exe") "--dir" $DistDir
+    $qmldir = Join-Path $PSScriptRoot "..\qml"
+    $windeployArgs = @((Join-Path $BuildDir "Devpad.exe"), "--dir", $DistDir)
+    if (Test-Path $qmldir) { $windeployArgs += @("--qmldir", $qmldir) }
+    & $windeployqt @windeployArgs
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[!] windeployqt exited with code $LASTEXITCODE; continuing (verification gate will catch any gaps)"
     }

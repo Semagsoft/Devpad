@@ -375,12 +375,29 @@ void TabManager::updateCloseButton(int tabIndex, QTabWidget* pane, CloseButtonMo
         closeButton->setToolTip(tr("Close"));
         closeButton->setStyleSheet("QToolButton { border: none; background: transparent; }");
         QPointer<QToolButton> buttonGuard(closeButton);
+        QPointer<QTabWidget> paneGuard(pane);
         connect(closeButton, &QToolButton::clicked, this,
-                [this, buttonGuard, pane]()
+                [this, buttonGuard, paneGuard]()
                 {
-                    if (!buttonGuard)
+                    if (!buttonGuard || !paneGuard)
                         return;
-                    int tabIdx = buttonGuard->property("tabIndex").toInt();
+                    QTabWidget* pane = paneGuard.data();
+                    QTabBar* bar = pane ? pane->tabBar() : nullptr;
+                    if (!bar)
+                        return;
+                    // Resolve current index by widget position instead of cached property
+                    int tabIdx = -1;
+                    for (int i = 0; i < pane->count(); ++i)
+                    {
+                        if (bar->tabButton(i, QTabBar::RightSide) == buttonGuard.data() || bar->tabButton(i, QTabBar::LeftSide) == buttonGuard.data())
+                        {
+                            tabIdx = i;
+                            break;
+                        }
+                    }
+                    // Fallback to stored property if button not found (e.g., after rebuild)
+                    if (tabIdx < 0)
+                        tabIdx = buttonGuard->property("tabIndex").toInt();
                     if (tabIdx < 0 || tabIdx >= pane->count())
                         return;
                     int globalIdx = localToGlobalIndex(tabIdx, pane);

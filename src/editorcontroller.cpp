@@ -194,7 +194,7 @@ bool EditorController::maybeSave(CodeEditor* editor)
         saveEditor(editor, editor->fileName());
         return true;
     }
-    else if (ret == QMessageBox::Cancel)
+    if (ret == QMessageBox::Cancel)
         return false;
     return true;
 }

@@ -725,170 +725,197 @@ void SplitView::resizeEvent(QResizeEvent* event)
 
 // ── Drop Handler ───────────────────────────────────────────────
 
-void SplitView::handleDrop(QDropEvent* event)
+bool SplitView::decodeDrop(const QDropEvent* event, DropContext& out) const
 {
     QByteArray data = event->mimeData()->data(MIME_TAB);
     QDataStream stream(&data, QIODevice::ReadOnly);
-    qint64 srcPid = 0;
-    quint64 dragId = 0;
-    int srcIndex = -1;
-    QString filePath;
-    stream >> srcPid >> dragId >> srcIndex >> filePath;
+    stream >> out.srcPid >> out.dragId >> out.srcIndex >> out.filePath;
+    out.srcPane = s_dragSourceMap.value(out.dragId).data();
+    s_dragSourceMap.remove(out.dragId);
+    out.globalPos = mapToGlobal(event->position().toPoint());
+    return true;
+}
 
-    auto* srcTw = s_dragSourceMap.value(dragId).data();
-    s_dragSourceMap.remove(dragId);
+bool SplitView::handleCrossProcessDrop(const DropContext& ctx, QDropEvent* event)
+{
+    if (ctx.srcPane && ctx.srcIndex >= 0 && ctx.srcIndex < ctx.srcPane->count())
+        return false;
 
-    if (!srcTw || srcIndex < 0 || srcIndex >= srcTw->count())
+    if (!ctx.filePath.isEmpty())
     {
-        // Cross-process or invalid drop
-        if (!filePath.isEmpty())
-        {
-            emit externalTabDropped(filePath);
-            event->setDropAction(Qt::MoveAction);
-            event->accept();
-            // Acknowledge to source process so it removes the tab
-            QString respPath = dragResponsePath(srcPid, dragId);
-            QFile respFile(respPath);
-            if (respFile.open(QIODevice::WriteOnly))
-                respFile.close();
-        }
-        return;
+        emit externalTabDropped(ctx.filePath);
+        event->setDropAction(Qt::MoveAction);
+        event->accept();
+        QString respPath = dragResponsePath(ctx.srcPid, ctx.dragId);
+        QFile respFile(respPath);
+        if (respFile.open(QIODevice::WriteOnly))
+            respFile.close();
     }
+    return true;
+}
 
-    handledDragIds().insert(dragId);
+void SplitView::moveTabWithinPane(QTabWidget* pane, int from, int to)
+{
+    QWidget* tabW = pane->widget(from);
+    QString text = pane->tabText(from);
+    QIcon icon = pane->tabIcon(from);
+    pane->removeTab(from);
+    int adjust = (to > from) ? to - 1 : to;
+    pane->insertTab(adjust, tabW, icon, text);
+    pane->setCurrentWidget(tabW);
+    if (m_onTabMoved)
+        m_onTabMoved(pane, adjust);
+}
 
-    QTabBar* targetBar = tabBarAt(mapToGlobal(event->position().toPoint()));
-    if (targetBar)
+void SplitView::moveTabBetweenPanes(QTabWidget* src, int srcIdx, QTabWidget* dst, int dstIdx)
+{
+    if (dstIdx < 0)
+        dstIdx = dst->count();
+    QWidget* tabW = src->widget(srcIdx);
+    QString text = src->tabText(srcIdx);
+    QIcon icon = src->tabIcon(srcIdx);
+    QString tooltip = src->tabToolTip(srcIdx);
+    src->removeTab(srcIdx);
+    int newIdx = dst->insertTab(dstIdx, tabW, icon, text);
+    dst->setTabToolTip(newIdx, tooltip);
+    dst->setCurrentIndex(newIdx);
+    tabW->setFocus();
+    if (m_onTabMoved)
+        m_onTabMoved(dst, newIdx);
+}
+
+void SplitView::cleanupEmptySourcePane(QTabWidget* src)
+{
+    if (src && src->count() == 0)
+        removePane(src);
+}
+
+bool SplitView::handleTabBarDrop(const DropContext& ctx, QDropEvent* event)
+{
+    QTabBar* targetBar = tabBarAt(ctx.globalPos);
+    if (!targetBar)
+        return false;
+
+    auto* targetPane = qobject_cast<QTabWidget*>(targetBar->parent());
+    if (!targetPane)
+        targetPane = tabWidgetForBar(targetBar);
+    if (!targetPane)
+        return false;
+
+    QPoint localPt = targetBar->mapFromGlobal(ctx.globalPos);
+    int insertAt = targetBar->tabAt(localPt);
+
+    if (targetPane == ctx.srcPane)
     {
-        auto* targetPane = qobject_cast<QTabWidget*>(targetBar->parent());
-        if (!targetPane)
-            targetPane = tabWidgetForBar(targetBar);
-
-        if (targetPane)
-        {
-            QPoint localPt = targetBar->mapFromGlobal(mapToGlobal(event->position().toPoint()));
-            int insertAt = targetBar->tabAt(localPt);
-
-            if (targetPane == srcTw)
-            {
-                if (insertAt >= 0 && insertAt != srcIndex)
-                {
-                    QWidget* tabW = srcTw->widget(srcIndex);
-                    QString text = srcTw->tabText(srcIndex);
-                    QIcon icon = srcTw->tabIcon(srcIndex);
-                    srcTw->removeTab(srcIndex);
-                    int adjust = (insertAt > srcIndex) ? insertAt - 1 : insertAt;
-                    srcTw->insertTab(adjust, tabW, icon, text);
-                    srcTw->setCurrentWidget(tabW);
-                    if (m_onTabMoved)
-                        m_onTabMoved(srcTw, adjust);
-                }
-            }
-            else
-            {
-                if (insertAt < 0)
-                    insertAt = targetPane->count();
-                QWidget* tabW = srcTw->widget(srcIndex);
-                QString text = srcTw->tabText(srcIndex);
-                QIcon icon = srcTw->tabIcon(srcIndex);
-                QString tooltip = srcTw->tabToolTip(srcIndex);
-                srcTw->removeTab(srcIndex);
-                int newIdx = targetPane->insertTab(insertAt, tabW, icon, text);
-                targetPane->setTabToolTip(newIdx, tooltip);
-                targetPane->setCurrentIndex(newIdx);
-                tabW->setFocus();
-                if (m_onTabMoved)
-                    m_onTabMoved(targetPane, newIdx);
-            }
-
-            event->setDropAction(Qt::MoveAction);
-            event->accept();
-
-            if (srcTw->count() == 0)
-            {
-                removePane(srcTw);
-            }
-            return;
-        }
-    }
-
-    // Not on a tab bar — check for zone-based split
-    QTabWidget* targetPane = findPaneAt(mapToGlobal(event->position().toPoint()));
-    if (targetPane)
-    {
-        DropZone zone = calcDropZone(targetPane, mapToGlobal(event->position().toPoint()));
-
-        if (zone == DropZone::Center || m_panes.size() >= MAX_PANES)
-        {
-            // Add tab to target pane
-            if (targetPane == srcTw && srcIndex >= 0)
-            {
-                // Same pane, already handled by tab bar case above
-                event->setDropAction(Qt::MoveAction);
-                event->accept();
-                return;
-            }
-            QWidget* tabW = srcTw->widget(srcIndex);
-            QString text = srcTw->tabText(srcIndex);
-            QIcon icon = srcTw->tabIcon(srcIndex);
-            srcTw->removeTab(srcIndex);
-            int newIdx = targetPane->addTab(tabW, icon, text);
-            targetPane->setCurrentWidget(tabW);
-            tabW->setFocus();
-            if (m_onTabMoved)
-                m_onTabMoved(targetPane, newIdx);
-        }
-        else
-        {
-            // Split the pane
-            splitPane(targetPane, zone, srcTw, srcIndex);
-        }
+        if (insertAt >= 0 && insertAt != ctx.srcIndex)
+            moveTabWithinPane(targetPane, ctx.srcIndex, insertAt);
     }
     else
     {
-        // Not on a tab bar or existing pane — don't split if source pane has only one tab
-        if (srcTw->count() <= 1)
-        {
-            event->setDropAction(Qt::MoveAction);
-            event->accept();
-            return;
-        }
-
-        // Create a new pane via split
-        if (m_panes.size() < MAX_PANES)
-        {
-            m_dropping = true;
-            // Default to right split
-            if (m_panes.size() == 1)
-            {
-                splitPane(srcTw, DropZone::Right, srcTw, srcIndex);
-            }
-            else
-            {
-                // Find the best adjacent pane
-                int srcIdx = m_panes.indexOf(srcTw);
-                QTabWidget* adjPane = nullptr;
-                if (srcIdx + 1 < m_panes.size())
-                    adjPane = m_panes[srcIdx + 1];
-                else if (srcIdx > 0)
-                    adjPane = m_panes[srcIdx - 1];
-
-                if (adjPane)
-                    splitPane(adjPane, DropZone::Right, srcTw, srcIndex);
-                else
-                    splitPane(srcTw, DropZone::Right, srcTw, srcIndex);
-            }
-            m_dropping = false;
-        }
+        moveTabBetweenPanes(ctx.srcPane, ctx.srcIndex, targetPane, insertAt);
     }
 
     event->setDropAction(Qt::MoveAction);
     event->accept();
+    cleanupEmptySourcePane(ctx.srcPane);
+    return true;
+}
 
-    if (srcTw->count() == 0)
+bool SplitView::handleZoneDrop(const DropContext& ctx, QDropEvent* event)
+{
+    QTabWidget* targetPane = findPaneAt(ctx.globalPos);
+    if (!targetPane)
+        return false;
+
+    DropZone zone = calcDropZone(targetPane, ctx.globalPos);
+
+    if (zone == DropZone::Center || m_panes.size() >= MAX_PANES)
     {
-        removePane(srcTw);
+        if (targetPane == ctx.srcPane)
+        {
+            event->setDropAction(Qt::MoveAction);
+            event->accept();
+            return true;
+        }
+        QWidget* tabW = ctx.srcPane->widget(ctx.srcIndex);
+        QString text = ctx.srcPane->tabText(ctx.srcIndex);
+        QIcon icon = ctx.srcPane->tabIcon(ctx.srcIndex);
+        ctx.srcPane->removeTab(ctx.srcIndex);
+        int newIdx = targetPane->addTab(tabW, icon, text);
+        targetPane->setCurrentWidget(tabW);
+        tabW->setFocus();
+        if (m_onTabMoved)
+            m_onTabMoved(targetPane, newIdx);
     }
+    else
+    {
+        splitPane(targetPane, zone, ctx.srcPane, ctx.srcIndex);
+    }
+    event->setDropAction(Qt::MoveAction);
+    event->accept();
+    cleanupEmptySourcePane(ctx.srcPane);
+    return true;
+}
+
+void SplitView::handleFallbackDrop(const DropContext& ctx, QDropEvent* event)
+{
+    if (ctx.srcPane->count() <= 1)
+    {
+        event->setDropAction(Qt::MoveAction);
+        event->accept();
+        return;
+    }
+
+    if (m_panes.size() >= MAX_PANES)
+    {
+        event->setDropAction(Qt::MoveAction);
+        event->accept();
+        return;
+    }
+
+    m_dropping = true;
+    if (m_panes.size() == 1)
+    {
+        splitPane(ctx.srcPane, DropZone::Right, ctx.srcPane, ctx.srcIndex);
+    }
+    else
+    {
+        int srcIdx = m_panes.indexOf(ctx.srcPane);
+        QTabWidget* adjPane = nullptr;
+        if (srcIdx + 1 < m_panes.size())
+            adjPane = m_panes[srcIdx + 1];
+        else if (srcIdx > 0)
+            adjPane = m_panes[srcIdx - 1];
+
+        if (adjPane)
+            splitPane(adjPane, DropZone::Right, ctx.srcPane, ctx.srcIndex);
+        else
+            splitPane(ctx.srcPane, DropZone::Right, ctx.srcPane, ctx.srcIndex);
+    }
+    m_dropping = false;
+
+    event->setDropAction(Qt::MoveAction);
+    event->accept();
+    cleanupEmptySourcePane(ctx.srcPane);
+}
+
+void SplitView::handleDrop(QDropEvent* event)
+{
+    DropContext ctx;
+    decodeDrop(event, ctx);
+
+    if (handleCrossProcessDrop(ctx, event))
+        return;
+
+    handledDragIds().insert(ctx.dragId);
+
+    if (handleTabBarDrop(ctx, event))
+        return;
+
+    if (handleZoneDrop(ctx, event))
+        return;
+
+    handleFallbackDrop(ctx, event);
 }
 
 // ── Pane Lookup ────────────────────────────────────────────────

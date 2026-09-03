@@ -34,7 +34,10 @@ const QStringList& typescriptKeywords();
 const QStringList& rustKeywords();
 const QStringList& goKeywords();
 const QStringList& markdownKeywords();
+const QStringList& jsonKeywords();
 const QStringList& bashKeywords();
 const QStringList& cmakeKeywords();
+const QStringList& luaKeywords();
+const QStringList& qmlKeywords();
 
 #endif

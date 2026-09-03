@@ -64,6 +64,7 @@ modules:
     config-opts:
       - -DCMAKE_BUILD_TYPE=Release
       - -DBUILD_TESTS=OFF
+      - -DBUILD_NEXTGEN=ON
     sources:
       - type: dir
         path: ..

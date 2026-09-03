@@ -133,6 +133,12 @@ private:
 
     void tryRestart();
 
+    // Unified request helper to reduce duplication
+    int sendRequest(const QString& method, const QJsonObject& params, LspJsonRpc::ResponseCallback callback);
+    QJsonObject makeTextDocumentParam(const QString& uri) const;
+    QJsonObject makePositionParam(const QString& uri, const Position& pos) const;
+    void requestLocation(const QString& method, const QString& uri, const Position& pos, const char* signalName);
+
     struct PendingDocOp
     {
         enum Type

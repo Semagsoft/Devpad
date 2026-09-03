@@ -29,6 +29,8 @@
 #include <Qsci/qscilexerhtml.h>
 #include <Qsci/qscilexerjava.h>
 #include <Qsci/qscilexerjavascript.h>
+#include <Qsci/qscilexerjson.h>
+#include <Qsci/qscilexerlua.h>
 #include <Qsci/qscilexermarkdown.h>
 #include <Qsci/qscilexerpython.h>
 #include <Qsci/qscilexersql.h>
@@ -91,10 +93,15 @@ const ThemeApplicator& javascriptThemeApplicator()
         auto* l = static_cast<QsciLexerJavaScript*>(lexer);
         l->setColor(colors.comment, QsciLexerJavaScript::Comment);
         l->setColor(colors.comment, QsciLexerJavaScript::CommentLine);
+        l->setColor(colors.comment, QsciLexerJavaScript::CommentDoc);
+        l->setColor(colors.comment, QsciLexerJavaScript::CommentLineDoc);
         l->setColor(colors.keyword, QsciLexerJavaScript::Keyword);
         l->setColor(colors.string, QsciLexerJavaScript::DoubleQuotedString);
         l->setColor(colors.string, QsciLexerJavaScript::SingleQuotedString);
+        l->setColor(colors.string, QsciLexerJavaScript::UnclosedString);
         l->setColor(colors.number, QsciLexerJavaScript::Number);
+        l->setColor(colors.foreground, QsciLexerJavaScript::Regex);
+        l->setColor(colors.operator_, QsciLexerJavaScript::Operator);
         l->setColor(colors.operator_, QsciLexerJavaScript::Default);
     };
     return fn;
@@ -184,6 +191,19 @@ const ThemeApplicator& sqlThemeApplicator()
     return fn;
 }
 
+const ThemeApplicator& jsonThemeApplicator()
+{
+    static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
+    {
+        auto* l = static_cast<QsciLexerJSON*>(lexer);
+        l->setColor(colors.string, QsciLexerJSON::String);
+        l->setColor(colors.number, QsciLexerJSON::Number);
+        l->setColor(colors.operator_, QsciLexerJSON::Operator);
+        l->setColor(colors.foreground, QsciLexerJSON::Default);
+    };
+    return fn;
+}
+
 const ThemeApplicator& bashThemeApplicator()
 {
     static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
@@ -221,6 +241,21 @@ const ThemeApplicator& cmakeThemeApplicator()
     return fn;
 }
 
+const ThemeApplicator& luaThemeApplicator()
+{
+    static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
+    {
+        auto* l = static_cast<QsciLexerLua*>(lexer);
+        l->setColor(colors.comment, QsciLexerLua::Comment);
+        l->setColor(colors.keyword, QsciLexerLua::Keyword);
+        l->setColor(colors.string, QsciLexerLua::String);
+        l->setColor(colors.number, QsciLexerLua::Number);
+        l->setColor(colors.operator_, QsciLexerLua::Operator);
+        l->setColor(colors.foreground, QsciLexerLua::Identifier);
+    };
+    return fn;
+}
+
 const ThemeApplicator& markdownThemeApplicator()
 {
     static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
@@ -249,15 +284,38 @@ const ThemeApplicator& markdownThemeApplicator()
     return fn;
 }
 
+const ThemeApplicator& qmlThemeApplicator()
+{
+    static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
+    {
+        auto* l = static_cast<QsciLexerJavaScript*>(lexer);
+        l->setColor(colors.comment, QsciLexerJavaScript::Comment);
+        l->setColor(colors.comment, QsciLexerJavaScript::CommentLine);
+        l->setColor(colors.comment, QsciLexerJavaScript::CommentDoc);
+        l->setColor(colors.comment, QsciLexerJavaScript::CommentLineDoc);
+        l->setColor(colors.keyword, QsciLexerJavaScript::Keyword);
+        l->setColor(colors.string, QsciLexerJavaScript::DoubleQuotedString);
+        l->setColor(colors.string, QsciLexerJavaScript::SingleQuotedString);
+        l->setColor(colors.string, QsciLexerJavaScript::UnclosedString);
+        l->setColor(colors.number, QsciLexerJavaScript::Number);
+        l->setColor(colors.foreground, QsciLexerJavaScript::Regex);
+        l->setColor(colors.operator_, QsciLexerJavaScript::Operator);
+        l->setColor(colors.operator_, QsciLexerJavaScript::Default);
+    };
+    return fn;
+}
+
 const QHash<QString, ThemeApplicator>& themeApplicatorCache()
 {
     static const QHash<QString, ThemeApplicator> cache = {
-        {"QsciLexerCPP", cppThemeApplicator()},       {"QsciLexerPython", pythonThemeApplicator()},
-        {"QsciLexerHTML", htmlThemeApplicator()},     {"QsciLexerJavaScript", javascriptThemeApplicator()},
-        {"QsciLexerCSharp", csharpThemeApplicator()}, {"QsciLexerJava", javaThemeApplicator()},
-        {"QsciLexerCSS", cssThemeApplicator()},       {"QsciLexerXML", xmlThemeApplicator()},
-        {"QsciLexerSQL", sqlThemeApplicator()},       {"QsciLexerBash", bashThemeApplicator()},
-        {"QsciLexerCMake", cmakeThemeApplicator()},   {"QsciLexerMarkdown", markdownThemeApplicator()},
+        {"QsciLexerCPP", cppThemeApplicator()},        {"QsciLexerPython", pythonThemeApplicator()},
+        {"QsciLexerHTML", htmlThemeApplicator()},      {"QsciLexerJavaScript", javascriptThemeApplicator()},
+        {"QsciLexerCSharp", csharpThemeApplicator()},  {"QsciLexerJava", javaThemeApplicator()},
+        {"QsciLexerCSS", cssThemeApplicator()},        {"QsciLexerXML", xmlThemeApplicator()},
+        {"QsciLexerSQL", sqlThemeApplicator()},        {"QsciLexerBash", bashThemeApplicator()},
+        {"QsciLexerJSON", jsonThemeApplicator()},      {"QsciLexerCMake", cmakeThemeApplicator()},
+        {"QsciLexerLua", luaThemeApplicator()},        {"QsciLexerMarkdown", markdownThemeApplicator()},
+        {"QsciLexerJavaScript", qmlThemeApplicator()},
     };
     return cache;
 }
@@ -343,6 +401,12 @@ const std::vector<LanguageInfo>& languageTable()
          sqlKeywords,
          sqlThemeApplicator(),
          {"--", "/*", "*/"}},
+        {"json",
+         "QsciLexerJSON",
+         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJSON(parent); },
+         jsonKeywords,
+         jsonThemeApplicator(),
+         {"//", "/*", "*/"}},
         {"typescript",
          "QsciLexerJavaScript",
          []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
@@ -403,6 +467,18 @@ const std::vector<LanguageInfo>& languageTable()
          bashKeywords,
          bashThemeApplicator(),
          {"#", "", ""}},
+        {"lua",
+         "QsciLexerLua",
+         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerLua(parent); },
+         luaKeywords,
+         luaThemeApplicator(),
+         {"--", "--[[", "]]"}},
+        {"qml",
+         "QsciLexerJavaScript",
+         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
+         qmlKeywords,
+         qmlThemeApplicator(),
+         {"//", "/*", "*/"}},
     };
     return table;
 }

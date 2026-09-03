@@ -143,6 +143,19 @@ void FindInFilesWorker::searchFile(const QString& filePath)
     QTextStream in(&rawData, QIODevice::ReadOnly);
     in.setEncoding(encoding);
 
+    QRegularExpression precompiledRe;
+    if (m_useRegex)
+    {
+        QRegularExpression::PatternOption opt = m_matchCase ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption;
+        precompiledRe = QRegularExpression(m_searchText, opt);
+        if (!precompiledRe.isValid())
+        {
+            emit searchError(tr("Invalid regex: %1").arg(precompiledRe.errorString()));
+            m_hasError = true;
+            return;
+        }
+    }
+
     int lineNumber = 0;
     while (!in.atEnd())
     {
@@ -159,15 +172,7 @@ void FindInFilesWorker::searchFile(const QString& filePath)
 
         if (m_useRegex)
         {
-            QRegularExpression::PatternOption opt = m_matchCase ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption;
-            QRegularExpression re(m_searchText, opt);
-            if (!re.isValid())
-            {
-                emit searchError(tr("Invalid regex: %1").arg(re.errorString()));
-                m_hasError = true;
-                return;
-            }
-            matched = re.match(line).hasMatch();
+            matched = precompiledRe.match(line).hasMatch();
         }
         else if (m_wholeWord)
         {
