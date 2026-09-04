@@ -65,7 +65,7 @@ Push-Location $InstallerDir
 try {
     # Step 3: Harvest the dist directory into a WiX fragment with heat
     Write-Host "Harvesting dist directory with heat..."
-    & heat.exe dir $distDir -nologo -gg -srd -dr INSTALLDIR -cg DeployedFiles "-var var.DistDir" -out Heat.wxs
+    & heat.exe dir $distDir -nologo -gg -srd -sreg -dr INSTALLDIR -cg DeployedFiles -var var.DistDir -out Heat.wxs
     if ($LASTEXITCODE -ne 0) { throw "heat failed" }
 
     # Step 4: Compile .wxs to .wixobj
