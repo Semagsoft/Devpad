@@ -2,8 +2,12 @@
 #include "theme.h"
 
 #include <QApplication>
+#include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTemporaryDir>
+#include <QTextStream>
+#include <optional>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -228,4 +232,109 @@ TEST_F(ThemeTest, BuiltInThemeCountMatchesEnum)
 {
     int maxEnum = static_cast<int>(ThemeId::AyuDark);
     EXPECT_EQ(builtInThemeCount(), maxEnum + 1);
+}
+
+TEST_F(ThemeTest, PortalColorSchemeMapsToDark)
+{
+    EXPECT_EQ(portalColorSchemeToDark(1), std::optional<bool>(true));
+    EXPECT_EQ(portalColorSchemeToDark(2), std::optional<bool>(false));
+    // 0 = no preference: must fall through, not force light.
+    EXPECT_EQ(portalColorSchemeToDark(0), std::nullopt);
+    EXPECT_EQ(portalColorSchemeToDark(3), std::nullopt);
+    EXPECT_EQ(portalColorSchemeToDark(99), std::nullopt);
+}
+
+TEST_F(ThemeTest, GtkThemeNameSuggestsDark)
+{
+    EXPECT_TRUE(gtkThemeNameSuggestsDark(QStringLiteral("Yaru-dark")));
+    EXPECT_TRUE(gtkThemeNameSuggestsDark(QStringLiteral("Adwaita-dark")));
+    EXPECT_TRUE(gtkThemeNameSuggestsDark(QStringLiteral("dark")));
+    EXPECT_FALSE(gtkThemeNameSuggestsDark(QStringLiteral("Yaru")));
+    EXPECT_FALSE(gtkThemeNameSuggestsDark(QStringLiteral("Adwaita")));
+    EXPECT_FALSE(gtkThemeNameSuggestsDark(QString()));
+}
+
+TEST_F(ThemeTest, GsettingsValueSuggestsDark)
+{
+    EXPECT_TRUE(gsettingsValueSuggestsDark(QStringLiteral("'prefer-dark'")));
+    EXPECT_TRUE(gsettingsValueSuggestsDark(QStringLiteral("'Yaru-dark'")));
+    EXPECT_FALSE(gsettingsValueSuggestsDark(QStringLiteral("'prefer-light'")));
+    EXPECT_FALSE(gsettingsValueSuggestsDark(QStringLiteral("'default'")));
+    EXPECT_FALSE(gsettingsValueSuggestsDark(QStringLiteral("'Yaru'")));
+}
+
+TEST_F(ThemeTest, GtkSettingsFilePrefersDark)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+
+    const QString preferDarkPath = dir.filePath(QStringLiteral("prefer-dark.ini"));
+    {
+        QFile f(preferDarkPath);
+        ASSERT_TRUE(f.open(QFile::WriteOnly | QFile::Text));
+        QTextStream out(&f);
+        out << "[Settings]\n"
+            << "gtk-application-prefer-dark-theme=true\n"
+            << "gtk-theme-name=Yaru\n";
+    }
+    EXPECT_TRUE(gtkSettingsFilePrefersDark(preferDarkPath));
+
+    const QString darkThemePath = dir.filePath(QStringLiteral("dark-theme.ini"));
+    {
+        QFile f(darkThemePath);
+        ASSERT_TRUE(f.open(QFile::WriteOnly | QFile::Text));
+        QTextStream out(&f);
+        out << "[Settings]\n"
+            << "gtk-theme-name=Yaru-dark\n";
+    }
+    EXPECT_TRUE(gtkSettingsFilePrefersDark(darkThemePath));
+
+    // Missing dark key must NOT report dark: this was the reported bug where
+    // the GTK3 palette fallback forced a light verdict on dark systems.
+    const QString lightPath = dir.filePath(QStringLiteral("light.ini"));
+    {
+        QFile f(lightPath);
+        ASSERT_TRUE(f.open(QFile::WriteOnly | QFile::Text));
+        QTextStream out(&f);
+        out << "[Settings]\n"
+            << "gtk-theme-name=Yaru\n";
+    }
+    EXPECT_FALSE(gtkSettingsFilePrefersDark(lightPath));
+    EXPECT_FALSE(gtkSettingsFilePrefersDark(dir.filePath(QStringLiteral("does-not-exist.ini"))));
+}
+
+TEST_F(ThemeTest, KdeGlobalsFilePrefersDark)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+
+    const QString darkPath = dir.filePath(QStringLiteral("kdeglobals-dark"));
+    {
+        QFile f(darkPath);
+        ASSERT_TRUE(f.open(QFile::WriteOnly | QFile::Text));
+        QTextStream out(&f);
+        out << "[General]\n"
+            << "ColorScheme=BreezeDark\n";
+    }
+    EXPECT_TRUE(kdeGlobalsFilePrefersDark(darkPath));
+
+    const QString lightPath = dir.filePath(QStringLiteral("kdeglobals-light"));
+    {
+        QFile f(lightPath);
+        ASSERT_TRUE(f.open(QFile::WriteOnly | QFile::Text));
+        QTextStream out(&f);
+        out << "[General]\n"
+            << "ColorScheme=Breeze\n";
+    }
+    EXPECT_FALSE(kdeGlobalsFilePrefersDark(lightPath));
+    EXPECT_FALSE(kdeGlobalsFilePrefersDark(dir.filePath(QStringLiteral("does-not-exist"))));
+}
+
+TEST_F(ThemeTest, SystemThemeResolvesWithoutCrash)
+{
+    // Must not crash headless (offscreen, no portal, no gsettings).
+    ThemeColors c = getThemeColors(ThemeId::System);
+    EXPECT_TRUE(c.background.isValid());
+    EXPECT_TRUE(c.foreground.isValid());
+    (void)isThemeDark(ThemeId::System);
 }

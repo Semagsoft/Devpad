@@ -12,6 +12,7 @@ finish-args:
   - --filesystem=home
   - --socket=pulseaudio
   - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.portal.Desktop
 build-options:
   env:
     - QMAKE: qmake6

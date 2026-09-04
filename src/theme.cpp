@@ -10,12 +10,20 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcess>
 #include <QStandardPaths>
 #include <QStyleHints>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <mutex>
+
+#ifdef HAVE_QT_DBUS
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusReply>
+#include <QDBusVariant>
+#endif
 
 static int clamp(int v, int lo, int hi)
 {
@@ -821,6 +829,164 @@ static void applyAccent(ThemeColors& colors)
 
 // ── System theme detection ───────────────────────────────────────
 
+// Minimal INI reader for desktop config files (gtk settings.ini, kdeglobals).
+// QSettings is deliberately not used: it mishandles extensionless files such
+// as kdeglobals (the [General] section is dropped) and file lookup must be
+// an exact path read with no organisation/application fallback locations.
+static QString iniValue(const QString& filePath, const QString& section, const QString& key)
+{
+    QFile file(filePath);
+    if (!file.open(QFile::ReadOnly | QFile::Text))
+        return {};
+    bool inSection = false;
+    while (!file.atEnd())
+    {
+        const QString line = QString::fromUtf8(file.readLine()).trimmed();
+        if (line.isEmpty() || line.startsWith(QLatin1Char('#')) || line.startsWith(QLatin1Char(';')))
+            continue;
+        if (line.startsWith(QLatin1Char('[')) && line.endsWith(QLatin1Char(']')))
+        {
+            inSection = line.mid(1, line.size() - 2).trimmed().compare(section, Qt::CaseInsensitive) == 0;
+            continue;
+        }
+        if (!inSection)
+            continue;
+        const int eq = line.indexOf(QLatin1Char('='));
+        if (eq < 0)
+            continue;
+        if (line.left(eq).trimmed().compare(key, Qt::CaseInsensitive) == 0)
+            return line.mid(eq + 1).trimmed();
+    }
+    return {};
+}
+
+bool gtkThemeNameSuggestsDark(const QString& themeName)
+{
+    const QString name = themeName.trimmed().toLower();
+    return name == QStringLiteral("dark") || name.endsWith(QStringLiteral("-dark"));
+}
+
+bool gsettingsValueSuggestsDark(const QString& value)
+{
+    // Raw `gsettings get` output, e.g. "'prefer-dark'", "'Yaru-dark'".
+    const QString normalized = value.trimmed().toLower().remove(QLatin1Char('\'')).remove(QLatin1Char('"'));
+    return normalized.contains(QStringLiteral("prefer-dark")) || normalized.endsWith(QStringLiteral("-dark"));
+}
+
+bool gtkSettingsFilePrefersDark(const QString& filePath)
+{
+    // Hand-parsed instead of QSettings: QSettings mishandles extensionless
+    // companion files and we want identical semantics for gtk-3.0/gtk-4.0.
+    const QString preferDark = iniValue(filePath, QStringLiteral("Settings"), QStringLiteral("gtk-application-prefer-dark-theme")).toLower();
+    if (preferDark == QStringLiteral("1") || preferDark == QStringLiteral("true") || preferDark == QStringLiteral("yes"))
+        return true;
+    return gtkThemeNameSuggestsDark(iniValue(filePath, QStringLiteral("Settings"), QStringLiteral("gtk-theme-name")));
+}
+
+bool kdeGlobalsFilePrefersDark(const QString& filePath)
+{
+    // Hand-parsed: kdeglobals has no .ini extension and QSettings drops the
+    // [General] section for such files (key lands at top level).
+    return iniValue(filePath, QStringLiteral("General"), QStringLiteral("ColorScheme")).contains(QStringLiteral("dark"), Qt::CaseInsensitive);
+}
+
+std::optional<bool> portalColorSchemeToDark(quint32 colorScheme)
+{
+    // org.freedesktop.appearance color-scheme: 0 = no preference,
+    // 1 = prefer dark, 2 = prefer light. Anything else is unknown.
+    if (colorScheme == 1)
+        return true;
+    if (colorScheme == 2)
+        return false;
+    return std::nullopt;
+}
+
+#ifdef Q_OS_LINUX
+#ifdef HAVE_QT_DBUS
+static std::optional<bool> queryPortalColorScheme()
+{
+    if (!QDBusConnection::sessionBus().isConnected())
+        return std::nullopt;
+    QDBusInterface iface(QStringLiteral("org.freedesktop.portal.Desktop"), QStringLiteral("/org/freedesktop/portal/desktop"),
+                         QStringLiteral("org.freedesktop.portal.Settings"));
+    if (!iface.isValid())
+        return std::nullopt;
+    iface.setTimeout(500);
+    const QDBusReply<QVariant> reply =
+        iface.call(QStringLiteral("Read"), QStringLiteral("org.freedesktop.appearance"), QStringLiteral("color-scheme"));
+    if (!reply.isValid())
+        return std::nullopt;
+    bool ok = false;
+    const quint32 value = reply.value().toUInt(&ok);
+    if (!ok)
+        return std::nullopt;
+    return portalColorSchemeToDark(value);
+}
+#endif
+
+static std::optional<bool> queryGtkIni()
+{
+    // Only ever reports dark. Absence of the dark key must NOT count as
+    // light: a missing gtk-application-prefer-dark-theme entry defaults to
+    // a light Qt palette even on dark GNOME systems (the reported bug).
+    const QString configDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+    if (configDir.isEmpty())
+        return std::nullopt;
+    const QStringList candidates = {configDir + QStringLiteral("/gtk-3.0/settings.ini"), configDir + QStringLiteral("/gtk-4.0/settings.ini")};
+    for (const QString& path : candidates)
+    {
+        if (gtkSettingsFilePrefersDark(path))
+            return true;
+    }
+    return std::nullopt;
+}
+
+static QString runGsettings(const QStringList& args)
+{
+    if (QStandardPaths::findExecutable(QStringLiteral("gsettings")).isEmpty())
+        return {};
+    QProcess process;
+    process.start(QStringLiteral("gsettings"), args);
+    if (!process.waitForFinished(2000))
+    {
+        process.kill();
+        process.waitForFinished(1000);
+        return {};
+    }
+    if (process.exitCode() != 0)
+        return {};
+    return QString::fromUtf8(process.readAllStandardOutput());
+}
+
+static std::optional<bool> queryGsettings()
+{
+    const QString colorScheme = runGsettings({QStringLiteral("get"), QStringLiteral("org.gnome.desktop.interface"), QStringLiteral("color-scheme")});
+    if (!colorScheme.isEmpty())
+    {
+        if (colorScheme.contains(QStringLiteral("prefer-dark"), Qt::CaseInsensitive))
+            return true;
+        if (colorScheme.contains(QStringLiteral("prefer-light"), Qt::CaseInsensitive))
+            return false;
+    }
+    const QString gtkTheme = runGsettings({QStringLiteral("get"), QStringLiteral("org.gnome.desktop.interface"), QStringLiteral("gtk-theme")});
+    if (!gtkTheme.isEmpty() && gsettingsValueSuggestsDark(gtkTheme))
+        return true;
+    return std::nullopt;
+}
+
+static std::optional<bool> queryKdeGlobals()
+{
+    const QString configDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+    if (configDir.isEmpty())
+        return std::nullopt;
+    const QString path = configDir + QStringLiteral("/kdeglobals");
+    const QString scheme = iniValue(path, QStringLiteral("General"), QStringLiteral("ColorScheme"));
+    if (scheme.isEmpty())
+        return std::nullopt;
+    return scheme.contains(QStringLiteral("dark"), Qt::CaseInsensitive);
+}
+#endif
+
 static bool systemIsDarkImpl()
 {
     auto* hints = QApplication::styleHints();
@@ -831,9 +997,22 @@ static bool systemIsDarkImpl()
             return true;
         if (hints->colorScheme() == Qt::ColorScheme::Light)
             return false;
+        // Unknown/NoPreference: fall through to the portal and config probes.
 #endif
     }
-    QColor windowColor = QApplication::palette().color(QPalette::Window);
+#ifdef Q_OS_LINUX
+#ifdef HAVE_QT_DBUS
+    if (const auto portal = queryPortalColorScheme())
+        return *portal;
+#endif
+    if (const auto gtk = queryGtkIni())
+        return *gtk;
+    if (const auto gsettings = queryGsettings())
+        return *gsettings;
+    if (const auto kde = queryKdeGlobals())
+        return *kde;
+#endif
+    const QColor windowColor = QApplication::palette().color(QPalette::Window);
     return windowColor.lightness() < 128;
 }
 
@@ -842,10 +1021,24 @@ static bool s_systemDarkValue = false;
 
 class PaletteChangeFilter : public QObject
 {
+    Q_OBJECT
 public:
     explicit PaletteChangeFilter(QObject* parent = nullptr) : QObject(parent)
     {
     }
+
+public slots:
+    void onSystemThemeChanged()
+    {
+        s_systemDarkCached = false;
+    }
+#ifdef HAVE_QT_DBUS
+    void onPortalSettingChanged(const QString& nameSpace, const QString& key, const QDBusVariant& /*value*/)
+    {
+        if (nameSpace == QStringLiteral("org.freedesktop.appearance") && key == QStringLiteral("color-scheme"))
+            s_systemDarkCached = false;
+    }
+#endif
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override
@@ -861,7 +1054,28 @@ void initThemeSystem()
     s_systemDarkValue = systemIsDarkImpl();
     s_systemDarkCached = true;
     static PaletteChangeFilter filter;
-    qApp->installEventFilter(&filter);
+    static bool s_watcherInstalled = false;
+    if (qApp && !s_watcherInstalled)
+    {
+        s_watcherInstalled = true;
+        qApp->installEventFilter(&filter);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+        if (QApplication::styleHints())
+        {
+            QObject::connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged, &filter, &PaletteChangeFilter::onSystemThemeChanged,
+                             Qt::UniqueConnection);
+        }
+#endif
+#ifdef HAVE_QT_DBUS
+        QDBusConnection::sessionBus().connect(QStringLiteral("org.freedesktop.portal.Desktop"), QStringLiteral("/org/freedesktop/portal/desktop"),
+                                              QStringLiteral("org.freedesktop.portal.Settings"), QStringLiteral("SettingChanged"), &filter,
+                                              SLOT(onPortalSettingChanged(QString, QString, QDBusVariant)));
+#endif
+    }
+    else if (qApp)
+    {
+        qApp->installEventFilter(&filter);
+    }
 }
 
 static bool systemIsDark()
@@ -1037,3 +1251,5 @@ bool prefersNativeStyling(ThemeId themeId)
 {
     return themeId == ThemeId::System;
 }
+
+#include "theme.moc"
