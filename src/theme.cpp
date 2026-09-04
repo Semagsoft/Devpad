@@ -1,5 +1,6 @@
 #include "theme.h"
 
+#include "palettechangefilter.h"
 #include "settingsmanager.h"
 
 #include <QApplication>
@@ -1027,35 +1028,29 @@ static bool systemIsDarkImpl()
 static bool s_systemDarkCached = false;
 static bool s_systemDarkValue = false;
 
-class PaletteChangeFilter : public QObject
+PaletteChangeFilter::PaletteChangeFilter(QObject* parent) : QObject(parent)
 {
-    Q_OBJECT
-public:
-    explicit PaletteChangeFilter(QObject* parent = nullptr) : QObject(parent)
-    {
-    }
+}
 
-public slots:
-    void onSystemThemeChanged()
-    {
-        s_systemDarkCached = false;
-    }
+void PaletteChangeFilter::onSystemThemeChanged()
+{
+    s_systemDarkCached = false;
+}
+
 #ifdef HAVE_QT_DBUS
-    void onPortalSettingChanged(const QString& nameSpace, const QString& key, const QDBusVariant& /*value*/)
-    {
-        if (nameSpace == QStringLiteral("org.freedesktop.appearance") && key == QStringLiteral("color-scheme"))
-            s_systemDarkCached = false;
-    }
+void PaletteChangeFilter::onPortalSettingChanged(const QString& nameSpace, const QString& key, const QDBusVariant& /*value*/)
+{
+    if (nameSpace == QStringLiteral("org.freedesktop.appearance") && key == QStringLiteral("color-scheme"))
+        s_systemDarkCached = false;
+}
 #endif
 
-protected:
-    bool eventFilter(QObject* obj, QEvent* event) override
-    {
-        if (event->type() == QEvent::ApplicationPaletteChange)
-            s_systemDarkCached = false;
-        return QObject::eventFilter(obj, event);
-    }
-};
+bool PaletteChangeFilter::eventFilter(QObject* obj, QEvent* event)
+{
+    if (event->type() == QEvent::ApplicationPaletteChange)
+        s_systemDarkCached = false;
+    return QObject::eventFilter(obj, event);
+}
 
 void initThemeSystem()
 {
@@ -1259,5 +1254,3 @@ bool prefersNativeStyling(ThemeId themeId)
 {
     return themeId == ThemeId::System;
 }
-
-#include "theme.moc"

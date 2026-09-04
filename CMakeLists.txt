@@ -201,6 +201,7 @@ add_library(Devpad_lib STATIC
     src/keywords.cpp
     src/languageinfo.cpp
     src/theme.cpp
+    src/palettechangefilter.h
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp
