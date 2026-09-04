@@ -30,6 +30,13 @@ Checks: >
   -readability-enum-initial-value,
   -readability-make-member-function-const,
   -readability-function-cognitive-complexity,
+  # QPointer/QWeakPointer copy/destroy triggers a known clang-analyzer
+  # false positive in Qt 6.4's qsharedpointer_impl.h
+  # ("Use of memory after it is freed" on ~QWeakPointer/operator delete).
+  # Hit by every by-value QPointer (lambda captures, loop locals,
+  # contains(), member destruction). Not actionable in our code.
+  -clang-analyzer-cplusplus.NewDelete,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
 CheckOptions:
   readability-function-cognitive-complexity: IgnoreMacros
 WarningsAsErrors: 'modernize-*,performance-*,bugprone-*'

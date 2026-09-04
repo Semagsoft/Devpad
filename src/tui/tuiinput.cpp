@@ -382,7 +382,7 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
             fileTree.setExpanded(n->absolutePath, true);
         return true;
     }
-    else if (ch == '\n' || ch == KEY_ENTER || ch == 10 || ch == 13)
+    if (ch == '\n' || ch == KEY_ENTER || ch == 10 || ch == 13)
     {
         const TuiFileNode* n = fileTree.currentNode();
         if (!n)
@@ -405,18 +405,18 @@ bool TuiInput::handleFileTreeInput(int ch, TuiFileTree& fileTree, TuiInputState&
         }
         return true;
     }
-    else if (ch == '/' || ch == 47)
+    if (ch == '/' || ch == 47)
     {
         st.fileTreeFilterMode = true;
         st.fileTreeFilterInput = fileTree.filter();
         return true;
     }
-    else if (ch == KEY_NPAGE)
+    if (ch == KEY_NPAGE)
     {
         fileTree.moveCursor(10);
         return true;
     }
-    else if (ch == KEY_PPAGE)
+    if (ch == KEY_PPAGE)
     {
         fileTree.moveCursor(-10);
         return true;

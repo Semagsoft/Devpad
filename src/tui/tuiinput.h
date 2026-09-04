@@ -17,6 +17,9 @@
 #include <QString>
 
 // Holds all transient input-mode state (extracted from tuiapp.cpp locals)
+// Fields are grouped by mode (find/replace/saveAs/tree) for readability;
+// padding is intentional.
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 struct TuiInputState
 {
     // other
