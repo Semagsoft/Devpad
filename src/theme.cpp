@@ -987,19 +987,27 @@ static std::optional<bool> queryKdeGlobals()
 }
 #endif
 
-static bool systemIsDarkImpl()
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+static std::optional<bool> queryStyleHintsColorScheme()
 {
     auto* hints = QApplication::styleHints();
-    if (hints)
-    {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-        if (hints->colorScheme() == Qt::ColorScheme::Dark)
-            return true;
-        if (hints->colorScheme() == Qt::ColorScheme::Light)
-            return false;
-        // Unknown/NoPreference: fall through to the portal and config probes.
+    if (!hints)
+        return std::nullopt;
+    if (hints->colorScheme() == Qt::ColorScheme::Dark)
+        return true;
+    if (hints->colorScheme() == Qt::ColorScheme::Light)
+        return false;
+    // Unknown/NoPreference: fall through to the portal and config probes.
+    return std::nullopt;
+}
 #endif
-    }
+
+static bool systemIsDarkImpl()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    if (const auto scheme = queryStyleHintsColorScheme())
+        return *scheme;
+#endif
 #ifdef Q_OS_LINUX
 #ifdef HAVE_QT_DBUS
     if (const auto portal = queryPortalColorScheme())
