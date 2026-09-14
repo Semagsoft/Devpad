@@ -96,6 +96,7 @@
                 <string>yml</string>
                 <string>yaml</string>
                 <string>json</string>
+                <string>jsonc</string>
             </array>
         </dict>
     </array>

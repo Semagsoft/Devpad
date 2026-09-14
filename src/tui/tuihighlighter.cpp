@@ -33,7 +33,7 @@ QString TuiHighlighter::languageForFile(const QString& filePath)
         {QStringLiteral("xml"), QStringLiteral("xml")},       {QStringLiteral("sql"), QStringLiteral("sql")},
         {QStringLiteral("sh"), QStringLiteral("bash")},       {QStringLiteral("bash"), QStringLiteral("bash")},
         {QStringLiteral("cmake"), QStringLiteral("cmake")},   {QStringLiteral("md"), QStringLiteral("markdown")},
-        {QStringLiteral("json"), QStringLiteral("json")},     {QStringLiteral("qml"), QStringLiteral("qml")},
+        {QStringLiteral("json"), QStringLiteral("json")},     {QStringLiteral("jsonc"), QStringLiteral("jsonc")},     {QStringLiteral("qml"), QStringLiteral("qml")},
         {QStringLiteral("lua"), QStringLiteral("lua")},       {QStringLiteral("rs"), QStringLiteral("rust")},
         {QStringLiteral("go"), QStringLiteral("go")},
     };
@@ -87,7 +87,7 @@ const QStringList& TuiHighlighter::keywordsForLang(const QString& lang)
         src = &goKeywords();
     else if (lang == QStringLiteral("markdown"))
         src = &markdownKeywords();
-    else if (lang == QStringLiteral("json"))
+    else if (lang == QStringLiteral("json") || lang == QStringLiteral("jsonc"))
         src = &jsonKeywords();
     else if (lang == QStringLiteral("bash"))
         src = &bashKeywords();

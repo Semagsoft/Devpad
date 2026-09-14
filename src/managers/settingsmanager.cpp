@@ -34,7 +34,7 @@ static const QHash<QString, QString>& buildExtensionMap()
         {"hxx", "cpp"},        {"c++", "cpp"},    {"h++", "cpp"},       {"cs", "csharp"},      {"java", "java"},      {"py", "python"},
         {"pyw", "python"},     {"pyi", "python"}, {"js", "javascript"}, {"mjs", "javascript"}, {"cjs", "javascript"}, {"html", "html"},
         {"htm", "html"},       {"xhtml", "html"}, {"css", "css"},       {"xml", "xml"},        {"xaml", "xml"},       {"xsl", "xml"},
-        {"xslt", "xml"},       {"svg", "xml"},    {"json", "json"},     {"sql", "sql"},        {"ddl", "sql"},        {"ts", "typescript"},
+        {"xslt", "xml"},       {"svg", "xml"},    {"json", "json"},     {"jsonc", "jsonc"},    {"sql", "sql"},        {"ddl", "sql"},        {"ts", "typescript"},
         {"tsx", "typescript"}, {"rs", "rust"},    {"go", "go"},         {"md", "markdown"},    {"mdx", "markdown"},   {"markdown", "markdown"},
         {"sh", "bash"},        {"bash", "bash"},  {"zsh", "bash"},      {"ksh", "bash"},       {"fish", "bash"},      {"cmake", "cmake"},
         {"lua", "lua"},        {"qml", "qml"},    {"txt", "text"},

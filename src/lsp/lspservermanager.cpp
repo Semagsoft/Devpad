@@ -243,6 +243,7 @@ QHash<QString, QString> LspServerManager::defaultServerCommands()
         {"html", "vscode-langservers-extracted"},
         {"css", "vscode-langservers-extracted"},
         {"json", "vscode-langservers-extracted"},
+        {"jsonc", "vscode-langservers-extracted"},
         {"cmake", "cmake-language-server"},
     };
 }
@@ -253,7 +254,7 @@ QStringList LspServerManager::defaultServerArgs(const QString& language)
         return {"--stdio"};
     if (language == "bash")
         return {"start"};
-    if (language == "html" || language == "css" || language == "json")
+    if (language == "html" || language == "css" || language == "json" || language == "jsonc")
         return {"--stdio"};
     return {};
 }
