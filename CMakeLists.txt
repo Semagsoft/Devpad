@@ -410,17 +410,14 @@ if(BUILD_TESTS)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     include(FetchContent)
 
-    # Prefer system-installed GTest over fetching from source
-    find_package(GTest QUIET)
-    if(NOT GTest_FOUND)
-        FetchContent_Declare(
-            googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG v1.14.0
-        )
-        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-        FetchContent_MakeAvailable(googletest)
-    endif()
+    # Always fetch googletest to ensure compiler compatibility
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
 
     enable_testing()
 
