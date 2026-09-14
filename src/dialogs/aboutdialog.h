@@ -21,6 +21,7 @@
 
 #include <QDialog>
 #include <QPixmap>
+#include "dialogsettings.h"
 
 class QLabel;
 class QPushButton;
@@ -39,6 +40,7 @@ public:
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
 
 private slots:
     void openWebsite();
@@ -59,6 +61,7 @@ private:
     QTimer* m_effectTimer;
     QSoundEffect* m_soundEffect;
     int m_effectStep;
+    DialogSettings m_geometrySettings;
 };
 
 #endif // ABOUTDIALOG_H
