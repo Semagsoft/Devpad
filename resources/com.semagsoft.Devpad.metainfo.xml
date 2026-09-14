@@ -46,6 +46,11 @@
     <binary>Devpad</binary>
   </provides>
   <releases>
+    <release version="1.05" date="2026-09-14">
+      <description>
+        <p>Increased About dialog size and added geometry persistence.</p>
+      </description>
+    </release>
     <release version="1.04" date="2026-08-16">
       <description>
         <p>Maintenance release.</p>

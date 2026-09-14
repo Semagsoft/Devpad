@@ -2,7 +2,7 @@ param(
     [string]$BuildDir = (Join-Path $PSScriptRoot "..\build"),
     [string]$InstallerDir = (Join-Path $PSScriptRoot "..\installer"),
     [string]$WixDir = "C:\ProgramData\wix314",
-    [string]$Version = "1.04",
+    [string]$Version = "1.05",
     [ValidateSet("x64", "arm64")]
     [string]$Arch = "x64",
     [string]$OutputMsi = "",
