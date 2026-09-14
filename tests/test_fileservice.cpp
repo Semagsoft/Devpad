@@ -45,15 +45,25 @@ TEST(FileService, SaveWithBomUtf8)
     QTemporaryDir dir;
     ASSERT_TRUE(dir.isValid());
     QString path = dir.filePath(QStringLiteral("bom.txt"));
+    ASSERT_TRUE(FileService::save(path, QStringLiteral("hi"), QStringLiteral("UTF-8-BOM")));
+
+    QFile f(path);
+    ASSERT_TRUE(f.open(QIODevice::ReadOnly));
+    QByteArray raw = f.readAll();
+    EXPECT_EQ(raw.left(3), QByteArray("\xEF\xBB\xBF", 3));
+}
+
+TEST(FileService, SaveWithoutBomUtf8)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+    QString path = dir.filePath(QStringLiteral("nobom.txt"));
     ASSERT_TRUE(FileService::save(path, QStringLiteral("hi"), QStringLiteral("UTF-8")));
 
     QFile f(path);
     ASSERT_TRUE(f.open(QIODevice::ReadOnly));
     QByteArray raw = f.readAll();
-    // Default save without BOM caller? Our save writes BOM only for encodings that have BOM mapping.
-    // UTF-8 triggers BOM per bomForEncoding -> but we write BOM for UTF-8 in filemanager legacy.
-    // For FileService we also write BOM for UTF-8.
-    EXPECT_EQ(raw.left(3), QByteArray("\xEF\xBB\xBF", 3));
+    EXPECT_FALSE(raw.startsWith(QByteArray("\xEF\xBB\xBF", 3)));
 }
 
 TEST(FileService, LoadTooLarge)

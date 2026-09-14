@@ -155,9 +155,9 @@ TEST_F(FileManagerTest, SaveFileWithEncoding)
     ASSERT_TRUE(file.open(QIODevice::ReadOnly));
     QByteArray content = file.readAll();
     file.close();
-    // FileManager writes UTF-8 BOM prefix for UTF-8 encoding
+    // FileManager writes NO UTF-8 BOM prefix for standard UTF-8 encoding by default
     EXPECT_TRUE(content.contains(QByteArray("Test content")));
-    EXPECT_TRUE(content.startsWith(QByteArray("\xEF\xBB\xBF", 3)));
+    EXPECT_FALSE(content.startsWith(QByteArray("\xEF\xBB\xBF", 3)));
     EXPECT_EQ(FileManager::detectEncoding(content), "UTF-8");
 }
 
@@ -165,17 +165,17 @@ TEST_F(FileManagerTest, SaveWithBom)
 {
     CodeEditor editor;
     editor.setText("BOM test");
-    editor.setEncoding("UTF-8");
+    editor.setEncoding("UTF-8-BOM");
 
     FileManager mgr;
-    EXPECT_TRUE(mgr.saveFile(testFilePath("bom_test.txt"), &editor, "UTF-8"));
+    EXPECT_TRUE(mgr.saveFile(testFilePath("bom_test.txt"), &editor, "UTF-8-BOM"));
 
     QFile file(testFilePath("bom_test.txt"));
     ASSERT_TRUE(file.open(QIODevice::ReadOnly));
     QByteArray content = file.readAll();
     file.close();
 
-    // UTF-8 BOM is EF BB BF
+    // UTF-8-BOM BOM is EF BB BF
     ASSERT_GE(content.size(), 3);
     EXPECT_EQ(content.mid(0, 3), QByteArray("\xEF\xBB\xBF", 3));
     EXPECT_EQ(content.mid(3), QByteArray("BOM test"));
