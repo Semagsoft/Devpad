@@ -232,6 +232,7 @@ int main(int argc, char* argv[])
     QApplication::setOrganizationDomain("semagsoft.com");
     QApplication::setApplicationName("Devpad");
     QApplication::setApplicationVersion(DEVPAD_VERSION);
+    QGuiApplication::setDesktopFileName("com.semagsoft.Devpad");
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Devpad - A C++/Qt6 code editor"));

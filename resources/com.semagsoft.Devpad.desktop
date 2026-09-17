@@ -10,7 +10,7 @@ Categories=Development;IDE;TextEditor;
 MimeType=text/plain;text/x-c;text/x-c++;text/x-python;text/x-java;text/x-javascript;text/html;text/css;text/xml;text/x-sql;text/x-markdown;
 Keywords=editor;code;programming;text;
 StartupNotify=true
-StartupWMClass=devpad
+StartupWMClass=Devpad
 Actions=new-window;
 
 [Desktop Action new-window]
