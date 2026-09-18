@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
  *
@@ -60,7 +60,7 @@ void ThemeApplier::applyTheme(QMainWindow* window)
             struct Mapping
             {
                 const char* key;
-                QColor ThemeColors::* member;
+                QColor ThemeColors::*member;
             };
             static constexpr std::array<Mapping, 24> mappings = {{
                 {"%background%", &ThemeColors::background},
