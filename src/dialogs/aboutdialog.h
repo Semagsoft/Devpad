@@ -19,9 +19,10 @@
 #ifndef ABOUTDIALOG_H
 #define ABOUTDIALOG_H
 
+#include "dialogsettings.h"
+
 #include <QDialog>
 #include <QPixmap>
-#include "dialogsettings.h"
 
 class QLabel;
 class QPushButton;

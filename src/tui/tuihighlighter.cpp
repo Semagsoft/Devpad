@@ -33,9 +33,9 @@ QString TuiHighlighter::languageForFile(const QString& filePath)
         {QStringLiteral("xml"), QStringLiteral("xml")},       {QStringLiteral("sql"), QStringLiteral("sql")},
         {QStringLiteral("sh"), QStringLiteral("bash")},       {QStringLiteral("bash"), QStringLiteral("bash")},
         {QStringLiteral("cmake"), QStringLiteral("cmake")},   {QStringLiteral("md"), QStringLiteral("markdown")},
-        {QStringLiteral("json"), QStringLiteral("json")},     {QStringLiteral("jsonc"), QStringLiteral("jsonc")},     {QStringLiteral("qml"), QStringLiteral("qml")},
-        {QStringLiteral("lua"), QStringLiteral("lua")},       {QStringLiteral("rs"), QStringLiteral("rust")},
-        {QStringLiteral("go"), QStringLiteral("go")},
+        {QStringLiteral("json"), QStringLiteral("json")},     {QStringLiteral("jsonc"), QStringLiteral("jsonc")},
+        {QStringLiteral("qml"), QStringLiteral("qml")},       {QStringLiteral("lua"), QStringLiteral("lua")},
+        {QStringLiteral("rs"), QStringLiteral("rust")},       {QStringLiteral("go"), QStringLiteral("go")},
     };
     auto it = extMap.find(ext);
     if (it != extMap.end())
