@@ -1,6 +1,15 @@
-﻿# Changelog
+# Changelog
 
-## [1.05] - TBD
+## [1.05] - 2026-09-18
+
+What's new in Devpad 1.05:
+
+- New JSONC support. SHA: 298446238baec715916a1537532f9cf3abb7de8e
+
+Bug fixes for version 1.05:
+
+- Fix for theme issue involving darkmode failure. SHA: 298446238baec715916a1537532f9cf3abb7de8e
+- Saved files no longer add UTF-8 Byte Order Mark (BOM: \xef\xbb\xbf). SHA: 298446238baec715916a1537532f9cf3abb7de8e
 
 ## [1.04] - 2026-09-03
 
