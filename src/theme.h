@@ -23,6 +23,7 @@
 #include <QJsonObject>
 #include <QPalette>
 #include <QString>
+#include <optional>
 
 enum class ThemeId
 {
@@ -113,6 +114,15 @@ bool isThemeDark(ThemeId themeId);
 bool prefersNativeStyling(ThemeId themeId);
 int builtInThemeCount();
 QList<ThemeId> allBuiltInThemes();
+
+// System dark-mode probes (exposed for unit testing).
+// Each returns nullopt when the source is unavailable or has no opinion,
+// so callers can fall through to the next source in the chain.
+bool gtkThemeNameSuggestsDark(const QString& themeName);
+bool gsettingsValueSuggestsDark(const QString& value);
+bool gtkSettingsFilePrefersDark(const QString& filePath);
+bool kdeGlobalsFilePrefersDark(const QString& filePath);
+std::optional<bool> portalColorSchemeToDark(quint32 colorScheme);
 
 // Custom user themes from ~/.config/devpad/themes/*.json
 QList<ThemeColors> loadCustomThemes();

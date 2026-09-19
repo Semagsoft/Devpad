@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.23)
-project(Devpad VERSION 1.04 LANGUAGES CXX)
+project(Devpad VERSION 1.05 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
@@ -16,6 +16,16 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt6 6.2 REQUIRED COMPONENTS
     Core Gui Widgets PrintSupport Multimedia Network Svg LinguistTools
 )
+# ── Optional D-Bus: freedesktop portal color-scheme query (Qt 6.2+ backport
+# of the QStyleHints::colorScheme portal check that requires Qt 6.5). Keeps
+# system-dark detection working on the shipped Qt 6.4.2. Gracefully absent
+# on platforms without Qt6 DBus (Windows/macOS minimal installs).
+find_package(Qt6 6.2 COMPONENTS DBus QUIET)
+if(TARGET Qt6::DBus)
+    message(STATUS "Qt6 DBus found; enabling portal-based dark-mode detection")
+else()
+    message(STATUS "Qt6 DBus not found; portal-based dark-mode detection disabled")
+endif()
 # ── Terminal widget ──────────────────────────────────────────
 if(WIN32)
     include(FetchContent)
@@ -191,6 +201,7 @@ add_library(Devpad_lib STATIC
     src/keywords.cpp
     src/languageinfo.cpp
     src/theme.cpp
+    src/palettechangefilter.h
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp
@@ -254,6 +265,10 @@ target_link_libraries(Devpad_lib PUBLIC
     Qt6::Svg
     ${TERMINAL_TARGET}
 )
+if(TARGET Qt6::DBus)
+    target_link_libraries(Devpad_lib PUBLIC Qt6::DBus)
+    target_compile_definitions(Devpad_lib PUBLIC HAVE_QT_DBUS)
+endif()
 target_include_directories(Devpad_lib PUBLIC
     src
     src/managers
@@ -395,17 +410,14 @@ if(BUILD_TESTS)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     include(FetchContent)
 
-    # Prefer system-installed GTest over fetching from source
-    find_package(GTest QUIET)
-    if(NOT GTest_FOUND)
-        FetchContent_Declare(
-            googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG v1.14.0
-        )
-        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-        FetchContent_MakeAvailable(googletest)
-    endif()
+    # Always fetch googletest to ensure compiler compatibility
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
 
     enable_testing()
 

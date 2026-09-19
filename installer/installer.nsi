@@ -1,6 +1,6 @@
 !define PRODUCT_NAME "Devpad"
 !ifndef PRODUCT_VERSION
-!define PRODUCT_VERSION "1.04"
+!define PRODUCT_VERSION "1.05"
 !endif
 !ifndef PRODUCT_OUTFILE
 !define PRODUCT_OUTFILE "Devpad-${PRODUCT_VERSION}-Setup.exe"
@@ -120,6 +120,7 @@ Section "File Associations" SecAssoc
     !insertmacro APP_ASSOCIATE "sh"   "Devpad.File" "Shell Script"        "$INSTDIR\devpad.ico"
     !insertmacro APP_ASSOCIATE "cmake" "Devpad.File" "CMake Script"       "$INSTDIR\devpad.ico"
     !insertmacro APP_ASSOCIATE "json" "Devpad.File" "JSON Document"       "$INSTDIR\devpad.ico"
+    !insertmacro APP_ASSOCIATE "jsonc" "Devpad.File" "JSONC Document"      "$INSTDIR\devpad.ico"
     !insertmacro APP_ASSOCIATE "yaml" "Devpad.File" "YAML Document"       "$INSTDIR\devpad.ico"
     !insertmacro APP_ASSOCIATE "yml"  "Devpad.File" "YAML Document"       "$INSTDIR\devpad.ico"
     !insertmacro APP_ASSOCIATE "txt"  "Devpad.File" "Text Document"       "$INSTDIR\devpad.ico"
@@ -184,6 +185,7 @@ Section Uninstall
     !insertmacro APP_UNASSOCIATE "sh"   "Devpad.File"
     !insertmacro APP_UNASSOCIATE "cmake" "Devpad.File"
     !insertmacro APP_UNASSOCIATE "json" "Devpad.File"
+    !insertmacro APP_UNASSOCIATE "jsonc" "Devpad.File"
     !insertmacro APP_UNASSOCIATE "yaml" "Devpad.File"
     !insertmacro APP_UNASSOCIATE "yml"  "Devpad.File"
     !insertmacro APP_UNASSOCIATE "txt"  "Devpad.File"

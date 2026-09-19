@@ -198,8 +198,12 @@ const ThemeApplicator& jsonThemeApplicator()
         auto* l = static_cast<QsciLexerJSON*>(lexer);
         l->setColor(colors.string, QsciLexerJSON::String);
         l->setColor(colors.number, QsciLexerJSON::Number);
+        l->setColor(colors.keyword, QsciLexerJSON::Keyword);
+        l->setColor(colors.comment, QsciLexerJSON::CommentLine);
+        l->setColor(colors.comment, QsciLexerJSON::CommentBlock);
         l->setColor(colors.operator_, QsciLexerJSON::Operator);
         l->setColor(colors.foreground, QsciLexerJSON::Default);
+        l->setColor(colors.foreground, QsciLexerJSON::Property);
     };
     return fn;
 }
@@ -402,6 +406,12 @@ const std::vector<LanguageInfo>& languageTable()
          sqlThemeApplicator(),
          {"--", "/*", "*/"}},
         {"json",
+         "QsciLexerJSON",
+         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJSON(parent); },
+         jsonKeywords,
+         jsonThemeApplicator(),
+         {"//", "/*", "*/"}},
+        {"jsonc",
          "QsciLexerJSON",
          []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJSON(parent); },
          jsonKeywords,

@@ -217,7 +217,7 @@ QString FileService::detectEncoding(const QByteArray& buffer)
 
 QByteArray FileService::bomForEncoding(const QString& encodingName)
 {
-    if (encodingName == "UTF-8")
+    if (encodingName == "UTF-8-BOM")
         return QByteArray("\xEF\xBB\xBF", 3);
     if (encodingName == "UTF-16BE")
         return QByteArray("\xFE\xFF", 2);

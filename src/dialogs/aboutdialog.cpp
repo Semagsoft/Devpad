@@ -35,10 +35,13 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
-AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent), iconLabel(nullptr), m_effectTimer(nullptr), m_soundEffect(nullptr), m_effectStep(0)
+AboutDialog::AboutDialog(QWidget* parent)
+    : QDialog(parent), iconLabel(nullptr), m_effectTimer(nullptr), m_soundEffect(nullptr), m_effectStep(0), m_geometrySettings("About")
 {
     setWindowTitle(tr("About Devpad"));
-    setMinimumSize(500, 400);
+    setMinimumSize(640, 520);
+    resize(640, 560);
+    m_geometrySettings.restoreGeometry(this);
     setupUI();
 }
 
@@ -58,6 +61,12 @@ bool AboutDialog::eventFilter(QObject* obj, QEvent* event)
         return true;
     }
     return QDialog::eventFilter(obj, event);
+}
+
+void AboutDialog::closeEvent(QCloseEvent* event)
+{
+    m_geometrySettings.saveGeometry(this);
+    QDialog::closeEvent(event);
 }
 
 void AboutDialog::setupUI()

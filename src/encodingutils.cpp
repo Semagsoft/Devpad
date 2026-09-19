@@ -46,9 +46,10 @@ BomResult detectBom(const QByteArray& data)
 const QVector<EncodingInfo>& supportedEncodings()
 {
     static const QVector<EncodingInfo> encodings = {
-        {"UTF-8", QStringConverter::Utf8},       {"UTF-16", QStringConverter::Utf16},      {"UTF-16LE", QStringConverter::Utf16LE},
-        {"UTF-16BE", QStringConverter::Utf16BE}, {"UTF-32", QStringConverter::Utf32},      {"UTF-32LE", QStringConverter::Utf32LE},
-        {"UTF-32BE", QStringConverter::Utf32BE}, {"ISO-8859-1", QStringConverter::Latin1}, {"System", QStringConverter::System},
+        {"UTF-8", QStringConverter::Utf8},       {"UTF-8-BOM", QStringConverter::Utf8},   {"UTF-16", QStringConverter::Utf16},
+        {"UTF-16LE", QStringConverter::Utf16LE}, {"UTF-16BE", QStringConverter::Utf16BE}, {"UTF-32", QStringConverter::Utf32},
+        {"UTF-32LE", QStringConverter::Utf32LE}, {"UTF-32BE", QStringConverter::Utf32BE}, {"ISO-8859-1", QStringConverter::Latin1},
+        {"System", QStringConverter::System},
     };
     return encodings;
 }

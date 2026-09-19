@@ -14,22 +14,27 @@ TEST_F(EncodingUtilsTest, SupportedEncodingsNotEmpty)
 {
     auto encodings = supportedEncodings();
     EXPECT_FALSE(encodings.isEmpty());
-    EXPECT_EQ(encodings.size(), 9);
+    EXPECT_EQ(encodings.size(), 10);
 }
 
 TEST_F(EncodingUtilsTest, SupportedEncodingsContainsUtf8)
 {
     auto encodings = supportedEncodings();
     bool found = false;
+    bool foundBom = false;
     for (const auto& info : encodings)
     {
         if (info.displayName == "UTF-8" && info.encoding == QStringConverter::Utf8)
         {
             found = true;
-            break;
+        }
+        if (info.displayName == "UTF-8-BOM" && info.encoding == QStringConverter::Utf8)
+        {
+            foundBom = true;
         }
     }
     EXPECT_TRUE(found);
+    EXPECT_TRUE(foundBom);
 }
 
 TEST_F(EncodingUtilsTest, SupportedEncodingsContainsAll)
@@ -41,6 +46,7 @@ TEST_F(EncodingUtilsTest, SupportedEncodingsContainsAll)
         names.append(info.displayName);
     }
     EXPECT_TRUE(names.contains("UTF-8"));
+    EXPECT_TRUE(names.contains("UTF-8-BOM"));
     EXPECT_TRUE(names.contains("UTF-16"));
     EXPECT_TRUE(names.contains("UTF-16LE"));
     EXPECT_TRUE(names.contains("UTF-16BE"));
@@ -107,6 +113,9 @@ TEST_F(EncodingUtilsTest, RoundTrip)
     for (const auto& info : encodings)
     {
         EXPECT_EQ(encodingFromName(info.displayName), info.encoding);
-        EXPECT_EQ(encodingToDisplayName(info.encoding), info.displayName);
+        if (info.displayName != "UTF-8-BOM")
+        {
+            EXPECT_EQ(encodingToDisplayName(info.encoding), info.displayName);
+        }
     }
 }
