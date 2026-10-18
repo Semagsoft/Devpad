@@ -149,3 +149,49 @@ TEST_F(FileWatcherManagerTest, MultipleIndependentWatches)
 
     m_manager->unwatchAll();
 }
+
+TEST_F(FileWatcherManagerTest, SingleModificationEmitsOnce)
+{
+    QString path = createFile("single.txt");
+    m_manager->watchFile(path);
+
+    QSignalSpy spy(m_manager, &FileWatcherManager::fileModifiedExternally);
+    modifyFile(path);
+    QTest::qWait(500);
+
+    ASSERT_EQ(spy.count(), 1) << "watcher did not report the external change";
+}
+
+TEST_F(FileWatcherManagerTest, RapidModificationsAreCoalescedIntoOneSignal)
+{
+    QString path = createFile("burst.txt");
+    m_manager->watchFile(path);
+
+    QSignalSpy spy(m_manager, &FileWatcherManager::fileModifiedExternally);
+
+    // A single external write often touches the file repeatedly (truncate then write,
+    // formatter plus compiler). Only the first of such a burst may be reported.
+    for (int i = 0; i < 4; ++i)
+        modifyFile(path);
+
+    QTest::qWait(500);
+    EXPECT_EQ(spy.count(), 1);
+}
+
+TEST_F(FileWatcherManagerTest, ModificationAfterCoalesceWindowEmitsAgain)
+{
+    QString path = createFile("after_window.txt");
+    m_manager->watchFile(path);
+
+    QSignalSpy spy(m_manager, &FileWatcherManager::fileModifiedExternally);
+
+    modifyFile(path);
+    QTest::qWait(500);
+    ASSERT_EQ(spy.count(), 1);
+
+    // Coalescing must not permanently suppress reporting.
+    QTest::qWait(FileWatcherManager::COALESCE_INTERVAL_MS + 300);
+    modifyFile(path);
+    QTest::qWait(500);
+    EXPECT_EQ(spy.count(), 2);
+}

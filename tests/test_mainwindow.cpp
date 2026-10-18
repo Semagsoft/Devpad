@@ -8,15 +8,36 @@
 #include "theme.h"
 
 #include <QApplication>
+#include <QEvent>
 #include <QFile>
 #include <QFileInfo>
+#include <QMessageBox>
 #include <QSignalSpy>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTextStream>
+#include <QTimer>
+#include <cstdio>
+#include <cstdlib>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+// Counts how many QMessageBox dialogs are shown anywhere in the application.
+class MessageBoxShowCounter : public QObject
+{
+public:
+    int count = 0;
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override
+    {
+        if (event->type() == QEvent::Show && qobject_cast<QMessageBox*>(obj))
+            ++count;
+
+        return QObject::eventFilter(obj, event);
+    }
+};
 
 class MainWindowTest : public ::testing::Test
 {
@@ -51,6 +72,67 @@ protected:
         ASSERT_TRUE(file.open(QIODevice::WriteOnly));
         QTextStream out(&file);
         out << content;
+    }
+
+    // Opens a file so the external-change prompt has an editor to act on.
+    void openWatchedFile(MainWindow& window, const QString& name, const QString& content = "original")
+    {
+        QString filePath = testFilePath(name);
+        createFile(filePath, content);
+        window.openFileFromPath(filePath);
+    }
+
+    // Invokes the private onFileModifiedExternally slot, dismissing any prompt it raises
+    // with No. Re-enters the slot `reentries` times from inside that prompt's nested event
+    // loop, mimicking watcher signals delivered while the dialog is already up.
+    // Dialogs shown are accumulated in `counter`, which may span several calls.
+    void runExternalChangePrompt(MainWindow& window, const QString& filePath, MessageBoxShowCounter& counter, int reentries = 0)
+    {
+        // Installed on the application so it sees every event, including those of the
+        // dialog (which is not reachable from the main window's modal state here).
+        qApp->installEventFilter(&counter);
+
+        QTimer ticker;
+        int tick = 0;
+        QObject::connect(&ticker, &QTimer::timeout, &window,
+                         [&]()
+                         {
+                             if (tick++ < reentries)
+                             {
+                                 QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath));
+                                 return;
+                             }
+
+                             // Dismiss every open prompt so its exec() returns. With the guard
+                             // in place there is at most one; a regression that stacks dialogs
+                             // still unwinds instead of hanging.
+                             const auto prompts = window.findChildren<QMessageBox*>();
+                             for (auto* prompt : prompts)
+                                 prompt->close();
+                         });
+        ticker.start(1);
+
+        // Stacked modal loops cannot always be unwound from here, so give up loudly instead
+        // of hanging the suite when the guard is missing.
+        QTimer watchdog;
+        int budget = 0;
+        QObject::connect(&watchdog, &QTimer::timeout, &window,
+                         [&]()
+                         {
+                             if (++budget <= 40)
+                                 return;
+
+                             fprintf(stderr, "'File Modified' prompts never dismissed: the one-dialog guard is missing\n");
+                             fflush(stderr);
+                             std::_Exit(1);
+                         });
+        watchdog.start(50);
+
+        QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath));
+
+        ticker.stop();
+        watchdog.stop();
+        qApp->removeEventFilter(&counter);
     }
 };
 
@@ -172,4 +254,46 @@ TEST_F(MainWindowTest, MultipleFilesOpenSeparateTabs)
 
     auto editors = window.findChildren<CodeEditor*>();
     EXPECT_EQ(editors.size(), 2);
+}
+
+TEST_F(MainWindowTest, ExternalChangePromptShownOnlyOnceWhileOpen)
+{
+    MainWindow window;
+    openWatchedFile(window, "external_burst.txt");
+
+    QString filePath = testFilePath("external_burst.txt");
+    ASSERT_NE(window.findChild<CodeEditor*>(), nullptr);
+
+    // Five re-entrant signals arrive while the first prompt is still showing. Exactly one
+    // dialog must be raised; the rest are dropped rather than stacked on top of it.
+    MessageBoxShowCounter counter;
+    runExternalChangePrompt(window, filePath, counter, 5);
+    EXPECT_EQ(counter.count, 1);
+}
+
+TEST_F(MainWindowTest, ExternalChangePromptShownAgainAfterDismissal)
+{
+    MainWindow window;
+    openWatchedFile(window, "external_again.txt");
+
+    QString filePath = testFilePath("external_again.txt");
+    ASSERT_NE(window.findChild<CodeEditor*>(), nullptr);
+
+    // The guard must not latch: a later, genuinely new change prompts again.
+    MessageBoxShowCounter counter;
+    runExternalChangePrompt(window, filePath, counter);
+    EXPECT_EQ(counter.count, 1);
+    runExternalChangePrompt(window, filePath, counter);
+    EXPECT_EQ(counter.count, 2);
+}
+
+TEST_F(MainWindowTest, ExternalChangePromptSkippedForFileNotOpen)
+{
+    MainWindow window;
+    openWatchedFile(window, "external_open.txt");
+
+    // No editor matches this path, so no prompt should be raised at all.
+    MessageBoxShowCounter counter;
+    runExternalChangePrompt(window, testFilePath("never_opened.txt"), counter);
+    EXPECT_EQ(counter.count, 0);
 }

@@ -1,13 +1,6 @@
 ﻿build/
-build-tui/
-build-tui-release/
-build-appimage/
-build-asan/
-build_rel/
-build-release/
-build-tests/
-build_san/
-Devpad-1.0-linux-x86_64/
+build-*/
+build_*/
 qscintilla-build/
 
 *.user
@@ -44,13 +37,15 @@ moc_*.cpp
 Devpad*.AppImage
 Devpad*.flatpak
 Devpad-*.tar.gz
+Devpad-*-linux-*/
+Devpad-*-windows-*/
+Devpad-*-macos/
 
 Devpad*.msi
 
 # macOS distribution
 Devpad*.dmg
 Devpad*.app
-build-release-macos/
 
 # OS
 .DS_Store

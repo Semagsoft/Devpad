@@ -1610,6 +1610,21 @@ QString MainWindow::getSyntaxForFile(const QString& displayName) const
 
 void MainWindow::onFileModifiedExternally(const QString& filePath)
 {
+    // The prompt below is modal, which means a nested event loop keeps delivering queued
+    // watcher signals while it is open. Drop them instead of stacking another dialog.
+    if (m_fileModifiedDialogActive)
+    {
+        Logger::instance().debug(QString("Ignoring external change while prompt is open: %1").arg(filePath));
+        return;
+    }
+
+    m_fileModifiedDialogActive = true;
+    promptExternalChangeReload(filePath);
+    m_fileModifiedDialogActive = false;
+}
+
+void MainWindow::promptExternalChangeReload(const QString& filePath)
+{
     QPointer<CodeEditor> editor = m_tabManager->findEditorByFileName(filePath);
     if (!editor)
         return;
@@ -1632,9 +1647,6 @@ void MainWindow::onFileModifiedExternally(const QString& filePath)
 
     if (result == QMessageBox::Yes)
     {
-        if (!editor)
-            return;
-
         QList<int> bookmarks = editor->bookmarkLines();
         QString encoding = editor->encoding();
 

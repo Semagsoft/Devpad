@@ -160,6 +160,7 @@ private:
     void updateEncodingSelector();
     void reloadCurrentFileWithEncoding(const QString& encoding);
     void saveCurrentFileWithEncoding(const QString& encoding);
+    void promptExternalChangeReload(const QString& filePath);
 
     // Owned: child widgets (parent=this), destroyed by Qt parent mechanism
     QTabWidget* m_tabWidget = nullptr;
@@ -200,6 +201,9 @@ private:
     WindowsFrameBridge* m_frameBridge = nullptr;
 #endif
     bool m_quitRequested = false;
+    // Guards the modal "File Modified" prompt: QMessageBox spins a nested event loop,
+    // so further watcher signals must not stack extra dialogs on top of it.
+    bool m_fileModifiedDialogActive = false;
 };
 
 #endif // MAINWINDOW_H

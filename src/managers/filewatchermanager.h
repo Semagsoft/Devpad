@@ -29,6 +29,10 @@ class FileWatcherManager : public QObject
     Q_OBJECT
 
 public:
+    // Changes to the same file reported within this window of each other are coalesced
+    // into a single fileModifiedExternally signal.
+    static constexpr int COALESCE_INTERVAL_MS = 250;
+
     explicit FileWatcherManager(QObject* parent = nullptr);
 
     void watchFile(const QString& filePath);
@@ -45,8 +49,13 @@ private slots:
     void onFileChanged(const QString& path);
 
 private:
+    // True when the last change we reported for filePath is still inside the coalescing
+    // window, i.e. a further change is only refreshed, not re-emitted.
+    bool isWithinCoalesceWindow(const QString& filePath) const;
+
     QFileSystemWatcher m_watcher;
     QHash<QString, QDateTime> m_modificationTimes;
+    QHash<QString, QDateTime> m_lastReported;
 };
 
 #endif
