@@ -21,11 +21,14 @@
 #include "logger.h"
 
 #include <QFileInfo>
+#include <QTimer>
 
 FileWatcherManager::FileWatcherManager(QObject* parent) : QObject(parent)
 {
     connect(&m_watcher, &QFileSystemWatcher::fileChanged, this, &FileWatcherManager::onFileChanged);
     connect(&m_watcher, &QFileSystemWatcher::directoryChanged, this, &FileWatcherManager::onDirectoryChanged);
+    connect(&m_pollTimer, &QTimer::timeout, this, &FileWatcherManager::pollModifications);
+    m_pollTimer.start(POLL_INTERVAL_MS);
 }
 
 void FileWatcherManager::watchFile(const QString& filePath)
@@ -41,12 +44,14 @@ void FileWatcherManager::watchFile(const QString& filePath)
         m_modificationTimes[filePath] = info.lastModified();
         Logger::instance().debug(QString("Watching file: %1").arg(filePath));
     }
+    m_lastReported.remove(filePath);
 }
 
 void FileWatcherManager::unwatchFile(const QString& filePath)
 {
     m_watcher.removePath(filePath);
     m_modificationTimes.remove(filePath);
+    m_lastReported.remove(filePath);
     Logger::instance().debug(QString("Unwatched file: %1").arg(filePath));
 }
 
@@ -54,6 +59,7 @@ void FileWatcherManager::unwatchAll()
 {
     m_watcher.removePaths(m_watcher.files());
     m_modificationTimes.clear();
+    m_lastReported.clear();
 }
 void FileWatcherManager::updateModificationTime(const QString& filePath)
 {
@@ -92,6 +98,52 @@ void FileWatcherManager::onDirectoryChanged(const QString& path)
     }
 }
 
+bool FileWatcherManager::isWithinCoalesceWindow(const QString& filePath) const
+{
+    QDateTime last = m_lastReported.value(filePath);
+    if (!last.isValid())
+        return false;
+
+    return last.msecsTo(QDateTime::currentDateTime()) < COALESCE_INTERVAL_MS;
+}
+
+void FileWatcherManager::pollModifications()
+{
+    // Fallback detector for external changes. QFileSystemWatcher on macOS stops
+    // delivering fileChanged for a path after the first notification and does not
+    // reliably re-notify after removePath()/addPath(), so we periodically re-stat
+    // watched files to make sure no modification goes unreported.
+    for (auto it = m_modificationTimes.begin(); it != m_modificationTimes.end(); ++it)
+    {
+        const QString& filePath = it.key();
+        QFileInfo info(filePath);
+        if (!info.exists())
+        {
+            continue;
+        }
+
+        QDateTime currentMod = info.lastModified();
+        QDateTime knownMod = it.value();
+        if (!knownMod.isValid() || currentMod <= knownMod)
+        {
+            continue;
+        }
+
+        it.value() = currentMod;
+
+        // Mirror the coalescing behavior of onFileChanged: a change inside the
+        // window refreshes the timestamp without re-emitting.
+        if (isWithinCoalesceWindow(filePath))
+        {
+            continue;
+        }
+
+        m_lastReported[filePath] = QDateTime::currentDateTime();
+        Logger::instance().info(QString("File modified externally: %1").arg(filePath));
+        emit fileModifiedExternally(filePath);
+    }
+}
+
 void FileWatcherManager::onFileChanged(const QString& path)
 {
     QFileInfo info(path);
@@ -100,6 +152,7 @@ void FileWatcherManager::onFileChanged(const QString& path)
     {
         Logger::instance().info(QString("File deleted externally: %1").arg(path));
         emit fileModifiedExternally(path);
+        m_lastReported[path] = QDateTime::currentDateTime();
         return;
     }
 
@@ -109,12 +162,18 @@ void FileWatcherManager::onFileChanged(const QString& path)
     if (knownMod.isValid() && currentMod > knownMod)
     {
         m_modificationTimes[path] = currentMod;
-        Logger::instance().info(QString("File modified externally: %1").arg(path));
-        emit fileModifiedExternally(path);
-    }
 
-    if (!m_watcher.files().contains(path))
-    {
-        m_watcher.addPath(path);
+        // A single external write often touches the file more than once (truncate then
+        // write, save-as, formatter + compiler). Only surface the first of those bursts.
+        if (isWithinCoalesceWindow(path))
+        {
+            Logger::instance().debug(QString("Coalesced rapid external change: %1").arg(path));
+        }
+        else
+        {
+            m_lastReported[path] = QDateTime::currentDateTime();
+            Logger::instance().info(QString("File modified externally: %1").arg(path));
+            emit fileModifiedExternally(path);
+        }
     }
 }

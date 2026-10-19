@@ -23,12 +23,24 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QObject>
+#include <QTimer>
 
 class FileWatcherManager : public QObject
 {
     Q_OBJECT
 
 public:
+    // Changes to the same file reported within this window of each other are coalesced
+    // into a single fileModifiedExternally signal.
+    static constexpr int COALESCE_INTERVAL_MS = 250;
+
+    // Polling interval (ms) used as a fallback to detect external changes. On macOS
+    // QFileSystemWatcher stops delivering fileChanged for a path after the first
+    // notification and does not reliably re-notify after removePath()/addPath(), so
+    // we periodically re-stat watched files to make sure no modification goes
+    // unreported. The watcher remains the primary, low-latency mechanism.
+    static constexpr int POLL_INTERVAL_MS = 100;
+
     explicit FileWatcherManager(QObject* parent = nullptr);
 
     void watchFile(const QString& filePath);
@@ -43,10 +55,17 @@ signals:
 private slots:
     void onDirectoryChanged(const QString& path);
     void onFileChanged(const QString& path);
+    void pollModifications();
 
 private:
+    // True when the last change we reported for filePath is still inside the coalescing
+    // window, i.e. a further change is only refreshed, not re-emitted.
+    bool isWithinCoalesceWindow(const QString& filePath) const;
+
     QFileSystemWatcher m_watcher;
+    QTimer m_pollTimer;
     QHash<QString, QDateTime> m_modificationTimes;
+    QHash<QString, QDateTime> m_lastReported;
 };
 
 #endif
