@@ -137,8 +137,11 @@ void FileWatcherManager::onFileChanged(const QString& path)
         }
     }
 
-    if (!m_watcher.files().contains(path))
-    {
+    // Re-arm the watcher for the next change. On macOS QFileSystemWatcher stops
+    // delivering fileChanged for a file after the first notification unless the
+    // path is removed and re-added, so a further modification would otherwise go
+    // unreported (breaks ModificationAfterCoalesceWindowEmitsAgain on macOS CI).
+    m_watcher.removePath(path);
+    if (info.exists())
         m_watcher.addPath(path);
-    }
 }
