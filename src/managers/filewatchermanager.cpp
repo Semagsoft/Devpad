@@ -27,6 +27,8 @@ FileWatcherManager::FileWatcherManager(QObject* parent) : QObject(parent)
 {
     connect(&m_watcher, &QFileSystemWatcher::fileChanged, this, &FileWatcherManager::onFileChanged);
     connect(&m_watcher, &QFileSystemWatcher::directoryChanged, this, &FileWatcherManager::onDirectoryChanged);
+    connect(&m_pollTimer, &QTimer::timeout, this, &FileWatcherManager::pollModifications);
+    m_pollTimer.start(POLL_INTERVAL_MS);
 }
 
 void FileWatcherManager::watchFile(const QString& filePath)
@@ -105,6 +107,43 @@ bool FileWatcherManager::isWithinCoalesceWindow(const QString& filePath) const
     return last.msecsTo(QDateTime::currentDateTime()) < COALESCE_INTERVAL_MS;
 }
 
+void FileWatcherManager::pollModifications()
+{
+    // Fallback detector for external changes. QFileSystemWatcher on macOS stops
+    // delivering fileChanged for a path after the first notification and does not
+    // reliably re-notify after removePath()/addPath(), so we periodically re-stat
+    // watched files to make sure no modification goes unreported.
+    for (auto it = m_modificationTimes.begin(); it != m_modificationTimes.end(); ++it)
+    {
+        const QString& filePath = it.key();
+        QFileInfo info(filePath);
+        if (!info.exists())
+        {
+            continue;
+        }
+
+        QDateTime currentMod = info.lastModified();
+        QDateTime knownMod = it.value();
+        if (!knownMod.isValid() || currentMod <= knownMod)
+        {
+            continue;
+        }
+
+        it.value() = currentMod;
+
+        // Mirror the coalescing behavior of onFileChanged: a change inside the
+        // window refreshes the timestamp without re-emitting.
+        if (isWithinCoalesceWindow(filePath))
+        {
+            continue;
+        }
+
+        m_lastReported[filePath] = QDateTime::currentDateTime();
+        Logger::instance().info(QString("File modified externally: %1").arg(filePath));
+        emit fileModifiedExternally(filePath);
+    }
+}
+
 void FileWatcherManager::onFileChanged(const QString& path)
 {
     QFileInfo info(path);
@@ -137,20 +176,4 @@ void FileWatcherManager::onFileChanged(const QString& path)
             emit fileModifiedExternally(path);
         }
     }
-
-    // Re-arm the watcher for the next change. On macOS QFileSystemWatcher stops
-    // delivering fileChanged for a file after the first notification unless the
-    // path is removed and re-added, so a further modification would otherwise go
-    // unreported (breaks ModificationAfterCoalesceWindowEmitsAgain on macOS CI).
-    // Defer the re-arm to the next event-loop iteration: mutating
-    // QFileSystemWatcher while it is actively delivering fileChanged is not
-    // safe on macOS (Qt 6.8.3 in particular drops the re-add), so we let the
-    // current delivery finish first.
-    QTimer::singleShot(0, this,
-                       [this, path]()
-                       {
-                           m_watcher.removePath(path);
-                           if (QFileInfo(path).exists())
-                               m_watcher.addPath(path);
-                       });
 }
