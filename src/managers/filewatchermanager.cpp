@@ -21,6 +21,7 @@
 #include "logger.h"
 
 #include <QFileInfo>
+#include <QTimer>
 
 FileWatcherManager::FileWatcherManager(QObject* parent) : QObject(parent)
 {
@@ -141,7 +142,14 @@ void FileWatcherManager::onFileChanged(const QString& path)
     // delivering fileChanged for a file after the first notification unless the
     // path is removed and re-added, so a further modification would otherwise go
     // unreported (breaks ModificationAfterCoalesceWindowEmitsAgain on macOS CI).
-    m_watcher.removePath(path);
-    if (info.exists())
-        m_watcher.addPath(path);
+    // Defer the re-arm to the next event-loop iteration: mutating
+    // QFileSystemWatcher while it is actively delivering fileChanged is not
+    // safe on macOS (Qt 6.8.3 in particular drops the re-add), so we let the
+    // current delivery finish first.
+    QTimer::singleShot(0, this, [this, path]()
+    {
+        m_watcher.removePath(path);
+        if (QFileInfo(path).exists())
+            m_watcher.addPath(path);
+    });
 }
