@@ -146,10 +146,11 @@ void FileWatcherManager::onFileChanged(const QString& path)
     // QFileSystemWatcher while it is actively delivering fileChanged is not
     // safe on macOS (Qt 6.8.3 in particular drops the re-add), so we let the
     // current delivery finish first.
-    QTimer::singleShot(0, this, [this, path]()
-    {
-        m_watcher.removePath(path);
-        if (QFileInfo(path).exists())
-            m_watcher.addPath(path);
-    });
+    QTimer::singleShot(0, this,
+                       [this, path]()
+                       {
+                           m_watcher.removePath(path);
+                           if (QFileInfo(path).exists())
+                               m_watcher.addPath(path);
+                       });
 }
