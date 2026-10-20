@@ -323,10 +323,11 @@ void MainWindow::connectUpdateService()
                 UpdateDialog::showUpToDate(this, latestVersion);
             });
     connect(m_updateChecker, &UpdateChecker::checkFailed, this,
-            [this](const QString& error)
+            [this](const QString& friendlyMessage, const QString& details)
             {
                 statusBar()->clearMessage();
-                UpdateDialog::showCheckFailed(this, error);
+                if (UpdateDialog::showCheckFailed(this, friendlyMessage, details))
+                    checkForUpdates();
             });
 }
 

@@ -38,6 +38,7 @@ void UpdateChecker::checkForUpdates()
     QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/Semagsoft/Devpad/releases/latest")));
     request.setRawHeader("User-Agent", "Devpad/" + QCoreApplication::applicationVersion().toUtf8());
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setTransferTimeout(15000);
 
     QNetworkReply* reply = m_networkManager.get(request);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() { handleReply(reply); });
@@ -50,7 +51,7 @@ void UpdateChecker::handleReply(QNetworkReply* reply)
 
     if (reply->error() != QNetworkReply::NoError)
     {
-        emit checkFailed(reply->errorString());
+        emit checkFailed(friendlyFailureMessage(*reply), reply->errorString());
         return;
     }
 
@@ -60,7 +61,7 @@ void UpdateChecker::handleReply(QNetworkReply* reply)
     const QString releaseUrl = obj.value(QStringLiteral("html_url")).toString();
     if (tag.isEmpty() || releaseUrl.isEmpty())
     {
-        emit checkFailed(tr("The update server returned an invalid response."));
+        emit checkFailed(tr("The update server returned an invalid response."), QString());
         return;
     }
 
@@ -71,6 +72,36 @@ void UpdateChecker::handleReply(QNetworkReply* reply)
         emit upToDate(latest);
 }
 
+QString UpdateChecker::friendlyFailureMessage(const QNetworkReply& reply)
+{
+    const int status = reply.attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+    // A TLS initialization failure ("TLS initialization failed") surfaces as
+    // SslHandshakeFailedError. The most common cause in shipped packages is a
+    // broken OpenSSL bundle, where libssl/libcrypto resolve from different
+    // environments. Point the user at reinstalling rather than showing the
+    // raw Qt error string.
+    if (reply.error() == QNetworkReply::SslHandshakeFailedError)
+        return tr("A secure connection to the update server could not be established. "
+                  "This installation may be missing TLS support; "
+                  "please download Devpad again from the website.");
+
+    if (status == 403)
+        return tr("The update server refused the request (rate limit). Please try again later.");
+
+    switch (reply.error())
+    {
+    case QNetworkReply::ConnectionRefusedError:
+    case QNetworkReply::HostNotFoundError:
+    case QNetworkReply::TimeoutError:
+    case QNetworkReply::OperationCanceledError:
+    case QNetworkReply::UnknownNetworkError:
+        return tr("Could not reach the update server. Check your internet connection and try again.");
+    default:
+        return tr("The update check failed. Please try again later.");
+    }
+}
+
 int UpdateChecker::compareVersions(const QString& a, const QString& b)
 {
     const QStringList partsA = a.split(QLatin1Char('.'));
@@ -78,12 +109,23 @@ int UpdateChecker::compareVersions(const QString& a, const QString& b)
     const int count = qMax(partsA.size(), partsB.size());
     for (int i = 0; i < count; ++i)
     {
-        const int valueA = i < partsA.size() ? partsA[i].toInt() : 0;
-        const int valueB = i < partsB.size() ? partsB[i].toInt() : 0;
+        const int valueA = i < partsA.size() ? numericPrefix(partsA[i]) : 0;
+        const int valueB = i < partsB.size() ? numericPrefix(partsB[i]) : 0;
         if (valueA != valueB)
             return valueA < valueB ? -1 : 1;
     }
     return 0;
+}
+
+int UpdateChecker::numericPrefix(const QString& version)
+{
+    // Versions may carry non-numeric suffixes ("v1.06-beta", "1.2-rc1").
+    // Compare the leading integer run only; QString::toInt() would yield 0
+    // for the whole component and misclassify pre-releases.
+    int end = 0;
+    while (end < version.size() && version.at(end).isDigit())
+        ++end;
+    return end > 0 ? version.mid(0, end).toInt() : 0;
 }
 
 QString UpdateChecker::normalizeVersion(const QString& version)

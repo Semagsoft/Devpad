@@ -39,10 +39,13 @@ public:
 
     static void showUpToDate(QWidget* parent, const QString& latestVersion);
     static void showUpdateAvailable(QWidget* parent, const QString& latestVersion, const QString& releaseUrl);
-    static void showCheckFailed(QWidget* parent, const QString& error);
+
+    // Shows the failure view and returns true if the user chose to retry the
+    // check (the caller should then re-run the check after the dialog closes).
+    static bool showCheckFailed(QWidget* parent, const QString& friendlyMessage, const QString& details);
 
 private:
-    UpdateDialog(Mode mode, const QString& version, const QString& releaseUrl, QWidget* parent = nullptr);
+    UpdateDialog(Mode mode, const QString& version, const QString& releaseUrl, const QString& details, QWidget* parent = nullptr);
 
     void setupUi();
     void downloadUpdate();
@@ -50,6 +53,8 @@ private:
     Mode m_mode;
     QString m_version;
     QString m_releaseUrl;
+    QString m_details;
+    bool m_retryRequested;
 };
 
 #endif // UPDATEDIALOG_H
