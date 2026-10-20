@@ -40,10 +40,12 @@ public:
 signals:
     void updateAvailable(const QString& latestVersion, const QString& releaseUrl);
     void upToDate(const QString& latestVersion);
-    void checkFailed(const QString& error);
+    void checkFailed(const QString& friendlyMessage, const QString& details);
 
 private:
     void handleReply(QNetworkReply* reply);
+    static QString friendlyFailureMessage(const QNetworkReply& reply);
+    static int numericPrefix(const QString& version);
 
     QNetworkAccessManager m_networkManager;
     bool m_checkInProgress = false;

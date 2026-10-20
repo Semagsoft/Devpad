@@ -32,8 +32,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
-UpdateDialog::UpdateDialog(Mode mode, const QString& version, const QString& releaseUrl, QWidget* parent)
-    : QDialog(parent), m_mode(mode), m_version(version), m_releaseUrl(releaseUrl)
+UpdateDialog::UpdateDialog(Mode mode, const QString& version, const QString& releaseUrl, const QString& details, QWidget* parent)
+    : QDialog(parent), m_mode(mode), m_version(version), m_releaseUrl(releaseUrl), m_details(details), m_retryRequested(false)
 {
     setModal(true);
     setMinimumWidth(420);
@@ -42,20 +42,21 @@ UpdateDialog::UpdateDialog(Mode mode, const QString& version, const QString& rel
 
 void UpdateDialog::showUpToDate(QWidget* parent, const QString& latestVersion)
 {
-    UpdateDialog dialog(Mode::UpToDate, latestVersion, QString(), parent);
+    UpdateDialog dialog(Mode::UpToDate, latestVersion, QString(), QString(), parent);
     dialog.exec();
 }
 
 void UpdateDialog::showUpdateAvailable(QWidget* parent, const QString& latestVersion, const QString& releaseUrl)
 {
-    UpdateDialog dialog(Mode::UpdateAvailable, latestVersion, releaseUrl, parent);
+    UpdateDialog dialog(Mode::UpdateAvailable, latestVersion, releaseUrl, QString(), parent);
     dialog.exec();
 }
 
-void UpdateDialog::showCheckFailed(QWidget* parent, const QString& error)
+bool UpdateDialog::showCheckFailed(QWidget* parent, const QString& friendlyMessage, const QString& details)
 {
-    UpdateDialog dialog(Mode::CheckFailed, error, QString(), parent);
+    UpdateDialog dialog(Mode::CheckFailed, friendlyMessage, details, QString(), parent);
     dialog.exec();
+    return dialog.m_retryRequested;
 }
 
 void UpdateDialog::setupUi()
@@ -113,6 +114,22 @@ void UpdateDialog::setupUi()
         break;
     }
 
+    if (m_mode == Mode::CheckFailed && !m_details.isEmpty())
+    {
+        QLabel* detailsLabel = new QLabel(this);
+        detailsLabel->setWordWrap(true);
+        detailsLabel->setTextFormat(Qt::PlainText);
+        detailsLabel->setText(m_details);
+        detailsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse); // lets users copy the raw error text
+        QFont detailsFont = detailsLabel->font();
+        detailsFont.setPointSize(detailsFont.pointSize() - 1);
+        detailsLabel->setFont(detailsFont);
+        QPalette detailsPalette = detailsLabel->palette();
+        detailsPalette.setColor(QPalette::WindowText, detailsPalette.color(QPalette::Disabled, QPalette::WindowText));
+        detailsLabel->setPalette(detailsPalette);
+        textLayout->addWidget(detailsLabel);
+    }
+
     textLayout->addWidget(titleLabel);
     textLayout->addSpacing(8);
     textLayout->addWidget(messageLabel);
@@ -130,6 +147,19 @@ void UpdateDialog::setupUi()
         QPushButton* downloadButton = new QPushButton(tr("Download"), this);
         connect(downloadButton, &QPushButton::clicked, this, &UpdateDialog::downloadUpdate);
         buttonLayout->addWidget(downloadButton);
+    }
+
+    if (m_mode == Mode::CheckFailed)
+    {
+        QPushButton* retryButton = new QPushButton(tr("Retry"), this);
+        connect(retryButton, &QPushButton::clicked, this,
+                [this]()
+                {
+                    m_retryRequested = true;
+                    accept();
+                });
+        retryButton->setDefault(true);
+        buttonLayout->addWidget(retryButton);
     }
 
     QPushButton* closeButton = new QPushButton(tr("Close"), this);

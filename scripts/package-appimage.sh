@@ -56,6 +56,20 @@ export APPIMAGE_EXTRACT_AND_RUN=1
 # Strip errors are non-fatal (bundled strip too old for modern ELF); ignore exit code
 "$LINUXDEPLOY" --appdir "${APPDIR}" || true
 
+# Qt loads OpenSSL at runtime via dlopen, which linuxdeploy's ldd-based
+# closure cannot see: it bundles libcrypto (dragged in by libssh/libsasl2)
+# while libssl is missing. A half pair makes the loader reject the host's
+# libssl and every HTTPS request fails with "TLS initialization failed".
+# Remove any bundled OpenSSL -- the host always provides a consistent pair.
+rm -f "${APPDIR}/usr/lib/libcrypto.so"* "${APPDIR}/usr/lib/libssl.so"* 2>/dev/null || true
+
+# Also drop glibc core libs in case anything copied them into usr/lib:
+# pairing the runner's glibc with the user's loader corrupts the process
+# (GLIBC_PRIVATE symbol errors / crashes).
+find "${APPDIR}/usr/lib" -maxdepth 1 \
+    \( -name 'libc.so.*' -o -name 'libm.so.*' -o -name 'libpthread.so*' \
+       -o -name 'libdl.so*' -o -name 'ld-linux*' \) -delete 2>/dev/null || true
+
 # ─── Step 4: Bundle Qt plugins ─────────────────────────────────
 info "Copying Qt plugins..."
 
@@ -79,13 +93,31 @@ for cat in "${ESSENTIAL_PLUGIN_CATEGORIES[@]}"; do
     fi
 done
 
-# Copy extra shared libs needed by Qt plugins
+# Copy extra shared libs needed by Qt plugins. Skip system libraries that
+# must never be bundled (see package-linux.sh for the full rationale): the
+# runner's glibc corrupts the host's process, and an OpenSSL half-pair
+# breaks HTTPS with "TLS initialization failed".
+NON_BUNDLE_LIB_PREFIXES=(
+    libc.so. libm.so. libpthread.so. libdl.so. librt.so. libresolv.so.
+    libutil.so. libnsl.so. libnss ld-linux libcrypto.so. libssl.so.
+)
+
+plugin_lib_path() {
+    local path="$1" prefix
+    local name; name=$(basename "$(readlink -f "$path")")
+    for prefix in "${NON_BUNDLE_LIB_PREFIXES[@]}"; do
+        [[ "$name" == "$prefix"* ]] && return 1
+    done
+    return 0
+}
+
 for f in $(find "${qt_plugin_dest}" -name '*.so' -type f 2>/dev/null); do
     while IFS= read -r line; do
         [[ "$line" != *"=> "* ]] && continue
         path=$(echo "$line" | awk '{print $3}')
         [ -z "$path" ] && continue
         [ -f "$path" ] || continue
+        plugin_lib_path "$path" || continue
         cp -nL "$path" "${APPDIR}/usr/lib/" 2>/dev/null || true
     done < <(ldd "$f" 2>/dev/null || true)
 done
@@ -110,6 +142,19 @@ cp "${APPDIR}/usr/share/applications/com.semagsoft.Devpad.desktop" \
    "${APPDIR}/"
 cp "${APPDIR}/usr/share/icons/hicolor/scalable/apps/com.semagsoft.Devpad.svg" \
    "${APPDIR}/com.semagsoft.Devpad.svg"
+
+# ─── Step 5.5: Verify bundle hygiene ───────────────────────────
+BROKEN_LIBS=$(find "${APPDIR}/usr/lib" -maxdepth 1 \
+    \( -name 'libc.so.*' -o -name 'libm.so.*' -o -name 'libpthread.so*' \
+       -o -name 'libdl.so*' -o -name 'ld-linux*' -o -name 'libcrypto.so*' \
+       -o -name 'libssl.so*' \) -print -quit 2>/dev/null)
+if [ -n "$BROKEN_LIBS" ]; then
+    err "AppImage contains system libraries that must not be shipped (first hit: $BROKEN_LIBS).
+
+Bundling glibc pairs the runner's libc with the user's dynamic loader (GLIBC_PRIVATE
+crashes), and bundling libcrypto without libssl (which Qt dlopens at runtime) breaks
+HTTPS with 'TLS initialization failed'."
+fi
 
 # ─── Step 6: Generate AppImage with appimagetool ────────────────
 APIMAGETOOL="${CACHE_DIR}/appimagetool-${ARCH}.AppImage"

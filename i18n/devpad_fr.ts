@@ -4,40 +4,40 @@
 <context>
     <name>AboutDialog</name>
     <message>
-        <location filename="../src/dialogs/aboutdialog.cpp" line="40"/>
+        <location filename="../src/dialogs/aboutdialog.cpp" line="41"/>
         <source>About Devpad</source>
         <translation>À propos de Devpad</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/aboutdialog.cpp" line="83"/>
+        <location filename="../src/dialogs/aboutdialog.cpp" line="92"/>
         <source>Version %1</source>
         <translation>Version %1</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/aboutdialog.cpp" line="87"/>
+        <location filename="../src/dialogs/aboutdialog.cpp" line="96"/>
         <source>Copyright 2008-%1 
  An open source, cross-platform code editor</source>
         <translation>Copyright 2008-%1 
  Un éditeur de code open source et multiplateforme</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/aboutdialog.cpp" line="93"/>
-        <location filename="../src/dialogs/aboutdialog.cpp" line="202"/>
+        <location filename="../src/dialogs/aboutdialog.cpp" line="102"/>
+        <location filename="../src/dialogs/aboutdialog.cpp" line="211"/>
         <source>Show License</source>
         <translation>Afficher la licence</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/aboutdialog.cpp" line="129"/>
+        <location filename="../src/dialogs/aboutdialog.cpp" line="138"/>
         <source>Close</source>
         <translation>Fermer</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/aboutdialog.cpp" line="202"/>
+        <location filename="../src/dialogs/aboutdialog.cpp" line="211"/>
         <source>Hide License</source>
         <translation>Masquer la licence</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/aboutdialog.cpp" line="128"/>
+        <location filename="../src/dialogs/aboutdialog.cpp" line="137"/>
         <source>Visit Website</source>
         <translation>Visiter le site web</translation>
     </message>
@@ -411,12 +411,12 @@
         <translation>Principal</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="876"/>
+        <location filename="../src/managers/actionmanager.cpp" line="878"/>
         <source>Line: 1, Col: 1</source>
         <translation>Ligne : 1, Col : 1</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="881"/>
+        <location filename="../src/managers/actionmanager.cpp" line="883"/>
         <source>Plain Text</source>
         <translation>Texte brut</translation>
     </message>
@@ -424,97 +424,97 @@
 <context>
     <name>CodeEditor</name>
     <message>
-        <location filename="../src/codeeditor.cpp" line="887"/>
+        <location filename="../src/codeeditor.cpp" line="889"/>
         <source>Undo</source>
         <translation>Annuler</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="891"/>
+        <location filename="../src/codeeditor.cpp" line="893"/>
         <source>Redo</source>
         <translation>Rétablir</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="897"/>
+        <location filename="../src/codeeditor.cpp" line="899"/>
         <source>Cut</source>
         <translation>Couper</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="901"/>
+        <location filename="../src/codeeditor.cpp" line="903"/>
         <source>Copy</source>
         <translation>Copier</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="905"/>
+        <location filename="../src/codeeditor.cpp" line="907"/>
         <source>Paste</source>
         <translation>Coller</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="909"/>
+        <location filename="../src/codeeditor.cpp" line="911"/>
         <source>Delete</source>
         <translation>Supprimer</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="915"/>
+        <location filename="../src/codeeditor.cpp" line="917"/>
         <source>Select All</source>
         <translation>Tout sélectionner</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="920"/>
+        <location filename="../src/codeeditor.cpp" line="922"/>
         <source>Find...</source>
         <translation>Rechercher…</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="923"/>
+        <location filename="../src/codeeditor.cpp" line="925"/>
         <source>Replace...</source>
         <translation>Remplacer…</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="926"/>
+        <location filename="../src/codeeditor.cpp" line="928"/>
         <source>Go To Line...</source>
         <translation>Aller à la ligne…</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="931"/>
+        <location filename="../src/codeeditor.cpp" line="933"/>
         <source>Bookmarks</source>
         <translation>Signets</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="933"/>
+        <location filename="../src/codeeditor.cpp" line="935"/>
         <source>Toggle Bookmark</source>
         <translation>Basculer le signet</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="937"/>
+        <location filename="../src/codeeditor.cpp" line="939"/>
         <source>Next Bookmark</source>
         <translation>Signet suivant</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="940"/>
+        <location filename="../src/codeeditor.cpp" line="942"/>
         <source>Previous Bookmark</source>
         <translation>Signet précédent</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="945"/>
+        <location filename="../src/codeeditor.cpp" line="947"/>
         <source>Clear All Bookmarks</source>
         <translation>Effacer tous les signets</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="950"/>
+        <location filename="../src/codeeditor.cpp" line="952"/>
         <source>Insert Snippet...</source>
         <translation>Insérer un snippet…</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="956"/>
+        <location filename="../src/codeeditor.cpp" line="958"/>
         <source>Toggle Comment</source>
         <translation>Basculer le commentaire</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="1150"/>
+        <location filename="../src/codeeditor.cpp" line="1152"/>
         <source>Rename Symbol</source>
         <translation>Renommer le symbole</translation>
     </message>
     <message>
-        <location filename="../src/codeeditor.cpp" line="1150"/>
+        <location filename="../src/codeeditor.cpp" line="1152"/>
         <source>New name:</source>
         <translation>Nouveau nom :</translation>
     </message>
@@ -1210,13 +1210,13 @@ Voulez-vous la restaurer ?</translation>
         <translation>Fermer (Échap)</translation>
     </message>
     <message>
-        <location filename="../src/widgets/inlinefindbar.cpp" line="390"/>
-        <location filename="../src/widgets/inlinefindbar.cpp" line="425"/>
+        <location filename="../src/widgets/inlinefindbar.cpp" line="392"/>
+        <location filename="../src/widgets/inlinefindbar.cpp" line="427"/>
         <source>0/0</source>
         <translation>0/0</translation>
     </message>
     <message>
-        <location filename="../src/widgets/inlinefindbar.cpp" line="446"/>
+        <location filename="../src/widgets/inlinefindbar.cpp" line="448"/>
         <source>%1/%2</source>
         <translation>%1/%2</translation>
     </message>
@@ -1241,165 +1241,165 @@ Voulez-vous la restaurer ?</translation>
         <translation>Téléchargement… %1%</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="642"/>
+        <location filename="../src/mainwindow.cpp" line="643"/>
         <source>Open File</source>
         <translation>Ouvrir un fichier</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="660"/>
+        <location filename="../src/mainwindow.cpp" line="661"/>
         <source>Remote</source>
         <translation>Distant</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="689"/>
+        <location filename="../src/mainwindow.cpp" line="690"/>
         <source>Open Remote</source>
         <translation>Ouvrir un fichier distant</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="689"/>
+        <location filename="../src/mainwindow.cpp" line="690"/>
         <source>Enter remote file URL
 (HTTP/HTTPS or SSH):</source>
         <translation>Entrez l&apos;URL du fichier distant
 (HTTP/HTTPS ou SSH) :</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="705"/>
+        <location filename="../src/mainwindow.cpp" line="706"/>
         <source>Invalid URL</source>
         <translation>URL invalide</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="705"/>
+        <location filename="../src/mainwindow.cpp" line="706"/>
         <source>The URL &quot;%1&quot; is not valid.</source>
         <translation>L&apos;URL « %1 » n&apos;est pas valide.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="719"/>
+        <location filename="../src/mainwindow.cpp" line="720"/>
         <source>Open Folder</source>
         <translation>Ouvrir un dossier</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="779"/>
-        <location filename="../src/mainwindow.cpp" line="1106"/>
+        <location filename="../src/mainwindow.cpp" line="780"/>
+        <location filename="../src/mainwindow.cpp" line="1107"/>
         <source>Error</source>
         <translation>Erreur</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="779"/>
+        <location filename="../src/mainwindow.cpp" line="780"/>
         <source>Cannot open file: </source>
         <translation>Impossible d&apos;ouvrir le fichier : </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="825"/>
+        <location filename="../src/mainwindow.cpp" line="826"/>
         <source>Go To Line</source>
         <translation>Aller à la ligne</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="825"/>
+        <location filename="../src/mainwindow.cpp" line="826"/>
         <source>Line number:</source>
         <translation>Numéro de ligne :</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1022"/>
+        <location filename="../src/mainwindow.cpp" line="1023"/>
         <source>Line: %1, Col: %2</source>
         <translation>Ligne : %1, Col : %2</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1034"/>
+        <location filename="../src/mainwindow.cpp" line="1035"/>
         <source>Plain Text</source>
         <translation>Texte brut</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1039"/>
+        <location filename="../src/mainwindow.cpp" line="1040"/>
         <source>C++</source>
         <translation>C++</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1039"/>
+        <location filename="../src/mainwindow.cpp" line="1040"/>
         <source>C</source>
         <translation>C</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1039"/>
+        <location filename="../src/mainwindow.cpp" line="1040"/>
         <source>C#</source>
         <translation>C#</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1040"/>
+        <location filename="../src/mainwindow.cpp" line="1041"/>
         <source>Java</source>
         <translation>Java</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1040"/>
+        <location filename="../src/mainwindow.cpp" line="1041"/>
         <source>Python</source>
         <translation>Python</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1040"/>
+        <location filename="../src/mainwindow.cpp" line="1041"/>
         <source>JavaScript</source>
         <translation>JavaScript</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1041"/>
+        <location filename="../src/mainwindow.cpp" line="1042"/>
         <source>HTML</source>
         <translation>HTML</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1041"/>
+        <location filename="../src/mainwindow.cpp" line="1042"/>
         <source>CSS</source>
         <translation>CSS</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1041"/>
+        <location filename="../src/mainwindow.cpp" line="1042"/>
         <source>XML</source>
         <translation>XML</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1042"/>
+        <location filename="../src/mainwindow.cpp" line="1043"/>
         <source>SQL</source>
         <translation>SQL</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1042"/>
+        <location filename="../src/mainwindow.cpp" line="1043"/>
         <source>Shell</source>
         <translation>Shell</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1042"/>
+        <location filename="../src/mainwindow.cpp" line="1043"/>
         <source>CMake</source>
         <translation>CMake</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1043"/>
+        <location filename="../src/mainwindow.cpp" line="1044"/>
         <source>QML</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1043"/>
+        <location filename="../src/mainwindow.cpp" line="1044"/>
         <source>Lua</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1050"/>
+        <location filename="../src/mainwindow.cpp" line="1051"/>
         <source> | Read Only</source>
         <translation> | Lecture seule</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1084"/>
+        <location filename="../src/mainwindow.cpp" line="1085"/>
         <source>&amp;%1 %2</source>
         <translation>&amp;%1 %2</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1106"/>
+        <location filename="../src/mainwindow.cpp" line="1107"/>
         <source>Cannot revert an unsaved file.</source>
         <translation>Impossible de restaurer un fichier non enregistré.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1113"/>
+        <location filename="../src/mainwindow.cpp" line="1114"/>
         <source>Revert</source>
         <translation>Restaurer</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1113"/>
+        <location filename="../src/mainwindow.cpp" line="1114"/>
         <source>The file has unsaved changes.
 
 Do you want to discard them and reload from disk?</source>
@@ -1408,12 +1408,12 @@ Do you want to discard them and reload from disk?</source>
 Voulez-vous les annuler et recharger depuis le disque ?</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1500"/>
+        <location filename="../src/mainwindow.cpp" line="1501"/>
         <source>Checking for updates...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1620"/>
+        <location filename="../src/mainwindow.cpp" line="1636"/>
         <source>The file &quot;%1&quot; has been modified outside of Devpad.
 
 Your version has unsaved changes.
@@ -1426,7 +1426,7 @@ Votre version contient des modifications non enregistrées.
 Voulez-vous recharger le fichier ? (Les modifications non enregistrées seront perdues)</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1626"/>
+        <location filename="../src/mainwindow.cpp" line="1642"/>
         <source>The file &quot;%1&quot; has been modified outside of Devpad.
 
 Do you want to reload the file?</source>
@@ -1435,7 +1435,7 @@ Do you want to reload the file?</source>
 Voulez-vous recharger le fichier ?</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1631"/>
+        <location filename="../src/mainwindow.cpp" line="1647"/>
         <source>File Modified</source>
         <translation>Fichier modifié</translation>
     </message>
@@ -1971,184 +1971,184 @@ Voulez-vous recharger le fichier ?</translation>
 <context>
     <name>ProjectPanel</name>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="274"/>
+        <location filename="../src/panels/projectpanel.cpp" line="269"/>
         <source>Project</source>
         <translation>Projet</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="297"/>
-        <location filename="../src/panels/projectpanel.cpp" line="381"/>
+        <location filename="../src/panels/projectpanel.cpp" line="292"/>
+        <location filename="../src/panels/projectpanel.cpp" line="376"/>
         <source>No folder opened</source>
         <translation>Aucun dossier ouvert</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="313"/>
+        <location filename="../src/panels/projectpanel.cpp" line="308"/>
         <source>Filter files...</source>
         <translation>Filtrer les fichiers…</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="470"/>
+        <location filename="../src/panels/projectpanel.cpp" line="465"/>
         <source>(No recent folders)</source>
         <translation>(Aucun dossier récent)</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="479"/>
+        <location filename="../src/panels/projectpanel.cpp" line="474"/>
         <source>&amp;%1 %2</source>
         <translation>&amp;%1 %2</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="488"/>
+        <location filename="../src/panels/projectpanel.cpp" line="483"/>
         <source>Clear Recent Folders</source>
         <translation>Effacer les dossiers récents</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="544"/>
-        <location filename="../src/panels/projectpanel.cpp" line="593"/>
-        <location filename="../src/panels/projectpanel.cpp" line="642"/>
-        <location filename="../src/panels/projectpanel.cpp" line="649"/>
+        <location filename="../src/panels/projectpanel.cpp" line="539"/>
+        <location filename="../src/panels/projectpanel.cpp" line="588"/>
+        <location filename="../src/panels/projectpanel.cpp" line="637"/>
+        <location filename="../src/panels/projectpanel.cpp" line="644"/>
+        <location filename="../src/panels/projectpanel.cpp" line="651"/>
         <location filename="../src/panels/projectpanel.cpp" line="656"/>
-        <location filename="../src/panels/projectpanel.cpp" line="661"/>
         <source>New File</source>
         <translation>Nouveau fichier</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="547"/>
-        <location filename="../src/panels/projectpanel.cpp" line="596"/>
-        <location filename="../src/panels/projectpanel.cpp" line="670"/>
-        <location filename="../src/panels/projectpanel.cpp" line="677"/>
-        <location filename="../src/panels/projectpanel.cpp" line="684"/>
+        <location filename="../src/panels/projectpanel.cpp" line="542"/>
+        <location filename="../src/panels/projectpanel.cpp" line="591"/>
+        <location filename="../src/panels/projectpanel.cpp" line="665"/>
+        <location filename="../src/panels/projectpanel.cpp" line="672"/>
+        <location filename="../src/panels/projectpanel.cpp" line="679"/>
         <source>New Folder</source>
         <translation>Nouveau dossier</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="552"/>
-        <location filename="../src/panels/projectpanel.cpp" line="576"/>
-        <location filename="../src/panels/projectpanel.cpp" line="693"/>
+        <location filename="../src/panels/projectpanel.cpp" line="547"/>
+        <location filename="../src/panels/projectpanel.cpp" line="571"/>
+        <location filename="../src/panels/projectpanel.cpp" line="688"/>
+        <location filename="../src/panels/projectpanel.cpp" line="695"/>
         <location filename="../src/panels/projectpanel.cpp" line="700"/>
-        <location filename="../src/panels/projectpanel.cpp" line="705"/>
-        <location filename="../src/panels/projectpanel.cpp" line="711"/>
+        <location filename="../src/panels/projectpanel.cpp" line="706"/>
         <source>Rename</source>
         <translation>Renommer</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="555"/>
-        <location filename="../src/panels/projectpanel.cpp" line="579"/>
-        <location filename="../src/panels/projectpanel.cpp" line="720"/>
-        <location filename="../src/panels/projectpanel.cpp" line="726"/>
-        <location filename="../src/panels/projectpanel.cpp" line="732"/>
+        <location filename="../src/panels/projectpanel.cpp" line="550"/>
+        <location filename="../src/panels/projectpanel.cpp" line="574"/>
+        <location filename="../src/panels/projectpanel.cpp" line="715"/>
+        <location filename="../src/panels/projectpanel.cpp" line="721"/>
+        <location filename="../src/panels/projectpanel.cpp" line="727"/>
         <source>Delete</source>
         <translation>Supprimer</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="560"/>
-        <location filename="../src/panels/projectpanel.cpp" line="584"/>
+        <location filename="../src/panels/projectpanel.cpp" line="555"/>
+        <location filename="../src/panels/projectpanel.cpp" line="579"/>
         <source>Copy Path</source>
         <translation>Copier le chemin</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="563"/>
-        <location filename="../src/panels/projectpanel.cpp" line="587"/>
-        <location filename="../src/panels/projectpanel.cpp" line="604"/>
+        <location filename="../src/panels/projectpanel.cpp" line="558"/>
+        <location filename="../src/panels/projectpanel.cpp" line="582"/>
+        <location filename="../src/panels/projectpanel.cpp" line="599"/>
         <source>Show in File Manager</source>
         <translation>Afficher dans le gestionnaire de fichiers</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="566"/>
-        <location filename="../src/panels/projectpanel.cpp" line="607"/>
-        <location filename="../src/panels/projectpanel.cpp" line="770"/>
+        <location filename="../src/panels/projectpanel.cpp" line="561"/>
+        <location filename="../src/panels/projectpanel.cpp" line="602"/>
+        <location filename="../src/panels/projectpanel.cpp" line="765"/>
         <source>Open in Terminal</source>
         <translation>Ouvrir dans le terminal</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="571"/>
+        <location filename="../src/panels/projectpanel.cpp" line="566"/>
         <source>Open</source>
         <translation>Ouvrir</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="601"/>
+        <location filename="../src/panels/projectpanel.cpp" line="596"/>
         <source>Copy Root Path</source>
         <translation>Copier le chemin racine</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="614"/>
+        <location filename="../src/panels/projectpanel.cpp" line="609"/>
         <source>Hide Hidden Files and Folders</source>
         <translation>Masquer les fichiers et dossiers cachés</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="614"/>
+        <location filename="../src/panels/projectpanel.cpp" line="609"/>
         <source>Show Hidden Files and Folders</source>
         <translation>Afficher les fichiers et dossiers cachés</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="624"/>
+        <location filename="../src/panels/projectpanel.cpp" line="619"/>
         <source>Disable .gitignore Filtering</source>
         <translation>Désactiver le filtrage .gitignore</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="624"/>
+        <location filename="../src/panels/projectpanel.cpp" line="619"/>
         <source>Enable .gitignore Filtering</source>
         <translation>Activer le filtrage .gitignore</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="642"/>
+        <location filename="../src/panels/projectpanel.cpp" line="637"/>
         <source>File name:</source>
         <translation>Nom du fichier :</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="649"/>
-        <location filename="../src/panels/projectpanel.cpp" line="677"/>
-        <location filename="../src/panels/projectpanel.cpp" line="700"/>
-        <location filename="../src/panels/projectpanel.cpp" line="720"/>
+        <location filename="../src/panels/projectpanel.cpp" line="644"/>
+        <location filename="../src/panels/projectpanel.cpp" line="672"/>
+        <location filename="../src/panels/projectpanel.cpp" line="695"/>
+        <location filename="../src/panels/projectpanel.cpp" line="715"/>
         <source>Invalid path.</source>
         <translation>Chemin invalide.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="656"/>
+        <location filename="../src/panels/projectpanel.cpp" line="651"/>
         <source>File already exists.</source>
         <translation>Le fichier existe déjà.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="661"/>
+        <location filename="../src/panels/projectpanel.cpp" line="656"/>
         <source>Failed to create file.</source>
         <translation>Échec de la création du fichier.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="670"/>
+        <location filename="../src/panels/projectpanel.cpp" line="665"/>
         <source>Folder name:</source>
         <translation>Nom du dossier :</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="684"/>
+        <location filename="../src/panels/projectpanel.cpp" line="679"/>
         <source>Failed to create folder.</source>
         <translation>Échec de la création du dossier.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="693"/>
+        <location filename="../src/panels/projectpanel.cpp" line="688"/>
         <source>New name:</source>
         <translation>Nouveau nom :</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="705"/>
+        <location filename="../src/panels/projectpanel.cpp" line="700"/>
         <source>A file or folder with that name already exists.</source>
         <translation>Un fichier ou dossier portant ce nom existe déjà.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="711"/>
+        <location filename="../src/panels/projectpanel.cpp" line="706"/>
         <source>Failed to rename.</source>
         <translation>Échec du renommage.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="726"/>
+        <location filename="../src/panels/projectpanel.cpp" line="721"/>
         <source>Are you sure you want to move &quot;%1&quot; to the trash?</source>
         <translation>Voulez-vous vraiment déplacer « %1 » vers la corbeille ?</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="732"/>
+        <location filename="../src/panels/projectpanel.cpp" line="727"/>
         <source>Failed to move to trash.</source>
         <translation>Échec du déplacement vers la corbeille.</translation>
     </message>
     <message>
-        <location filename="../src/panels/projectpanel.cpp" line="770"/>
+        <location filename="../src/panels/projectpanel.cpp" line="765"/>
         <source>No terminal emulator found.</source>
         <translation>Aucun émulateur de terminal trouvé.</translation>
     </message>
@@ -2166,88 +2166,88 @@ Voulez-vous recharger le fichier ?</translation>
         <translation>Tous les fichiers (*.*);;Fichiers C/C++ (*.c *.cpp *.h *.hpp);;Fichiers Python (*.py *.pyw);;Fichiers JavaScript (*.js *.mjs *.cjs);;Fichiers HTML (*.html *.htm);;Fichiers CSS (*.css);;Fichiers XML (*.xml);;Fichiers Java (*.java);;Fichiers C# (*.cs);;Fichiers SQL (*.sql);;Fichiers texte (*.txt)</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="968"/>
-        <location filename="../src/theme.cpp" line="1004"/>
+        <location filename="../src/theme.cpp" line="1185"/>
+        <location filename="../src/theme.cpp" line="1221"/>
         <source>Light</source>
         <translation>Clair</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="970"/>
+        <location filename="../src/theme.cpp" line="1187"/>
         <source>Dark</source>
         <translation>Sombre</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="972"/>
+        <location filename="../src/theme.cpp" line="1189"/>
         <source>System</source>
         <translation>Système</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="974"/>
+        <location filename="../src/theme.cpp" line="1191"/>
         <source>Nord</source>
         <translation>Nord</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="976"/>
+        <location filename="../src/theme.cpp" line="1193"/>
         <source>Solarized Light</source>
         <translation>Solarized Clair</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="978"/>
+        <location filename="../src/theme.cpp" line="1195"/>
         <source>Monokai</source>
         <translation>Monokai</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="980"/>
+        <location filename="../src/theme.cpp" line="1197"/>
         <source>Gruvbox Dark</source>
         <translation>Gruvbox Sombre</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="982"/>
+        <location filename="../src/theme.cpp" line="1199"/>
         <source>Catppuccin Mocha</source>
         <translation>Catppuccin Mocha</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="984"/>
+        <location filename="../src/theme.cpp" line="1201"/>
         <source>Catppuccin Macchiato</source>
         <translation>Catppuccin Macchiato</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="986"/>
+        <location filename="../src/theme.cpp" line="1203"/>
         <source>Catppuccin Frappé</source>
         <translation>Catppuccin Frappé</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="988"/>
+        <location filename="../src/theme.cpp" line="1205"/>
         <source>Catppuccin Latte</source>
         <translation>Catppuccin Latte</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="990"/>
+        <location filename="../src/theme.cpp" line="1207"/>
         <source>Tokyo Night</source>
         <translation>Tokyo Night</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="992"/>
+        <location filename="../src/theme.cpp" line="1209"/>
         <source>Tokyo Night Storm</source>
         <translation>Tokyo Night Storm</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="994"/>
+        <location filename="../src/theme.cpp" line="1211"/>
         <source>Dracula</source>
         <translation>Dracula</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="996"/>
+        <location filename="../src/theme.cpp" line="1213"/>
         <source>One Dark</source>
         <translation>One Dark</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="998"/>
+        <location filename="../src/theme.cpp" line="1215"/>
         <source>Ayu Light</source>
         <translation>Ayu Clair</translation>
     </message>
     <message>
-        <location filename="../src/theme.cpp" line="1000"/>
+        <location filename="../src/theme.cpp" line="1217"/>
         <source>Ayu Dark</source>
         <translation>Ayu Sombre</translation>
     </message>
@@ -2273,54 +2273,54 @@ Voulez-vous recharger le fichier ?</translation>
         <translation>L&apos;URL « %1 » n&apos;est pas valide.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="70"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="66"/>
         <source>Downloading %1...</source>
         <translation>Téléchargement de %1…</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="152"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="97"/>
+        <source>Remote file too large (%1 bytes, limit %2 MB)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/managers/remotefileservice.cpp" line="149"/>
         <source>Downloading %1 via SSH...</source>
         <translation>Téléchargement de %1 via SSH…</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="127"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="124"/>
         <source>SSH URL must include host and path.
 Example: ssh://user@host/path/to/file</source>
         <translation>L&apos;URL SSH doit inclure l&apos;hôte et le chemin.
 Exemple : ssh://utilisateur@hôte/chemin/vers/fichier</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="100"/>
-        <source>Remote file too large (%1 bytes, limit %2 MB).</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="136"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="133"/>
         <source>SSH URL contains invalid characters.</source>
         <translation>L&apos;URL SSH contient des caractères non valides.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="143"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="140"/>
         <source>Invalid SSH URL: host, user, or path starts with &apos;-&apos;.</source>
         <translation>URL SSH invalide : l&apos;hôte, l&apos;utilisateur ou le chemin commence par &apos;-&apos;.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="184"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="181"/>
         <source>Failed to create temp file.</source>
         <translation>Échec de la création du fichier temporaire.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="208"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="205"/>
         <source>Unknown error</source>
         <translation>Erreur inconnue</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="223"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="220"/>
         <source>Failed to read downloaded file.</source>
         <translation>Échec de la lecture du fichier téléchargé.</translation>
     </message>
     <message>
-        <location filename="../src/managers/remotefileservice.cpp" line="239"/>
+        <location filename="../src/managers/remotefileservice.cpp" line="236"/>
         <source>Failed to start SCP process.</source>
         <translation>Échec du démarrage du processus SCP.</translation>
     </message>
@@ -2474,62 +2474,87 @@ Exemple : ssh://utilisateur@hôte/chemin/vers/fichier</translation>
 <context>
     <name>UpdateChecker</name>
     <message>
-        <location filename="../src/managers/updatechecker.cpp" line="63"/>
+        <location filename="../src/managers/updatechecker.cpp" line="64"/>
         <source>The update server returned an invalid response.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/managers/updatechecker.cpp" line="85"/>
+        <source>A secure connection to the update server could not be established. This installation may be missing TLS support; please download Devpad again from the website.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/managers/updatechecker.cpp" line="90"/>
+        <source>The update server refused the request (rate limit). Please try again later.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/managers/updatechecker.cpp" line="99"/>
+        <source>Could not reach the update server. Check your internet connection and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/managers/updatechecker.cpp" line="101"/>
+        <source>The update check failed. Please try again later.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>UpdateDialog</name>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="63"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="64"/>
         <source>Check for Updates</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="101"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="102"/>
         <source>You&apos;re up to date</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="102"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="103"/>
         <source>Devpad %1 is the latest version.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="105"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="106"/>
         <source>Update Available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="106"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="107"/>
         <source>A new version of Devpad is available (%1).
 
 You are currently running version %2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="111"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="112"/>
         <source>Check for Updates Failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="130"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="147"/>
         <source>Download</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="135"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="154"/>
+        <source>Retry</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/updatedialog.cpp" line="165"/>
         <source>Close</source>
         <translation type="unfinished">Fermer</translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="161"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="191"/>
         <source>Could Not Open Download Page</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/updatedialog.cpp" line="162"/>
+        <location filename="../src/dialogs/updatedialog.cpp" line="192"/>
         <source>Devpad could not open the download page in your browser.
 
 The release URL has been copied to your clipboard:
@@ -2547,17 +2572,17 @@ Please paste it into your browser to download the update.</source>
         <translation>Délai d&apos;attente au démarrage du serveur de langage: %1</translation>
     </message>
     <message>
-        <location filename="../src/lsp/lspclient.cpp" line="767"/>
+        <location filename="../src/lsp/lspclient.cpp" line="765"/>
         <source>Language server failed to start for %1</source>
         <translation>Échec du démarrage du serveur de langage pour %1</translation>
     </message>
     <message>
-        <location filename="../src/lsp/lspclient.cpp" line="773"/>
+        <location filename="../src/lsp/lspclient.cpp" line="771"/>
         <source>Language server timed out for %1</source>
         <translation>Délai d&apos;attente du serveur de langage dépassé pour %1</translation>
     </message>
     <message>
-        <location filename="../src/lsp/lspclient.cpp" line="776"/>
+        <location filename="../src/lsp/lspclient.cpp" line="774"/>
         <source>Language server process error for %1</source>
         <translation>Erreur de processus du serveur de langage pour %1</translation>
     </message>

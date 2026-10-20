@@ -58,6 +58,30 @@ info "Resolving shared library dependencies..."
 
 declare -A SEEN
 
+# System libraries that must never be bundled.
+#
+# - glibc core (libc, libm, ld-linux, ...): the staging dir is produced on a
+#   CI runner, and pairing the runner's glibc with the end user's dynamic
+#   loader corrupts the process (GLIBC_PRIVATE symbol errors / crashes).
+# - libcrypto / libssl: Qt loads OpenSSL at runtime via dlopen, which ldd
+#   cannot see. A bundle that carries libcrypto (dragged in by libssh,
+#   libsasl2, ...) while libssl is missing makes the loader reject the host's
+#   libssl ("version `OPENSSL_3.3.0' not found") and every HTTPS request --
+#   e.g. the update check -- fails with "TLS initialization failed".
+#   Leaving both to the host always yields a consistent pair.
+NON_BUNDLE_LIB_STEMS=(
+    libc.so libm.so libpthread.so libdl.so librt.so libresolv.so
+    libutil.so libnsl.so libnss ld-linux libcrypto.so libssl.so
+)
+
+should_skip_lib_stem() {
+    local stem="$1" entry
+    for entry in "${NON_BUNDLE_LIB_STEMS[@]}"; do
+        [[ "$stem" == "$entry"* ]] && return 0
+    done
+    return 1
+}
+
 # Essential Qt plugins for Devpad (no KDE-internal plugins)
 ESSENTIAL_PLUGIN_CATEGORIES=(
     platforms
@@ -109,6 +133,10 @@ copy_lib_files() {
     local dir="$1"
     local base="$2"
     [ -d "$dir" ] || return
+
+    if should_skip_lib_stem "$base"; then
+        return
+    fi
 
     for f in "$dir/$base"*; do
         [ -f "$f" ] || [ -L "$f" ] || continue
@@ -284,6 +312,20 @@ echo "    libs:     ${total_libs} files (${lib_size})"
 echo "    plugins:  ${total_plugins} files (${plugin_size})"
 echo "    bin:      ${STAGING}/bin/Devpad $(du -h "${STAGING}/bin/Devpad" | cut -f1)"
 echo "    data:     share/"
+
+# ─── Step 8.5: Verify no system libraries were bundled ─────────
+BROKEN_LIBS=$(find "${STAGING}/lib" -maxdepth 1 \
+    \( -name 'libc.so.*' -o -name 'libm.so.*' -o -name 'libpthread.so*' \
+       -o -name 'libdl.so*' -o -name 'ld-linux*' -o -name 'libcrypto.so*' \
+       -o -name 'libssl.so*' \) -print -quit 2>/dev/null)
+if [ -n "$BROKEN_LIBS" ]; then
+    err "Bundle contains system libraries that must not be shipped (first hit: $BROKEN_LIBS).
+
+Bundling glibc pairs the runner's libc with the user's dynamic loader (GLIBC_PRIVATE
+crashes), and bundling libcrypto without libssl (which Qt dlopens at runtime and ldd
+cannot see) breaks HTTPS with 'TLS initialization failed'.
+See NON_BUNDLE_LIB_STEMS in this script."
+fi
 
 # ─── Step 9: Create tarball ────────────────────────────────────
 echo ""
