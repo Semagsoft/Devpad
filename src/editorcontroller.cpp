@@ -441,11 +441,15 @@ void EditorController::updateUndoRedoState()
         bool readOnly = editor->isReadOnlyMode();
         m_actionManager->undoAct()->setEnabled(!readOnly && editor->isUndoAvailable());
         m_actionManager->redoAct()->setEnabled(!readOnly && editor->isRedoAvailable());
+        m_actionManager->insertSnippetAct()->setEnabled(!readOnly);
+        m_actionManager->toggleCommentAct()->setEnabled(!readOnly);
     }
     else
     {
         m_actionManager->undoAct()->setEnabled(false);
         m_actionManager->redoAct()->setEnabled(false);
+        m_actionManager->insertSnippetAct()->setEnabled(false);
+        m_actionManager->toggleCommentAct()->setEnabled(false);
     }
 }
 

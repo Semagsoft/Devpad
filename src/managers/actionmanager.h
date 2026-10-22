@@ -282,6 +282,10 @@ public:
     {
         return m_insertSnippetAct;
     }
+    QAction* toggleCommentAct() const
+    {
+        return m_toggleCommentAct;
+    }
     QAction* formatSelectionAct() const
     {
         return m_formatSelectionAct;

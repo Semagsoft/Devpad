@@ -101,7 +101,7 @@
     </message>
     <message>
         <location filename="../src/managers/actionmanager.cpp" line="131"/>
-        <location filename="../src/managers/actionmanager.cpp" line="511"/>
+        <location filename="../src/managers/actionmanager.cpp" line="525"/>
         <source>Print</source>
         <translation>Drucken</translation>
     </message>
@@ -191,22 +191,22 @@
         <translation>Gehe zu Zeile…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="249"/>
+        <location filename="../src/managers/actionmanager.cpp" line="265"/>
         <source>Toggle Bookmark</source>
         <translation>Lesezeichen setzen/entfernen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="258"/>
+        <location filename="../src/managers/actionmanager.cpp" line="274"/>
         <source>Next Bookmark</source>
         <translation>Nächstes Lesezeichen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="267"/>
+        <location filename="../src/managers/actionmanager.cpp" line="283"/>
         <source>Previous Bookmark</source>
         <translation>Vorheriges Lesezeichen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="276"/>
+        <location filename="../src/managers/actionmanager.cpp" line="292"/>
         <source>Clear All Bookmarks</source>
         <translation>Alle Lesezeichen löschen</translation>
     </message>
@@ -216,207 +216,217 @@
         <translation>Auswahl formatieren</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="289"/>
+        <location filename="../src/managers/actionmanager.cpp" line="245"/>
+        <source>Insert Snippet...</source>
+        <translation>Snippet einfügen…</translation>
+    </message>
+    <message>
+        <location filename="../src/managers/actionmanager.cpp" line="251"/>
+        <source>Toggle Comment</source>
+        <translation>Kommentar umschalten</translation>
+    </message>
+    <message>
+        <location filename="../src/managers/actionmanager.cpp" line="305"/>
         <source>Go to Definition</source>
         <translation>Gehe zur Definition</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="295"/>
+        <location filename="../src/managers/actionmanager.cpp" line="311"/>
         <source>Go to Type Definition</source>
         <translation>Gehe zur Typdefinition</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="301"/>
+        <location filename="../src/managers/actionmanager.cpp" line="317"/>
         <source>Go to Declaration</source>
         <translation>Gehe zur Deklaration</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="307"/>
+        <location filename="../src/managers/actionmanager.cpp" line="323"/>
         <source>Find References</source>
         <translation>Referenzen suchen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="313"/>
+        <location filename="../src/managers/actionmanager.cpp" line="329"/>
         <source>Trigger Completion</source>
         <translation>Vervollständigung auslösen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="319"/>
+        <location filename="../src/managers/actionmanager.cpp" line="335"/>
         <source>Rename Symbol</source>
         <translation>Symbol umbenennen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="326"/>
+        <location filename="../src/managers/actionmanager.cpp" line="342"/>
         <source>Find Symbol...</source>
         <translation>Symbol suchen…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="329"/>
+        <location filename="../src/managers/actionmanager.cpp" line="345"/>
         <source>Expand Selection</source>
         <translation>Auswahl erweitern</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="334"/>
+        <location filename="../src/managers/actionmanager.cpp" line="350"/>
         <source>Shrink Selection</source>
         <translation>Auswahl verkleinern</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="342"/>
+        <location filename="../src/managers/actionmanager.cpp" line="358"/>
         <source>Zoom In</source>
         <translation>Vergrößern</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="348"/>
+        <location filename="../src/managers/actionmanager.cpp" line="364"/>
         <source>Zoom Out</source>
         <translation>Verkleinern</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="354"/>
+        <location filename="../src/managers/actionmanager.cpp" line="370"/>
         <source>Reset Zoom</source>
         <translation>Zoom zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="360"/>
+        <location filename="../src/managers/actionmanager.cpp" line="376"/>
         <source>Fullscreen</source>
         <translation>Vollbild</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="371"/>
+        <location filename="../src/managers/actionmanager.cpp" line="387"/>
         <source>Project Panel</source>
         <translation>Projektpanel</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="382"/>
+        <location filename="../src/managers/actionmanager.cpp" line="398"/>
         <source>Terminal Panel</source>
         <translation>Terminal-Panel</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="393"/>
+        <location filename="../src/managers/actionmanager.cpp" line="409"/>
         <source>Error List</source>
         <translation>Fehlerliste</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="398"/>
+        <location filename="../src/managers/actionmanager.cpp" line="414"/>
         <source>Menu Bar	Ctrl+Alt+M</source>
         <translation>Menüleiste	Strg+Alt+M</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="407"/>
+        <location filename="../src/managers/actionmanager.cpp" line="423"/>
         <source>Toolbar</source>
         <translation>Symbolleiste</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="416"/>
+        <location filename="../src/managers/actionmanager.cpp" line="432"/>
         <source>Status Bar</source>
         <translation>Statusleiste</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="426"/>
+        <location filename="../src/managers/actionmanager.cpp" line="442"/>
         <source>Menu in Titlebar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="435"/>
+        <location filename="../src/managers/actionmanager.cpp" line="451"/>
         <source>Options</source>
         <translation>Optionen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="440"/>
+        <location filename="../src/managers/actionmanager.cpp" line="456"/>
         <source>Donate</source>
         <translation>Spenden</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="441"/>
+        <location filename="../src/managers/actionmanager.cpp" line="457"/>
         <source>Website</source>
         <translation>Webseite</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="442"/>
+        <location filename="../src/managers/actionmanager.cpp" line="458"/>
         <source>About</source>
         <translation>Über</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="444"/>
+        <location filename="../src/managers/actionmanager.cpp" line="460"/>
         <source>Check for Updates</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="455"/>
+        <location filename="../src/managers/actionmanager.cpp" line="471"/>
         <source>Devpad</source>
         <translation>Devpad</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="461"/>
+        <location filename="../src/managers/actionmanager.cpp" line="477"/>
         <source>|</source>
         <translation>|</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="466"/>
+        <location filename="../src/managers/actionmanager.cpp" line="482"/>
         <source>File</source>
         <translation>Datei</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="469"/>
+        <location filename="../src/managers/actionmanager.cpp" line="485"/>
         <source>Edit</source>
         <translation>Bearbeiten</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="472"/>
+        <location filename="../src/managers/actionmanager.cpp" line="488"/>
         <source>View</source>
         <translation>Ansicht</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="475"/>
+        <location filename="../src/managers/actionmanager.cpp" line="491"/>
         <source>Tools</source>
         <translation>Extras</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="478"/>
+        <location filename="../src/managers/actionmanager.cpp" line="494"/>
         <source>Help</source>
         <translation>Hilfe</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="484"/>
+        <location filename="../src/managers/actionmanager.cpp" line="500"/>
         <source>New</source>
         <translation>Neu</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="488"/>
+        <location filename="../src/managers/actionmanager.cpp" line="504"/>
         <source>Open</source>
         <translation>Öffnen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="505"/>
+        <location filename="../src/managers/actionmanager.cpp" line="519"/>
         <source>Properties</source>
         <translation>Eigenschaften</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="539"/>
+        <location filename="../src/managers/actionmanager.cpp" line="556"/>
         <source>Bookmarks</source>
         <translation>Lesezeichen</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="550"/>
+        <location filename="../src/managers/actionmanager.cpp" line="564"/>
         <source>Language Server</source>
         <translation>Sprachserver</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="627"/>
+        <location filename="../src/managers/actionmanager.cpp" line="641"/>
         <source>External Tools...</source>
         <translation>Externe Werkzeuge…</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="655"/>
+        <location filename="../src/managers/actionmanager.cpp" line="669"/>
         <source>Main</source>
         <translation>Hauptbereich</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="878"/>
+        <location filename="../src/managers/actionmanager.cpp" line="892"/>
         <source>Line: 1, Col: 1</source>
         <translation>Zeile: 1, Spalte: 1</translation>
     </message>
     <message>
-        <location filename="../src/managers/actionmanager.cpp" line="883"/>
+        <location filename="../src/managers/actionmanager.cpp" line="897"/>
         <source>Plain Text</source>
         <translation>Nur Text</translation>
     </message>
@@ -590,7 +600,7 @@ Deaktivieren Sie den Schreibschutz, um Änderungen zu speichern.</translation>
     </message>
     <message>
         <location filename="../src/editorcontroller.cpp" line="122"/>
-        <location filename="../src/editorcontroller.cpp" line="604"/>
+        <location filename="../src/editorcontroller.cpp" line="608"/>
         <source>Error</source>
         <translation>Fehler</translation>
     </message>
@@ -632,12 +642,12 @@ Möchten Sie die Änderungen speichern?</translation>
         <translation>Snippet auswählen:</translation>
     </message>
     <message>
-        <location filename="../src/editorcontroller.cpp" line="525"/>
+        <location filename="../src/editorcontroller.cpp" line="529"/>
         <source>Auto-Save Backup Found</source>
         <translation>Auto-Speicher-Sicherung gefunden</translation>
     </message>
     <message>
-        <location filename="../src/editorcontroller.cpp" line="526"/>
+        <location filename="../src/editorcontroller.cpp" line="530"/>
         <source>A more recent auto-save backup exists for:
 %1
 
@@ -648,7 +658,7 @@ Do you want to restore it?</source>
 Möchten Sie sie wiederherstellen?</translation>
     </message>
     <message>
-        <location filename="../src/editorcontroller.cpp" line="604"/>
+        <location filename="../src/editorcontroller.cpp" line="608"/>
         <source>Cannot reopen an unsaved file.</source>
         <translation>Kann eine nicht gespeicherte Datei nicht erneut öffnen.</translation>
     </message>
