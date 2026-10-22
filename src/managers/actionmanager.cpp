@@ -500,8 +500,6 @@ void ActionManager::buildFileMenu(QMenu* fileMenu)
     fileMenu->addSeparator();
     fileMenu->addAction(m_revertAct);
     fileMenu->addSeparator();
-
-    fileMenu->addSeparator();
     QMenu* propertiesMenu = fileMenu->addMenu(QIcon(":/icons/File/properties.svg"), tr("Properties"));
     propertiesMenu->addAction(m_readOnlyAct);
     propertiesMenu->addSeparator();
@@ -543,9 +541,6 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     bookmarksMenu->addAction(m_prevBookmarkAct);
     bookmarksMenu->addSeparator();
     bookmarksMenu->addAction(m_clearBookmarksAct);
-    editMenu->addSeparator();
-    editMenu->addAction(m_insertSnippetAct);
-    editMenu->addAction(m_toggleCommentAct);
     editMenu->addSeparator();
     QMenu* lspMenu = editMenu->addMenu(tr("Language Server"));
     lspMenu->setIcon(QIcon(":/icons/Tools/options.svg"));
