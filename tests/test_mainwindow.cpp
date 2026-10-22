@@ -7,14 +7,17 @@
 #include "terminalpanel.h"
 #include "theme.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QEvent>
 #include <QFile>
 #include <QFileInfo>
+#include <QKeySequence>
 #include <QMessageBox>
 #include <QSignalSpy>
 #include <QTabWidget>
 #include <QTemporaryDir>
+#include <QTest>
 #include <QTextStream>
 #include <QTimer>
 #include <cstdio>
@@ -254,6 +257,45 @@ TEST_F(MainWindowTest, MultipleFilesOpenSeparateTabs)
 
     auto editors = window.findChildren<CodeEditor*>();
     EXPECT_EQ(editors.size(), 2);
+}
+
+TEST_F(MainWindowTest, ToggleCommentShortcutTogglesExactlyOnce)
+{
+    MainWindow window;
+    window.show();
+
+    QString filePath = testFilePath("shortcut_comment.cpp");
+    createFile(filePath, "int x = 1;\n");
+    window.openFileFromPath(filePath);
+
+    auto* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+
+    QAction* toggleCommentAct = nullptr;
+    for (QAction* act : window.actions())
+    {
+        if (act->shortcut() == QKeySequence("Ctrl+/"))
+        {
+            toggleCommentAct = act;
+            break;
+        }
+    }
+    ASSERT_NE(toggleCommentAct, nullptr) << "Toggle Comment must be registered as a window shortcut";
+    EXPECT_TRUE(toggleCommentAct->isEnabled());
+
+    editor->setFocus();
+    editor->setCursorPosition(0, 0);
+    QTest::keyClick(editor, Qt::Key_Slash, Qt::ControlModifier);
+    EXPECT_EQ(editor->text().toStdString(), "//int x = 1;\n") << "Ctrl+/ must toggle the comment exactly once";
+
+    editor->setCursorPosition(0, 0);
+    QTest::keyClick(editor, Qt::Key_Slash, Qt::ControlModifier);
+    EXPECT_EQ(editor->text().toStdString(), "int x = 1;\n");
+
+    // The Edit menu action itself must reach the current editor.
+    editor->setCursorPosition(0, 0);
+    toggleCommentAct->trigger();
+    EXPECT_EQ(editor->text().toStdString(), "//int x = 1;\n");
 }
 
 TEST_F(MainWindowTest, ExternalChangePromptShownOnlyOnceWhileOpen)

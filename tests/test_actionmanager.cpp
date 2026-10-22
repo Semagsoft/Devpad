@@ -2,6 +2,7 @@
 #include "settingsmanager.h"
 
 #include <QAction>
+#include <QKeySequence>
 #include <QMenu>
 #include <QMenuBar>
 #include <QStatusBar>
@@ -101,4 +102,41 @@ TEST_F(ActionManagerTest, FileMenuContainsActions)
         }
     }
     EXPECT_TRUE(hasFileMenu);
+}
+
+TEST_F(ActionManagerTest, SnippetAndCommentActionsCreated)
+{
+    ActionManager manager;
+    manager.createActions();
+
+    ASSERT_NE(manager.insertSnippetAct(), nullptr);
+    ASSERT_NE(manager.toggleCommentAct(), nullptr);
+    EXPECT_EQ(manager.insertSnippetAct()->shortcut(), QKeySequence("Ctrl+Shift+I"));
+    EXPECT_EQ(manager.toggleCommentAct()->shortcut(), QKeySequence("Ctrl+/"));
+
+    // Nothing to act on until an editable editor exists.
+    EXPECT_FALSE(manager.insertSnippetAct()->isEnabled());
+    EXPECT_FALSE(manager.toggleCommentAct()->isEnabled());
+}
+
+TEST_F(ActionManagerTest, EditMenuContainsSnippetAndCommentActions)
+{
+    ActionManager manager;
+    manager.createActions();
+    QMenuBar menuBar;
+    manager.buildMenus(&menuBar);
+
+    QMenu* editMenu = nullptr;
+    for (QAction* act : menuBar.actions())
+    {
+        if (act->menu() && act->text() == QStringLiteral("Edit"))
+        {
+            editMenu = act->menu();
+            break;
+        }
+    }
+
+    ASSERT_NE(editMenu, nullptr);
+    EXPECT_TRUE(editMenu->actions().contains(manager.insertSnippetAct()));
+    EXPECT_TRUE(editMenu->actions().contains(manager.toggleCommentAct()));
 }

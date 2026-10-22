@@ -242,6 +242,22 @@ void ActionManager::createEditActions()
                                                 emit formatSelectionTriggered();
                                                 emit editActionTriggered(EditAction::FormatSelection);
                                             });
+    m_insertSnippetAct = createIconAction(":/icons/Edit/insertsnippet.svg", tr("Insert Snippet..."), QKeySequence("Ctrl+Shift+I"),
+                                          [this]()
+                                          {
+                                              emit insertSnippetTriggered();
+                                              emit documentActionTriggered(DocumentAction::InsertSnippet);
+                                          });
+    m_toggleCommentAct = createIconAction(":/icons/Edit/togglecomment.svg", tr("Toggle Comment"), QKeySequence("Ctrl+/"),
+                                          [this]()
+                                          {
+                                              emit toggleCommentTriggered();
+                                              emit editActionTriggered(EditAction::ToggleComment);
+                                          });
+    // Both need an editable editor; EditorController::updateUndoRedoState() enables
+    // them once one is available.
+    m_insertSnippetAct->setEnabled(false);
+    m_toggleCommentAct->setEnabled(false);
 }
 
 void ActionManager::createBookmarkActions()
@@ -533,6 +549,9 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     editMenu->addAction(m_replaceAct);
     editMenu->addAction(m_findInFilesAct);
     editMenu->addAction(m_goToAct);
+    editMenu->addSeparator();
+    editMenu->addAction(m_insertSnippetAct);
+    editMenu->addAction(m_toggleCommentAct);
     editMenu->addSeparator();
     QMenu* bookmarksMenu = editMenu->addMenu(tr("Bookmarks"));
     bookmarksMenu->setIcon(QIcon(":/icons/Edit/bookmarks.svg"));
