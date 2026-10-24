@@ -83,7 +83,7 @@ TEST(LspJsonRpcTest, HandleDataResponseWithCallback)
     bool callbackCalled = false;
     int requestId = rpc.nextRequestId();
     rpc.registerPendingRequest(requestId,
-                               [&callbackCalled](const QJsonValue& result)
+                               [&callbackCalled](const QJsonValue& result, const QJsonObject& /*error*/)
                                {
                                    callbackCalled = true;
                                    EXPECT_EQ(result.toObject()["value"].toInt(), 42);
@@ -105,7 +105,7 @@ TEST(LspJsonRpcTest, CancelRequest)
     LspJsonRpc rpc;
     int id = rpc.nextRequestId();
     bool called = false;
-    rpc.registerPendingRequest(id, [&called](const QJsonValue&) { called = true; });
+    rpc.registerPendingRequest(id, [&called](const QJsonValue&, const QJsonObject&) { called = true; });
     rpc.cancelRequest(id);
 
     QByteArray body = R"({"jsonrpc":"2.0","id":)" + QByteArray::number(id) + R"(,"result":{}})";
@@ -174,4 +174,117 @@ TEST(LspJsonRpcTest, ResponseForUnknownIdIsIgnored)
 
     ASSERT_EQ(spy.count(), 1);
     // No crash despite unknown id
+}
+
+TEST(LspJsonRpcTest, ServerRequestDoesNotResolvePendingRequest)
+{
+    // A message with both method and id is a server -> client request, not a
+    // response to one of our outstanding requests, even when ids collide.
+    LspJsonRpc rpc;
+    QSignalSpy spy(&rpc, &LspJsonRpc::serverRequestReceived);
+
+    bool callbackCalled = false;
+    int id = rpc.nextRequestId(); // counter runs 1, 2, ... so this is id 1
+    rpc.registerPendingRequest(id,
+                               [&callbackCalled](const QJsonValue&, const QJsonObject&)
+                               {
+                                   callbackCalled = true;
+                               });
+
+    QByteArray body = R"({"jsonrpc":"2.0","id":1,"method":"workspace/applyEdit","params":{}})";
+    QByteArray header = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n";
+    rpc.handleData(header + body);
+
+    EXPECT_FALSE(callbackCalled);
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy[0][1].toString(), QStringLiteral("workspace/applyEdit"));
+}
+
+TEST(LspJsonRpcTest, ServerRequestWithStringIdKeepsIdType)
+{
+    // Ids may be strings per JSON-RPC; they must reach the handler unmodified
+    // so a reply can echo them (toInt() would mangle them to 0).
+    LspJsonRpc rpc;
+    QSignalSpy spy(&rpc, &LspJsonRpc::serverRequestReceived);
+
+    QByteArray body = R"({"jsonrpc":"2.0","id":"req-1","method":"window/showMessageRequest","params":{}})";
+    QByteArray header = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n";
+    rpc.handleData(header + body);
+
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy[0][0].toString(), QStringLiteral("req-1"));
+}
+
+TEST(LspJsonRpcTest, ErrorResponsePropagatesToCallback)
+{
+    LspJsonRpc rpc;
+    bool called = false;
+    QJsonValue receivedResult;
+    QJsonObject receivedError;
+    int id = rpc.nextRequestId();
+    rpc.registerPendingRequest(id,
+                               [&called, &receivedResult, &receivedError](const QJsonValue& result, const QJsonObject& error)
+                               {
+                                   called = true;
+                                   receivedResult = result;
+                                   receivedError = error;
+                               });
+
+    QByteArray body = R"({"jsonrpc":"2.0","id":)" + QByteArray::number(id) + R"(,"error":{"code":-32602,"message":"Invalid params"}})";
+    QByteArray header = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n";
+    rpc.handleData(header + body);
+
+    EXPECT_TRUE(called);
+    EXPECT_TRUE(receivedResult.isUndefined());
+    EXPECT_EQ(receivedError["code"].toInt(), -32602);
+    EXPECT_EQ(receivedError["message"].toString(), QStringLiteral("Invalid params"));
+}
+
+TEST(LspJsonRpcTest, MalformedMessageFailsPendingRequests)
+{
+    LspJsonRpc rpc;
+    bool called = false;
+    QJsonObject receivedError;
+    int id = rpc.nextRequestId();
+    rpc.registerPendingRequest(id,
+                               [&called, &receivedError](const QJsonValue&, const QJsonObject& error)
+                               {
+                                   called = true;
+                                   receivedError = error;
+                               });
+
+    rpc.handleData("Content-Length: 10\r\n\r\nnot-a-json");
+
+    EXPECT_TRUE(called);
+    EXPECT_EQ(receivedError["code"].toInt(), -32700);
+}
+
+TEST(LspJsonRpcTest, FailPendingRequestsInvokesAllCallbacks)
+{
+    LspJsonRpc rpc;
+    int calls = 0;
+    QJsonObject receivedError;
+    QList<int> ids;
+    for (int i = 0; i < 3; ++i)
+    {
+        int id = rpc.nextRequestId();
+        ids.append(id);
+        rpc.registerPendingRequest(id,
+                                   [&calls, &receivedError](const QJsonValue&, const QJsonObject& error)
+                                   {
+                                       ++calls;
+                                       receivedError = error;
+                                   });
+    }
+
+    rpc.failPendingRequests(-32001, QStringLiteral("Language server stopped"));
+
+    EXPECT_EQ(calls, 3);
+    EXPECT_EQ(receivedError["code"].toInt(), -32001);
+
+    // After failing, late responses for those ids must not invoke callbacks again
+    QByteArray body = R"({"jsonrpc":"2.0","id":)" + QByteArray::number(ids.first()) + R"(,"result":{}})";
+    QByteArray header = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n";
+    rpc.handleData(header + body);
+    EXPECT_EQ(calls, 3);
 }

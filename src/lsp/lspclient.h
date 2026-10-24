@@ -125,10 +125,12 @@ private slots:
 
 private:
     void sendInitialize();
+    void sendExitIfStopping();
     void cleanupProcess();
     void flushPendingDocOps();
     void handleNotification(const QString& method, const QJsonObject& params);
-    void handleResponse(int id, const QJsonValue& result, const QJsonObject& error);
+    void handleResponse(const QVariant& id, const QJsonValue& result, const QJsonObject& error);
+    void handleServerRequest(const QVariant& id, const QString& method, const QJsonObject& params);
     QString methodName(const QString& method) const;
 
     void tryRestart();
@@ -165,6 +167,7 @@ private:
     bool m_initialized = false;
     bool m_starting = false;
     bool m_stopping = false;
+    bool m_shutdownExitSent = false;
     int m_retryCount = 0;
     static constexpr int MAX_RETRIES = 3;
     static constexpr int START_TIMEOUT_MS = 5000;
