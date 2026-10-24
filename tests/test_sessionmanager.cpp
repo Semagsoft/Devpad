@@ -5,6 +5,7 @@
 #include "tabmanager.h"
 
 #include <QApplication>
+#include <QSettings>
 #include <QTabWidget>
 
 #include <gmock/gmock.h>
@@ -203,4 +204,72 @@ TEST_F(SessionManagerTest, SaveAndLoadEmptyTerminalWorkingDir)
     mgr.saveSessionData({"a.txt"}, 0, "/project");
 
     EXPECT_TRUE(mgr.sessionTerminalWorkingDir().isEmpty());
+}
+
+TEST_F(SessionManagerTest, LoadIgnoresAndPrunesForeignSessionGroups)
+{
+    // Stale group left behind by a crashed or exited instance
+    QSettings raw(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
+    raw.beginGroup(QStringLiteral("Session_987654"));
+    raw.setValue(QStringLiteral("Files"), QStringList{QStringLiteral("/stale/from-crashed.cpp")});
+    raw.setValue(QStringLiteral("ActiveIndex"), 0);
+    raw.endGroup();
+    raw.sync();
+
+    SessionManager mgr;
+    SessionManager::SessionData data = mgr.loadSessionData();
+
+    // Files from the crashed/exited instance must not be reopened uninvited
+    EXPECT_TRUE(data.files.isEmpty());
+    // ...and the stale group must be pruned at load, not resurrected
+    EXPECT_FALSE(raw.childGroups().contains(QStringLiteral("Session_987654")));
+
+    mgr.clearSession();
+}
+
+TEST_F(SessionManagerTest, LoadFallsBackToLegacyFlatKeys)
+{
+    QSettings raw(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
+    raw.setValue(QStringLiteral("Session_Files"), QStringList{QStringLiteral("/prev/a.cpp"), QStringLiteral("/prev/b.cpp")});
+    raw.setValue(QStringLiteral("Session_ActiveIndex"), 1);
+    raw.setValue(QStringLiteral("Session_ProjectPath"), QStringLiteral("/prev/project"));
+    raw.setValue(QStringLiteral("Session_Bookmarks"), QVariantMap{{QStringLiteral("/prev/a.cpp"), QVariantList{3, 7}}});
+    raw.sync();
+
+    SessionManager mgr;
+    SessionManager::SessionData data = mgr.loadSessionData();
+
+    EXPECT_EQ(data.files, QStringList({QStringLiteral("/prev/a.cpp"), QStringLiteral("/prev/b.cpp")}));
+    EXPECT_EQ(data.activeIndex, 1);
+    EXPECT_EQ(data.projectPath, QStringLiteral("/prev/project"));
+    EXPECT_EQ(data.bookmarks.value(QStringLiteral("/prev/a.cpp")), QList<int>({3, 7}));
+
+    mgr.clearSession();
+}
+
+TEST_F(SessionManagerTest, LoadPrefersOwnPidGroupOverForeignContentAndStaleFlatKeys)
+{
+    QSettings raw(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
+
+    // Stale flat snapshot and a foreign PID group
+    raw.setValue(QStringLiteral("Session_Files"), QStringList{QStringLiteral("/stale/old.cpp")});
+    raw.beginGroup(QStringLiteral("Session_111222"));
+    raw.setValue(QStringLiteral("Files"), QStringList{QStringLiteral("/stale/foreign.cpp")});
+    raw.endGroup();
+    raw.sync();
+
+    SessionManager mgr;
+    mgr.saveSessionData({QStringLiteral("/current/fresh.cpp")}, 0, QStringLiteral("/current"));
+
+    // Corrupt the flat mirror with a stale value: the PID group must win
+    raw.setValue(QStringLiteral("Session_Files"), QStringList{QStringLiteral("/stale/old.cpp")});
+    raw.sync();
+
+    SessionManager::SessionData data = mgr.loadSessionData();
+
+    EXPECT_EQ(data.files, QStringList{QStringLiteral("/current/fresh.cpp")});
+    EXPECT_EQ(data.projectPath, QStringLiteral("/current"));
+    EXPECT_FALSE(raw.childGroups().contains(QStringLiteral("Session_111222")));
+
+    mgr.clearSession();
 }

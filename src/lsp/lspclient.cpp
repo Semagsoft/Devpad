@@ -38,11 +38,30 @@ LspClient::LspClient(const QString& language, QObject* parent) : QObject(parent)
 
     connect(m_jsonRpc, &LspJsonRpc::notificationReceived, this, &LspClient::handleNotification);
     connect(m_jsonRpc, &LspJsonRpc::responseReceived, this, &LspClient::handleResponse);
+    connect(m_jsonRpc, &LspJsonRpc::serverRequestReceived, this, &LspClient::handleServerRequest);
 }
 
 LspClient::~LspClient()
 {
+    // Best-effort graceful path (writes shutdown/exit synchronously to the
+    // process pipe), then guarantee that no orphaned server process outlives
+    // this object. QProcess's destructor does NOT kill a running child, so a
+    // plain stopServer() while destructing would leak a zombie language server.
     stopServer();
+
+    if (m_process)
+    {
+        m_process->disconnect();
+        if (m_process->state() != QProcess::NotRunning)
+        {
+            m_process->terminate();
+            if (!m_process->waitForFinished(KILL_TIMEOUT_MS))
+                m_process->kill();
+            m_process->waitForFinished(KILL_TIMEOUT_MS);
+        }
+        delete m_process;
+        m_process = nullptr;
+    }
 }
 
 void LspClient::startServer(const QString& command, const QStringList& args, const QString& rootUri)
@@ -55,6 +74,7 @@ void LspClient::startServer(const QString& command, const QStringList& args, con
     m_rootUri = rootUri;
     m_initialized = false;
     m_starting = true;
+    m_shutdownExitSent = false;
 
     m_process = new QProcess(this);
     m_process->setProcessChannelMode(QProcess::SeparateChannels);
@@ -96,38 +116,55 @@ void LspClient::stopServer()
     m_starting = false;
     m_stopping = true;
 
-    if (m_process->state() != QProcess::NotRunning)
-    {
-        QByteArray shutdown = m_jsonRpc->createRequest(m_jsonRpc->nextRequestId(), "shutdown", QJsonObject());
-        m_process->write(shutdown);
-
-        QByteArray exit = m_jsonRpc->createNotification("exit", QJsonObject());
-        m_process->write(exit);
-
-        QPointer<QProcess> guard(m_process);
-        QTimer::singleShot(SHUTDOWN_TIMEOUT_MS, this,
-                           [this, guard]()
-                           {
-                               if (!guard || guard != m_process || !m_stopping)
-                                   return;
-                               if (m_process->state() != QProcess::NotRunning)
-                               {
-                                   m_process->terminate();
-                                   QTimer::singleShot(KILL_TIMEOUT_MS, this,
-                                                      [this, guard]()
-                                                      {
-                                                          if (!guard || guard != m_process || !m_stopping)
-                                                              return;
-                                                          if (m_process->state() != QProcess::NotRunning)
-                                                              m_process->kill();
-                                                      });
-                               }
-                           });
-    }
-    else
+    if (m_process->state() == QProcess::NotRunning)
     {
         cleanupProcess();
+        return;
     }
+
+    if (!m_shutdownExitSent)
+    {
+        m_shutdownExitSent = true;
+
+        // LSP lifecycle: send "exit" only after the server has responded to
+        // "shutdown" (or on timeout as a fallback). Until then, servers are
+        // required to ignore requests but stay alive to answer them.
+        int id = m_jsonRpc->nextRequestId();
+        m_process->write(m_jsonRpc->createRequest(id, "shutdown", QJsonObject()));
+        m_jsonRpc->registerPendingRequest(
+            id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) { sendExitIfStopping(); }, SHUTDOWN_TIMEOUT_MS);
+    }
+
+    // Escalation chain: if there is no shutdown response within
+    // SHUTDOWN_TIMEOUT_MS, send exit anyway (the fallback callback above races
+    // with this) and terminate; after KILL_TIMEOUT_MS, kill.
+    QPointer<QProcess> guard(m_process);
+    QTimer::singleShot(SHUTDOWN_TIMEOUT_MS, this,
+                       [this, guard]()
+                       {
+                           if (!guard || guard != m_process || !m_stopping)
+                               return;
+                           if (m_process->state() != QProcess::NotRunning)
+                           {
+                               sendExitIfStopping();
+                               m_process->terminate();
+                               QTimer::singleShot(KILL_TIMEOUT_MS, this,
+                                                  [this, guard]()
+                                                  {
+                                                      if (!guard || guard != m_process || !m_stopping)
+                                                          return;
+                                                      if (m_process->state() != QProcess::NotRunning)
+                                                          m_process->kill();
+                                                  });
+                           }
+                       });
+}
+
+void LspClient::sendExitIfStopping()
+{
+    if (!m_stopping || !m_process)
+        return;
+    m_process->write(m_jsonRpc->createNotification("exit", QJsonObject()));
 }
 
 bool LspClient::isRunning() const
@@ -185,17 +222,27 @@ void LspClient::sendInitialize()
     params["trace"] = QStringLiteral("off");
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this](const QJsonValue& result)
-                                      {
-                                          m_retryCount = 0;
-                                          m_capabilities = ServerCapabilities::fromJson(result.toObject()["capabilities"].toObject());
-                                          m_initialized = true;
-                                          QByteArray notification = m_jsonRpc->createNotification("initialized", QJsonObject());
-                                          if (m_process)
-                                              m_process->write(notification);
-                                          flushPendingDocOps();
-                                      });
+    m_jsonRpc->registerPendingRequest(
+        id,
+        [this](const QJsonValue& result, const QJsonObject& error)
+        {
+            if (!error.isEmpty())
+            {
+                // A failed initialize leaves the session unusable;
+                // per the LSP lifecycle the client sends exit and stops.
+                emit serverError(QStringLiteral("[%1] %2").arg(QString::number(error["code"].toInt(0)), error["message"].toString()));
+                m_starting = false;
+                stopServer();
+                return;
+            }
+            m_retryCount = 0;
+            m_capabilities = ServerCapabilities::fromJson(result.toObject()["capabilities"].toObject());
+            m_initialized = true;
+            QByteArray notification = m_jsonRpc->createNotification("initialized", QJsonObject());
+            if (m_process)
+                m_process->write(notification);
+            flushPendingDocOps();
+        });
 
     QByteArray request = m_jsonRpc->createRequest(id, "initialize", params);
     if (m_process)
@@ -302,7 +349,7 @@ void LspClient::requestCompletion(const QString& uri, const Position& pos, int t
     params["context"] = QJsonObject{{"triggerKind", triggerKind}};
 
     sendRequest("textDocument/completion", params,
-                [this, uri](const QJsonValue& result)
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     CompletionList list;
                     QJsonArray items;
@@ -357,7 +404,7 @@ void LspClient::requestCodeAction(const QString& uri, const Range& range, const 
     params["context"] = QJsonObject{{"diagnostics", diags}};
 
     sendRequest("textDocument/codeAction", params,
-                [this, uri](const QJsonValue& result)
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     QList<QJsonObject> actions;
                     if (result.isArray())
@@ -373,7 +420,8 @@ void LspClient::requestWorkspaceSymbols(const QString& query)
         return;
 
     QJsonObject params{{"query", query}};
-    sendRequest("workspace/symbol", params, [this, query](const QJsonValue& result) { emit workspaceSymbolsReady(query, result.toArray()); });
+    sendRequest("workspace/symbol", params,
+                [this, query](const QJsonValue& result, const QJsonObject& /*error*/) { emit workspaceSymbolsReady(query, result.toArray()); });
 }
 
 void LspClient::requestSelectionRanges(const QString& uri, const QList<Position>& positions)
@@ -387,7 +435,8 @@ void LspClient::requestSelectionRanges(const QString& uri, const QList<Position>
     for (const auto& p : positions)
         posArr.append(p.toJson());
     params["positions"] = posArr;
-    sendRequest("textDocument/selectionRange", params, [this, uri](const QJsonValue& result) { emit selectionRangesReady(uri, result.toArray()); });
+    sendRequest("textDocument/selectionRange", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit selectionRangesReady(uri, result.toArray()); });
 }
 
 void LspClient::requestLinkedEditingRange(const QString& uri, const Position& pos)
@@ -397,7 +446,7 @@ void LspClient::requestLinkedEditingRange(const QString& uri, const Position& po
 
     QJsonObject params = makePositionParam(uri, pos);
     sendRequest("textDocument/linkedEditingRange", params,
-                [this, uri](const QJsonValue& result) { emit linkedEditingRangeReady(uri, result.toObject()); });
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit linkedEditingRangeReady(uri, result.toObject()); });
 }
 
 void LspClient::prepareCallHierarchy(const QString& uri, const Position& pos)
@@ -407,7 +456,7 @@ void LspClient::prepareCallHierarchy(const QString& uri, const Position& pos)
 
     QJsonObject params = makePositionParam(uri, pos);
     sendRequest("textDocument/prepareCallHierarchy", params,
-                [this, uri](const QJsonValue& result) { emit callHierarchyReady(uri, result.toArray()); });
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit callHierarchyReady(uri, result.toArray()); });
 }
 
 void LspClient::incomingCalls(const QString& uri, const QString& itemId)
@@ -416,7 +465,8 @@ void LspClient::incomingCalls(const QString& uri, const QString& itemId)
         return;
 
     QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
-    sendRequest("callHierarchy/incomingCalls", params, [this, uri](const QJsonValue& result) { emit incomingCallsReady(uri, result.toArray()); });
+    sendRequest("callHierarchy/incomingCalls", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit incomingCallsReady(uri, result.toArray()); });
 }
 
 void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
@@ -425,7 +475,8 @@ void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
         return;
 
     QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
-    sendRequest("callHierarchy/outgoingCalls", params, [this, uri](const QJsonValue& result) { emit outgoingCallsReady(uri, result.toArray()); });
+    sendRequest("callHierarchy/outgoingCalls", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit outgoingCallsReady(uri, result.toArray()); });
 }
 
 void LspClient::requestSemanticTokensFull(const QString& uri)
@@ -434,8 +485,8 @@ void LspClient::requestSemanticTokensFull(const QString& uri)
         return;
 
     QJsonObject params{{"textDocument", makeTextDocumentParam(uri)}};
-    sendRequest("textDocument/semanticTokens/full", params,
-                [this, uri](const QJsonValue& result) { emit semanticTokensFullReady(uri, result.toObject()["data"].toArray()); });
+    sendRequest("textDocument/semanticTokens/full", params, [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
+                { emit semanticTokensFullReady(uri, result.toObject()["data"].toArray()); });
 }
 
 void LspClient::requestReferences(const QString& uri, const Position& pos)
@@ -447,7 +498,7 @@ void LspClient::requestReferences(const QString& uri, const Position& pos)
     params["context"] = QJsonObject{{"includeDeclaration", true}};
 
     sendRequest("textDocument/references", params,
-                [this, uri](const QJsonValue& result)
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     QList<Location> locations;
                     if (result.isArray())
@@ -464,7 +515,7 @@ void LspClient::requestHover(const QString& uri, const Position& pos)
 
     QJsonObject params = makePositionParam(uri, pos);
     sendRequest("textDocument/hover", params,
-                [this, uri](const QJsonValue& result)
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     QString contents;
                     QJsonObject obj = result.toObject();
@@ -496,7 +547,7 @@ void LspClient::requestDocumentSymbols(const QString& uri)
 
     QJsonObject params{{"textDocument", makeTextDocumentParam(uri)}};
     sendRequest("textDocument/documentSymbol", params,
-                [this, uri](const QJsonValue& result)
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     QJsonArray symbols;
                     if (result.isArray())
@@ -516,7 +567,7 @@ void LspClient::requestFormatting(const QString& uri, int tabSize, bool insertSp
     params["textDocument"] = makeTextDocumentParam(uri);
     params["options"] = QJsonObject{{"tabSize", tabSize}, {"insertSpaces", insertSpaces}};
     sendRequest("textDocument/formatting", params,
-                [this, uri](const QJsonValue& result)
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     QList<QJsonObject> edits;
                     if (result.isArray())
@@ -536,7 +587,7 @@ void LspClient::requestRangeFormatting(const QString& uri, const Range& range, i
     params["range"] = range.toJson();
     params["options"] = QJsonObject{{"tabSize", tabSize}, {"insertSpaces", insertSpaces}};
     sendRequest("textDocument/rangeFormatting", params,
-                [this, uri](const QJsonValue& result)
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     QList<QJsonObject> edits;
                     if (result.isArray())
@@ -552,7 +603,8 @@ void LspClient::requestSignatureHelp(const QString& uri, const Position& pos)
         return;
 
     QJsonObject params = makePositionParam(uri, pos);
-    sendRequest("textDocument/signatureHelp", params, [this, uri](const QJsonValue& result) { emit signatureHelpReady(uri, result.toObject()); });
+    sendRequest("textDocument/signatureHelp", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit signatureHelpReady(uri, result.toObject()); });
 }
 
 void LspClient::requestDiagnostics(const QString& uri)
@@ -562,7 +614,7 @@ void LspClient::requestDiagnostics(const QString& uri)
 
     QJsonObject params{{"textDocument", makeTextDocumentParam(uri)}, {"identifier", QStringLiteral("default")}};
     sendRequest("textDocument/diagnostic", params,
-                [this, uri](const QJsonValue& result)
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     QList<Diagnostic> diagnostics;
                     QJsonArray items;
@@ -583,7 +635,8 @@ void LspClient::requestRename(const QString& uri, const Position& pos, const QSt
 
     QJsonObject params = makePositionParam(uri, pos);
     params["newName"] = newName;
-    sendRequest("textDocument/rename", params, [this, uri](const QJsonValue& result) { emit renameReady(uri, result.toObject()); });
+    sendRequest("textDocument/rename", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit renameReady(uri, result.toObject()); });
 }
 
 void LspClient::requestDocumentHighlight(const QString& uri, const Position& pos)
@@ -593,7 +646,7 @@ void LspClient::requestDocumentHighlight(const QString& uri, const Position& pos
 
     QJsonObject params = makePositionParam(uri, pos);
     sendRequest("textDocument/documentHighlight", params,
-                [this, uri](const QJsonValue& result) { emit documentHighlightReady(uri, result.toArray()); });
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit documentHighlightReady(uri, result.toArray()); });
 }
 
 void LspClient::sendDidChangeConfiguration(const QJsonObject& settings)
@@ -638,7 +691,7 @@ void LspClient::requestLocation(const QString& method, const QString& uri, const
 {
     QJsonObject params = makePositionParam(uri, pos);
     sendRequest(method, params,
-                [this, uri, method](const QJsonValue& result)
+                [this, uri, method](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     Location loc;
                     if (result.isObject() && result.toObject().contains("range"))
@@ -686,6 +739,10 @@ void LspClient::onReadyReadStderr()
 void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
 {
     m_initialized = false;
+
+    // The server cannot answer anything anymore; resolve every outstanding
+    // request with an error instead of letting them wait out their timeout.
+    m_jsonRpc->failPendingRequests(-32001, QStringLiteral("Language server stopped"));
 
     if (m_stopping)
     {
@@ -821,7 +878,7 @@ void LspClient::handleNotification(const QString& method, const QJsonObject& par
     }
 }
 
-void LspClient::handleResponse(int /*id*/, const QJsonValue& /*result*/, const QJsonObject& error)
+void LspClient::handleResponse(const QVariant& /*id*/, const QJsonValue& /*result*/, const QJsonObject& error)
 {
     if (!error.isEmpty())
     {
@@ -829,6 +886,21 @@ void LspClient::handleResponse(int /*id*/, const QJsonValue& /*result*/, const Q
         QString code = QString::number(error["code"].toInt());
         emit serverError(QStringLiteral("[%1] %2").arg(code, msg));
     }
+}
+
+void LspClient::handleServerRequest(const QVariant& id, const QString& method, const QJsonObject& params)
+{
+    Q_UNUSED(params);
+    Q_UNUSED(method);
+#ifdef QT_DEBUG
+    qDebug().noquote() << QString("[LSP %1] server request not supported: %2").arg(m_language, method);
+#endif
+    // Per JSON-RPC every server -> client request must be answered. Until
+    // dedicated handlers exist, reply "Method not found" so servers do not
+    // block waiting for a response (e.g. workspace/applyEdit,
+    // client/registerCapability, workspace/configuration).
+    if (m_process)
+        m_process->write(m_jsonRpc->createErrorResponse(id, -32601, QStringLiteral("Method not implemented by Devpad")));
 }
 
 } // namespace lsp

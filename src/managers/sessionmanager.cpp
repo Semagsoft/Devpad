@@ -47,50 +47,58 @@ QString SessionManager::sessionGroupPrefix() const
 SessionManager::SessionData SessionManager::loadSessionData()
 {
     SessionData data;
-    QStringList allFiles;
-    QHash<QString, QList<int>> allBookmarks;
-    int totalOffset = 0;
-
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in loadSessionData");
         return data;
     }
 
-    for (const QString& group : m_sessionSettings.childGroups())
+    const QString group = sessionGroupPrefix();
+
+    // Read ONLY this instance's own session group, falling back to the legacy
+    // flat keys (the last clean-quit snapshot). Merging every Session_* group
+    // resurrected files from crashed or exited instances uninvited; their stale
+    // groups are pruned below instead of being loaded.
+    QVariantMap bookmarkMap;
+    if (m_sessionSettings.childGroups().contains(group))
     {
-        if (!group.startsWith(QStringLiteral("Session_")))
-            continue;
-
         m_sessionSettings.beginGroup(group);
-        QStringList files = m_sessionSettings.value(QStringLiteral("Files")).toStringList();
-        int activeIndex = m_sessionSettings.value(QStringLiteral("ActiveIndex"), 0).toInt();
-        QString projectPath = m_sessionSettings.value(QStringLiteral("ProjectPath")).toString();
-        QString terminalWorkingDir = m_sessionSettings.value(QStringLiteral("TerminalWorkingDir")).toString();
-        QVariantMap bookmarkMap = m_sessionSettings.value(QStringLiteral("Bookmarks")).toMap();
+        data.files = m_sessionSettings.value(QStringLiteral("Files")).toStringList();
+        data.activeIndex = m_sessionSettings.value(QStringLiteral("ActiveIndex"), 0).toInt();
+        data.projectPath = m_sessionSettings.value(QStringLiteral("ProjectPath")).toString();
+        data.terminalWorkingDir = m_sessionSettings.value(QStringLiteral("TerminalWorkingDir")).toString();
+        bookmarkMap = m_sessionSettings.value(QStringLiteral("Bookmarks")).toMap();
         m_sessionSettings.endGroup();
-
-        if (data.projectPath.isEmpty() && !projectPath.isEmpty())
-            data.projectPath = projectPath;
-        if (data.terminalWorkingDir.isEmpty() && !terminalWorkingDir.isEmpty())
-            data.terminalWorkingDir = terminalWorkingDir;
-
-        for (auto it = bookmarkMap.constBegin(); it != bookmarkMap.constEnd(); ++it)
-        {
-            QList<int> lines;
-            for (const QVariant& v : it.value().toList())
-                lines.append(v.toInt());
-            if (!lines.isEmpty())
-                allBookmarks.insert(it.key(), lines);
-        }
-
-        data.activeIndex = totalOffset + qMin(activeIndex, qMax(files.size() - 1, 0));
-        allFiles.append(files);
-        totalOffset += files.size();
+    }
+    else
+    {
+        data.files = m_sessionSettings.value(QStringLiteral("Session_Files")).toStringList();
+        data.activeIndex = m_sessionSettings.value(QStringLiteral("Session_ActiveIndex"), 0).toInt();
+        data.projectPath = m_sessionSettings.value(QStringLiteral("Session_ProjectPath")).toString();
+        data.terminalWorkingDir = m_sessionSettings.value(QStringLiteral("Session_TerminalWorkingDir")).toString();
+        bookmarkMap = m_sessionSettings.value(QStringLiteral("Session_Bookmarks")).toMap();
     }
 
-    data.files = allFiles;
-    data.bookmarks = allBookmarks;
+    data.activeIndex = qMin(data.activeIndex, qMax(data.files.size() - 1, 0));
+
+    for (auto it = bookmarkMap.constBegin(); it != bookmarkMap.constEnd(); ++it)
+    {
+        QList<int> lines;
+        for (const QVariant& v : it.value().toList())
+            lines.append(v.toInt());
+        if (!lines.isEmpty())
+            data.bookmarks.insert(it.key(), lines);
+    }
+
+    // Prune groups of other instances (crashed or exited) so they can never be
+    // merged by later loads; previously they were only pruned at save time.
+    for (const QString& g : m_sessionSettings.childGroups())
+    {
+        if (g.startsWith(QStringLiteral("Session_")) && g != group)
+        {
+            m_sessionSettings.remove(g);
+        }
+    }
 
     m_sessionLock.unlock();
 
@@ -171,6 +179,14 @@ void SessionManager::saveSessionData(const QStringList& files, int activeIndex, 
     m_sessionSettings.setValue(QStringLiteral("TerminalWorkingDir"), terminalWorkingDir);
     m_sessionSettings.setValue(QStringLiteral("HasSession"), true);
     m_sessionSettings.endGroup();
+
+    // Mirror the snapshot into the legacy flat keys: the last clean-quit
+    // snapshot is discoverable by later launches (and other front-ends) this
+    // way, without merging per-PID groups of crashed or exited instances.
+    m_sessionSettings.setValue(QStringLiteral("Session_Files"), files);
+    m_sessionSettings.setValue(QStringLiteral("Session_ActiveIndex"), activeIndex);
+    m_sessionSettings.setValue(QStringLiteral("Session_ProjectPath"), projectPath);
+    m_sessionSettings.setValue(QStringLiteral("Session_TerminalWorkingDir"), terminalWorkingDir);
 
     // Remove stale session groups from previous (crashed) process PIDs
     for (const QString& g : m_sessionSettings.childGroups())
@@ -290,6 +306,7 @@ void SessionManager::saveSessionBookmarks(const QHash<QString, QList<int>>& book
     m_sessionSettings.beginGroup(sessionGroupPrefix());
     m_sessionSettings.setValue(QStringLiteral("Bookmarks"), map);
     m_sessionSettings.endGroup();
+    m_sessionSettings.setValue(QStringLiteral("Session_Bookmarks"), map);
     m_sessionSettings.sync();
 
     m_sessionLock.unlock();
@@ -339,6 +356,7 @@ void SessionManager::saveSessionPinnedFiles(const QStringList& pinnedFiles)
     m_sessionSettings.beginGroup(sessionGroupPrefix());
     m_sessionSettings.setValue(QStringLiteral("PinnedFiles"), pinnedFiles);
     m_sessionSettings.endGroup();
+    m_sessionSettings.setValue(QStringLiteral("Session_PinnedFiles"), pinnedFiles);
     m_sessionSettings.sync();
 
     m_sessionLock.unlock();

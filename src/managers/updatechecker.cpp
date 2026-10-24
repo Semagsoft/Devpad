@@ -24,6 +24,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QUrl>
+#include <memory>
 
 UpdateChecker::UpdateChecker(QObject* parent) : QObject(parent)
 {
@@ -41,10 +42,46 @@ void UpdateChecker::checkForUpdates()
     request.setTransferTimeout(15000);
 
     QNetworkReply* reply = m_networkManager.get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() { handleReply(reply); });
+
+    // Read incrementally and abort once the response exceeds the limit; a
+    // readAll() after finished() would buffer an unbounded body in RAM first.
+    // A real release JSON response is a few kilobytes.
+    static constexpr qint64 MaxUpdateResponseSize = 5LL * 1024 * 1024;
+    auto data = std::make_shared<QByteArray>();
+    auto aborted = std::make_shared<bool>(false);
+
+    connect(reply, &QNetworkReply::readyRead, this,
+            [reply, data, aborted]()
+            {
+                if (*aborted)
+                    return;
+                *data += reply->readAll();
+                if (data->size() > MaxUpdateResponseSize)
+                {
+                    *aborted = true;
+                    reply->abort();
+                }
+            });
+
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, data, aborted]()
+            {
+                if (*aborted)
+                {
+                    m_checkInProgress = false;
+                    reply->deleteLater();
+                    emit checkFailed(tr("The update server response was too large."), QString());
+                    return;
+                }
+
+                // Catch any tail bytes delivered with the finished state
+                // instead of a final readyRead signal.
+                data->append(reply->readAll());
+                handleReply(reply, *data);
+            });
 }
 
-void UpdateChecker::handleReply(QNetworkReply* reply)
+void UpdateChecker::handleReply(QNetworkReply* reply, const QByteArray& payload)
 {
     m_checkInProgress = false;
     reply->deleteLater();
@@ -55,7 +92,7 @@ void UpdateChecker::handleReply(QNetworkReply* reply)
         return;
     }
 
-    const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+    const QJsonDocument doc = QJsonDocument::fromJson(payload);
     const QJsonObject obj = doc.object();
     const QString tag = obj.value(QStringLiteral("tag_name")).toString();
     const QString releaseUrl = obj.value(QStringLiteral("html_url")).toString();
