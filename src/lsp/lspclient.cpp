@@ -132,9 +132,7 @@ void LspClient::stopServer()
         int id = m_jsonRpc->nextRequestId();
         m_process->write(m_jsonRpc->createRequest(id, "shutdown", QJsonObject()));
         m_jsonRpc->registerPendingRequest(
-            id,
-            [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) { sendExitIfStopping(); },
-            SHUTDOWN_TIMEOUT_MS);
+            id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) { sendExitIfStopping(); }, SHUTDOWN_TIMEOUT_MS);
     }
 
     // Escalation chain: if there is no shutdown response within
@@ -224,27 +222,27 @@ void LspClient::sendInitialize()
     params["trace"] = QStringLiteral("off");
 
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id,
-                                      [this](const QJsonValue& result, const QJsonObject& error)
-                                      {
-                                          if (!error.isEmpty())
-                                          {
-                                              // A failed initialize leaves the session unusable;
-                                              // per the LSP lifecycle the client sends exit and stops.
-                                              emit serverError(QStringLiteral("[%1] %2")
-                                                                   .arg(QString::number(error["code"].toInt(0)), error["message"].toString()));
-                                              m_starting = false;
-                                              stopServer();
-                                              return;
-                                          }
-                                          m_retryCount = 0;
-                                          m_capabilities = ServerCapabilities::fromJson(result.toObject()["capabilities"].toObject());
-                                          m_initialized = true;
-                                          QByteArray notification = m_jsonRpc->createNotification("initialized", QJsonObject());
-                                          if (m_process)
-                                              m_process->write(notification);
-                                          flushPendingDocOps();
-                                      });
+    m_jsonRpc->registerPendingRequest(
+        id,
+        [this](const QJsonValue& result, const QJsonObject& error)
+        {
+            if (!error.isEmpty())
+            {
+                // A failed initialize leaves the session unusable;
+                // per the LSP lifecycle the client sends exit and stops.
+                emit serverError(QStringLiteral("[%1] %2").arg(QString::number(error["code"].toInt(0)), error["message"].toString()));
+                m_starting = false;
+                stopServer();
+                return;
+            }
+            m_retryCount = 0;
+            m_capabilities = ServerCapabilities::fromJson(result.toObject()["capabilities"].toObject());
+            m_initialized = true;
+            QByteArray notification = m_jsonRpc->createNotification("initialized", QJsonObject());
+            if (m_process)
+                m_process->write(notification);
+            flushPendingDocOps();
+        });
 
     QByteArray request = m_jsonRpc->createRequest(id, "initialize", params);
     if (m_process)
@@ -422,7 +420,8 @@ void LspClient::requestWorkspaceSymbols(const QString& query)
         return;
 
     QJsonObject params{{"query", query}};
-    sendRequest("workspace/symbol", params, [this, query](const QJsonValue& result, const QJsonObject& /*error*/) { emit workspaceSymbolsReady(query, result.toArray()); });
+    sendRequest("workspace/symbol", params,
+                [this, query](const QJsonValue& result, const QJsonObject& /*error*/) { emit workspaceSymbolsReady(query, result.toArray()); });
 }
 
 void LspClient::requestSelectionRanges(const QString& uri, const QList<Position>& positions)
@@ -436,7 +435,8 @@ void LspClient::requestSelectionRanges(const QString& uri, const QList<Position>
     for (const auto& p : positions)
         posArr.append(p.toJson());
     params["positions"] = posArr;
-    sendRequest("textDocument/selectionRange", params, [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit selectionRangesReady(uri, result.toArray()); });
+    sendRequest("textDocument/selectionRange", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit selectionRangesReady(uri, result.toArray()); });
 }
 
 void LspClient::requestLinkedEditingRange(const QString& uri, const Position& pos)
@@ -465,7 +465,8 @@ void LspClient::incomingCalls(const QString& uri, const QString& itemId)
         return;
 
     QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
-    sendRequest("callHierarchy/incomingCalls", params, [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit incomingCallsReady(uri, result.toArray()); });
+    sendRequest("callHierarchy/incomingCalls", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit incomingCallsReady(uri, result.toArray()); });
 }
 
 void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
@@ -474,7 +475,8 @@ void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
         return;
 
     QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
-    sendRequest("callHierarchy/outgoingCalls", params, [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit outgoingCallsReady(uri, result.toArray()); });
+    sendRequest("callHierarchy/outgoingCalls", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit outgoingCallsReady(uri, result.toArray()); });
 }
 
 void LspClient::requestSemanticTokensFull(const QString& uri)
@@ -483,8 +485,8 @@ void LspClient::requestSemanticTokensFull(const QString& uri)
         return;
 
     QJsonObject params{{"textDocument", makeTextDocumentParam(uri)}};
-    sendRequest("textDocument/semanticTokens/full", params,
-                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit semanticTokensFullReady(uri, result.toObject()["data"].toArray()); });
+    sendRequest("textDocument/semanticTokens/full", params, [this, uri](const QJsonValue& result, const QJsonObject& /*error*/)
+                { emit semanticTokensFullReady(uri, result.toObject()["data"].toArray()); });
 }
 
 void LspClient::requestReferences(const QString& uri, const Position& pos)
@@ -601,7 +603,8 @@ void LspClient::requestSignatureHelp(const QString& uri, const Position& pos)
         return;
 
     QJsonObject params = makePositionParam(uri, pos);
-    sendRequest("textDocument/signatureHelp", params, [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit signatureHelpReady(uri, result.toObject()); });
+    sendRequest("textDocument/signatureHelp", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit signatureHelpReady(uri, result.toObject()); });
 }
 
 void LspClient::requestDiagnostics(const QString& uri)
@@ -632,7 +635,8 @@ void LspClient::requestRename(const QString& uri, const Position& pos, const QSt
 
     QJsonObject params = makePositionParam(uri, pos);
     params["newName"] = newName;
-    sendRequest("textDocument/rename", params, [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit renameReady(uri, result.toObject()); });
+    sendRequest("textDocument/rename", params,
+                [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit renameReady(uri, result.toObject()); });
 }
 
 void LspClient::requestDocumentHighlight(const QString& uri, const Position& pos)

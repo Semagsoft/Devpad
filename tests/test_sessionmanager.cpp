@@ -233,8 +233,7 @@ TEST_F(SessionManagerTest, LoadFallsBackToLegacyFlatKeys)
     raw.setValue(QStringLiteral("Session_Files"), QStringList{QStringLiteral("/prev/a.cpp"), QStringLiteral("/prev/b.cpp")});
     raw.setValue(QStringLiteral("Session_ActiveIndex"), 1);
     raw.setValue(QStringLiteral("Session_ProjectPath"), QStringLiteral("/prev/project"));
-    raw.setValue(QStringLiteral("Session_Bookmarks"),
-                 QVariantMap{{QStringLiteral("/prev/a.cpp"), QVariantList{3, 7}}});
+    raw.setValue(QStringLiteral("Session_Bookmarks"), QVariantMap{{QStringLiteral("/prev/a.cpp"), QVariantList{3, 7}}});
     raw.sync();
 
     SessionManager mgr;

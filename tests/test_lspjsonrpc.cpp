@@ -185,11 +185,7 @@ TEST(LspJsonRpcTest, ServerRequestDoesNotResolvePendingRequest)
 
     bool callbackCalled = false;
     int id = rpc.nextRequestId(); // counter runs 1, 2, ... so this is id 1
-    rpc.registerPendingRequest(id,
-                               [&callbackCalled](const QJsonValue&, const QJsonObject&)
-                               {
-                                   callbackCalled = true;
-                               });
+    rpc.registerPendingRequest(id, [&callbackCalled](const QJsonValue&, const QJsonObject&) { callbackCalled = true; });
 
     QByteArray body = R"({"jsonrpc":"2.0","id":1,"method":"workspace/applyEdit","params":{}})";
     QByteArray header = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n";

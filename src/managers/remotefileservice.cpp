@@ -133,10 +133,8 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
                 if (data->size() > kMaxRemoteFileSize)
                 {
                     reply->deleteLater();
-                    emit downloadFailed(urlStr,
-                                        tr("Remote file too large (%1 bytes, limit %2 MB)")
-                                            .arg(data->size())
-                                            .arg(kMaxRemoteFileSize / (1024LL * 1024)));
+                    emit downloadFailed(
+                        urlStr, tr("Remote file too large (%1 bytes, limit %2 MB)").arg(data->size()).arg(kMaxRemoteFileSize / (1024LL * 1024)));
                     return;
                 }
 
@@ -254,8 +252,7 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
                 if (file.size() > kMaxRemoteFileSize)
                 {
                     emit downloadFailed(
-                        urlStr,
-                        tr("Remote file too large (%1 bytes, limit %2 MB)").arg(file.size()).arg(kMaxRemoteFileSize / (1024LL * 1024)));
+                        urlStr, tr("Remote file too large (%1 bytes, limit %2 MB)").arg(file.size()).arg(kMaxRemoteFileSize / (1024LL * 1024)));
                     return;
                 }
                 QByteArray data;
