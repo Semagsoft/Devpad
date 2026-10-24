@@ -43,7 +43,7 @@ signals:
     void checkFailed(const QString& friendlyMessage, const QString& details);
 
 private:
-    void handleReply(QNetworkReply* reply);
+    void handleReply(QNetworkReply* reply, const QByteArray& payload);
     static QString friendlyFailureMessage(const QNetworkReply& reply);
     static int numericPrefix(const QString& version);
 

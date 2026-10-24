@@ -33,6 +33,10 @@ QJsonObject errorObject(int code, const QString& message)
     err[QStringLiteral("message")] = message;
     return err;
 }
+
+// Ceiling on a single framed JSON-RPC message; larger Content-Length values
+// are discarded incrementally instead of being buffered entire in memory.
+constexpr qint64 kMaxMessageSize = 100LL * 1024 * 1024;
 } // namespace
 
 LspJsonRpc::LspJsonRpc(QObject* parent) : QObject(parent)
@@ -122,12 +126,45 @@ void LspJsonRpc::handleData(const QByteArray& data)
             }
         }
 
-        if (m_contentLength < 0 || m_buffer.size() < m_contentLength)
+        if (m_contentLength <= 0)
+        {
+            // Invalid or unusable Content-Length (missing, zero, or an
+            // overflowed toInt()): wait for the next frame's header instead of
+            // slicing a bogus message out of the stream.
+            m_contentLength = -1;
+            continue;
+        }
+
+        if (m_contentLength > kMaxMessageSize)
+        {
+            // Pathological Content-Length: discard the message's bytes as
+            // they stream in (never accumulating them in memory) and resync
+            // on the next framed message.
+            const qint64 discardable = qMin<qint64>(m_buffer.size(), m_contentLength);
+            if (discardable > 0)
+            {
+                if (!m_discardingOversized)
+                {
+                    m_discardingOversized = true;
+                    qWarning() << "LSP: discarding server message larger than" << kMaxMessageSize << "bytes";
+                }
+                m_buffer.remove(0, static_cast<int>(discardable));
+                m_contentLength -= discardable;
+            }
+            if (m_contentLength > 0)
+                return; // wait for the rest of the oversized message to stream through
+            m_contentLength = -1;
+            m_discardingOversized = false;
+            continue;
+        }
+
+        if (m_buffer.size() < m_contentLength)
             return;
 
         QByteArray message = m_buffer.left(m_contentLength);
         m_buffer.remove(0, m_contentLength);
         m_contentLength = -1;
+        m_discardingOversized = false;
 
         processMessage(message);
     }

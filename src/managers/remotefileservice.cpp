@@ -30,6 +30,13 @@
 #include <QUrl>
 #include <memory>
 
+namespace
+{
+// Enforced incrementally during transfer; a body larger than this is aborted
+// instead of being fully buffered in RAM before being rejected.
+constexpr qint64 kMaxRemoteFileSize = 100LL * 1024 * 1024;
+} // namespace
+
 RemoteFileService::RemoteFileService(QObject* parent) : QObject(parent)
 {
 }
@@ -73,12 +80,44 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
     reply->setProperty("remoteUrl", urlStr);
     m_pendingReplies.append(reply);
 
+    // Accumulate incrementally and abort as soon as the transfer exceeds the
+    // limit. A readAll() after finished() would buffer the entire body in RAM
+    // before the limit could be enforced.
+    auto data = std::make_shared<QByteArray>();
+    auto aborted = std::make_shared<bool>(false);
+
+    connect(reply, &QNetworkReply::readyRead, this,
+            [this, reply, urlStr, data, aborted]()
+            {
+                if (*aborted)
+                    return;
+
+                // Bail before the payload lands in RAM: either the declared
+                // Content-Length is already over the limit, or the next chunk
+                // would push past it.
+                const qint64 declared = reply->header(QNetworkRequest::ContentLengthHeader).toLongLong();
+                if (declared > kMaxRemoteFileSize || data->size() + reply->bytesAvailable() > kMaxRemoteFileSize)
+                {
+                    *aborted = true;
+                    reply->abort();
+                    emit downloadFailed(urlStr, tr("Remote file too large (limit %1 MB)").arg(kMaxRemoteFileSize / (1024LL * 1024)));
+                    return;
+                }
+
+                data->append(reply->readAll());
+            });
+
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply]()
+            [this, reply, urlStr, data, aborted]()
             {
                 m_pendingReplies.removeOne(reply);
 
-                QString urlStr = reply->property("remoteUrl").toString();
+                if (*aborted)
+                {
+                    // Failure was already reported when the abort happened.
+                    reply->deleteLater();
+                    return;
+                }
 
                 if (reply->error() != QNetworkReply::NoError)
                 {
@@ -88,18 +127,22 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
                     return;
                 }
 
-                QByteArray data = reply->readAll();
-                static constexpr qint64 MaxRemoteFileSize = 100LL * 1024 * 1024;
-                if (data.size() > MaxRemoteFileSize)
+                // Catch any tail bytes delivered with the finished state
+                // instead of a final readyRead signal.
+                data->append(reply->readAll());
+                if (data->size() > kMaxRemoteFileSize)
                 {
                     reply->deleteLater();
-                    emit downloadFailed(
-                        urlStr, tr("Remote file too large (%1 bytes, limit %2 MB)").arg(data.size()).arg(MaxRemoteFileSize / (1024LL * 1024)));
+                    emit downloadFailed(urlStr,
+                                        tr("Remote file too large (%1 bytes, limit %2 MB)")
+                                            .arg(data->size())
+                                            .arg(kMaxRemoteFileSize / (1024LL * 1024)));
                     return;
                 }
+
                 QString fileName = QUrl(urlStr).fileName();
                 reply->deleteLater();
-                emit fileDownloaded(urlStr, fileName, data);
+                emit fileDownloaded(urlStr, fileName, *data);
             });
 
     connect(reply, &QNetworkReply::downloadProgress, this,
@@ -208,6 +251,13 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
 
                 QString filePath = tmpFileShared->fileName();
                 QFile file(filePath);
+                if (file.size() > kMaxRemoteFileSize)
+                {
+                    emit downloadFailed(
+                        urlStr,
+                        tr("Remote file too large (%1 bytes, limit %2 MB)").arg(file.size()).arg(kMaxRemoteFileSize / (1024LL * 1024)));
+                    return;
+                }
                 QByteArray data;
                 if (file.open(QIODevice::ReadOnly))
                 {

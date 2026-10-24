@@ -53,6 +53,7 @@ private:
 
     QByteArray m_buffer;
     int m_contentLength = -1;
+    bool m_discardingOversized = false;
     int m_requestIdCounter = 0;
     // Keyed by a canonical id string ("n:<num>" / "s:<str>") so numeric and
     // string ids cannot collide during pending-request matching.
