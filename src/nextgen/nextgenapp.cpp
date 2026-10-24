@@ -137,40 +137,20 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     // Shared session: if no files and not --no-session, restore from QSettings (shared with Widgets)
     if (!hasFiles && !parser.isSet(QStringLiteral("no-session")))
     {
-        // Use SessionManager to load shared session
+        // Use SessionManager's QSettings to load the shared session from the
+        // flat keys (the last clean-quit snapshot). Per-PID Session_* groups
+        // belong to individual instances and are never merged — stale ones
+        // belong to crashed processes (same rule as SessionManager::loadSessionData).
         QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-        // Find latest Session_* group (like SessionManager::loadSessionData)
-        QStringList groups = s.childGroups();
-        QStringList files;
-        for (auto& g : groups)
-            if (g.startsWith(QStringLiteral("Session_")))
-            {
-                s.beginGroup(g);
-                QStringList f = s.value(QStringLiteral("Files")).toStringList();
-                s.endGroup();
-                files.append(f);
-            }
-        // Legacy fallback
-        if (files.isEmpty())
-            files = s.value(QStringLiteral("Session_Files")).toStringList();
+        QStringList files = s.value(QStringLiteral("Session_Files")).toStringList();
         for (auto& f : files)
             if (QFileInfo::exists(f))
                 tabModel->addTab(f);
         if (!files.isEmpty() && initialFolder.isEmpty())
         {
-            // Try to get project path
-            for (auto& g : groups)
-                if (g.startsWith(QStringLiteral("Session_")))
-                {
-                    s.beginGroup(g);
-                    QString proj = s.value(QStringLiteral("ProjectPath")).toString();
-                    s.endGroup();
-                    if (!proj.isEmpty() && QDir(proj).exists())
-                    {
-                        initialFolder = proj;
-                        break;
-                    }
-                }
+            QString proj = s.value(QStringLiteral("Session_ProjectPath")).toString();
+            if (!proj.isEmpty() && QDir(proj).exists())
+                initialFolder = proj;
         }
     }
     engine.rootContext()->setContextProperty(QStringLiteral("tabModel"), tabModel);
@@ -179,12 +159,11 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
                      [tabModel, initialFolder]()
                      {
                          QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-                         // Use nextgen-specific group to share with Widgets' SessionManager which aggregates all Session_*
-                         QString grp = QStringLiteral("Session_%1").arg(QCoreApplication::applicationPid());
-                         s.beginGroup(grp);
-                         s.setValue(QStringLiteral("Files"), tabModel->tabs());
-                         s.setValue(QStringLiteral("ProjectPath"), initialFolder);
-                         s.endGroup();
+                         // Write the flat keys — the shared last-quit snapshot —
+                         // so later launches and other front-ends restore it
+                         // without merging per-PID Session_* groups.
+                         s.setValue(QStringLiteral("Session_Files"), tabModel->tabs());
+                         s.setValue(QStringLiteral("Session_ProjectPath"), initialFolder);
                          s.sync();
                      });
 

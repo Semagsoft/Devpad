@@ -63,12 +63,12 @@ public:
     void saveSessionPinnedFiles(const QStringList& pinnedFiles);
     QStringList loadSessionPinnedFiles();
     void clearSession();
+    SessionData loadSessionData();
 
 signals:
     void sessionRestored();
 
 private:
-    SessionData loadSessionData();
     QString sessionGroupPrefix() const;
 
     QSettings m_sessionSettings;
