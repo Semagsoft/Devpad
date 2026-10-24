@@ -50,7 +50,7 @@ int LspJsonRpc::nextRequestId()
 
 void LspJsonRpc::registerPendingRequest(int id, ResponseCallback callback, int timeoutMs)
 {
-    m_pendingRequests.insert(canonicalId(id), std::move(callback));
+    m_pendingRequests.insert(canonicalId(id), callback);
     if (timeoutMs > 0)
     {
         QPointer<LspJsonRpc> guard(this);
