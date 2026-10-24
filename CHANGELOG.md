@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.06] - 2026-10-24
+
+- File background watcher file changed outside of editor dialog shows every time there is a change, when it should only show one dialog at any given time and wait for user input before ever showing another. SHA: 3682800a7c93a6a9cb7912b86538a608f20590ae
+- TLS error when clicking "Check for updates" in some cases. SHA: b8fc85921fee333bacf857d24aad878f1d82c025
+- Unused UI separator removed. SHA: 74dec77dbbaaacb5de794aaed41968ba17c41d4d
+- Fix LSP protocol defects in JSON-RPC layer and client lifecycle. SHA: 79111e33e68bd061df5a2ceb752c4d9854d333e4
+- Bound memory usage from unbounded network/pipe reads. SHA: 79111e33e68bd061df5a2ceb752c4d9854d333e4
+- Stop session restore from resurrecting stale sessions. SHA: 79111e33e68bd061df5a2ceb752c4d9854d333e4
+
 ## [1.05] - 2026-09-18
 
 What's new in Devpad 1.05:
