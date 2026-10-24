@@ -891,6 +891,7 @@ void LspClient::handleResponse(const QVariant& /*id*/, const QJsonValue& /*resul
 void LspClient::handleServerRequest(const QVariant& id, const QString& method, const QJsonObject& params)
 {
     Q_UNUSED(params);
+    Q_UNUSED(method);
 #ifdef QT_DEBUG
     qDebug().noquote() << QString("[LSP %1] server request not supported: %2").arg(m_language, method);
 #endif
