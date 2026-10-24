@@ -1,5 +1,7 @@
 ﻿# Devpad
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A3D729DKXZ)
+
 A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 
 ## Features
