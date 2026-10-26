@@ -40,9 +40,9 @@
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QProcess>
-#include <QStandardPaths>
 #include <QStandardItem>
 #include <QStandardItemModel>
+#include <QStandardPaths>
 #include <QToolButton>
 #include <QTreeView>
 #include <QUrl>
@@ -956,9 +956,7 @@ void ProjectPanel::populateRemoteDir(QStandardItem* parentItem, const QString& p
     }
 
     auto byName = [](const RemoteFsEntry& a, const RemoteFsEntry& b)
-    {
-        return QFileInfo(a.remotePath).fileName().compare(QFileInfo(b.remotePath).fileName(), Qt::CaseInsensitive) < 0;
-    };
+    { return QFileInfo(a.remotePath).fileName().compare(QFileInfo(b.remotePath).fileName(), Qt::CaseInsensitive) < 0; };
     std::sort(dirs.begin(), dirs.end(), byName);
     std::sort(files.begin(), files.end(), byName);
 
@@ -1112,8 +1110,7 @@ bool ProjectPanel::remoteFilterTree(const QModelIndex& parent, const QString& te
     for (int row = 0; row < rows; ++row)
     {
         const QModelIndex idx = remoteModel->index(row, 0, parent);
-        const bool selfMatch =
-            text.isEmpty() || remoteModel->data(idx, Qt::DisplayRole).toString().contains(text, Qt::CaseInsensitive);
+        const bool selfMatch = text.isEmpty() || remoteModel->data(idx, Qt::DisplayRole).toString().contains(text, Qt::CaseInsensitive);
         bool childVisible = false;
         const bool childHasMatch = remoteFilterTree(idx, text, childVisible);
         const bool keep = selfMatch || childHasMatch;

@@ -742,7 +742,8 @@ void MainWindow::openRemoteFolder()
 {
     bool ok;
     QString urlStr =
-        QInputDialog::getText(this, tr("Open Remote Folder"), tr("Enter remote folder URL\n(SSH only, e.g. ssh://user@host/path/to/folder):"), QLineEdit::Normal, "ssh://", &ok);
+        QInputDialog::getText(this, tr("Open Remote Folder"), tr("Enter remote folder URL\n(SSH only, e.g. ssh://user@host/path/to/folder):"),
+                              QLineEdit::Normal, "ssh://", &ok);
     if (!ok || urlStr.trimmed().isEmpty())
         return;
 
@@ -750,8 +751,7 @@ void MainWindow::openRemoteFolder()
 
     if (!urlStr.startsWith("ssh://", Qt::CaseInsensitive))
     {
-        QMessageBox::warning(this, tr("Invalid URL"),
-                             tr("Remote folders require an SSH URL (ssh://user@host/path)."));
+        QMessageBox::warning(this, tr("Invalid URL"), tr("Remote folders require an SSH URL (ssh://user@host/path)."));
         return;
     }
 

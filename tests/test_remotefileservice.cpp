@@ -240,9 +240,9 @@ TEST_F(RemoteFileServiceTest, ListRemoteDirInvalidPathFails)
     ASSERT_TRUE(failSpy.isValid());
     ASSERT_TRUE(listingFailSpy.isValid());
 
-    m_service.listRemoteDir("ssh://user@host", "");          // empty path
-    m_service.listRemoteDir("ssh://user@host", "relative");  // not absolute
-    m_service.listRemoteDir("", "/etc");                     // empty url
+    m_service.listRemoteDir("ssh://user@host", "");         // empty path
+    m_service.listRemoteDir("ssh://user@host", "relative"); // not absolute
+    m_service.listRemoteDir("", "/etc");                    // empty url
 
     ASSERT_EQ(failSpy.count(), 3);
     ASSERT_EQ(listingFailSpy.count(), 3);
@@ -294,8 +294,7 @@ TEST_F(RemoteFileServiceTest, ParseListingTrimsTrailingSlash)
 TEST_F(RemoteFileServiceTest, ParseIgnoresStrayMarkerLines)
 {
     // Marker-like lines that aren't the exact marker, and dot entries, are skipped.
-    QList<RemoteFsEntry> entries =
-        RemoteFileService::parseListing("__DEVPAD_FILES__\n__DEVPAD_FILES__X\n./.\n./..\n./ok\n", "/p");
+    QList<RemoteFsEntry> entries = RemoteFileService::parseListing("__DEVPAD_FILES__\n__DEVPAD_FILES__X\n./.\n./..\n./ok\n", "/p");
     ASSERT_EQ(entries.size(), 1);
     EXPECT_EQ(entries.at(0).remotePath, "/p/ok");
     EXPECT_FALSE(entries.at(0).isDir);

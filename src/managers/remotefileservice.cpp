@@ -25,6 +25,8 @@
  */
 #include "remotefileservice.h"
 
+#include "logger.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -37,8 +39,6 @@
 #include <QTimer>
 #include <QUrl>
 #include <memory>
-
-#include "logger.h"
 
 namespace
 {
@@ -135,8 +135,7 @@ void RemoteFileService::listRemoteDir(const QString& urlStr, const QString& remo
     while (cleaned.size() > 1 && cleaned.endsWith('/'))
         cleaned.chop(1);
 
-    if (!url.isValid() || url.host().isEmpty() || cleaned.isEmpty() || !cleaned.startsWith('/') ||
-        cleaned.contains(QLatin1Char('\n')))
+    if (!url.isValid() || url.host().isEmpty() || cleaned.isEmpty() || !cleaned.startsWith('/') || cleaned.contains(QLatin1Char('\n')))
     {
         emit remoteListingFailed(urlStr, cleaned, tr("Invalid SSH URL or remote path."));
         emit downloadFailed(urlStr, tr("Invalid SSH URL or remote path."));
@@ -270,9 +269,8 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
 
     // One command prints directories, then the marker, then files. The path is
     // single-quoted so spaces and odd characters survive the remote shell.
-    const QString command =
-        QStringLiteral("cd %1 && find . ! -name . -maxdepth 1 -type d -print && echo %2 && find . -maxdepth 1 -type f -print")
-            .arg(shellQuote(remotePath), QLatin1String(kListingFilesMarker));
+    const QString command = QStringLiteral("cd %1 && find . ! -name . -maxdepth 1 -type d -print && echo %2 && find . -maxdepth 1 -type f -print")
+                                .arg(shellQuote(remotePath), QLatin1String(kListingFilesMarker));
 
     auto* ssh = new QProcess(this);
     ssh->setProgram(sshPath);
@@ -365,24 +363,24 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
                 QString reason;
                 switch (error)
                 {
-                    case QProcess::FailedToStart:
-                        reason = tr("Failed to start ssh process.");
-                        break;
-                    case QProcess::Crashed:
-                        reason = tr("ssh process crashed.");
-                        break;
-                    case QProcess::Timedout:
-                        reason = tr("ssh process timed out.");
-                        break;
-                    case QProcess::WriteError:
-                        reason = tr("Write error to ssh process.");
-                        break;
-                    case QProcess::ReadError:
-                        reason = tr("Read error from ssh process.");
-                        break;
-                    default:
-                        reason = tr("Unknown ssh process error.");
-                        break;
+                case QProcess::FailedToStart:
+                    reason = tr("Failed to start ssh process.");
+                    break;
+                case QProcess::Crashed:
+                    reason = tr("ssh process crashed.");
+                    break;
+                case QProcess::Timedout:
+                    reason = tr("ssh process timed out.");
+                    break;
+                case QProcess::WriteError:
+                    reason = tr("Write error to ssh process.");
+                    break;
+                case QProcess::ReadError:
+                    reason = tr("Read error from ssh process.");
+                    break;
+                default:
+                    reason = tr("Unknown ssh process error.");
+                    break;
                 }
                 reportFailure(reason);
             });
@@ -727,18 +725,18 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
                 QString reason;
                 switch (error)
                 {
-                    case QProcess::FailedToStart:
-                        reason = tr("Failed to start SCP process.");
-                        break;
-                    case QProcess::Crashed:
-                        reason = tr("SCP process crashed.");
-                        break;
-                    case QProcess::Timedout:
-                        reason = tr("SCP process timed out.");
-                        break;
-                    default:
-                        reason = tr("Unknown SCP process error.");
-                        break;
+                case QProcess::FailedToStart:
+                    reason = tr("Failed to start SCP process.");
+                    break;
+                case QProcess::Crashed:
+                    reason = tr("SCP process crashed.");
+                    break;
+                case QProcess::Timedout:
+                    reason = tr("SCP process timed out.");
+                    break;
+                default:
+                    reason = tr("Unknown SCP process error.");
+                    break;
                 }
                 reportFailure(reason);
             });
