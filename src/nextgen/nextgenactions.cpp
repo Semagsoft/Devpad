@@ -188,6 +188,14 @@ void NextgenActions::openFolderDialog()
 {
     emit requestOpenFolderDialog();
 }
+void NextgenActions::openRemoteDialog()
+{
+    emit requestOpenRemoteDialog();
+}
+void NextgenActions::openRemoteFolderDialog()
+{
+    emit requestOpenRemoteFolderDialog();
+}
 void NextgenActions::saveFile()
 {
     if (!m_editor)

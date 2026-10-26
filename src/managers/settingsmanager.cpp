@@ -75,6 +75,7 @@ static const QHash<QString, QString>& buildExtensionMap()
         {"cmake", "cmake"},
         {"lua", "lua"},
         {"qml", "qml"},
+        {"php", "php"},
         {"txt", "text"},
     };
     return map;

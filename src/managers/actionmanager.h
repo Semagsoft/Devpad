@@ -68,6 +68,7 @@ public:
         NewWindow,
         Open,
         OpenRemote,
+        OpenRemoteFolder,
         OpenFolder,
         CloseProject,
         Save,
@@ -422,6 +423,7 @@ signals:
     void newWindowTriggered();
     void openFileTriggered();
     void openRemoteTriggered();
+    void openRemoteFolderTriggered();
     void openFolderTriggered();
     void closeProjectTriggered();
     void saveFileTriggered();
@@ -541,6 +543,7 @@ private:
     QAction* m_newWindowAct = nullptr;
     QAction* m_openAct = nullptr;
     QAction* m_openRemoteAct = nullptr;
+    QAction* m_openRemoteFolderAct = nullptr;
     QAction* m_openFolderAct = nullptr;
     QAction* m_closeProjectAct = nullptr;
     QAction* m_revertAct = nullptr;

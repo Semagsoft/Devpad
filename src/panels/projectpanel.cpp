@@ -40,11 +40,14 @@
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QProcess>
+#include <QStandardItem>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QToolButton>
 #include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <algorithm>
 
 static const QHash<QString, QString>& fileIconMap();
 
@@ -320,6 +323,8 @@ void ProjectPanel::setupUI()
     treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     fileModel = new QFileSystemModel(this);
+    remoteModel = new QStandardItemModel(this);
+    remoteModel->setColumnCount(1);
     reloadFilter();
 
     filterProxyModel = new FileFilterProxyModel(this);
@@ -353,6 +358,7 @@ void ProjectPanel::setRootPath(const QString& path)
     }
 
     currentRootPath = path;
+    clearRemote();
     QModelIndex rootIndex = fileModel->setRootPath(path);
     treeView->setRootIndex(filterProxyModel->mapFromSource(rootIndex));
     treeView->expand(filterProxyModel->mapFromSource(rootIndex));
@@ -368,6 +374,7 @@ void ProjectPanel::setRootPath(const QString& path)
 
 void ProjectPanel::clear()
 {
+    clearRemote();
     currentRootPath.clear();
     currentFilter.clear();
     filterEdit->clear();
@@ -383,6 +390,13 @@ QString ProjectPanel::rootPath() const
 
 void ProjectPanel::onItemClicked(const QModelIndex& index)
 {
+    if (m_remoteMode)
+    {
+        if (SettingsManager::instance().fileOpenMode() == FileOpenMode::SingleClick)
+            activateRemoteItem(index);
+        return;
+    }
+
     if (SettingsManager::instance().fileOpenMode() != FileOpenMode::SingleClick)
         return;
 
@@ -397,6 +411,13 @@ void ProjectPanel::onItemClicked(const QModelIndex& index)
 
 void ProjectPanel::onItemDoubleClicked(const QModelIndex& index)
 {
+    if (m_remoteMode)
+    {
+        if (SettingsManager::instance().fileOpenMode() == FileOpenMode::DoubleClick)
+            activateRemoteItem(index);
+        return;
+    }
+
     if (SettingsManager::instance().fileOpenMode() != FileOpenMode::DoubleClick)
         return;
 
@@ -417,6 +438,11 @@ void ProjectPanel::onFilterTextChanged(const QString& text)
 
 void ProjectPanel::applyFilter()
 {
+    if (m_remoteMode)
+    {
+        applyRemoteFilter();
+        return;
+    }
     filterProxyModel->setFilterText(currentFilter);
 }
 
@@ -470,8 +496,21 @@ void ProjectPanel::buildRecentFoldersMenu(QMenu* menu)
 
     for (int i = 0; i < folders.size(); ++i)
     {
-        QFileInfo fi(folders[i]);
-        QString displayText = tr("&%1 %2").arg(i + 1).arg(fi.fileName());
+        QString displayName;
+        if (folders[i].startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+        {
+            // Remote entries are SSH URLs, not local paths — display the last
+            // path segment (or the host for a "/" root).
+            QUrl url(folders[i]);
+            displayName = url.fileName();
+            if (displayName.isEmpty())
+                displayName = url.host();
+        }
+        else
+        {
+            displayName = QFileInfo(folders[i]).fileName();
+        }
+        QString displayText = tr("&%1 %2").arg(i + 1).arg(displayName);
         QAction* act = new QAction(displayText, menu);
         act->setData(folders[i]);
         act->setToolTip(folders[i]);
@@ -491,7 +530,16 @@ void ProjectPanel::onRecentFolderSelected()
     if (act)
     {
         QString folderPath = act->data().toString();
-        if (!folderPath.isEmpty() && QDir(folderPath).exists())
+        if (folderPath.isEmpty())
+            return;
+        // Remote folders are SSH URLs — existence can't be checked locally;
+        // attempt the listing and let the service report any failure.
+        if (folderPath.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+        {
+            emit remoteFolderSelected(folderPath);
+            return;
+        }
+        if (QDir(folderPath).exists())
         {
             emit folderSelected(folderPath);
         }
@@ -505,6 +553,14 @@ void ProjectPanel::onClearRecentFolders()
 
 void ProjectPanel::onFolderExpanded(const QModelIndex& index)
 {
+    if (m_remoteMode)
+    {
+        const QString path = index.data(RemotePathRole).toString();
+        if (index.data(RemoteIsDirRole).toBool() && !path.isEmpty())
+            requestRemoteDir(path);
+        return;
+    }
+
     QModelIndex sourceIndex = filterProxyModel->mapToSource(index);
     QString path = fileModel->filePath(sourceIndex);
     QSet<QString> expanded = filterProxyModel->expandedFolders();
@@ -523,6 +579,12 @@ QString ProjectPanel::filePathFromIndex(const QModelIndex& index) const
 
 void ProjectPanel::onContextMenu(const QPoint& pos)
 {
+    if (m_remoteMode)
+    {
+        remoteContextMenu(pos);
+        return;
+    }
+
     if (currentRootPath.isEmpty())
         return;
 
@@ -788,10 +850,274 @@ void ProjectPanel::openInTerminal(const QString& dirPath)
 
 void ProjectPanel::onFolderCollapsed(const QModelIndex& index)
 {
+    if (m_remoteMode)
+        return;
+
     QModelIndex sourceIndex = filterProxyModel->mapToSource(index);
     QString path = fileModel->filePath(sourceIndex);
     QSet<QString> expanded = filterProxyModel->expandedFolders();
     expanded.remove(path);
     filterProxyModel->setExpandedFolders(expanded);
     filterProxyModel->notifyDataChanged(index);
+}
+
+void ProjectPanel::enterRemoteMode(const QString& url, const QString& rootPath)
+{
+    m_remoteMode = true;
+    m_remoteBaseUrl = url;
+    m_remoteRootPath = rootPath;
+    m_remoteItemByPath.clear();
+    m_remoteLoadedDirs.clear();
+    m_remotePendingDirs.clear();
+    remoteModel->clear();
+
+    treeView->setModel(remoteModel);
+    treeView->setSortingEnabled(false);
+
+    QString name = QFileInfo(rootPath).fileName();
+    if (name.isEmpty())
+        name = QUrl(url).host();
+
+    auto* rootItem = new QStandardItem(name);
+    rootItem->setToolTip(url);
+    rootItem->setData(rootPath, RemotePathRole);
+    rootItem->setData(true, RemoteIsDirRole);
+    remoteModel->appendRow(rootItem);
+    m_remoteItemByPath.insert(rootPath, rootItem);
+
+    treeView->setRootIndex(rootItem->index());
+    titleLabel->setText(name);
+}
+
+void ProjectPanel::applyRemoteListing(const QString& url, const QString& parentPath, const QList<RemoteFsEntry>& entries)
+{
+    m_remotePendingDirs.remove(parentPath);
+
+    if (!m_remoteMode || m_remoteBaseUrl != url)
+    {
+        enterRemoteMode(url, parentPath);
+
+        // Track the remote folder in Recent Folders (SSH URLs stored verbatim;
+        // only a successful listing gets here).
+        QString recentUrl = url;
+        while (recentUrl.size() > 6 && recentUrl.endsWith(QLatin1Char('/')))
+            recentUrl.chop(1);
+        SettingsManager::instance().addRecentFolder(recentUrl);
+    }
+
+    if (QStandardItem* parentItem = m_remoteItemByPath.value(parentPath))
+    {
+        populateRemoteDir(parentItem, parentPath, entries);
+    }
+
+    applyRemoteFilter();
+}
+
+void ProjectPanel::onRemoteListingFailed(const QString& remotePath)
+{
+    if (!m_remotePendingDirs.remove(remotePath))
+        return;
+
+    // Unmark the placeholder so the folder can be retried by re-expanding.
+    if (QStandardItem* item = m_remoteItemByPath.value(remotePath))
+    {
+        if (QStandardItem* placeholder = item->child(0))
+        {
+            if (!placeholder->data(RemotePathRole).isValid())
+                placeholder->setText(tr("(failed — expand again to retry)"));
+        }
+    }
+}
+
+void ProjectPanel::populateRemoteDir(QStandardItem* parentItem, const QString& parentPath, const QList<RemoteFsEntry>& entries)
+{
+    m_remoteLoadedDirs.insert(parentPath);
+    m_remotePendingDirs.remove(parentPath);
+
+    // Drop placeholder/previous children of this directory on refresh.
+    purgeRemoteChildren(parentItem);
+    parentItem->removeRows(0, parentItem->rowCount());
+    m_remoteItemByPath.insert(parentPath, parentItem);
+
+    const bool showHidden = SettingsManager::instance().showHiddenFiles();
+    QList<RemoteFsEntry> dirs;
+    QList<RemoteFsEntry> files;
+    for (const RemoteFsEntry& entry : entries)
+    {
+        const QString name = QFileInfo(entry.remotePath).fileName();
+        if (name.isEmpty() || name == QLatin1String(".") || name == QLatin1String(".."))
+            continue;
+        if (!showHidden && name.startsWith(QLatin1Char('.')))
+            continue;
+        if (entry.isDir)
+            dirs.append(entry);
+        else
+            files.append(entry);
+    }
+
+    auto byName = [](const RemoteFsEntry& a, const RemoteFsEntry& b)
+    { return QFileInfo(a.remotePath).fileName().compare(QFileInfo(b.remotePath).fileName(), Qt::CaseInsensitive) < 0; };
+    std::sort(dirs.begin(), dirs.end(), byName);
+    std::sort(files.begin(), files.end(), byName);
+
+    for (const RemoteFsEntry& entry : dirs)
+    {
+        const QString name = QFileInfo(entry.remotePath).fileName();
+        auto* item = new QStandardItem(QIcon(":/icons/Common/folder.svg"), name);
+        item->setData(entry.remotePath, RemotePathRole);
+        item->setData(true, RemoteIsDirRole);
+
+        // Placeholder child so the expand arrow appears; replaced by the real
+        // listing when the folder is expanded (populateRemoteDir purges it).
+        auto* placeholder = new QStandardItem(tr("(loading...)"));
+        placeholder->setEnabled(false);
+        item->appendRow(placeholder);
+
+        parentItem->appendRow(item);
+        m_remoteItemByPath.insert(entry.remotePath, item);
+    }
+
+    for (const RemoteFsEntry& entry : files)
+    {
+        const QString name = QFileInfo(entry.remotePath).fileName();
+        auto* item = new QStandardItem(iconForFile(name), name);
+        item->setData(entry.remotePath, RemotePathRole);
+        item->setData(false, RemoteIsDirRole);
+        parentItem->appendRow(item);
+        m_remoteItemByPath.insert(entry.remotePath, item);
+    }
+}
+
+// Recursively unregister a directory item's subtree from the remote lookup
+// state and remove its rows.
+void ProjectPanel::purgeRemoteChildren(QStandardItem* item)
+{
+    while (item->rowCount() > 0)
+    {
+        if (QStandardItem* child = item->child(0))
+        {
+            const QString path = child->data(RemotePathRole).toString();
+            if (!path.isEmpty())
+            {
+                purgeRemoteChildren(child);
+                m_remoteItemByPath.remove(path);
+                m_remoteLoadedDirs.remove(path);
+                m_remotePendingDirs.remove(path);
+            }
+        }
+        item->removeRow(0);
+    }
+}
+
+void ProjectPanel::requestRemoteDir(const QString& remotePath)
+{
+    if (!m_remoteMode || m_remoteLoadedDirs.contains(remotePath) || m_remotePendingDirs.contains(remotePath))
+        return;
+    m_remotePendingDirs.insert(remotePath);
+    emit remoteDirExpandRequested(m_remoteBaseUrl, remotePath);
+}
+
+void ProjectPanel::activateRemoteItem(const QModelIndex& index)
+{
+    if (!index.isValid() || index.data(RemoteIsDirRole).toBool())
+        return;
+    const QString path = index.data(RemotePathRole).toString();
+    if (!path.isEmpty())
+        emit remoteFileActivated(remoteUrlFor(path));
+}
+
+QString ProjectPanel::remoteUrlFor(const QString& remotePath) const
+{
+    QUrl url(m_remoteBaseUrl);
+    url.setPath(remotePath, QUrl::DecodedMode);
+    return url.toString();
+}
+
+void ProjectPanel::remoteContextMenu(const QPoint& pos)
+{
+    QModelIndex index = treeView->indexAt(pos);
+    if (!index.isValid())
+        return;
+
+    const QString path = index.data(RemotePathRole).toString();
+    if (path.isEmpty())
+        return;
+
+    QMenu menu(this);
+    if (index.data(RemoteIsDirRole).toBool())
+    {
+        QAction* refreshAct = menu.addAction(tr("Refresh"));
+        connect(refreshAct, &QAction::triggered, this,
+                [this, path]()
+                {
+                    QStandardItem* item = m_remoteItemByPath.value(path);
+                    if (!item)
+                        return;
+                    purgeRemoteChildren(item);
+                    item->removeRows(0, item->rowCount());
+                    m_remoteLoadedDirs.remove(path);
+                    requestRemoteDir(path);
+                });
+        menu.addSeparator();
+    }
+    else
+    {
+        QAction* openAct = menu.addAction(QIcon(":/icons/File/open.svg"), tr("Open"));
+        connect(openAct, &QAction::triggered, this, [this, index]() { activateRemoteItem(index); });
+        menu.addSeparator();
+    }
+
+    QAction* copyPathAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy SSH URL"));
+    connect(copyPathAct, &QAction::triggered, this, [this, path]() { QApplication::clipboard()->setText(remoteUrlFor(path)); });
+
+    menu.exec(treeView->viewport()->mapToGlobal(pos));
+}
+
+void ProjectPanel::clearRemote()
+{
+    m_remoteMode = false;
+    m_remoteBaseUrl.clear();
+    m_remoteRootPath.clear();
+    m_remoteItemByPath.clear();
+    m_remoteLoadedDirs.clear();
+    m_remotePendingDirs.clear();
+    remoteModel->clear();
+
+    treeView->setModel(filterProxyModel);
+    treeView->setSortingEnabled(true);
+    treeView->sortByColumn(0, Qt::AscendingOrder);
+    treeView->setRootIndex(filterProxyModel->mapFromSource(fileModel->index(currentRootPath)));
+    for (int i = 1; i < fileModel->columnCount(); ++i)
+    {
+        treeView->setColumnHidden(i, true);
+    }
+}
+
+void ProjectPanel::applyRemoteFilter()
+{
+    if (!m_remoteMode)
+        return;
+    const QString text = filterEdit->text();
+    bool anyVisible = false;
+    remoteFilterTree(QModelIndex(), text, anyVisible);
+}
+
+// Hides rows whose text doesn't match the filter, unless a descendant matches.
+bool ProjectPanel::remoteFilterTree(const QModelIndex& parent, const QString& text, bool& anyVisible)
+{
+    bool subtreeVisible = false;
+    const int rows = remoteModel->rowCount(parent);
+    for (int row = 0; row < rows; ++row)
+    {
+        const QModelIndex idx = remoteModel->index(row, 0, parent);
+        const bool selfMatch = text.isEmpty() || remoteModel->data(idx, Qt::DisplayRole).toString().contains(text, Qt::CaseInsensitive);
+        bool childVisible = false;
+        const bool childHasMatch = remoteFilterTree(idx, text, childVisible);
+        const bool keep = selfMatch || childHasMatch;
+        treeView->setRowHidden(row, parent, !keep);
+        subtreeVisible = subtreeVisible || keep;
+    }
+    if (subtreeVisible)
+        anyVisible = true;
+    return subtreeVisible;
 }

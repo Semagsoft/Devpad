@@ -7,7 +7,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 ## Features
 
 - Multi-tab editor with QScintilla (syntax highlighting, code folding, brace matching, auto-indentation)
-- Syntax highlighting for: C/C++, C#, Java, Python, JavaScript, HTML, CSS, XML, SQL, Bash, CMake, Markdown
+- Syntax highlighting for: C/C++, C#, Java, Python, JavaScript, HTML, CSS, XML, SQL, Bash, CMake, Markdown, Lua, QML, PHP
 - **LSP integration**: go-to-definition, type definition, declaration, find references, rename, hover, code actions, completion, signature help, document highlights, selection ranges, linked editing, call hierarchy, semantic tokens, formatting
 - **Diagnostics panel**: error/warning/info markers in gutter and inline squiggle underlines
 - Inline find bar with case-sensitive, whole-word, regex matching and replace

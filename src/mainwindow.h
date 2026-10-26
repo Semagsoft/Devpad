@@ -70,11 +70,13 @@ public:
     void openTransferFile(const QString& filePath);
     void openFolderFromPath(const QString& folderPath);
     void openRemoteFileFromData(const QString& urlStr, const QString& fileName, const QByteArray& data);
+    void openRemoteFileActivated(const QString& urlStr);
 
 public slots:
     void newWindow();
     void openFile();
     void openRemote();
+    void openRemoteFolder();
     void openFolder();
     void closeProject();
     void revertFile();

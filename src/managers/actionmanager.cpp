@@ -90,12 +90,18 @@ void ActionManager::createFileActions()
                                            emit openFolderTriggered();
                                            emit fileActionTriggered(FileAction::OpenFolder);
                                        });
-    m_openRemoteAct = createIconAction(":/icons/File/open.svg", tr("Open Remote..."), QKeySequence(),
+    m_openRemoteAct = createIconAction(":/icons/File/open.svg", tr("Open Remote File..."), QKeySequence(),
                                        [this]()
                                        {
                                            emit openRemoteTriggered();
                                            emit fileActionTriggered(FileAction::OpenRemote);
                                        });
+    m_openRemoteFolderAct = createIconAction(":/icons/File/openfolder.svg", tr("Open Remote Folder..."), QKeySequence(),
+                                             [this]()
+                                             {
+                                                 emit openRemoteFolderTriggered();
+                                                 emit fileActionTriggered(FileAction::OpenRemoteFolder);
+                                             });
     m_saveAct = createIconAction(":/icons/File/save.svg", tr("Save"), QKeySequence::Save,
                                  [this]()
                                  {
@@ -505,6 +511,7 @@ void ActionManager::buildFileMenu(QMenu* fileMenu)
     openMenu->addAction(m_openAct);
     openMenu->addAction(m_openFolderAct);
     openMenu->addAction(m_openRemoteAct);
+    openMenu->addAction(m_openRemoteFolderAct);
     fileMenu->addSeparator();
 
     fileMenu->addMenu(m_recentFilesHelper->createMenu(fileMenu));
@@ -707,6 +714,7 @@ void ActionManager::wireFileConnections(const ActionTargets& t)
     connect(this, &ActionManager::newWindowTriggered, mw, &MainWindow::newWindow);
     connect(this, &ActionManager::openFileTriggered, mw, &MainWindow::openFile);
     connect(this, &ActionManager::openRemoteTriggered, mw, &MainWindow::openRemote);
+    connect(this, &ActionManager::openRemoteFolderTriggered, mw, &MainWindow::openRemoteFolder);
     connect(this, &ActionManager::openFolderTriggered, mw, &MainWindow::openFolder);
     connect(this, &ActionManager::closeProjectTriggered, mw, &MainWindow::closeProject);
     connect(this, &ActionManager::saveFileTriggered, ec, &EditorController::saveFile);

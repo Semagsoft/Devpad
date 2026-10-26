@@ -309,6 +309,25 @@ const ThemeApplicator& qmlThemeApplicator()
     return fn;
 }
 
+const ThemeApplicator& phpThemeApplicator()
+{
+    static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
+    {
+        auto* l = static_cast<QsciLexerCPP*>(lexer);
+        l->setColor(colors.comment, QsciLexerCPP::Comment);
+        l->setColor(colors.comment, QsciLexerCPP::CommentLine);
+        l->setColor(colors.comment, QsciLexerCPP::CommentDoc);
+        l->setColor(colors.keyword, QsciLexerCPP::Keyword);
+        l->setColor(colors.string, QsciLexerCPP::DoubleQuotedString);
+        l->setColor(colors.string, QsciLexerCPP::SingleQuotedString);
+        l->setColor(colors.number, QsciLexerCPP::Number);
+        l->setColor(colors.preprocessor, QsciLexerCPP::PreProcessor);
+        l->setColor(colors.operator_, QsciLexerCPP::Operator);
+        l->setColor(colors.operator_, QsciLexerCPP::Default);
+    };
+    return fn;
+}
+
 const QHash<QString, ThemeApplicator>& themeApplicatorCache()
 {
     static const QHash<QString, ThemeApplicator> cache = {
@@ -319,7 +338,7 @@ const QHash<QString, ThemeApplicator>& themeApplicatorCache()
         {"QsciLexerSQL", sqlThemeApplicator()},        {"QsciLexerBash", bashThemeApplicator()},
         {"QsciLexerJSON", jsonThemeApplicator()},      {"QsciLexerCMake", cmakeThemeApplicator()},
         {"QsciLexerLua", luaThemeApplicator()},        {"QsciLexerMarkdown", markdownThemeApplicator()},
-        {"QsciLexerJavaScript", qmlThemeApplicator()},
+        {"QsciLexerJavaScript", qmlThemeApplicator()}, {"QsciLexerCPP", phpThemeApplicator()},
     };
     return cache;
 }
@@ -488,6 +507,12 @@ const std::vector<LanguageInfo>& languageTable()
          []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
          qmlKeywords,
          qmlThemeApplicator(),
+         {"//", "/*", "*/"}},
+        {"php",
+         "QsciLexerCPP",
+         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); },
+         phpKeywords,
+         phpThemeApplicator(),
          {"//", "/*", "*/"}},
     };
     return table;

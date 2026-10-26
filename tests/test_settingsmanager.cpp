@@ -79,6 +79,20 @@ TEST_F(SettingsManagerTest, RecentFoldersClear)
     EXPECT_TRUE(SettingsManager::instance().recentFolders().isEmpty());
 }
 
+TEST_F(SettingsManagerTest, RecentFoldersAcceptsRemoteUrls)
+{
+    SettingsManager::instance().clearRecentFolders();
+
+    SettingsManager::instance().addRecentFolder("ssh://user@example.com/home/user/project");
+    SettingsManager::instance().addRecentFolder("ssh://user@example.com/home/user/project/");
+
+    QStringList recent = SettingsManager::instance().recentFolders();
+    // Verbatim storage, dedupe by exact string, most recent first.
+    ASSERT_EQ(recent.size(), 2);
+    EXPECT_EQ(recent[0], "ssh://user@example.com/home/user/project/");
+    EXPECT_EQ(recent[1], "ssh://user@example.com/home/user/project");
+}
+
 TEST_F(SettingsManagerTest, FileOpenModeDefaultIsSingleClick)
 {
     EXPECT_EQ(SettingsManager::instance().fileOpenMode(), FileOpenMode::SingleClick);

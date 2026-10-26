@@ -41,6 +41,7 @@
 #include "printmanager.h"
 #include "projectpanel.h"
 #include "remotefileservice.h"
+#include "remotefsentry.h"
 #include "searchmanager.h"
 #include "sessionmanager.h"
 #include "settingsmanager.h"
@@ -290,6 +291,24 @@ void MainWindow::connectRemoteService()
                 statusBar()->clearMessage();
                 openRemoteFileFromData(url, fileName, data);
             });
+    connect(m_remoteFileService, &RemoteFileService::remoteDirListed, this,
+            [this](const QString& url, const QString& parentPath, const QList<RemoteFsEntry>& entries)
+            {
+                statusBar()->clearMessage();
+                m_projectPanel->applyRemoteListing(url, parentPath, entries);
+                if (!m_projectPanel->isVisible())
+                {
+                    m_projectPanel->show();
+                    m_actionManager->projectPanelAct()->setChecked(true);
+                }
+                Logger::instance().info(QString("Remote folder listing: %1 (%2, %3 entries)").arg(url, parentPath).arg(entries.size()));
+            });
+    connect(m_remoteFileService, &RemoteFileService::remoteListingFailed, this,
+            [this](const QString&, const QString& remotePath, const QString&)
+            {
+                // Let the panel retry the directory (removes the pending state).
+                m_projectPanel->onRemoteListingFailed(remotePath);
+            });
     connect(m_remoteFileService, &RemoteFileService::downloadFailed, this,
             [this](const QString& url, const QString& error)
             {
@@ -515,6 +534,15 @@ void MainWindow::connectPanelSignals()
             });
     connect(m_projectPanel, &ProjectPanel::fileActivated, this, &MainWindow::openFileFromProject);
     connect(m_projectPanel, &ProjectPanel::folderSelected, this, &MainWindow::openFolderFromPath);
+    connect(m_projectPanel, &ProjectPanel::remoteDirExpandRequested, this,
+            [this](const QString& url, const QString& path) { m_remoteFileService->listRemoteDir(url, path); });
+    connect(m_projectPanel, &ProjectPanel::remoteFileActivated, this, &MainWindow::openRemoteFileActivated);
+    connect(m_projectPanel, &ProjectPanel::remoteFolderSelected, this,
+            [this](const QString& url)
+            {
+                Logger::instance().info(QString("Opening recent remote folder: %1").arg(url));
+                m_remoteFileService->openRemoteFolder(url);
+            });
 
     connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelAct(), &QAction::setChecked);
     connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelButton(), &QToolButton::setChecked);
@@ -687,7 +715,7 @@ void MainWindow::openRemote()
 {
     bool ok;
     QString urlStr =
-        QInputDialog::getText(this, tr("Open Remote"), tr("Enter remote file URL\n(HTTP/HTTPS or SSH):"), QLineEdit::Normal, "https://", &ok);
+        QInputDialog::getText(this, tr("Open Remote File"), tr("Enter remote file URL\n(HTTP/HTTPS or SSH):"), QLineEdit::Normal, "https://", &ok);
     if (!ok || urlStr.trimmed().isEmpty())
         return;
 
@@ -708,6 +736,33 @@ void MainWindow::openRemote()
     }
 
     m_remoteFileService->openRemote(urlStr);
+}
+
+void MainWindow::openRemoteFolder()
+{
+    bool ok;
+    QString urlStr =
+        QInputDialog::getText(this, tr("Open Remote Folder"), tr("Enter remote folder URL\n(SSH only, e.g. ssh://user@host/path/to/folder):"),
+                              QLineEdit::Normal, "ssh://", &ok);
+    if (!ok || urlStr.trimmed().isEmpty())
+        return;
+
+    urlStr = urlStr.trimmed();
+
+    if (!urlStr.startsWith("ssh://", Qt::CaseInsensitive))
+    {
+        QMessageBox::warning(this, tr("Invalid URL"), tr("Remote folders require an SSH URL (ssh://user@host/path)."));
+        return;
+    }
+
+    QUrl url(urlStr);
+    if (!url.isValid())
+    {
+        QMessageBox::warning(this, tr("Invalid URL"), tr("The URL \"%1\" is not valid.").arg(urlStr));
+        return;
+    }
+
+    m_remoteFileService->openRemoteFolder(urlStr);
 }
 
 void MainWindow::openFileFromPath(const QString& filePath)
@@ -740,6 +795,31 @@ void MainWindow::closeProject()
 void MainWindow::openFileFromProject(const QString& filePath)
 {
     loadFile(filePath);
+}
+
+void MainWindow::openRemoteFileActivated(const QString& urlStr)
+{
+    // Reuse the already-open tab for this remote file instead of re-downloading.
+    if (CodeEditor* existing = m_tabManager->findEditorByFileName(urlStr))
+    {
+        if (auto* container = m_tabManager->containerFor(existing))
+        {
+            for (QTabWidget* pane : m_tabManager->panes())
+            {
+                int index = pane->indexOf(container);
+                if (index >= 0)
+                {
+                    pane->setCurrentIndex(index);
+                    existing->setFocus();
+                    m_tabManager->setActivePane(pane);
+                    return;
+                }
+            }
+        }
+        return;
+    }
+
+    m_remoteFileService->openRemote(urlStr);
 }
 
 void MainWindow::openFolderFromPath(const QString& folderPath)

@@ -283,6 +283,41 @@ ApplicationWindow {
     }
 
     Dialog {
+        id: remotePrompt
+        property string mode: "file"
+        title: mode === "folder" ? "Open Remote Folder (Nextgen)" : "Open Remote File (Nextgen)"
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        ColumnLayout {
+            anchors.fill: parent
+            Label {
+                text: mode === "folder"
+                      ? "SSH URL, e.g. ssh://user@host/path/to/folder"
+                      : "Remote file URL (HTTP/HTTPS or SSH):"
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+            }
+            TextField {
+                id: remoteUrlField
+                placeholderText: mode === "folder" ? "ssh://" : "https://"
+                Layout.fillWidth: true
+            }
+            Label {
+                text: "Note: remote browsing is only fully wired in the Widgets edition; Nextgen support is pending."
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                opacity: 0.7
+                font.pixelSize: 11
+            }
+        }
+        onAccepted: {
+            actions.showMessage(mode === "folder"
+                                ? "Remote folder opening is not yet available in Nextgen (Widgets edition only)."
+                                : "Remote file opening is not yet available in Nextgen (Widgets edition only).");
+        }
+    }
+
+    Dialog {
         id: gotoDlg
         title: "Go to Line"
         modal: true
@@ -350,6 +385,8 @@ ApplicationWindow {
         target: actions
         function onRequestOpenFileDialog() { openFileDlg.open(); }
         function onRequestOpenFolderDialog() { openFolderDlg.open(); }
+        function onRequestOpenRemoteDialog() { remotePrompt.mode = "file"; remotePrompt.open(); }
+        function onRequestOpenRemoteFolderDialog() { remotePrompt.mode = "folder"; remotePrompt.open(); }
         function onRequestSaveAsDialog() { saveAsDlg.open(); }
         function onRequestGoToLineDialog() { gotoDlg.open(); }
         function onRequestFindDialog() {
