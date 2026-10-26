@@ -701,20 +701,18 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
                         urlStr, tr("Remote file too large (%1 bytes, limit %2 MB)").arg(file.size()).arg(kMaxRemoteFileSize / (1024LL * 1024)));
                     return;
                 }
-                QByteArray data;
-                if (file.open(QIODevice::ReadOnly))
-                {
-                    data = file.readAll();
-                    file.close();
-                }
 
-                if (data.isEmpty())
+                // scp exited 0, so the file exists; it may legitimately be
+                // empty (0 bytes) — that is a successful download of an empty
+                // file, not an error.
+                QString fileName = QUrl(urlStr).fileName();
+                if (!file.open(QIODevice::ReadOnly))
                 {
                     emit guard->downloadFailed(urlStr, tr("Failed to read downloaded file."));
                     return;
                 }
-
-                QString fileName = QUrl(urlStr).fileName();
+                QByteArray data = file.readAll();
+                file.close();
                 emit guard->fileDownloaded(urlStr, fileName, data);
             });
 
