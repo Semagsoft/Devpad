@@ -39,5 +39,6 @@ const QStringList& bashKeywords();
 const QStringList& cmakeKeywords();
 const QStringList& luaKeywords();
 const QStringList& qmlKeywords();
+const QStringList& phpKeywords();
 
 #endif

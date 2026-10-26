@@ -123,6 +123,7 @@ void OptionsDialog::setupGeneralTab()
         {"cmake", tr("CMake")},
         {"qml", tr("QML")},
         {"lua", tr("Lua")},
+        {"php", tr("PHP")},
     };
     for (const QString& lang : defaultSyntaxLanguages())
     {
