@@ -48,7 +48,7 @@ constexpr qint64 kMaxRemoteFileSize = 100LL * 1024 * 1024;
 
 // Marker emitted between the directories and files sections of the listing
 // command (see startSshListing).
-const char kListingFilesMarker[] = "__DEVPAD_FILES__";
+constexpr const char* kListingFilesMarker = "__DEVPAD_FILES__";
 
 // Cap on the stdout of a directory listing to bail out of runaway listings.
 constexpr qint64 kMaxListingBytes = 10LL * 1024 * 1024;
@@ -353,7 +353,7 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
             });
 
     connect(ssh, &QProcess::errorOccurred, this,
-            [ssh, guard, processed, finishProcess, reportFailure](QProcess::ProcessError error)
+            [guard, processed, finishProcess, reportFailure](QProcess::ProcessError error)
             {
                 if (!guard || *processed)
                     return;
@@ -388,7 +388,7 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
     auto* killTimer = new QTimer(ssh);
     killTimer->setSingleShot(true);
     connect(killTimer, &QTimer::timeout, ssh,
-            [ssh, killTimer, guard, processed]()
+            [ssh, guard, processed]()
             {
                 if (!guard || *processed)
                     return;
@@ -558,7 +558,7 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
         emit downloadFailed(urlStr, tr("SSH URL contains invalid characters."));
         return;
     }
-    static const QRegularExpression controlCharsRegex("[\\x00-\\x1f\\x7f]");
+    static const QRegularExpression controlCharsRegex(R"([\x00-\x1f\x7f])");
     if (controlCharsRegex.match(remotePath).hasMatch())
     {
         emit downloadFailed(urlStr, tr("SSH URL contains invalid characters."));
@@ -678,7 +678,7 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
             });
 
     connect(scp, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
-            [scp, procGuard, guard, processed, finishProcess, reportFailure, tmpFileShared, urlStr](int exitCode, QProcess::ExitStatus status)
+            [procGuard, guard, processed, finishProcess, reportFailure, tmpFileShared, urlStr](int exitCode, QProcess::ExitStatus status)
             {
                 if (!guard || !procGuard || *processed)
                     return;
@@ -715,7 +715,7 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
             });
 
     connect(scp, &QProcess::errorOccurred, this,
-            [scp, guard, processed, finishProcess, reportFailure](QProcess::ProcessError error)
+            [guard, processed, finishProcess, reportFailure](QProcess::ProcessError error)
             {
                 if (!guard || *processed)
                     return;
@@ -744,7 +744,7 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     auto* killTimer = new QTimer(scp);
     killTimer->setSingleShot(true);
     connect(killTimer, &QTimer::timeout, scp,
-            [scp, killTimer, guard, processed]()
+            [scp, guard, processed]()
             {
                 if (!guard || *processed)
                     return;
