@@ -22,10 +22,10 @@
 
 #include "plugininfo.h"
 
-#include <QVariant>
-#include <functional>
 #include <QString>
 #include <QStringList>
+#include <QVariant>
+#include <functional>
 
 class QAction;
 class QKeySequence;
@@ -66,9 +66,7 @@ public:
     // ── Actions / commands ───────────────────────────────────────
     // Registers a plugin-owned action. Returns the QAction* so the plugin can
     // place it in menus/toolbars itself. id must be unique within the plugin.
-    virtual QAction* registerAction(const QString& id, const QString& text,
-                                    const QKeySequence& shortcut,
-                                    std::function<void()> callback) = 0;
+    virtual QAction* registerAction(const QString& id, const QString& text, const QKeySequence& shortcut, std::function<void()> callback) = 0;
     virtual bool unregisterAction(const QString& id) = 0;
     virtual QAction* action(const QString& id) const = 0;
 
@@ -88,18 +86,15 @@ public:
 
     // ── Plugin-scoped settings ───────────────────────────────────
     // Read/write plugin-specific settings stored under Plugins/<id>/<key>.
-    virtual QVariant pluginSetting(const QString& pluginId, const QString& key,
-                                   const QVariant& defaultValue = QVariant()) const = 0;
-    virtual void setPluginSetting(const QString& pluginId, const QString& key,
-                                  const QVariant& value) = 0;
+    virtual QVariant pluginSetting(const QString& pluginId, const QString& key, const QVariant& defaultValue = QVariant()) const = 0;
+    virtual void setPluginSetting(const QString& pluginId, const QString& key, const QVariant& value) = 0;
     virtual void removePluginSetting(const QString& pluginId, const QString& key) = 0;
     virtual QStringList pluginKeys(const QString& pluginId) const = 0;
 
     // ── LSP ──────────────────────────────────────────────────────
     // Registers an external LSP server command for a language. The server is
     // started automatically when a file of that language is opened.
-    virtual void registerLspServer(const QString& language, const QString& command,
-                                   const QStringList& args) = 0;
+    virtual void registerLspServer(const QString& language, const QString& command, const QStringList& args) = 0;
 
     // ── Frontend ─────────────────────────────────────────────────
     virtual bool isWidgetFrontend() const = 0;
@@ -130,12 +125,29 @@ public:
     virtual void shutdown() = 0;
 
     // ── Editor / file event handlers (default: do nothing) ─────────
-    virtual void onEditorCreated(CodeEditor* editor) { Q_UNUSED(editor); }
-    virtual void onEditorClosed(CodeEditor* editor) { Q_UNUSED(editor); }
-    virtual void onCurrentEditorChanged(CodeEditor* editor) { Q_UNUSED(editor); }
-    virtual void onFileOpened(const QString& filePath) { Q_UNUSED(filePath); }
-    virtual void onFileSaved(const QString& filePath) { Q_UNUSED(filePath); }
-    virtual void onSettingsChanged() {}
+    virtual void onEditorCreated(CodeEditor* editor)
+    {
+        Q_UNUSED(editor);
+    }
+    virtual void onEditorClosed(CodeEditor* editor)
+    {
+        Q_UNUSED(editor);
+    }
+    virtual void onCurrentEditorChanged(CodeEditor* editor)
+    {
+        Q_UNUSED(editor);
+    }
+    virtual void onFileOpened(const QString& filePath)
+    {
+        Q_UNUSED(filePath);
+    }
+    virtual void onFileSaved(const QString& filePath)
+    {
+        Q_UNUSED(filePath);
+    }
+    virtual void onSettingsChanged()
+    {
+    }
 };
 
 #define DEVPAD_PLUGIN_IID "org.semagsoft.devpad.IPlugin/1.0"

@@ -272,8 +272,7 @@ QStringList LspServerManager::defaultServerArgs(const QString& language)
     return {};
 }
 
-void LspServerManager::registerPluginServer(const QString& language, const QString& command,
-                                            const QStringList& args)
+void LspServerManager::registerPluginServer(const QString& language, const QString& command, const QStringList& args)
 {
     if (language.isEmpty() || command.isEmpty())
         return;

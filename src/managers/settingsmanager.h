@@ -320,10 +320,8 @@ public:
     // Read/write settings stored under Plugins/<pluginId>/<key>, bypassing the
     // core settings cache so plugins can persist their own configuration
     // without colliding with built-in keys.
-    QVariant pluginSetting(const QString& pluginId, const QString& key,
-                           const QVariant& defaultValue = QVariant()) const;
-    void setPluginSetting(const QString& pluginId, const QString& key,
-                          const QVariant& value);
+    QVariant pluginSetting(const QString& pluginId, const QString& key, const QVariant& defaultValue = QVariant()) const;
+    void setPluginSetting(const QString& pluginId, const QString& key, const QVariant& value);
     void removePluginSetting(const QString& pluginId, const QString& key);
     QStringList pluginKeys(const QString& pluginId) const;
 

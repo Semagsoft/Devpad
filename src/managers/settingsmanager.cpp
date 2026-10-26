@@ -913,14 +913,12 @@ QString SettingsManager::pluginGroup(const QString& pluginId)
     return QStringLiteral("Plugins/%1").arg(pluginId);
 }
 
-QVariant SettingsManager::pluginSetting(const QString& pluginId, const QString& key,
-                                        const QVariant& defaultValue) const
+QVariant SettingsManager::pluginSetting(const QString& pluginId, const QString& key, const QVariant& defaultValue) const
 {
     return m_settings.value(pluginGroup(pluginId) + QLatin1Char('/') + key, defaultValue);
 }
 
-void SettingsManager::setPluginSetting(const QString& pluginId, const QString& key,
-                                       const QVariant& value)
+void SettingsManager::setPluginSetting(const QString& pluginId, const QString& key, const QVariant& value)
 {
     m_settings.setValue(pluginGroup(pluginId) + QLatin1Char('/') + key, value);
     settingsChanged();

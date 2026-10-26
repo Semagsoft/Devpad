@@ -30,15 +30,15 @@
  */
 struct PluginInfo
 {
-    QString id;            // reverse-domain id, e.g. "org.example.todopanel"
-    QString name;          // human-readable name
-    QString version;       // plugin version, e.g. "1.0.0"
+    QString id;      // reverse-domain id, e.g. "org.example.todopanel"
+    QString name;    // human-readable name
+    QString version; // plugin version, e.g. "1.0.0"
     QString author;
     QString description;
-    int apiVersion = 1;    // Devpad plugin API version the plugin targets
-    QString library;       // basename of the shared library, e.g. "libtodopanel.so"
-    QStringList depends;   // plugin ids this plugin requires to be loaded first
-    bool enabled = true;   // default enabled state (manifest default, overridden by user preference)
+    int apiVersion = 1;  // Devpad plugin API version the plugin targets
+    QString library;     // basename of the shared library, e.g. "libtodopanel.so"
+    QStringList depends; // plugin ids this plugin requires to be loaded first
+    bool enabled = true; // default enabled state (manifest default, overridden by user preference)
 };
 
 #endif // PLUGININFO_H

@@ -22,11 +22,10 @@
 
 #include "plugininterface.h"
 
+#include <QHash>
 #include <QLibrary>
 #include <QObject>
 #include <QPointer>
-
-#include <QHash>
 #include <QString>
 #include <QStringList>
 #include <memory>
@@ -97,7 +96,10 @@ public:
     // loaded. Used by the preferences UI to list all available plugins.
     QList<PluginInfo> discoveredPlugins() const;
 
-    PluginHost* host() const { return m_host.get(); }
+    PluginHost* host() const
+    {
+        return m_host.get();
+    }
 
 signals:
     void pluginLoaded(const QString& pluginId, const PluginInfo& info);
@@ -124,7 +126,8 @@ private:
     QHash<QString, bool> m_defaultEnabled;
 
     // pluginId -> { loader, plugin instance }
-    struct LoadedPlugin {
+    struct LoadedPlugin
+    {
         QLibrary* loader = nullptr;
         IPlugin* plugin = nullptr;
         PluginInfo info;

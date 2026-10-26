@@ -22,17 +22,16 @@
 #include "actionmanager.h"
 #include "codeeditor.h"
 #include "editorcontroller.h"
+#include "lsp/lspservermanager.h"
 #include "mainwindow.h"
 #include "managers/settingsmanager.h"
 #include "managers/tabmanager.h"
-#include "lsp/lspservermanager.h"
 
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
 
-PluginHost::PluginHost(MainWindow* mainWindow, QObject* parent)
-    : QObject(parent), m_mainWindow(mainWindow)
+PluginHost::PluginHost(MainWindow* mainWindow, QObject* parent) : QObject(parent), m_mainWindow(mainWindow)
 {
     if (m_mainWindow)
     {
@@ -83,10 +82,8 @@ void PluginHost::forwardEditorSignals()
     if (!m_tabManager)
         return;
 
-    connect(m_tabManager, &TabManager::editorCreated, this,
-            [this](CodeEditor* editor) { Q_EMIT editorCreated(editor); });
-    connect(m_tabManager, &TabManager::editorClosed, this,
-            [this](CodeEditor* editor) { Q_EMIT editorClosed(editor); });
+    connect(m_tabManager, &TabManager::editorCreated, this, [this](CodeEditor* editor) { Q_EMIT editorCreated(editor); });
+    connect(m_tabManager, &TabManager::editorClosed, this, [this](CodeEditor* editor) { Q_EMIT editorClosed(editor); });
 
     connect(m_tabManager, &TabManager::currentChanged, this,
             [this](int)
@@ -96,9 +93,7 @@ void PluginHost::forwardEditorSignals()
             });
 }
 
-QAction* PluginHost::registerAction(const QString& id, const QString& text,
-                                    const QKeySequence& shortcut,
-                                    std::function<void()> callback)
+QAction* PluginHost::registerAction(const QString& id, const QString& text, const QKeySequence& shortcut, std::function<void()> callback)
 {
     if (!m_actionManager || id.isEmpty())
         return nullptr;
@@ -236,8 +231,7 @@ QString PluginHost::addDockWidget(QWidget* widget, Qt::DockWidgetArea area)
     m_pluginDocks.insert(dockId, entry);
 
     // Keep the action checked state in sync with visibility.
-    connect(dock, &QDockWidget::visibilityChanged, dock,
-            [dock](bool visible) { dock->setVisible(visible); });
+    connect(dock, &QDockWidget::visibilityChanged, dock, [dock](bool visible) { dock->setVisible(visible); });
 
     return dockId;
 }
@@ -256,15 +250,12 @@ bool PluginHost::removeDockWidget(const QString& dockId)
     return true;
 }
 
-QVariant PluginHost::pluginSetting(const QString& pluginId, const QString& key,
-                                   const QVariant& defaultValue) const
+QVariant PluginHost::pluginSetting(const QString& pluginId, const QString& key, const QVariant& defaultValue) const
 {
-    return m_settingsManager ? m_settingsManager->pluginSetting(pluginId, key, defaultValue)
-                             : defaultValue;
+    return m_settingsManager ? m_settingsManager->pluginSetting(pluginId, key, defaultValue) : defaultValue;
 }
 
-void PluginHost::setPluginSetting(const QString& pluginId, const QString& key,
-                                  const QVariant& value)
+void PluginHost::setPluginSetting(const QString& pluginId, const QString& key, const QVariant& value)
 {
     if (m_settingsManager)
         m_settingsManager->setPluginSetting(pluginId, key, value);
@@ -281,8 +272,7 @@ QStringList PluginHost::pluginKeys(const QString& pluginId) const
     return m_settingsManager ? m_settingsManager->pluginKeys(pluginId) : QStringList();
 }
 
-void PluginHost::registerLspServer(const QString& language, const QString& command,
-                                   const QStringList& args)
+void PluginHost::registerLspServer(const QString& language, const QString& command, const QStringList& args)
 {
     if (m_lspServerManager)
         m_lspServerManager->registerPluginServer(language, command, args);

@@ -47,8 +47,7 @@ public:
 
     // Registers an LSP server command provided by a plugin. Plugin-registered
     // servers take precedence over built-in defaults and user settings.
-    void registerPluginServer(const QString& language, const QString& command,
-                              const QStringList& args);
+    void registerPluginServer(const QString& language, const QString& command, const QStringList& args);
     void unregisterPluginServer(const QString& language);
 
     bool hasCapability(const QString& uri, const QString& capability) const;
@@ -86,11 +85,11 @@ signals:
     void semanticTokensFullReady(const QString& uri, const QJsonArray& tokens);
 
 private:
-    QHash<QString, LspClient*> m_clients;            // language -> client
-    QMap<QString, QString> m_documentLanguages;      // uri -> language
-    QMap<QString, int> m_documentVersions;           // uri -> version
-    QHash<QString, QString> m_pluginServerCommands;  // language -> command (plugins)
-    QHash<QString, QStringList> m_pluginServerArgs;  // language -> args (plugins)
+    QHash<QString, LspClient*> m_clients;           // language -> client
+    QMap<QString, QString> m_documentLanguages;     // uri -> language
+    QMap<QString, int> m_documentVersions;          // uri -> version
+    QHash<QString, QString> m_pluginServerCommands; // language -> command (plugins)
+    QHash<QString, QStringList> m_pluginServerArgs; // language -> args (plugins)
 };
 
 } // namespace lsp

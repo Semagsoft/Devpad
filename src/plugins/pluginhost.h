@@ -67,9 +67,7 @@ public:
     QObject* tabManager() const override;
     QObject* lspServerManager() const override;
 
-    QAction* registerAction(const QString& id, const QString& text,
-                            const QKeySequence& shortcut,
-                            std::function<void()> callback) override;
+    QAction* registerAction(const QString& id, const QString& text, const QKeySequence& shortcut, std::function<void()> callback) override;
     bool unregisterAction(const QString& id) override;
     QAction* action(const QString& id) const override;
 
@@ -80,20 +78,20 @@ public:
     QString addDockWidget(QWidget* widget, Qt::DockWidgetArea area) override;
     bool removeDockWidget(const QString& dockId) override;
 
-    QVariant pluginSetting(const QString& pluginId, const QString& key,
-                           const QVariant& defaultValue = QVariant()) const override;
-    void setPluginSetting(const QString& pluginId, const QString& key,
-                          const QVariant& value) override;
+    QVariant pluginSetting(const QString& pluginId, const QString& key, const QVariant& defaultValue = QVariant()) const override;
+    void setPluginSetting(const QString& pluginId, const QString& key, const QVariant& value) override;
     void removePluginSetting(const QString& pluginId, const QString& key) override;
     QStringList pluginKeys(const QString& pluginId) const override;
 
-    void registerLspServer(const QString& language, const QString& command,
-                           const QStringList& args) override;
+    void registerLspServer(const QString& language, const QString& command, const QStringList& args) override;
 
     bool isWidgetFrontend() const override;
 
     // ── Internal helpers ─────────────────────────────────────────
-    MainWindow* mainWindowRaw() const { return m_mainWindow; }
+    MainWindow* mainWindowRaw() const
+    {
+        return m_mainWindow;
+    }
 
     // Forward editor/file events to all loaded plugins (called by PluginManager).
 signals:
@@ -118,7 +116,8 @@ private:
     QHash<QString, QAction*> m_pluginActions;
 
     // Dock widgets keyed by dock id so they can be removed on unload.
-    struct DockEntry {
+    struct DockEntry
+    {
         QDockWidget* dock = nullptr;
         QString id;
     };

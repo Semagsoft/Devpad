@@ -464,9 +464,7 @@ void OptionsDialog::setupPluginsTab()
 
     pluginsTable = new QTableWidget(group);
     pluginsTable->setColumnCount(6);
-    pluginsTable->setHorizontalHeaderLabels({
-        tr("Enabled"), tr("Name"), tr("Version"), tr("Id"), tr("Author"), tr("Description")
-    });
+    pluginsTable->setHorizontalHeaderLabels({tr("Enabled"), tr("Name"), tr("Version"), tr("Id"), tr("Author"), tr("Description")});
     pluginsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     pluginsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     pluginsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);

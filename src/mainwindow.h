@@ -115,7 +115,10 @@ public slots:
 
     QMenuBar* menuBarWidget();
 
-    PluginManager* pluginManager() const { return m_pluginManager; }
+    PluginManager* pluginManager() const
+    {
+        return m_pluginManager;
+    }
 
 private slots:
     void updateStatusBar();

@@ -18,11 +18,11 @@
  */
 
 #include "pluginmanager.h"
-#include "pluginhost.h"
 
 #include "logger.h"
 #include "mainwindow.h"
 #include "managers/settingsmanager.h"
+#include "pluginhost.h"
 
 #include <QDebug>
 #include <QDir>
@@ -32,8 +32,7 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 
-PluginManager::PluginManager(MainWindow* mainWindow, QObject* parent)
-    : QObject(parent), m_mainWindow(mainWindow)
+PluginManager::PluginManager(MainWindow* mainWindow, QObject* parent) : QObject(parent), m_mainWindow(mainWindow)
 {
     m_host = std::make_unique<PluginHost>(mainWindow, this);
 
@@ -190,11 +189,8 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     // API version compatibility check.
     if (pluginInfo.apiVersion != HostApiVersion)
     {
-        QString reason = QStringLiteral("api version %1 unsupported (host %2)")
-                             .arg(pluginInfo.apiVersion)
-                             .arg(HostApiVersion);
-        Logger::instance().warning(
-            QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
+        QString reason = QStringLiteral("api version %1 unsupported (host %2)").arg(pluginInfo.apiVersion).arg(HostApiVersion);
+        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
         emit pluginFailed(pluginId, reason);
         return false;
     }
@@ -205,8 +201,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     if (!loader->load())
     {
         QString reason = loader->errorString();
-        Logger::instance().warning(
-            QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
+        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
         emit pluginFailed(pluginId, reason);
         loader->deleteLater();
         return false;
@@ -218,8 +213,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     if (!plugin)
     {
         QString reason = QStringLiteral("failed to instantiate plugin (devpadCreatePlugin not found)");
-        Logger::instance().warning(
-            QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
+        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
         emit pluginFailed(pluginId, reason);
         loader->unload();
         loader->deleteLater();
@@ -229,8 +223,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     if (!plugin->initialize(m_host.get()))
     {
         QString reason = QStringLiteral("initialize() returned false");
-        Logger::instance().warning(
-            QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
+        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
         emit pluginFailed(pluginId, reason);
         plugin->shutdown();
         loader->unload();
@@ -246,9 +239,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
         entry.info.id = pluginId;
     m_loaded.insert(entry.info.id, entry);
 
-    Logger::instance().info(
-        QStringLiteral("PluginManager: loaded plugin '%1' v%2 (%3)")
-            .arg(entry.info.id, entry.info.version, entry.info.library));
+    Logger::instance().info(QStringLiteral("PluginManager: loaded plugin '%1' v%2 (%3)").arg(entry.info.id, entry.info.version, entry.info.library));
 
     Q_EMIT pluginLoaded(entry.info.id, entry.info);
     return true;
@@ -263,8 +254,7 @@ bool PluginManager::unload(const QString& pluginId)
     if (entry.plugin)
     {
         entry.plugin->shutdown();
-        Logger::instance().info(
-            QStringLiteral("PluginManager: unloaded plugin '%1'").arg(pluginId));
+        Logger::instance().info(QStringLiteral("PluginManager: unloaded plugin '%1'").arg(pluginId));
     }
 
     if (entry.loader)
@@ -371,8 +361,7 @@ void PluginManager::setPluginEnabled(const QString& pluginId, bool enabled)
         else
         {
             Logger::instance().warning(
-                QStringLiteral("PluginManager: cannot enable plugin '%1': library not found in %2")
-                    .arg(pluginId, m_pluginsDir));
+                QStringLiteral("PluginManager: cannot enable plugin '%1': library not found in %2").arg(pluginId, m_pluginsDir));
         }
     }
     else
