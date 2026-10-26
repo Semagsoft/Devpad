@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.helloworld",
+    "name": "Hello World",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Example plugin demonstrating the Devpad plugin API.",
+    "apiVersion": 1,
+    "library": "libhelloworld.so",
+    "enabled": false,
+    "depends": []
+}

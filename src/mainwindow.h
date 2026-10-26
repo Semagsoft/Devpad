@@ -42,6 +42,7 @@ class RemoteFileService;
 class SearchManager;
 class SessionManager;
 class SnippetManager;
+class PluginManager;
 class SplitView;
 class TabManager;
 class TerminalPanel;
@@ -113,6 +114,8 @@ public slots:
     void applyTitleBarMode();
 
     QMenuBar* menuBarWidget();
+
+    PluginManager* pluginManager() const { return m_pluginManager; }
 
 private slots:
     void updateStatusBar();
@@ -194,6 +197,7 @@ private:
     UpdateChecker* m_updateChecker = nullptr;
     SnippetManager* m_snippetManager = nullptr;
     lsp::LspServerManager* m_lspServerManager = nullptr;
+    PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
     QPointer<FindSymbolsDialog> m_findSymbolsDialog;
 
