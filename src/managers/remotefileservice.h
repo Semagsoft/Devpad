@@ -26,6 +26,8 @@
 #ifndef REMOTEFILESERVICE_H
 #define REMOTEFILESERVICE_H
 
+#include "remotefsentry.h"
+
 #include <QByteArray>
 #include <QList>
 #include <QNetworkAccessManager>
@@ -45,9 +47,19 @@ public:
     ~RemoteFileService() override;
 
     void openRemote(const QString& urlStr);
+    // Lists a remote folder over SSH (one level); the project panel loads
+    // sub-directories lazily via listRemoteDir().
+    void openRemoteFolder(const QString& urlStr);
+    void listRemoteDir(const QString& urlStr, const QString& remotePath);
+
+    // Parses raw `find` listing output (dirs/files sections split by the
+    // __DEVPAD_FILES__ marker) — public for unit tests.
+    static QList<RemoteFsEntry> parseListing(const QString& output, const QString& parentPath);
 
 signals:
     void fileDownloaded(const QString& url, const QString& fileName, const QByteArray& data);
+    void remoteDirListed(const QString& url, const QString& parentPath, const QList<RemoteFsEntry>& entries);
+    void remoteListingFailed(const QString& url, const QString& remotePath, const QString& error);
     void downloadFailed(const QString& url, const QString& error);
     void downloadProgress(const QString& url, qint64 received, qint64 total);
     void statusMessage(const QString& message);
@@ -56,6 +68,12 @@ private:
     void downloadHttp(const QUrl& url, const QString& urlStr);
     void downloadSsh(const QUrl& url, const QString& urlStr);
     void startSshTransfer(const QString& urlStr, const QStringList& args);
+    QString validateSshTarget(const QUrl& url, const QString& urlStr);
+    QStringList sshBaseArgs(const QUrl& url, const QString& user);
+    void startSshListing(const QString& urlStr, const QString& remotePath, const QStringList& baseArgs);
+    QString findSshPath();
+    QString findScpPath();
+    static QString shellQuote(const QString& path);
 
     QNetworkAccessManager m_networkManager;
     QList<QNetworkReply*> m_pendingReplies;

@@ -17,7 +17,8 @@ MenuBar {
         MenuSeparator {}
         Action { text: qsTr("&Open..."); shortcut: "Ctrl+O"; onTriggered: actions.openFileDialog() }
         Action { text: qsTr("Open &Folder..."); shortcut: "Ctrl+Shift+O"; onTriggered: actions.openFolderDialog() }
-        Action { text: qsTr("Open &Remote..."); onTriggered: actions.openFileDialog() }
+        Action { text: qsTr("Open Remote &File..."); onTriggered: actions.openRemoteDialog() }
+        Action { text: qsTr("Open Remote &Folder..."); onTriggered: actions.openRemoteFolderDialog() }
         MenuSeparator {}
         Menu {
             title: qsTr("Recent Files")

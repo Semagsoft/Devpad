@@ -20,6 +20,7 @@
 #define PROJECTPANEL_H
 
 #include "gitignore.h"
+#include "remotefsentry.h"
 
 #include <QDockWidget>
 #include <QFileIconProvider>
@@ -31,6 +32,8 @@ class QFileSystemModel;
 class QLabel;
 class QLineEdit;
 class QMenu;
+class QStandardItem;
+class QStandardItemModel;
 class QToolButton;
 class QTreeView;
 class QVBoxLayout;
@@ -84,11 +87,29 @@ public:
     void clear();
     QString rootPath() const;
 
+    // Remote (SSH) project browsing: the tree is populated lazily — expanding a
+    // folder requests a listing via remoteDirExpandRequested(), and
+    // applyRemoteListing() feeds the result back.
+    void applyRemoteListing(const QString& url, const QString& parentPath, const QList<RemoteFsEntry>& entries);
+    void onRemoteListingFailed(const QString& remotePath);
+    void clearRemote();
+    bool isRemote() const
+    {
+        return m_remoteMode;
+    }
+
     static QIcon iconForFile(const QString& filePath);
+
+    // Item roles for the remote tree model.
+    static constexpr int RemotePathRole = Qt::UserRole + 1;
+    static constexpr int RemoteIsDirRole = Qt::UserRole + 2;
 
 signals:
     void fileActivated(const QString& filePath);
     void folderSelected(const QString& folderPath);
+    void remoteFileActivated(const QString& url);
+    void remoteDirExpandRequested(const QString& url, const QString& remotePath);
+    void remoteFolderSelected(const QString& url);
 
 private slots:
     void onItemClicked(const QModelIndex& index);
@@ -118,17 +139,36 @@ private:
     void openInTerminal(const QString& dirPath);
     void updateGitIgnore();
 
+    void enterRemoteMode(const QString& url, const QString& rootPath);
+    void populateRemoteDir(QStandardItem* parentItem, const QString& parentPath, const QList<RemoteFsEntry>& entries);
+    void purgeRemoteChildren(QStandardItem* item);
+    void requestRemoteDir(const QString& remotePath);
+    void activateRemoteItem(const QModelIndex& index);
+    void remoteContextMenu(const QPoint& pos);
+    void applyRemoteFilter();
+    bool remoteFilterTree(const QModelIndex& parent, const QString& text, bool& anyVisible);
+    QString remoteUrlFor(const QString& remotePath) const;
+
     QWidget* panelWidget = nullptr;
     QVBoxLayout* mainLayout = nullptr;
     QLineEdit* filterEdit = nullptr;
     QTreeView* treeView = nullptr;
     QFileSystemModel* fileModel = nullptr;
     FileFilterProxyModel* filterProxyModel = nullptr;
+    QStandardItemModel* remoteModel = nullptr;
     QToolButton* headerButton = nullptr;
     QLabel* titleLabel = nullptr;
     QMenu* recentFoldersMenu = nullptr;
     QString currentRootPath;
     QString currentFilter;
+
+    // Remote (SSH) tree state.
+    bool m_remoteMode = false;
+    QString m_remoteBaseUrl;
+    QString m_remoteRootPath;
+    QHash<QString, QStandardItem*> m_remoteItemByPath;
+    QSet<QString> m_remoteLoadedDirs;
+    QSet<QString> m_remotePendingDirs;
 };
 
 #endif

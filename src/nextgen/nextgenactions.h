@@ -59,6 +59,8 @@ public slots:
     void openFile(const QString& path = QString());
     void openFileDialog();
     void openFolderDialog();
+    void openRemoteDialog();
+    void openRemoteFolderDialog();
     void saveFile();
     void saveFileAs();
     void saveFileAsDialog();
@@ -102,6 +104,8 @@ signals:
     void themeChanged();
     void requestOpenFileDialog();
     void requestOpenFolderDialog();
+    void requestOpenRemoteDialog();
+    void requestOpenRemoteFolderDialog();
     void requestSaveAsDialog();
     void requestGoToLineDialog();
     void requestFindDialog();
