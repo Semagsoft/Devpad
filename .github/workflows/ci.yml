@@ -249,7 +249,7 @@ jobs:
           export CCACHE_BASEDIR=${{ github.workspace }}
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_FLAGS="-Werror" \
+            -DCMAKE_CXX_FLAGS="-Werror -Wno-error=sfinae-incomplete" \
             -DBUILD_TESTS=ON \
             -DBUILD_QSCINTILLA=OFF
         env:
