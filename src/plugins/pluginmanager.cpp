@@ -19,6 +19,7 @@
 
 #include "pluginmanager.h"
 
+#include "codeeditor.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "managers/settingsmanager.h"
@@ -31,6 +32,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
+#include <utility>
 
 PluginManager::PluginManager(MainWindow* mainWindow, QObject* parent) : QObject(parent), m_mainWindow(mainWindow)
 {
@@ -128,7 +130,7 @@ PluginInfo PluginManager::readPluginManifest(const QString& filePath)
             pluginInfo.library = obj.value(QStringLiteral("library")).toString(info.fileName());
             pluginInfo.enabled = obj.value(QStringLiteral("enabled")).toBool(true);
             const QJsonArray dependsArray = obj.value(QStringLiteral("depends")).toArray();
-            for (const QJsonValue& dep : dependsArray)
+            for (const auto& dep : dependsArray)
                 pluginInfo.depends.append(dep.toString());
         }
     }
@@ -234,9 +236,9 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     LoadedPlugin entry;
     entry.loader = loader;
     entry.plugin = plugin;
-    entry.info = pluginInfo;
+    entry.info = std::move(pluginInfo);
     if (entry.info.id.isEmpty())
-        entry.info.id = pluginId;
+        entry.info.id = std::move(pluginId);
     m_loaded.insert(entry.info.id, entry);
 
     Logger::instance().info(QStringLiteral("PluginManager: loaded plugin '%1' v%2 (%3)").arg(entry.info.id, entry.info.version, entry.info.library));

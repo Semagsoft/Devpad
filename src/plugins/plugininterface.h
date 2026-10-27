@@ -155,6 +155,6 @@ public:
 /**
  * Plugin factory function signature exported by every plugin library.
  */
-typedef IPlugin* (*DevpadCreatePluginFunc)();
+using DevpadCreatePluginFunc = IPlugin* (*)();
 
 #endif // PLUGININTERFACE_H

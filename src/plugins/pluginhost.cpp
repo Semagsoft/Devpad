@@ -104,7 +104,7 @@ QAction* PluginHost::registerAction(const QString& id, const QString& text, cons
     act->setShortcut(shortcut);
     act->setEnabled(true);
     connect(act, &QAction::triggered, this,
-            [callback, act]()
+            [callback]
             {
                 if (callback)
                     callback();
@@ -164,13 +164,10 @@ QMenu* PluginHost::menu(const QString& path) const
         {
             for (QAction* act : bar->actions())
             {
-                if (QMenu* m = act->menu())
+                if (QMenu* m = act->menu(); m->title() == part)
                 {
-                    if (m->title() == part)
-                    {
-                        found = m;
-                        break;
-                    }
+                    found = m;
+                    break;
                 }
             }
             current = found;
@@ -180,13 +177,10 @@ QMenu* PluginHost::menu(const QString& path) const
         {
             for (QAction* act : current->actions())
             {
-                if (QMenu* m = act->menu())
+                if (QMenu* m = act->menu(); m->title() == part)
                 {
-                    if (m->title() == part)
-                    {
-                        found = m;
-                        break;
-                    }
+                    found = m;
+                    break;
                 }
             }
             current = found;
@@ -194,7 +188,7 @@ QMenu* PluginHost::menu(const QString& path) const
 
         if (!current)
         {
-            current = new QMenu(part, const_cast<QMenuBar*>(bar));
+            current = new QMenu(part, bar);
             if (!parentMenu)
                 bar->addMenu(current);
             else
