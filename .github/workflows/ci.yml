@@ -591,4 +591,5 @@ jobs:
       - name: Test
         env:
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/.lsan.supp
+          QT_QPA_PLATFORM: offscreen
         run: ctest --test-dir build --output-on-failure
