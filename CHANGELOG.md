@@ -2,7 +2,18 @@
 
 ## [1.07] - 2026-10-27
 
-TBD
+What's new in Devpad 1.07:
+
+- Add Plugin/extension system SHA: 0adf34758ca8343990947c97470c042d6f3a8c9f
+- Add support for loading a remote folder via Open Remote Folder action. SHA: d6cff10ac35b06c8b7e7a8b565878091ac5042d7
+- New PHP syntax support. SHA: d6cff10ac35b06c8b7e7a8b565878091ac5042d7
+
+Bug fixes for version 1.07:
+
+- Revert / external-change reload silently kept stale content when a file was open in multiple tabs. SHA: 7bbe615bf6e9bd89080a6e2c37e4fdc37db91864
+- Two pure conversion helpers (src/lsp/lsptypes.h/cpp):
+byteOffsetToUtf16(lineText, byteOffset) — QScintilla byte offset → LSP UTF-16 character count
+utf16ToByteOffset(lineText, utf16Character) — LSP UTF-16 character count → QScintilla byte offset. SHA: 7bbe615bf6e9bd89080a6e2c37e4fdc37db91864
 
 ## [1.06] - 2026-10-24
 
