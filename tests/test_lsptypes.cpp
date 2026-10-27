@@ -1,5 +1,7 @@
 #include "lsp/lsptypes.h"
 
+#include <array>
+
 #include <gtest/gtest.h>
 
 using namespace lsp;
@@ -185,7 +187,7 @@ TEST(LspTypesTest, ByteOffsetToUtf16RoundTripAtBoundaries)
     // "naïve日😀": n(1) a(1) ï(2) v(1) e(1) 日(3) 😀(4) = 13 UTF-8 bytes.
     // Valid byte boundaries: 0, 1, 2, 4, 5, 6, 9, 13.
     const QString line = QStringLiteral("naïve日😀");
-    int offsets[] = {0, 1, 2, 4, 5, 6, 9, 13};
+    std::array<int, 8> offsets = {0, 1, 2, 4, 5, 6, 9, 13};
     for (int byteOffset : offsets)
     {
         int utf16 = byteOffsetToUtf16(line, byteOffset);
