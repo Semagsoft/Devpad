@@ -905,3 +905,39 @@ void SettingsManager::clearRecentFolders()
 {
     m_settings.remove("recentFolders");
 }
+
+// ── Plugin-scoped settings ─────────────────────────────────────
+
+QString SettingsManager::pluginGroup(const QString& pluginId)
+{
+    return QStringLiteral("Plugins/%1").arg(pluginId);
+}
+
+QVariant SettingsManager::pluginSetting(const QString& pluginId, const QString& key, const QVariant& defaultValue) const
+{
+    return m_settings.value(pluginGroup(pluginId) + QLatin1Char('/') + key, defaultValue);
+}
+
+void SettingsManager::setPluginSetting(const QString& pluginId, const QString& key, const QVariant& value)
+{
+    m_settings.setValue(pluginGroup(pluginId) + QLatin1Char('/') + key, value);
+    settingsChanged();
+}
+
+void SettingsManager::removePluginSetting(const QString& pluginId, const QString& key)
+{
+    m_settings.remove(pluginGroup(pluginId) + QLatin1Char('/') + key);
+    settingsChanged();
+}
+
+QStringList SettingsManager::pluginKeys(const QString& pluginId) const
+{
+    const QString group = pluginGroup(pluginId) + QLatin1Char('/');
+    QStringList result;
+    for (const QString& key : m_settings.allKeys())
+    {
+        if (key.startsWith(group))
+            result.append(key.mid(group.size()));
+    }
+    return result;
+}

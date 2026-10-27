@@ -5,6 +5,7 @@ set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
 option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)
 option(BUILD_NEXTGEN "Build next-gen QML/high-perf mode (primoEditor)" OFF)
+option(BUILD_PLUGINS "Build the C++ plugin/extension system" ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -253,6 +254,8 @@ add_library(Devpad_lib STATIC
     src/lsp/lspservermanager.cpp
     src/lsp/lsptypes.cpp
     src/lsp/lspeditorintegration.cpp
+    $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginhost.cpp>
+    $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginmanager.cpp>
 )
 target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -268,6 +271,9 @@ target_link_libraries(Devpad_lib PUBLIC
 if(TARGET Qt6::DBus)
     target_link_libraries(Devpad_lib PUBLIC Qt6::DBus)
     target_compile_definitions(Devpad_lib PUBLIC HAVE_QT_DBUS)
+endif()
+if(BUILD_PLUGINS)
+    target_compile_definitions(Devpad_lib PUBLIC BUILD_PLUGINS=1)
 endif()
 target_include_directories(Devpad_lib PUBLIC
     src

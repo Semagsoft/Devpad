@@ -227,6 +227,72 @@ Settings are persisted via QSettings. Location depends on platform:
 
 Backups and logs are stored in `~/.local/share/devpad/`.
 
+## Plugins / extensions
+
+Devpad supports user-installed C++ plugins loaded at runtime. Plugins are shared
+libraries (`lib<id>.so` on Linux/macOS, `<id>.dll` on Windows) placed in the user
+plugins directory:
+
+- Linux/macOS: `~/.local/share/devpad/plugins/`
+- Windows: `%APPDATA%\devpad\plugins\`
+
+Each plugin consists of the shared library plus an optional
+`<id>.plugin.json` manifest:
+
+```json
+{
+    "id": "org.example.todopanel",
+    "name": "TODO Panel",
+    "version": "1.0.0",
+    "author": "Your Name",
+    "description": "A panel listing TODO/FIXME comments.",
+    "apiVersion": 1,
+    "library": "libtodopanel.so",
+    "depends": []
+}
+```
+
+### Plugin API
+
+A plugin exports a C factory function `devpadCreatePlugin()` returning a new
+`IPlugin` instance and implements:
+
+- `info()` — plugin metadata (id, name, version, author, apiVersion, …)
+- `initialize(PluginHost* host)` — called once after load; register actions, menu
+  items, dock panels, LSP servers, and settings here
+- `shutdown()` — called before unload; release everything created in
+  `initialize()`
+
+Through `PluginHost` a plugin can:
+
+- Register actions/commands (`registerAction`) and place them in menus
+  (`addMenuAction`) or toolbars
+- Add dock widgets/panels (`addDockWidget`, widget frontend only)
+- Read/write its own scoped settings under `Plugins/<id>/`
+- Register LSP servers for languages (`registerLspServer`)
+- Observe editor/file events via the `onEditorCreated` / `onFileOpened` /
+  `onSettingsChanged` / … virtual handlers
+
+Plugins are **trusted, in-process C++ code** with full access to the editor and
+user files (there is no sandbox). The plugin API (`IPlugin` / `PluginHost`) is
+versioned via `apiVersion` and is kept stable across Devpad releases.
+
+### Example plugin
+
+A minimal "Hello World" plugin lives under `examples/plugins/helloworld/`. Build
+it against the Devpad sources and copy `libhelloworld.so` +
+`helloworld.plugin.json` into the plugins directory above, then restart Devpad:
+
+```bash
+cd examples/plugins/helloworld
+cmake -B build -DCMAKE_PREFIX_PATH=<Qt6 dir> -DDEVPAD_SRC_DIR=<Devpad/src>
+cmake --build build -j
+cp build/libhelloworld.so helloworld.plugin.json ~/.local/share/devpad/plugins/
+```
+
+The plugin system is enabled by default (`-DBUILD_PLUGINS=ON`) and requires Qt6
+Core (plus Gui/Widgets if the plugin uses UI types).
+
 ## License
 
 GNU General Public License v2.0 or later.

@@ -57,6 +57,9 @@
 #endif
 #include "updatechecker.h"
 #include "updatedialog.h"
+#ifdef BUILD_PLUGINS
+#include "plugins/pluginmanager.h"
+#endif
 
 #include <QAction>
 #include <QApplication>
@@ -204,6 +207,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     setupEditorConnections();
     setupLspConnections();
 
+#ifdef BUILD_PLUGINS
+    m_pluginManager->loadAll();
+#endif
+
     applyAutoSaveSettings();
     updateSplitViewVisibility();
 }
@@ -275,6 +282,9 @@ void MainWindow::createManagers()
     m_snippetManager = new SnippetManager(this);
 
     m_lspServerManager = new lsp::LspServerManager(this);
+#ifdef BUILD_PLUGINS
+    m_pluginManager = new PluginManager(this);
+#endif
     m_errorListPanel = new ErrorListPanel(this);
     addDockWidget(Qt::BottomDockWidgetArea, m_errorListPanel);
     bool showErrorList = SettingsManager::instance().lspShowErrorList();

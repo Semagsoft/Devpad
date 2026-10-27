@@ -2,6 +2,9 @@
 
 ## [1.07] - TBD
 
+- New C++ plugin/extension system: user-installed shared libraries loaded from
+  `~/.local/share/devpad/plugins/` (see README "Plugins / extensions").
+
 ## [1.06] - 2026-10-24
 
 - File background watcher file changed outside of editor dialog shows every time there is a change, when it should only show one dialog at any given time and wait for user input before ever showing another. SHA: 3682800a7c93a6a9cb7912b86538a608f20590ae

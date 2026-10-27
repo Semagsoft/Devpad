@@ -71,10 +71,17 @@ LspClient* LspServerManager::clientForLanguage(const QString& language)
     if (!s.lspEnabled())
         return nullptr;
 
-    // Check if this language has LSP configured
-    QString serverCommand = s.lspServerCommand(language);
-    if (serverCommand.isEmpty())
-        serverCommand = defaultServerCommands().value(language);
+    // Plugin-registered servers take precedence, then user settings, then
+    // built-in defaults.
+    QString serverCommand;
+    if (m_pluginServerCommands.contains(language))
+        serverCommand = m_pluginServerCommands.value(language);
+    else
+    {
+        serverCommand = s.lspServerCommand(language);
+        if (serverCommand.isEmpty())
+            serverCommand = defaultServerCommands().value(language);
+    }
     if (serverCommand.isEmpty())
         return nullptr;
 
@@ -87,9 +94,15 @@ LspClient* LspServerManager::clientForLanguage(const QString& language)
         return nullptr;
     }
 
-    QStringList serverArgs = s.lspServerArgs(language);
-    if (serverArgs.isEmpty())
-        serverArgs = defaultServerArgs(language);
+    QStringList serverArgs;
+    if (m_pluginServerArgs.contains(language))
+        serverArgs = m_pluginServerArgs.value(language);
+    else
+    {
+        serverArgs = s.lspServerArgs(language);
+        if (serverArgs.isEmpty())
+            serverArgs = defaultServerArgs(language);
+    }
 
     auto* client = new LspClient(language, this);
     m_clients[language] = client;
@@ -257,6 +270,33 @@ QStringList LspServerManager::defaultServerArgs(const QString& language)
     if (language == "html" || language == "css" || language == "json" || language == "jsonc")
         return {"--stdio"};
     return {};
+}
+
+void LspServerManager::registerPluginServer(const QString& language, const QString& command, const QStringList& args)
+{
+    if (language.isEmpty() || command.isEmpty())
+        return;
+    m_pluginServerCommands.insert(language, command);
+    m_pluginServerArgs.insert(language, args);
+
+    // If a client is already cached for this language, rebuild it so the new
+    // command takes effect on the next document open.
+    m_clients.remove(language);
+}
+
+void LspServerManager::unregisterPluginServer(const QString& language)
+{
+    if (language.isEmpty())
+        return;
+    m_pluginServerCommands.remove(language);
+    m_pluginServerArgs.remove(language);
+
+    // Stop and remove any running client for this language.
+    if (auto* client = m_clients.take(language))
+    {
+        client->stopServer();
+        delete client;
+    }
 }
 
 } // namespace lsp

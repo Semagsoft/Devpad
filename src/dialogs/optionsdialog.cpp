@@ -21,9 +21,14 @@
 #include "defaultsyntax.h"
 #include "encodingutils.h"
 #include "lsp/lspservermanager.h"
+#include "mainwindow.h"
 #include "settingsmanager.h"
 #include "theme.h"
 #include "widgets/themepreviewwidget.h"
+
+#ifdef BUILD_PLUGINS
+#include "plugins/pluginmanager.h"
+#endif
 
 #include <QCheckBox>
 #include <QColorDialog>
@@ -48,7 +53,8 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent), m_geometrySetti
 {
     setWindowTitle(tr("Options"));
     setModal(true);
-    setMinimumSize(520, 400);
+    setMinimumSize(800, 500);
+    resize(850, 600);
     setupUI();
     loadSettings();
     m_geometrySettings.restoreGeometry(this);
@@ -74,6 +80,9 @@ void OptionsDialog::setupUI()
     setupAppearanceTab();
     setupEditorTab();
     setupPanelsTab();
+#ifdef BUILD_PLUGINS
+    setupPluginsTab();
+#endif
 
     mainLayout->addWidget(tabWidget);
 
@@ -444,6 +453,88 @@ void OptionsDialog::setupPanelsTab()
     tabWidget->addTab(createScrollContainer(content), tr("Panels"));
 }
 
+#ifdef BUILD_PLUGINS
+void OptionsDialog::setupPluginsTab()
+{
+    QWidget* content = new QWidget();
+    QVBoxLayout* mainLayout = new QVBoxLayout(content);
+
+    QGroupBox* group = new QGroupBox(tr("Installed Plugins"), content);
+    QVBoxLayout* groupLayout = new QVBoxLayout(group);
+
+    pluginsTable = new QTableWidget(group);
+    pluginsTable->setColumnCount(6);
+    pluginsTable->setHorizontalHeaderLabels({tr("Enabled"), tr("Name"), tr("Version"), tr("Id"), tr("Author"), tr("Description")});
+    pluginsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    pluginsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    pluginsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    pluginsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+    pluginsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    pluginsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
+    pluginsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    pluginsTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    pluginsTable->setAlternatingRowColors(true);
+    groupLayout->addWidget(pluginsTable);
+
+    QLabel* hint = new QLabel(tr("Changes take effect immediately. Disabled plugins are unloaded."), group);
+    hint->setWordWrap(true);
+    groupLayout->addWidget(hint);
+
+    mainLayout->addWidget(group);
+    mainLayout->addStretch();
+
+    tabWidget->addTab(createScrollContainer(content), tr("Plugins"));
+
+    connect(pluginsTable, &QTableWidget::itemChanged, this,
+            [this](QTableWidgetItem* item)
+            {
+                if (!item || item->column() != 0)
+                    return;
+                MainWindow* mw = qobject_cast<MainWindow*>(parent());
+                if (!mw || !mw->pluginManager())
+                    return;
+                QString pluginId = item->data(Qt::UserRole).toString();
+                bool enabled = item->checkState() == Qt::Checked;
+                mw->pluginManager()->setPluginEnabled(pluginId, enabled);
+            });
+}
+
+void OptionsDialog::populatePluginsTable()
+{
+    if (!pluginsTable)
+        return;
+
+    MainWindow* mw = qobject_cast<MainWindow*>(parent());
+    PluginManager* pm = mw ? mw->pluginManager() : nullptr;
+    if (!pm)
+        return;
+
+    // Block signals while repopulating to avoid triggering setPluginEnabled.
+    pluginsTable->blockSignals(true);
+    pluginsTable->setRowCount(0);
+
+    const QList<PluginInfo> plugins = pm->discoveredPlugins();
+    for (const PluginInfo& info : plugins)
+    {
+        int row = pluginsTable->rowCount();
+        pluginsTable->insertRow(row);
+
+        QTableWidgetItem* enabledItem = new QTableWidgetItem();
+        enabledItem->setCheckState(pm->isPluginEnabled(info.id) ? Qt::Checked : Qt::Unchecked);
+        enabledItem->setData(Qt::UserRole, info.id);
+        pluginsTable->setItem(row, 0, enabledItem);
+
+        pluginsTable->setItem(row, 1, new QTableWidgetItem(info.name.isEmpty() ? info.id : info.name));
+        pluginsTable->setItem(row, 2, new QTableWidgetItem(info.version));
+        pluginsTable->setItem(row, 3, new QTableWidgetItem(info.id));
+        pluginsTable->setItem(row, 4, new QTableWidgetItem(info.author));
+        pluginsTable->setItem(row, 5, new QTableWidgetItem(info.description));
+    }
+
+    pluginsTable->blockSignals(false);
+}
+#endif // BUILD_PLUGINS
+
 void OptionsDialog::updateThemePreview()
 {
     ThemeColors colors;
@@ -540,6 +631,10 @@ void OptionsDialog::loadSettings()
 
     lspEnabledCheckBox->setChecked(s.lspEnabled());
     lspCompletionTriggerSpin->setValue(s.lspCompletionTriggerChars());
+
+#ifdef BUILD_PLUGINS
+    populatePluginsTable();
+#endif
 
     // Populate LSP server table with default + custom entries
     auto defaultCmds = lsp::LspServerManager::defaultServerCommands();

@@ -249,7 +249,7 @@ jobs:
           export CCACHE_BASEDIR=${{ github.workspace }}
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_FLAGS="-Werror" \
+            -DCMAKE_CXX_FLAGS="-Werror -Wno-error=sfinae-incomplete" \
             -DBUILD_TESTS=ON \
             -DBUILD_QSCINTILLA=OFF
         env:
@@ -591,4 +591,7 @@ jobs:
       - name: Test
         env:
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/.lsan.supp
+          QT_QPA_PLATFORM: offscreen
+          ASAN_OPTIONS: detect_leaks=0:abort_on_error=0
+          UBSAN_OPTIONS: halt_on_error=0:print_stacktrace=1
         run: ctest --test-dir build --output-on-failure

@@ -55,6 +55,8 @@ private:
     void setupAppearanceTab();
     void setupEditorTab();
     void setupPanelsTab();
+    void setupPluginsTab();
+    void populatePluginsTable();
     void loadSettings();
     void saveSettings();
     void updateThemePreview();
@@ -108,6 +110,7 @@ private:
     QCheckBox* lspEnabledCheckBox = nullptr;
     QSpinBox* lspCompletionTriggerSpin = nullptr;
     QTableWidget* lspServerTable = nullptr;
+    QTableWidget* pluginsTable = nullptr;
 };
 
 #endif // OPTIONSDIALOG_H
