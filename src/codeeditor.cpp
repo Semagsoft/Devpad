@@ -1239,8 +1239,8 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
 
         QString startLineText = text(d.range.start.line);
         QString endLineText = text(d.range.end.line);
-        fillIndicatorRange(d.range.start.line, lsp::utf16ToByteOffset(startLineText, d.range.start.character),
-                           d.range.end.line, lsp::utf16ToByteOffset(endLineText, d.range.end.character), indicatorId);
+        fillIndicatorRange(d.range.start.line, lsp::utf16ToByteOffset(startLineText, d.range.start.character), d.range.end.line,
+                           lsp::utf16ToByteOffset(endLineText, d.range.end.character), indicatorId);
     }
 
     emit diagnosticsChanged(uri, diagnostics);
@@ -1269,8 +1269,8 @@ void CodeEditor::applyHighlights(const QJsonArray& highlights)
 
         QString startLineText = text(range.start.line);
         QString endLineText = text(range.end.line);
-        fillIndicatorRange(range.start.line, lsp::utf16ToByteOffset(startLineText, range.start.character),
-                           range.end.line, lsp::utf16ToByteOffset(endLineText, range.end.character), lsp::LSP_INDICATOR_HIGHLIGHT);
+        fillIndicatorRange(range.start.line, lsp::utf16ToByteOffset(startLineText, range.start.character), range.end.line,
+                           lsp::utf16ToByteOffset(endLineText, range.end.character), lsp::LSP_INDICATOR_HIGHLIGHT);
     }
 }
 

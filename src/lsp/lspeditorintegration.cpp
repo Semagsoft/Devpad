@@ -276,8 +276,8 @@ void LspEditorIntegration::expandSelection()
         const auto& r = m_selectionRangeStack[m_selectionRangeDepth];
         QString startLineText = m_editor->text(r.start.line);
         QString endLineText = m_editor->text(r.end.line);
-        m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character),
-                               r.end.line, lsp::utf16ToByteOffset(endLineText, r.end.character));
+        m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character), r.end.line,
+                               lsp::utf16ToByteOffset(endLineText, r.end.character));
         return;
     }
 
@@ -298,8 +298,8 @@ void LspEditorIntegration::shrinkSelection()
     const auto& r = m_selectionRangeStack[m_selectionRangeDepth];
     QString startLineText = m_editor->text(r.start.line);
     QString endLineText = m_editor->text(r.end.line);
-    m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character),
-                           r.end.line, lsp::utf16ToByteOffset(endLineText, r.end.character));
+    m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character), r.end.line,
+                           lsp::utf16ToByteOffset(endLineText, r.end.character));
 }
 
 void LspEditorIntegration::requestSelectionRanges()
@@ -335,8 +335,8 @@ void LspEditorIntegration::handleDiagnostics(const QString& uri, const QList<Dia
             indicator = LSP_INDICATOR_INFO;
         QString startLineText = m_editor->text(d.range.start.line);
         QString endLineText = m_editor->text(d.range.end.line);
-        m_editor->fillIndicatorRange(d.range.start.line, lsp::utf16ToByteOffset(startLineText, d.range.start.character),
-                                     d.range.end.line, lsp::utf16ToByteOffset(endLineText, d.range.end.character), indicator);
+        m_editor->fillIndicatorRange(d.range.start.line, lsp::utf16ToByteOffset(startLineText, d.range.start.character), d.range.end.line,
+                                     lsp::utf16ToByteOffset(endLineText, d.range.end.character), indicator);
     }
     emit diagnosticsChanged(uri, diagnostics);
 }
@@ -370,8 +370,8 @@ void LspEditorIntegration::handleSelectionRanges(const QJsonArray& ranges)
     const auto& r = m_selectionRangeStack.first();
     QString startLineText = m_editor->text(r.start.line);
     QString endLineText = m_editor->text(r.end.line);
-    m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character),
-                           r.end.line, lsp::utf16ToByteOffset(endLineText, r.end.character));
+    m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character), r.end.line,
+                           lsp::utf16ToByteOffset(endLineText, r.end.character));
 }
 
 void LspEditorIntegration::handleSemanticTokens(const QString& uri, const QJsonArray& tokens)

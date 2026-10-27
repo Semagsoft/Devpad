@@ -150,11 +150,11 @@ TEST(LspTypesTest, ByteOffsetToUtf16MultiByte)
     // "café": é is U+00E9 = 2 UTF-8 bytes (C3 A9), 1 UTF-16 code unit.
     // Valid byte boundaries: 0, 1, 2, 3, 5.
     const QString line = QStringLiteral("café");
-    EXPECT_EQ(byteOffsetToUtf16(line, 0), 0);  // start
-    EXPECT_EQ(byteOffsetToUtf16(line, 1), 1);  // after 'c'
-    EXPECT_EQ(byteOffsetToUtf16(line, 2), 2);  // after 'ca'
-    EXPECT_EQ(byteOffsetToUtf16(line, 3), 3);  // start of é
-    EXPECT_EQ(byteOffsetToUtf16(line, 5), 4);  // after é (end of line)
+    EXPECT_EQ(byteOffsetToUtf16(line, 0), 0);   // start
+    EXPECT_EQ(byteOffsetToUtf16(line, 1), 1);   // after 'c'
+    EXPECT_EQ(byteOffsetToUtf16(line, 2), 2);   // after 'ca'
+    EXPECT_EQ(byteOffsetToUtf16(line, 3), 3);   // start of é
+    EXPECT_EQ(byteOffsetToUtf16(line, 5), 4);   // after é (end of line)
     EXPECT_EQ(byteOffsetToUtf16(line, 100), 4); // beyond end clamps to line length
 }
 
@@ -174,10 +174,10 @@ TEST(LspTypesTest, Utf16ToByteOffsetAstral)
     // "a😀b": 'a' (1 byte), 😀 U+1F600 (4 UTF-8 bytes, 2 UTF-16 units), 'b' (1 byte).
     // Valid UTF-16 boundaries: 0, 1, 3, 4.
     const QString line = QStringLiteral("a😀b");
-    EXPECT_EQ(utf16ToByteOffset(line, 0), 0);   // start
-    EXPECT_EQ(utf16ToByteOffset(line, 1), 1);   // after 'a' (start of emoji)
-    EXPECT_EQ(utf16ToByteOffset(line, 3), 5);   // after emoji (before 'b')
-    EXPECT_EQ(utf16ToByteOffset(line, 4), 6);   // after 'b' (end of line)
+    EXPECT_EQ(utf16ToByteOffset(line, 0), 0); // start
+    EXPECT_EQ(utf16ToByteOffset(line, 1), 1); // after 'a' (start of emoji)
+    EXPECT_EQ(utf16ToByteOffset(line, 3), 5); // after emoji (before 'b')
+    EXPECT_EQ(utf16ToByteOffset(line, 4), 6); // after 'b' (end of line)
 }
 
 TEST(LspTypesTest, ByteOffsetToUtf16RoundTripAtBoundaries)
