@@ -239,4 +239,25 @@ QString pathFromUri(const QString& uri)
     return QUrl(uri).toLocalFile();
 }
 
+// Convert an LSP UTF-16 character count to a QScintilla byte offset within a line.
+int utf16ToByteOffset(const QString& lineText, int utf16Character)
+{
+    if (utf16Character <= 0)
+        return 0;
+    if (utf16Character >= lineText.length())
+        return lineText.toUtf8().size();
+    return lineText.left(utf16Character).toUtf8().size();
+}
+
+// Convert a QScintilla byte offset within a line to an LSP UTF-16 character count.
+int byteOffsetToUtf16(const QString& lineText, int byteOffset)
+{
+    if (byteOffset <= 0)
+        return 0;
+    const QByteArray utf8 = lineText.toUtf8();
+    if (byteOffset >= utf8.size())
+        return lineText.length();
+    return QString::fromUtf8(utf8.constData(), byteOffset).length();
+}
+
 } // namespace lsp

@@ -339,3 +339,54 @@ TEST_F(MainWindowTest, ExternalChangePromptSkippedForFileNotOpen)
     runExternalChangePrompt(window, testFilePath("never_opened.txt"), counter);
     EXPECT_EQ(counter.count, 0);
 }
+
+TEST_F(MainWindowTest, RevertFileReloadsContentFromDisk)
+{
+    MainWindow window;
+    QString filePath = testFilePath("revert_disk.txt");
+    createFile(filePath, "original");
+    window.openFileFromPath(filePath);
+
+    auto* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    EXPECT_EQ(editor->text(), "original");
+
+    // Change the file on disk without touching the editor in Devpad.
+    createFile(filePath, "modified on disk");
+
+    // Reverting must reload from disk, not keep the stale in-editor view.
+    window.revertFile();
+
+    // Flush deleteLater so the stale closed editor is no longer a child.
+    QCoreApplication::processEvents();
+
+    // At least one editor must reflect the reloaded disk content. Note: closing a tab
+    // leaves the old CodeEditor as a child of the tab pane (pre-existing parentage), so
+    // there may be more than one editor; we only require that the reloaded content is present.
+    bool reloaded = false;
+    for (CodeEditor* e : window.findChildren<CodeEditor*>())
+    {
+        if (e->text() == "modified on disk")
+        {
+            reloaded = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(reloaded) << "revertFile() must reload the file from disk";
+}
+
+TEST_F(MainWindowTest, OpeningSameFileTwiceDoesNotDuplicateTab)
+{
+    MainWindow window;
+    QString filePath = testFilePath("dupe.txt");
+    createFile(filePath, "content");
+    window.openFileFromPath(filePath);
+    window.openFileFromPath(filePath); // same file again -> switch to existing tab
+
+    auto editors = window.findChildren<CodeEditor*>();
+    EXPECT_EQ(editors.size(), 1);
+    if (!editors.isEmpty())
+    {
+        EXPECT_EQ(editors.front()->text(), "content");
+    }
+}

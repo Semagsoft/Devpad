@@ -841,27 +841,46 @@ void MainWindow::openFolderFromPath(const QString& folderPath)
     Logger::instance().info(QString("Opened folder: %1").arg(folderPath));
 }
 
-void MainWindow::loadFile(const QString& fileName, const QString& encoding)
+void MainWindow::loadFile(const QString& fileName, const QString& encoding, bool reload)
 {
-    CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName);
-    if (existingEditor)
+    if (!reload)
     {
-        auto* container = m_tabManager->containerFor(existingEditor);
-        if (container)
+        CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName);
+        if (existingEditor)
         {
-            for (QTabWidget* pane : m_tabManager->panes())
+            auto* container = m_tabManager->containerFor(existingEditor);
+            if (container)
             {
-                int index = pane->indexOf(container);
-                if (index >= 0)
+                for (QTabWidget* pane : m_tabManager->panes())
                 {
-                    pane->setCurrentIndex(index);
-                    existingEditor->setFocus();
-                    m_tabManager->setActivePane(pane);
-                    return;
+                    int index = pane->indexOf(container);
+                    if (index >= 0)
+                    {
+                        pane->setCurrentIndex(index);
+                        existingEditor->setFocus();
+                        m_tabManager->setActivePane(pane);
+                        return;
+                    }
                 }
             }
+            return;
         }
-        return;
+    }
+
+    // When forcing a reload (revert / external-change reload), close any remaining
+    // editors for this file across all panes so we don't end up with duplicate tabs
+    // (one stale, one freshly reloaded). closeEditor() returns false for pinned tabs,
+    // in which case we stop to avoid an infinite loop.
+    if (reload)
+    {
+        while (CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName))
+        {
+            int idx = m_tabManager->indexOf(existingEditor);
+            if (idx < 0)
+                break;
+            if (!m_tabManager->closeEditor(idx))
+                break;
+        }
     }
 
     CodeEditor* editor = m_editorController->openFile(fileName, encoding);
@@ -1214,7 +1233,7 @@ void MainWindow::revertFile()
 
     m_tabManager->closeEditor(idx);
     m_fileWatcherManager->unwatchFile(fileName);
-    loadFile(fileName, encoding);
+    loadFile(fileName, encoding, true);
     if (auto* newEditor = m_tabManager->currentEditor())
     {
         newEditor->setBookmarks(bookmarks);
@@ -1747,7 +1766,7 @@ void MainWindow::promptExternalChangeReload(const QString& filePath)
             m_tabManager->closeEditor(idx);
         }
         m_fileWatcherManager->unwatchFile(filePath);
-        loadFile(filePath, encoding);
+        loadFile(filePath, encoding, true);
         if (auto* newEditor = m_tabManager->currentEditor())
         {
             newEditor->setBookmarks(bookmarks);

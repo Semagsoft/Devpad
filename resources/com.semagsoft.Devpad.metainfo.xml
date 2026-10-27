@@ -46,6 +46,11 @@
     <binary>Devpad</binary>
   </provides>
   <releases>
+    <release version="1.07" date="TBD">
+      <description>
+        <p>Bug fixes and improvements.</p>
+      </description>
+    </release>
     <release version="1.06" date="2026-10-24">
       <description>
         <p>Bug fixes and stability improvements.</p>
