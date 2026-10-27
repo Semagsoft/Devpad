@@ -100,6 +100,15 @@ fi
 
 # ─── Step 6: Create .dmg disk image ───────────────────────────
 info "Creating .dmg disk image..."
+
+# Detach any previously mounted Devpad disk images to avoid "Resource busy"
+# conflicts with the volume name on shared CI runners.
+for vol in /Volumes/Devpad*; do
+    if [ -d "$vol" ]; then
+        hdiutil detach "$vol" -force -quiet 2>/dev/null || true
+    fi
+done
+
 rm -f "${DMG_OUTPUT}"
 
 # Create a temporary directory for dmg contents
@@ -107,11 +116,23 @@ DMG_DIR=$(mktemp -d)
 cp -R "${APP_BUNDLE}" "${DMG_DIR}/"
 ln -s /Applications "${DMG_DIR}/Applications"
 
-hdiutil create -volname "Devpad ${VERSION}" \
-    -srcfolder "${DMG_DIR}" \
-    -ov \
-    -format UDZO \
-    "${DMG_OUTPUT}"
+# hdiutil create can transiently fail with "Resource busy" on shared runners;
+# retry a few times instead of failing the whole packaging job.
+for attempt in 1 2 3; do
+    if hdiutil create -volname "Devpad ${VERSION}" \
+        -srcfolder "${DMG_DIR}" \
+        -ov \
+        -format UDZO \
+        "${DMG_OUTPUT}" 2>/dev/null; then
+        break
+    fi
+    if [ "$attempt" -lt 3 ]; then
+        warn "hdiutil create attempt $attempt failed ('Resource busy'); retrying..."
+        sleep 2
+    else
+        err "hdiutil create failed after 3 attempts"
+    fi
+done
 
 rm -rf "${DMG_DIR}"
 
