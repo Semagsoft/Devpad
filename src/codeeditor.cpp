@@ -1158,7 +1158,7 @@ void CodeEditor::requestRename()
     getCursorPosition(&line, &col);
     auto* client = m_lspIntegration->clientForCurrentFile();
     if (client)
-        client->requestRename(uri, lsp::Position{line, col}, newName);
+        client->requestRename(uri, lsp::Position{line, lsp::byteOffsetToUtf16(text(line), col)}, newName);
 }
 
 void CodeEditor::requestDocumentHighlight()
@@ -1237,7 +1237,10 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
             break;
         }
 
-        fillIndicatorRange(d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character, indicatorId);
+        QString startLineText = text(d.range.start.line);
+        QString endLineText = text(d.range.end.line);
+        fillIndicatorRange(d.range.start.line, lsp::utf16ToByteOffset(startLineText, d.range.start.character), d.range.end.line,
+                           lsp::utf16ToByteOffset(endLineText, d.range.end.character), indicatorId);
     }
 
     emit diagnosticsChanged(uri, diagnostics);
@@ -1264,7 +1267,10 @@ void CodeEditor::applyHighlights(const QJsonArray& highlights)
         if (range.start.line < 0 || range.end.line < 0)
             continue;
 
-        fillIndicatorRange(range.start.line, range.start.character, range.end.line, range.end.character, lsp::LSP_INDICATOR_HIGHLIGHT);
+        QString startLineText = text(range.start.line);
+        QString endLineText = text(range.end.line);
+        fillIndicatorRange(range.start.line, lsp::utf16ToByteOffset(startLineText, range.start.character), range.end.line,
+                           lsp::utf16ToByteOffset(endLineText, range.end.character), lsp::LSP_INDICATOR_HIGHLIGHT);
     }
 }
 
@@ -1319,7 +1325,12 @@ void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& token
         }
 
         if (length > 0 && line >= 0 && line < lines())
-            fillIndicatorRange(line, col, line, col + length, lsp::LSP_INDICATOR_SEMANTIC);
+        {
+            QString lineText = text(line);
+            int startByte = lsp::utf16ToByteOffset(lineText, col);
+            int endByte = lsp::utf16ToByteOffset(lineText, col + length);
+            fillIndicatorRange(line, startByte, line, endByte, lsp::LSP_INDICATOR_SEMANTIC);
+        }
     }
 }
 

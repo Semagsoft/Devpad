@@ -1,5 +1,7 @@
 #include "lsp/lsptypes.h"
 
+#include <array>
+
 #include <gtest/gtest.h>
 
 using namespace lsp;
@@ -134,4 +136,74 @@ TEST(LspTypesTest, DiagnosticFromJsonWarning)
     EXPECT_EQ(d.message, "Test warning");
     EXPECT_EQ(d.severity, "Warning");
     EXPECT_EQ(d.severityLevel, 2);
+}
+
+TEST(LspTypesTest, ByteOffsetToUtf16AsciiIsIdentity)
+{
+    // Pure ASCII: one byte == one UTF-16 code unit.
+    const QString line = QStringLiteral("hello");
+    EXPECT_EQ(byteOffsetToUtf16(line, 0), 0);
+    EXPECT_EQ(byteOffsetToUtf16(line, 1), 1);
+    EXPECT_EQ(byteOffsetToUtf16(line, 5), 5);
+}
+
+TEST(LspTypesTest, ByteOffsetToUtf16MultiByte)
+{
+    // "café": é is U+00E9 = 2 UTF-8 bytes (C3 A9), 1 UTF-16 code unit.
+    // Valid byte boundaries: 0, 1, 2, 3, 5.
+    const QString line = QStringLiteral("café");
+    EXPECT_EQ(byteOffsetToUtf16(line, 0), 0);   // start
+    EXPECT_EQ(byteOffsetToUtf16(line, 1), 1);   // after 'c'
+    EXPECT_EQ(byteOffsetToUtf16(line, 2), 2);   // after 'ca'
+    EXPECT_EQ(byteOffsetToUtf16(line, 3), 3);   // start of é
+    EXPECT_EQ(byteOffsetToUtf16(line, 5), 4);   // after é (end of line)
+    EXPECT_EQ(byteOffsetToUtf16(line, 100), 4); // beyond end clamps to line length
+}
+
+TEST(LspTypesTest, Utf16ToByteOffsetMultiByte)
+{
+    const QString line = QStringLiteral("café");
+    EXPECT_EQ(utf16ToByteOffset(line, 0), 0);   // start
+    EXPECT_EQ(utf16ToByteOffset(line, 1), 1);   // after 'c'
+    EXPECT_EQ(utf16ToByteOffset(line, 2), 2);   // after 'ca'
+    EXPECT_EQ(utf16ToByteOffset(line, 3), 3);   // after 'caf' (start of é)
+    EXPECT_EQ(utf16ToByteOffset(line, 4), 5);   // after é (end of line)
+    EXPECT_EQ(utf16ToByteOffset(line, 100), 5); // beyond end clamps to byte size
+}
+
+TEST(LspTypesTest, Utf16ToByteOffsetAstral)
+{
+    // "a😀b": 'a' (1 byte), 😀 U+1F600 (4 UTF-8 bytes, 2 UTF-16 units), 'b' (1 byte).
+    // Valid UTF-16 boundaries: 0, 1, 3, 4.
+    const QString line = QStringLiteral("a😀b");
+    EXPECT_EQ(utf16ToByteOffset(line, 0), 0); // start
+    EXPECT_EQ(utf16ToByteOffset(line, 1), 1); // after 'a' (start of emoji)
+    EXPECT_EQ(utf16ToByteOffset(line, 3), 5); // after emoji (before 'b')
+    EXPECT_EQ(utf16ToByteOffset(line, 4), 6); // after 'b' (end of line)
+}
+
+TEST(LspTypesTest, ByteOffsetToUtf16RoundTripAtBoundaries)
+{
+    // "naïve日😀": n(1) a(1) ï(2) v(1) e(1) 日(3) 😀(4) = 13 UTF-8 bytes.
+    // Valid byte boundaries: 0, 1, 2, 4, 5, 6, 9, 13.
+    const QString line = QStringLiteral("naïve日😀");
+    std::array<int, 8> offsets = {0, 1, 2, 4, 5, 6, 9, 13};
+    for (int byteOffset : offsets)
+    {
+        int utf16 = byteOffsetToUtf16(line, byteOffset);
+        int back = utf16ToByteOffset(line, utf16);
+        EXPECT_EQ(back, byteOffset) << "round-trip failed at byte offset " << byteOffset;
+    }
+}
+
+TEST(LspTypesTest, ByteOffsetToUtf16EdgeCases)
+{
+    const QString line = QStringLiteral("test");
+    EXPECT_EQ(byteOffsetToUtf16(line, -1), 0);
+    EXPECT_EQ(byteOffsetToUtf16(line, 0), 0);
+    EXPECT_EQ(utf16ToByteOffset(line, -1), 0);
+    EXPECT_EQ(utf16ToByteOffset(line, 0), 0);
+    const QString empty;
+    EXPECT_EQ(byteOffsetToUtf16(empty, 0), 0);
+    EXPECT_EQ(utf16ToByteOffset(empty, 0), 0);
 }

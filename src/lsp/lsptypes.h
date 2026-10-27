@@ -115,6 +115,13 @@ struct ServerCapabilities
 QString uriFromPath(const QString& path);
 QString pathFromUri(const QString& uri);
 
+// Convert between QScintilla byte offsets within a line and LSP UTF-16
+// character counts. QScintilla's getCursorPosition()/getSelection() report
+// byte offsets (QScintilla stores documents as UTF-8), while the LSP spec
+// requires Position.character to be a UTF-16 code unit count.
+int utf16ToByteOffset(const QString& lineText, int utf16Character);
+int byteOffsetToUtf16(const QString& lineText, int byteOffset);
+
 } // namespace lsp
 
 #endif // LSPTYPES_H

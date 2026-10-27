@@ -116,7 +116,7 @@ void LspEditorIntegration::goToDefinition()
         return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
-    client->requestDefinition(uri, {line, col});
+    client->requestDefinition(uri, {line, lsp::byteOffsetToUtf16(m_editor->text(line), col)});
 }
 
 void LspEditorIntegration::goToTypeDefinition()
@@ -132,7 +132,7 @@ void LspEditorIntegration::goToTypeDefinition()
         return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
-    client->requestTypeDefinition(uri, {line, col});
+    client->requestTypeDefinition(uri, {line, lsp::byteOffsetToUtf16(m_editor->text(line), col)});
 }
 
 void LspEditorIntegration::goToDeclaration()
@@ -148,7 +148,7 @@ void LspEditorIntegration::goToDeclaration()
         return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
-    client->requestDeclaration(uri, {line, col});
+    client->requestDeclaration(uri, {line, lsp::byteOffsetToUtf16(m_editor->text(line), col)});
 }
 
 void LspEditorIntegration::formatSelection()
@@ -164,7 +164,8 @@ void LspEditorIntegration::formatSelection()
         return;
     int lineFrom, colFrom, lineTo, colTo;
     m_editor->getSelection(&lineFrom, &colFrom, &lineTo, &colTo);
-    Range range{{lineFrom, colFrom}, {lineTo, colTo}};
+    Range range{{lineFrom, lsp::byteOffsetToUtf16(m_editor->text(lineFrom), colFrom)},
+                {lineTo, lsp::byteOffsetToUtf16(m_editor->text(lineTo), colTo)}};
     int tabSize = SettingsManager::instance().tabWidth();
     bool insertSpaces = true;
     client->requestRangeFormatting(uri, range, tabSize, insertSpaces);
@@ -183,7 +184,7 @@ void LspEditorIntegration::findReferences()
         return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
-    client->requestReferences(uri, {line, col});
+    client->requestReferences(uri, {line, lsp::byteOffsetToUtf16(m_editor->text(line), col)});
 }
 
 void LspEditorIntegration::triggerCompletion()
@@ -201,7 +202,7 @@ void LspEditorIntegration::triggerCompletion()
     m_editor->getCursorPosition(&line, &col);
     int triggerKind = m_lastCharWasTrigger ? 2 : 1;
     m_lastCharWasTrigger = false;
-    client->requestCompletion(uri, {line, col}, triggerKind);
+    client->requestCompletion(uri, {line, lsp::byteOffsetToUtf16(m_editor->text(line), col)}, triggerKind);
 }
 
 void LspEditorIntegration::requestRename()
@@ -221,7 +222,7 @@ void LspEditorIntegration::requestRename()
     QString newName = QInputDialog::getText(nullptr, tr("Rename Symbol"), tr("New name:"), QLineEdit::Normal, QString(), &ok);
     if (!ok || newName.isEmpty())
         return;
-    client->requestRename(uri, {line, col}, newName);
+    client->requestRename(uri, {line, lsp::byteOffsetToUtf16(m_editor->text(line), col)}, newName);
 }
 
 void LspEditorIntegration::requestDocumentHighlight()
@@ -237,7 +238,7 @@ void LspEditorIntegration::requestDocumentHighlight()
         return;
     int line, col;
     m_editor->getCursorPosition(&line, &col);
-    client->requestDocumentHighlight(uri, {line, col});
+    client->requestDocumentHighlight(uri, {line, lsp::byteOffsetToUtf16(m_editor->text(line), col)});
 }
 
 void LspEditorIntegration::requestCodeActions()
@@ -253,7 +254,8 @@ void LspEditorIntegration::requestCodeActions()
         return;
     int lineFrom, colFrom, lineTo, colTo;
     m_editor->getSelection(&lineFrom, &colFrom, &lineTo, &colTo);
-    Range range{{lineFrom, colFrom}, {lineTo, colTo}};
+    Range range{{lineFrom, lsp::byteOffsetToUtf16(m_editor->text(lineFrom), colFrom)},
+                {lineTo, lsp::byteOffsetToUtf16(m_editor->text(lineTo), colTo)}};
     client->requestCodeAction(uri, range, {});
 }
 
@@ -272,7 +274,10 @@ void LspEditorIntegration::expandSelection()
     {
         m_selectionRangeDepth--;
         const auto& r = m_selectionRangeStack[m_selectionRangeDepth];
-        m_editor->setSelection(r.start.line, r.start.character, r.end.line, r.end.character);
+        QString startLineText = m_editor->text(r.start.line);
+        QString endLineText = m_editor->text(r.end.line);
+        m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character), r.end.line,
+                               lsp::utf16ToByteOffset(endLineText, r.end.character));
         return;
     }
 
@@ -280,7 +285,7 @@ void LspEditorIntegration::expandSelection()
     LspClient* client = m_lspManager->clientForUri(uri);
     if (!client || !client->capabilities().selectionRangeProvider)
         return;
-    QList<Position> positions{{line, col}};
+    QList<Position> positions{{line, lsp::byteOffsetToUtf16(m_editor->text(line), col)}};
     client->requestSelectionRanges(uri, positions);
 }
 
@@ -291,7 +296,10 @@ void LspEditorIntegration::shrinkSelection()
 
     m_selectionRangeDepth++;
     const auto& r = m_selectionRangeStack[m_selectionRangeDepth];
-    m_editor->setSelection(r.start.line, r.start.character, r.end.line, r.end.character);
+    QString startLineText = m_editor->text(r.start.line);
+    QString endLineText = m_editor->text(r.end.line);
+    m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character), r.end.line,
+                           lsp::utf16ToByteOffset(endLineText, r.end.character));
 }
 
 void LspEditorIntegration::requestSelectionRanges()
@@ -325,7 +333,10 @@ void LspEditorIntegration::handleDiagnostics(const QString& uri, const QList<Dia
             indicator = LSP_INDICATOR_WARNING;
         else if (d.severityLevel >= 3)
             indicator = LSP_INDICATOR_INFO;
-        m_editor->fillIndicatorRange(d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character, indicator);
+        QString startLineText = m_editor->text(d.range.start.line);
+        QString endLineText = m_editor->text(d.range.end.line);
+        m_editor->fillIndicatorRange(d.range.start.line, lsp::utf16ToByteOffset(startLineText, d.range.start.character), d.range.end.line,
+                                     lsp::utf16ToByteOffset(endLineText, d.range.end.character), indicator);
     }
     emit diagnosticsChanged(uri, diagnostics);
 }
@@ -357,7 +368,10 @@ void LspEditorIntegration::handleSelectionRanges(const QJsonArray& ranges)
 
     m_selectionRangeDepth = 0;
     const auto& r = m_selectionRangeStack.first();
-    m_editor->setSelection(r.start.line, r.start.character, r.end.line, r.end.character);
+    QString startLineText = m_editor->text(r.start.line);
+    QString endLineText = m_editor->text(r.end.line);
+    m_editor->setSelection(r.start.line, lsp::utf16ToByteOffset(startLineText, r.start.character), r.end.line,
+                           lsp::utf16ToByteOffset(endLineText, r.end.character));
 }
 
 void LspEditorIntegration::handleSemanticTokens(const QString& uri, const QJsonArray& tokens)
@@ -395,17 +409,23 @@ void LspEditorIntegration::handleSignatureHelp(const QJsonObject& info)
 
 void LspEditorIntegration::handleDefinition(const Location& location)
 {
-    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, location.range.start.character);
+    QString startLineText = m_editor->text(location.range.start.line);
+    int column = lsp::utf16ToByteOffset(startLineText, location.range.start.character);
+    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, column);
 }
 
 void LspEditorIntegration::handleTypeDefinition(const Location& location)
 {
-    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, location.range.start.character);
+    QString startLineText = m_editor->text(location.range.start.line);
+    int column = lsp::utf16ToByteOffset(startLineText, location.range.start.character);
+    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, column);
 }
 
 void LspEditorIntegration::handleDeclaration(const Location& location)
 {
-    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, location.range.start.character);
+    QString startLineText = m_editor->text(location.range.start.line);
+    int column = lsp::utf16ToByteOffset(startLineText, location.range.start.character);
+    emit navigateToLocation(pathFromUri(location.uri), location.range.start.line, column);
 }
 
 void LspEditorIntegration::handleReferences(const QList<Location>& locations)
@@ -413,7 +433,9 @@ void LspEditorIntegration::handleReferences(const QList<Location>& locations)
     if (locations.isEmpty())
         return;
     const auto& loc = locations.first();
-    emit navigateToLocation(pathFromUri(loc.uri), loc.range.start.line, loc.range.start.character);
+    QString startLineText = m_editor->text(loc.range.start.line);
+    int column = lsp::utf16ToByteOffset(startLineText, loc.range.start.character);
+    emit navigateToLocation(pathFromUri(loc.uri), loc.range.start.line, column);
 }
 
 void LspEditorIntegration::handleCodeActions(const QList<QJsonObject>& actions)
