@@ -115,6 +115,7 @@ public:
         int verticalEdgeColumn = 80;
         bool snippetsEnabled = true;
         bool predictiveSnippets = true;
+        QString customTheme; // name of active custom user theme, empty for built-in
     };
 
     struct UISettings
@@ -190,6 +191,8 @@ public:
     ThemeId theme() const;
     bool isDarkTheme() const;
     ThemeColors currentThemeColors() const;
+    QString customTheme() const;
+    void setCustomTheme(const QString& name);
     QColor accentColor() const;
     bool hasAccentColor() const;
     void setAccentColor(const QColor& color);

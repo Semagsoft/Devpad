@@ -82,7 +82,15 @@ public:
 
     void setLineNumbersVisible(bool visible);
     void applyTheme(ThemeId themeId);
+    void applyTheme(const ThemeColors& colors);
     void applyFont(const QFont& font);
+
+protected:
+    void applyThemeColors(const ThemeColors& colors);
+    void applyLexerThemeColors(const ThemeColors& colors);
+    void applyLexerTheme();
+
+public:
     void setScrollPastEnd(bool enabled);
     void setCodeFolding(bool enabled);
     void setWhitespaceVisible(bool visible);
@@ -202,7 +210,6 @@ private:
     bool handleBracketSkip(QChar ch, int pos);
 
     void setupEditor();
-    void applyLexerTheme();
     void updateLineNumberWidth();
     void onCharAdded(int charadded);
     void setupLspIndicators();

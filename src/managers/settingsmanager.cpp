@@ -160,6 +160,7 @@ void SettingsManager::loadCache()
         if (themeVal < 0 || themeVal >= static_cast<int>(ThemeId::Count))
             themeVal = static_cast<int>(ThemeId::Light);
         m_cache.editor.theme = static_cast<ThemeId>(themeVal);
+    m_cache.editor.customTheme = m_settings.value("Options_CustomTheme").toString();
     }
     m_cache.editor.defaultEncoding = m_settings.value("Options_DefaultEncoding", 0).toInt();
     m_cache.editor.defaultFormat = m_settings.value("Options_DefaultFormat", 0).toInt();
@@ -283,12 +284,37 @@ ThemeId SettingsManager::theme() const
 {
     return m_cache.editor.theme;
 }
+QString SettingsManager::customTheme() const
+{
+    return m_cache.editor.customTheme;
+}
+void SettingsManager::setCustomTheme(const QString& name)
+{
+    writeCached("Options_CustomTheme", m_cache.editor.customTheme, name);
+}
 bool SettingsManager::isDarkTheme() const
 {
+    if (!m_cache.editor.customTheme.isEmpty())
+    {
+        for (const auto& c : loadCustomThemes())
+        {
+            if (c.name == m_cache.editor.customTheme)
+                return c.isDark;
+        }
+        // Fall back to built-in light if custom theme not found
+        return false;
+    }
     return isThemeDark(theme());
 }
 ThemeColors SettingsManager::currentThemeColors() const
 {
+    if (!m_cache.editor.customTheme.isEmpty())
+    {
+        ThemeColors colors = getCustomThemeColors(m_cache.editor.customTheme);
+        if (m_cache.hasAccentColor)
+            applyAccent(colors);
+        return colors;
+    }
     return getThemeColors(theme());
 }
 int SettingsManager::defaultEncoding() const
@@ -444,7 +470,10 @@ void SettingsManager::applyToEditor(CodeEditor* editor) const
     editor->setCodeFolding(codeCollapsing());
     editor->setWrapMode(wordWrap() ? QsciScintilla::WrapWord : QsciScintilla::WrapNone);
     editor->setWhitespaceVisible(showWhitespace());
-    editor->applyTheme(theme());
+    if (!customTheme().isEmpty())
+        editor->applyTheme(currentThemeColors());
+    else
+        editor->applyTheme(theme());
     editor->setupAutoCompletion(autoCompletionEnabled(), autoCompletionThreshold(), autoCompletionCaseSensitive());
     editor->setAutoCloseBrackets(autoCloseBrackets());
     editor->setTabWidth(tabWidth());

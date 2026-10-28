@@ -34,8 +34,18 @@ ThemeApplier::ThemeApplier(QObject* parent) : QObject(parent)
 
 void ThemeApplier::applyTheme(QMainWindow* window)
 {
-    ThemeId themeId = SettingsManager::instance().theme();
-    ThemeColors colors = getThemeColors(themeId);
+    const auto& s = SettingsManager::instance();
+    ThemeId themeId = s.theme();
+    ThemeColors colors;
+
+    if (!s.customTheme().isEmpty())
+    {
+        colors = s.currentThemeColors();
+    }
+    else
+    {
+        colors = getThemeColors(themeId);
+    }
 
     if (!prefersNativeStyling(themeId))
     {
@@ -43,7 +53,7 @@ void ThemeApplier::applyTheme(QMainWindow* window)
         QApplication::setPalette(palette);
     }
 
-    const auto& ui = SettingsManager::instance().uiSettings();
+    const auto& ui = s.uiSettings();
     if (!ui.uiFontFamily.isEmpty())
     {
         QFont uiFont(ui.uiFontFamily, ui.uiFontSize);

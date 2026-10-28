@@ -273,7 +273,17 @@ void CodeEditor::applyTheme(ThemeId themeId)
 {
     m_themeId = themeId;
     ThemeColors colors = getThemeColors(themeId);
+    applyThemeColors(colors);
+}
 
+void CodeEditor::applyTheme(const ThemeColors& colors)
+{
+    m_themeId = ThemeId::Light; // placeholder; custom themes aren't a ThemeId
+    applyThemeColors(colors);
+}
+
+void CodeEditor::applyThemeColors(const ThemeColors& colors)
+{
     setMarginsBackgroundColor(colors.marginBg);
     setMarginsForegroundColor(colors.marginFg);
     setFoldMarginColors(colors.foldMarginBg, colors.foldMarginBgAlt);
@@ -290,7 +300,7 @@ void CodeEditor::applyTheme(ThemeId themeId)
         setEdgeColor(colors.separator);
     }
 
-    applyLexerTheme();
+    applyLexerThemeColors(colors);
 }
 
 void CodeEditor::applyLexerTheme()
@@ -300,6 +310,14 @@ void CodeEditor::applyLexerTheme()
         return;
 
     ThemeColors colors = getThemeColors(m_themeId);
+    applyLexerThemeColors(colors);
+}
+
+void CodeEditor::applyLexerThemeColors(const ThemeColors& colors)
+{
+    QsciLexer* lexer = this->lexer();
+    if (!lexer)
+        return;
 
     lexer->setDefaultColor(colors.foreground);
     lexer->setDefaultPaper(colors.background);
