@@ -33,6 +33,12 @@ public:
     void setSplitVisible(bool v);
     int count() const;
 
+    // Per-tab cursor persistence (line, col) for session save/restore
+    Q_INVOKABLE QVariantList tabCursors() const;
+    Q_INVOKABLE void setTabCursors(const QVariantList& cursors);
+    Q_INVOKABLE void setCursorForTab(int index, int line, int col);
+    Q_INVOKABLE QVariantList cursorForTab(int index) const;
+
     Q_INVOKABLE QString tabAt(int idx) const;
     Q_INVOKABLE QString displayName(int idx) const;
     Q_INVOKABLE void addTab(const QString& filePath);
@@ -57,6 +63,8 @@ private:
     int m_current = 0;
     int m_pane2Current = 0;
     bool m_splitVisible = false;
+    // Per-tab cursor positions: parallel list to m_tabs, each entry is {line, col}
+    QList<QList<int>> m_tabCursors;
 };
 
 #endif // NEXTGENTABMODEL_H

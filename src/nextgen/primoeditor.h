@@ -133,6 +133,11 @@ public:
     Q_INVOKABLE void paste();
     Q_INVOKABLE void selectAll();
 
+    // Theme support (full ThemeColors for custom themes)
+    Q_INVOKABLE void applyThemeColors(const ThemeColors& colors);
+    Q_INVOKABLE void setCustomTheme(const QString& name);
+    Q_INVOKABLE QString customTheme() const;
+
 signals:
     void filePathChanged();
     void textChanged();
@@ -208,6 +213,7 @@ private:
     int m_highlightVersion = 0;
     QVector<QVector<QTextLayout::FormatRange>> m_highlightCache;
     bool m_highlightDirty = true;
+    QString m_customTheme;
 };
 
 #endif // PRIMOEDITOR_H

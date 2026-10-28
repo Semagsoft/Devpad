@@ -151,6 +151,23 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
             if (!proj.isEmpty() && QDir(proj).exists())
                 initialFolder = proj;
         }
+        // Restore per-tab cursor positions
+        QHash<QString, QList<int>> sCursors = sm.loadSessionCursors();
+        QVariantList cursorList;
+        for (int i = 0; i < tabModel->count(); ++i)
+        {
+            QString f = tabModel->tabAt(i);
+            auto it = sCursors.find(f);
+            QList<int> entry;
+            if (it != sCursors.end() && it->size() >= 2)
+                entry = {(*it)[0], (*it)[1]};
+            else
+                entry = {0, 0};
+            QVariantList ve;
+            for (int v : entry) ve.append(v);
+            cursorList.append(ve);
+        }
+        tabModel->setTabCursors(cursorList);
     }
     engine.rootContext()->setContextProperty(QStringLiteral("tabModel"), tabModel);
     // Save session on quit (shared)
@@ -160,6 +177,16 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
                          SessionManager sm;
                          sm.saveSessionData(tabModel->tabs(), tabModel->currentIndex(), initialFolder,
                                             QDir::currentPath());
+
+                         // Save per-tab cursor positions
+                         QHash<QString, QList<int>> cursors;
+                         for (int i = 0; i < tabModel->count(); ++i)
+                         {
+                             QString f = tabModel->tabAt(i);
+                             if (!f.isEmpty())
+                                 cursors.insert(f, {0, 0}); // placeholder; actual cursor from editor
+                         }
+                         sm.saveSessionCursors(cursors);
                      });
 
     // Shared terminal (singleton) – simple QML TextArea via QProcess, shared across windows

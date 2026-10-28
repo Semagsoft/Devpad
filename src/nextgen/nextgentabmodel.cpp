@@ -181,3 +181,50 @@ void NextgenTabModel::detachTab(int idx)
     QProcess::startDetached(appPath, args);
     closeTab(idx);
 }
+
+QVariantList NextgenTabModel::tabCursors() const
+{
+    QVariantList result;
+    for (const auto& c : m_tabCursors)
+    {
+        QVariantList entry;
+        for (int v : c) entry.append(v);
+        result.append(entry);
+    }
+    return result;
+}
+
+void NextgenTabModel::setTabCursors(const QVariantList& cursors)
+{
+    m_tabCursors.clear();
+    for (const auto& v : cursors)
+    {
+        QList<int> entry;
+        for (const auto& item : v.toList())
+            entry.append(item.toInt());
+        m_tabCursors.append(entry);
+    }
+}
+
+void NextgenTabModel::setCursorForTab(int index, int line, int col)
+{
+    if (index < 0 || index >= m_tabs.size())
+        return;
+    if (m_tabCursors.size() <= index)
+        m_tabCursors.resize(index + 1);
+    m_tabCursors[index] = {line, col};
+}
+
+QVariantList NextgenTabModel::cursorForTab(int index) const
+{
+    QVariantList result;
+    if (index < 0 || index >= m_tabCursors.size())
+    {
+        result.append(0);
+        result.append(0);
+        return result;
+    }
+    for (int v : m_tabCursors[index])
+        result.append(v);
+    return result;
+}

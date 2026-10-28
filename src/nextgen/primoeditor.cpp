@@ -607,6 +607,30 @@ void PrimoEditor::selectAll()
     update();
 }
 
+void PrimoEditor::applyThemeColors(const ThemeColors& colors)
+{
+    m_theme = colors;
+    m_bg = colors.background;
+    m_fg = colors.foreground;
+    emit backgroundColorChanged();
+    emit foregroundColorChanged();
+    update();
+    // Re-highlight with new theme colors
+    m_highlightDirty = true;
+    m_highlightVersion++;
+    scheduleHighlight();
+}
+
+void PrimoEditor::setCustomTheme(const QString& name)
+{
+    m_customTheme = name;
+}
+
+QString PrimoEditor::customTheme() const
+{
+    return m_customTheme;
+}
+
 void PrimoEditor::loadFile(const QString& path)
 {
     if (!m_doc)

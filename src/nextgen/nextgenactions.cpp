@@ -6,7 +6,9 @@
 #include "nextgenactions.h"
 
 #include "managers/settingsmanager.h"
+#include "managers/externaltoolmanager.h"
 #include "nextgen/primoeditor.h"
+#include "nextgen/primoterminal.h"
 #include "theme.h"
 
 #include <QApplication>
@@ -14,7 +16,7 @@
 #include <QInputDialog>
 #include <QMessageBox>
 
-NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(nullptr)
+NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this))
 {
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
             [this]()
@@ -25,7 +27,7 @@ NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(null
                 emit recentFilesChanged();
             });
 }
-NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent) : QObject(parent), m_editor(editor)
+NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent) : QObject(parent), m_editor(editor), m_externalToolManager(new ExternalToolManager(this))
 {
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
             [this]()
@@ -122,11 +124,16 @@ void NextgenActions::setThemeByName(const QString& name)
         ThemeColors c = getCustomThemeColors(name);
         if (m_editor)
         {
+            m_editor->setCustomTheme(name);
             m_editor->setBackgroundColor(c.background);
             m_editor->setForegroundColor(c.foreground);
-            // also update highlight theme
-            // PrimoEditor will need to know custom theme? For now set via background/foreground
+            // Apply full theme colors via setTheme to update highlight
+            m_editor->applyThemeColors(c);
+            // trigger highlight re-evaluation
+            m_editor->setLanguage(m_editor->language());
         }
+        SettingsManager::instance().setCustomTheme(name);
+        SettingsManager::instance().setTheme(ThemeId::Light); // placeholder; custom tracked separately
         emit themeChanged();
     }
 }
@@ -368,4 +375,189 @@ void NextgenActions::findInFiles(const QString& pattern)
 {
     Q_UNUSED(pattern);
     emit requestFindInFiles();
+}
+
+// ── Settings getters/setters ──────────────────────────────────
+
+bool NextgenActions::checkForUpdatesEnabled() const
+{
+    return SettingsManager::instance().checkForUpdatesEnabled();
+}
+void NextgenActions::setCheckForUpdatesEnabled(bool enabled)
+{
+    SettingsManager::instance().setCheckForUpdatesEnabled(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::wordWrap() const
+{
+    return SettingsManager::instance().wordWrap();
+}
+void NextgenActions::setWordWrap(bool enabled)
+{
+    SettingsManager::instance().setWordWrap(enabled);
+    emit settingsChanged();
+    if (m_editor) m_editor->setWordWrap(enabled);
+}
+bool NextgenActions::showLineNumbers() const
+{
+    return SettingsManager::instance().showLineNumbers();
+}
+void NextgenActions::setShowLineNumbers(bool visible)
+{
+    SettingsManager::instance().setShowLineNumbers(visible);
+    emit settingsChanged();
+}
+bool NextgenActions::autoCloseBrackets() const
+{
+    return SettingsManager::instance().autoCloseBrackets();
+}
+void NextgenActions::setAutoCloseBrackets(bool enabled)
+{
+    SettingsManager::instance().setAutoCloseBrackets(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::snippetsEnabled() const
+{
+    return SettingsManager::instance().snippetsEnabled();
+}
+void NextgenActions::setSnippetsEnabled(bool enabled)
+{
+    SettingsManager::instance().setSnippetsEnabled(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::predictiveSnippets() const
+{
+    return SettingsManager::instance().predictiveSnippets();
+}
+void NextgenActions::setPredictiveSnippets(bool enabled)
+{
+    SettingsManager::instance().setPredictiveSnippets(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::autoCompletionEnabled() const
+{
+    return SettingsManager::instance().autoCompletionEnabled();
+}
+void NextgenActions::setAutoCompletionEnabled(bool enabled)
+{
+    SettingsManager::instance().setAutoCompletionEnabled(enabled);
+    emit settingsChanged();
+}
+int NextgenActions::tabWidth() const
+{
+    return SettingsManager::instance().tabWidth();
+}
+void NextgenActions::setTabWidth(int width)
+{
+    SettingsManager::instance().setTabWidth(width);
+    emit settingsChanged();
+    if (m_editor) m_editor->setTabWidth(width);
+}
+int NextgenActions::defaultFontSize() const
+{
+    return SettingsManager::instance().defaultFontSize();
+}
+void NextgenActions::setDefaultFontSize(int size)
+{
+    SettingsManager::instance().setDefaultFontSize(size);
+    emit settingsChanged();
+    if (m_editor) m_editor->setFont(SettingsManager::instance().defaultFont());
+}
+QString NextgenActions::defaultFontFamily() const
+{
+    return SettingsManager::instance().defaultFontFamily();
+}
+void NextgenActions::setDefaultFontFamily(const QString& family)
+{
+    SettingsManager::instance().setDefaultFontFamily(family);
+    emit settingsChanged();
+    if (m_editor) m_editor->setFont(SettingsManager::instance().defaultFont());
+}
+bool NextgenActions::showHiddenFiles() const
+{
+    return SettingsManager::instance().showHiddenFiles();
+}
+void NextgenActions::setShowHiddenFiles(bool visible)
+{
+    SettingsManager::instance().setShowHiddenFiles(visible);
+    emit settingsChanged();
+}
+bool NextgenActions::useGitIgnore() const
+{
+    return SettingsManager::instance().useGitIgnore();
+}
+void NextgenActions::setUseGitIgnore(bool enabled)
+{
+    SettingsManager::instance().setUseGitIgnore(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::autoSaveEnabled() const
+{
+    return SettingsManager::instance().autoSaveEnabled();
+}
+void NextgenActions::setAutoSaveEnabled(bool enabled)
+{
+    SettingsManager::instance().setAutoSaveEnabled(enabled);
+    emit settingsChanged();
+}
+int NextgenActions::autoSaveInterval() const
+{
+    return SettingsManager::instance().autoSaveInterval();
+}
+void NextgenActions::setAutoSaveInterval(int seconds)
+{
+    SettingsManager::instance().setAutoSaveInterval(seconds);
+    emit settingsChanged();
+}
+
+// ── External tools ────────────────────────────────────────────
+
+int NextgenActions::externalToolCount() const
+{
+    return SettingsManager::instance().externalToolCount();
+}
+QString NextgenActions::externalToolName(int index) const
+{
+    return SettingsManager::instance().externalToolName(index);
+}
+QString NextgenActions::externalToolCommand(int index) const
+{
+    return SettingsManager::instance().externalToolCommand(index);
+}
+QString NextgenActions::externalToolArguments(int index) const
+{
+    return SettingsManager::instance().externalToolArguments(index);
+}
+QString NextgenActions::externalToolWorkingDir(int index) const
+{
+    return SettingsManager::instance().externalToolWorkingDir(index);
+}
+QString NextgenActions::externalToolShortcut(int index) const
+{
+    return SettingsManager::instance().externalToolShortcut(index);
+}
+bool NextgenActions::externalToolRunInTerminal(int index) const
+{
+    return SettingsManager::instance().externalToolRunInTerminal(index);
+}
+void NextgenActions::addExternalTool(const QString& name, const QString& command, const QString& arguments,
+                                     const QString& workingDir, const QString& shortcut, bool runInTerminal)
+{
+    SettingsManager::instance().addExternalTool(name, command, arguments, workingDir, shortcut, runInTerminal);
+    emit externalToolsChanged();
+}
+void NextgenActions::removeExternalTool(int index)
+{
+    SettingsManager::instance().removeExternalTool(index);
+    emit externalToolsChanged();
+}
+void NextgenActions::runExternalTool(int index, const QString& filePath, const QString& projectDir,
+                                     const QString& selectedText, int lineNumber)
+{
+    // Terminal sender: write to PrimoTerminal shared instance
+    auto* term = PrimoTerminal::instance();
+    auto sender = [term](const QString& cmd) {
+        if (term) term->write(cmd);
+    };
+    m_externalToolManager->runTool(index, filePath, projectDir, selectedText, lineNumber, sender);
 }

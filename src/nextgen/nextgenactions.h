@@ -16,6 +16,7 @@
 #include <QStringList>
 
 class PrimoEditor;
+class ExternalToolManager;
 
 class NextgenActions : public QObject
 {
@@ -27,6 +28,22 @@ class NextgenActions : public QObject
     Q_PROPERTY(QStringList recentFolders READ recentFolders NOTIFY recentFilesChanged)
     Q_PROPERTY(QString currentEncoding READ currentEncoding NOTIFY currentEncodingChanged)
     Q_PROPERTY(QObject* editor READ editorObj WRITE setEditorObj NOTIFY editorChanged)
+    // ── Theme/UI options exposed to QML Options dialog ──
+    Q_PROPERTY(bool checkForUpdatesEnabled READ checkForUpdatesEnabled WRITE setCheckForUpdatesEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool wordWrap READ wordWrap WRITE setWordWrap NOTIFY settingsChanged)
+    Q_PROPERTY(bool showLineNumbers READ showLineNumbers WRITE setShowLineNumbers NOTIFY settingsChanged)
+    Q_PROPERTY(bool autoCloseBrackets READ autoCloseBrackets WRITE setAutoCloseBrackets NOTIFY settingsChanged)
+    Q_PROPERTY(bool snippetsEnabled READ snippetsEnabled WRITE setSnippetsEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool predictiveSnippets READ predictiveSnippets WRITE setPredictiveSnippets NOTIFY settingsChanged)
+    Q_PROPERTY(bool autoCompletionEnabled READ autoCompletionEnabled WRITE setAutoCompletionEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(int tabWidth READ tabWidth WRITE setTabWidth NOTIFY settingsChanged)
+    Q_PROPERTY(int defaultFontSize READ defaultFontSize WRITE setDefaultFontSize NOTIFY settingsChanged)
+    Q_PROPERTY(QString defaultFontFamily READ defaultFontFamily WRITE setDefaultFontFamily NOTIFY settingsChanged)
+    Q_PROPERTY(bool showHiddenFiles READ showHiddenFiles WRITE setShowHiddenFiles NOTIFY settingsChanged)
+    Q_PROPERTY(bool useGitIgnore READ useGitIgnore WRITE setUseGitIgnore NOTIFY settingsChanged)
+    Q_PROPERTY(bool autoSaveEnabled READ autoSaveEnabled WRITE setAutoSaveEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(int autoSaveInterval READ autoSaveInterval WRITE setAutoSaveInterval NOTIFY settingsChanged)
+    Q_PROPERTY(int externalToolCount READ externalToolCount NOTIFY externalToolsChanged)
 
 public:
     explicit NextgenActions(QObject* parent = nullptr);
@@ -53,6 +70,50 @@ public:
 
     QObject* editorObj() const;
     void setEditorObj(QObject* obj);
+
+    // ── Settings getters/setters for QML Options dialog ──
+    Q_INVOKABLE bool checkForUpdatesEnabled() const;
+    Q_INVOKABLE void setCheckForUpdatesEnabled(bool enabled);
+    Q_INVOKABLE bool wordWrap() const;
+    Q_INVOKABLE void setWordWrap(bool enabled);
+    Q_INVOKABLE bool showLineNumbers() const;
+    Q_INVOKABLE void setShowLineNumbers(bool visible);
+    Q_INVOKABLE bool autoCloseBrackets() const;
+    Q_INVOKABLE void setAutoCloseBrackets(bool enabled);
+    Q_INVOKABLE bool snippetsEnabled() const;
+    Q_INVOKABLE void setSnippetsEnabled(bool enabled);
+    Q_INVOKABLE bool predictiveSnippets() const;
+    Q_INVOKABLE void setPredictiveSnippets(bool enabled);
+    Q_INVOKABLE bool autoCompletionEnabled() const;
+    Q_INVOKABLE void setAutoCompletionEnabled(bool enabled);
+    Q_INVOKABLE int tabWidth() const;
+    Q_INVOKABLE void setTabWidth(int width);
+    Q_INVOKABLE int defaultFontSize() const;
+    Q_INVOKABLE void setDefaultFontSize(int size);
+    Q_INVOKABLE QString defaultFontFamily() const;
+    Q_INVOKABLE void setDefaultFontFamily(const QString& family);
+    Q_INVOKABLE bool showHiddenFiles() const;
+    Q_INVOKABLE void setShowHiddenFiles(bool visible);
+    Q_INVOKABLE bool useGitIgnore() const;
+    Q_INVOKABLE void setUseGitIgnore(bool enabled);
+    Q_INVOKABLE bool autoSaveEnabled() const;
+    Q_INVOKABLE void setAutoSaveEnabled(bool enabled);
+    Q_INVOKABLE int autoSaveInterval() const;
+    Q_INVOKABLE void setAutoSaveInterval(int seconds);
+
+    // ── External tools (QML model) ──
+    Q_INVOKABLE int externalToolCount() const;
+    Q_INVOKABLE QString externalToolName(int index) const;
+    Q_INVOKABLE QString externalToolCommand(int index) const;
+    Q_INVOKABLE QString externalToolArguments(int index) const;
+    Q_INVOKABLE QString externalToolWorkingDir(int index) const;
+    Q_INVOKABLE QString externalToolShortcut(int index) const;
+    Q_INVOKABLE bool externalToolRunInTerminal(int index) const;
+    Q_INVOKABLE void addExternalTool(const QString& name, const QString& command, const QString& arguments,
+                                     const QString& workingDir, const QString& shortcut, bool runInTerminal);
+    Q_INVOKABLE void removeExternalTool(int index);
+    Q_INVOKABLE void runExternalTool(int index, const QString& filePath, const QString& projectDir,
+                                     const QString& selectedText, int lineNumber);
 
 public slots:
     void newFile();
@@ -102,6 +163,8 @@ signals:
     void currentEncodingChanged();
     void editorChanged();
     void themeChanged();
+    void settingsChanged();
+    void externalToolsChanged();
     void requestOpenFileDialog();
     void requestOpenFolderDialog();
     void requestOpenRemoteDialog();
@@ -118,6 +181,7 @@ signals:
 
 private:
     PrimoEditor* m_editor = nullptr;
+    ExternalToolManager* m_externalToolManager = nullptr;
 };
 
 #endif // NEXTGENACTIONS_H
