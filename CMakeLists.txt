@@ -476,6 +476,7 @@ if(BUILD_TESTS)
         tests/test_tuifiletree.cpp
         tests/test_tuihighlighter.cpp
         tests/test_tuifindinfiles.cpp
+        tests/test_tuicommand.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)

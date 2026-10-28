@@ -24,6 +24,7 @@ struct TuiViewState
     int fileTreeScroll = 0;
     bool wordWrap = false;
     bool syntaxEnabled = true;
+    bool showLineNumbers = true;
 
     // Non-wrap: keep cursor line visible
     void ensureCursorVisibleNoWrap(const TuiBuffer* cur, int editorH);

@@ -347,8 +347,19 @@ void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTre
             bool isFirstSeg = (wi.startCol == 0);
             bool isBm = isFirstSeg && cur->hasBookmark(wLineIdx);
             QString gutter = (hasColors && isBm) ? QString::fromUtf8("\xE2\x98\x85 ") : QStringLiteral("  ");
-            QString lnStr = isFirstSeg ? QStringLiteral("%1 ").arg(wLineIdx + 1, 4) : QStringLiteral("     ");
-            if (hasColors && isFirstSeg)
+            QString lnStr;
+            int textX;
+            if (view.showLineNumbers)
+            {
+                lnStr = isFirstSeg ? QStringLiteral("%1 ").arg(wLineIdx + 1, 4) : QStringLiteral("     ");
+                textX = editorXOffset + 7;
+            }
+            else
+            {
+                lnStr = QStringLiteral("");
+                textX = editorXOffset + 2;
+            }
+            if (hasColors && isFirstSeg && view.showLineNumbers)
                 attron(COLOR_PAIR(2));
             mvaddnstr(y, editorXOffset, lnStr.toUtf8().constData(), qMin(lnStr.toUtf8().size(), cols - editorXOffset));
             if (hasColors && isFirstSeg)
@@ -359,7 +370,6 @@ void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTre
             mvaddnstr(y, gutterX, gutter.toUtf8().constData(), gutter.size());
             if (hasColors && isBm)
                 attroff(COLOR_PAIR(3));
-            int textX = editorXOffset + 7;
             QString visible = wLine.mid(wi.startCol, wi.len);
             int selStart = -1, selEnd = -1;
             bool hasSel = selectionForLine(cur, wLineIdx, wi.startCol, wi.len, &selStart, &selEnd);
@@ -403,7 +413,7 @@ void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTre
         {
             if (lineIdx == cur->cursorLine() && !fileTreeFocused)
             {
-                int curX = editorXOffset + 7 + (cur->cursorCol());
+                int curX = editorXOffset + (view.showLineNumbers ? 7 : 2) + (cur->cursorCol());
                 if (curX >= editorXOffset && curX < cols)
                     move(y, curX);
             }
@@ -418,11 +428,22 @@ void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTre
         else
             gutter = QStringLiteral("  ");
 
-        QString lnStr = QStringLiteral("%1 ").arg(lineIdx + 1, 4);
-        if (hasColors)
+        QString lnStr;
+        int textX;
+        if (view.showLineNumbers)
+        {
+            lnStr = QStringLiteral("%1 ").arg(lineIdx + 1, 4);
+            textX = editorXOffset + 7;
+        }
+        else
+        {
+            lnStr = QStringLiteral("");
+            textX = editorXOffset + 2;
+        }
+        if (hasColors && view.showLineNumbers)
             attron(COLOR_PAIR(2));
         mvaddnstr(y, editorXOffset, lnStr.toUtf8().constData(), qMin(lnStr.toUtf8().size(), cols - editorXOffset));
-        if (hasColors)
+        if (hasColors && view.showLineNumbers)
             attroff(COLOR_PAIR(2));
 
         int gutterX = editorXOffset + 5;
@@ -432,7 +453,6 @@ void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTre
         if (hasColors && isBm)
             attroff(COLOR_PAIR(3));
 
-        int textX = gutterX + 2;
         int avail = cols - textX;
         if (avail <= 0)
             continue;

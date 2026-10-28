@@ -6,6 +6,7 @@
 #include "tuicommand.h"
 
 #include "core/fileservice.h"
+#include "devpad_version.h"
 #include "encodingutils.h"
 #include "managers/settingsmanager.h"
 #include "tui/tuifindinfiles.h"
@@ -310,17 +311,48 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         else
             statusMsg = QStringLiteral("Usage: :set wrap [on|off]");
     }
+    else if (cmd.startsWith(QStringLiteral("set number")) || cmd.startsWith(QStringLiteral("set nonumber")))
+    {
+        if (cmd == QStringLiteral("set number") || cmd == QStringLiteral("set number on") || cmd == QStringLiteral("set number true"))
+        {
+            view.showLineNumbers = true;
+            statusMsg = QStringLiteral("Line numbers on");
+        }
+        else if (cmd == QStringLiteral("set nonumber") || cmd == QStringLiteral("set number off") || cmd == QStringLiteral("set number false"))
+        {
+            view.showLineNumbers = false;
+            statusMsg = QStringLiteral("Line numbers off");
+        }
+        else
+            statusMsg = QStringLiteral("Usage: :set number [on|off]");
+    }
+    else if (cmd == QStringLiteral("syntax off") || cmd == QStringLiteral("set syntax off") || cmd == QStringLiteral("set syntax false"))
+    {
+        view.syntaxEnabled = false;
+        TuiHighlighter::setEnabled(false);
+        TuiHighlighter::setLanguageOverride(QString());
+        statusMsg = QStringLiteral("Syntax off");
+    }
     else if (cmd == QStringLiteral("syntax on") || cmd == QStringLiteral("set syntax on") || cmd == QStringLiteral("set syntax true"))
     {
         view.syntaxEnabled = true;
         TuiHighlighter::setEnabled(true);
         statusMsg = QStringLiteral("Syntax on");
     }
-    else if (cmd == QStringLiteral("syntax off") || cmd == QStringLiteral("set syntax off") || cmd == QStringLiteral("set syntax false"))
+    else if (cmd.startsWith(QStringLiteral("set syntax ")) || cmd.startsWith(QStringLiteral("set ft ")))
     {
-        view.syntaxEnabled = false;
-        TuiHighlighter::setEnabled(false);
-        statusMsg = QStringLiteral("Syntax off");
+        QString arg = cmd.startsWith(QStringLiteral("set syntax ")) ? cmd.mid(QStringLiteral("set syntax ").size()).trimmed()
+                                                                    : cmd.mid(QStringLiteral("set ft ").size()).trimmed();
+        if (arg.isEmpty() || arg == QStringLiteral("off") || arg == QStringLiteral("none"))
+        {
+            TuiHighlighter::setLanguageOverride(QString());
+            statusMsg = QStringLiteral("Syntax language auto-detected");
+        }
+        else
+        {
+            TuiHighlighter::setLanguageOverride(arg);
+            statusMsg = QStringLiteral("Syntax language set to %1").arg(arg);
+        }
     }
     else if (cmd == QStringLiteral("bn") || cmd == QStringLiteral("bnext"))
     {
@@ -355,6 +387,62 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         if (cur)
             cur->clearBookmarks();
         statusMsg = QStringLiteral("Bookmarks cleared");
+    }
+    else if (cmd == QStringLiteral("tabs"))
+    {
+        QStringList lines;
+        for (int i = 0; i < tabs.count(); ++i)
+        {
+            const TuiBuffer* b = tabs.bufferAt(i);
+            if (!b)
+                continue;
+            QString mark = (i == tabs.currentIndex()) ? QStringLiteral(">") : QStringLiteral(" ");
+            QString mod = b->isModified() ? QStringLiteral("+") : QStringLiteral(" ");
+            QString pin = tabs.isPinned(i) ? QStringLiteral("*") : QStringLiteral(" ");
+            lines << QStringLiteral("%1%2%3 %4").arg(mark, pin, mod, b->displayName());
+        }
+        statusMsg = lines.isEmpty() ? QStringLiteral("No tabs") : lines.join(QStringLiteral("  "));
+    }
+    else if (cmd == QStringLiteral("tabnext") || cmd == QStringLiteral("tabn"))
+    {
+        if (tabs.count() > 1)
+        {
+            int next = (tabs.currentIndex() + 1) % tabs.count();
+            tabs.setCurrentIndex(next);
+            statusMsg = QStringLiteral("Tab %1/%2").arg(tabs.currentIndex() + 1).arg(tabs.count());
+        }
+    }
+    else if (cmd == QStringLiteral("tabprev") || cmd == QStringLiteral("tabp"))
+    {
+        if (tabs.count() > 1)
+        {
+            int prev = (tabs.currentIndex() - 1 + tabs.count()) % tabs.count();
+            tabs.setCurrentIndex(prev);
+            statusMsg = QStringLiteral("Tab %1/%2").arg(tabs.currentIndex() + 1).arg(tabs.count());
+        }
+    }
+    else if (cmd == QStringLiteral("tabfirst") || cmd == QStringLiteral("tabf"))
+    {
+        if (tabs.count() > 1)
+        {
+            tabs.setCurrentIndex(0);
+            statusMsg = QStringLiteral("Tab %1/%2").arg(tabs.currentIndex() + 1).arg(tabs.count());
+        }
+    }
+    else if (cmd == QStringLiteral("tablast") || cmd == QStringLiteral("tabl"))
+    {
+        if (tabs.count() > 1)
+        {
+            tabs.setCurrentIndex(tabs.count() - 1);
+            statusMsg = QStringLiteral("Tab %1/%2").arg(tabs.currentIndex() + 1).arg(tabs.count());
+        }
+    }
+    else if (cmd == QStringLiteral("tabclose") || cmd == QStringLiteral("tabc"))
+    {
+        tabs.closeCurrent();
+        if (tabs.isEmpty())
+            tabs.addBuffer(TuiBuffer());
+        statusMsg = QStringLiteral("Tab closed");
     }
     else if (cmd.startsWith(QStringLiteral("set searchcase")) || cmd.startsWith(QStringLiteral("set searchwhole")) ||
              cmd.startsWith(QStringLiteral("set searchregex")))
@@ -476,6 +564,16 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         else
             statusMsg = QStringLiteral("Usage: :s/old/new/[g] or :%%s/old/new/[g]");
     }
+    else if (cmd == QStringLiteral("help") || cmd == QStringLiteral("h"))
+    {
+        statusMsg = QStringLiteral(
+            "Commands: :w/:wa/:wq/:q/:q!/:e/:e!/:cd/:set/:reopen/:tabs/:tabnext/:tabprev/:tabclose "
+            ":/bn/:bp/:bc/:grep/:s/");
+    }
+    else if (cmd == QStringLiteral("version") || cmd == QStringLiteral("ver"))
+    {
+        statusMsg = QStringLiteral("Devpad %1").arg(DEVPAD_VERSION);
+    }
     else
         statusMsg = QStringLiteral("Unknown command: %1").arg(cmd);
 
@@ -496,6 +594,10 @@ void TuiCommand::complete(QString& commandInput, QString& statusMsg)
                            QStringLiteral("cd "),
                            QStringLiteral("set encoding "),
                            QStringLiteral("set wrap "),
+                           QStringLiteral("set number "),
+                           QStringLiteral("set nonumber"),
+                           QStringLiteral("set syntax "),
+                           QStringLiteral("set ft "),
                            QStringLiteral("set syntax on"),
                            QStringLiteral("set syntax off"),
                            QStringLiteral("syntax on"),
@@ -513,7 +615,22 @@ void TuiCommand::complete(QString& commandInput, QString& statusMsg)
                            QStringLiteral("bp"),
                            QStringLiteral("bprev"),
                            QStringLiteral("bc"),
-                           QStringLiteral("bclear")};
+                           QStringLiteral("bclear"),
+                           QStringLiteral("tabs"),
+                           QStringLiteral("tabnext"),
+                           QStringLiteral("tabn"),
+                           QStringLiteral("tabprev"),
+                           QStringLiteral("tabp"),
+                           QStringLiteral("tabfirst"),
+                           QStringLiteral("tabf"),
+                           QStringLiteral("tablast"),
+                           QStringLiteral("tabl"),
+                           QStringLiteral("tabclose"),
+                           QStringLiteral("tabc"),
+                           QStringLiteral("help"),
+                           QStringLiteral("h"),
+                           QStringLiteral("version"),
+                           QStringLiteral("ver")};
     if (input.startsWith(QStringLiteral("set encoding ")))
     {
         QString prefix = input.mid(QStringLiteral("set encoding ").size());
