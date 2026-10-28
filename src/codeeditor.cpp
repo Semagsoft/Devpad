@@ -1216,7 +1216,7 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
     // Apply indicators and markers for each diagnostic
     for (const auto& d : diagnostics)
     {
-        if (d.range.start.line < 0 || d.range.end.line < 0)
+        if (d.range.start.line < 0 || d.range.end.line < 0 || d.range.start.line >= lines() || d.range.end.line >= lines())
             continue;
 
         int indicatorId = lsp::LSP_INDICATOR_ERROR;

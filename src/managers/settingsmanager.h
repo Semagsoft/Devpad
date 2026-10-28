@@ -328,6 +328,12 @@ public:
 signals:
     void settingsChanged();
 
+    // Emitted when the recent files/folders lists change, so every window (not
+    // just the one that performed the change) can refresh its recent menus.
+    // Deliberately separate from settingsChanged() — plugins should not reload
+    // their configuration every time a file is opened.
+    void recentFilesChanged();
+
 private:
     SettingsManager();
     explicit SettingsManager(const QString& settingsPath);

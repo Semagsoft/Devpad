@@ -55,9 +55,19 @@ bool ProjectPanel::isWithinRoot(const QString& path) const
 {
     if (currentRootPath.isEmpty())
         return false;
-    QString canonicalPath = QFileInfo(path).absoluteFilePath();
-    QString canonicalRoot = QFileInfo(currentRootPath).absoluteFilePath();
-    return canonicalPath.startsWith(canonicalRoot + '/') || canonicalPath == canonicalRoot;
+
+    // Resolve symlinks and normalize '..' components on both sides so paths
+    // cannot escape the project root via relative segments or links.
+    QString canonicalPath = QFileInfo(path).canonicalFilePath();
+    QString canonicalRoot = QFileInfo(currentRootPath).canonicalFilePath();
+    if (canonicalPath.isEmpty() || canonicalRoot.isEmpty())
+    {
+        // Path (or root) does not exist yet — fall back to lexical
+        // normalization so creation flows still work.
+        canonicalPath = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+        canonicalRoot = QDir::cleanPath(QFileInfo(currentRootPath).absoluteFilePath());
+    }
+    return canonicalPath == canonicalRoot || canonicalPath.startsWith(canonicalRoot + '/');
 }
 
 FileFilterProxyModel::FileFilterProxyModel(QObject* parent) : QSortFilterProxyModel(parent)
@@ -763,11 +773,18 @@ void ProjectPanel::renameItem(const QString& filePath)
         return;
     }
     QFile file(filePath);
+    if (!file.exists())
+    {
+        QMessageBox::warning(this, tr("Rename"), tr("The item no longer exists."));
+        reloadFilter();
+        return;
+    }
     if (!file.rename(newPath))
     {
         QMessageBox::warning(this, tr("Rename"), tr("Failed to rename."));
         return;
     }
+    emit fileRenamed(filePath, newPath);
 }
 
 void ProjectPanel::deleteItem(const QString& filePath)
@@ -779,6 +796,13 @@ void ProjectPanel::deleteItem(const QString& filePath)
     }
 
     QFileInfo fi(filePath);
+    if (!fi.exists())
+    {
+        QMessageBox::warning(this, tr("Delete"), tr("The item no longer exists."));
+        reloadFilter();
+        return;
+    }
+
     QMessageBox::StandardButton reply = QMessageBox::question(
         this, tr("Delete"), tr("Are you sure you want to move \"%1\" to the trash?").arg(fi.fileName()), QMessageBox::Yes | QMessageBox::No);
     if (reply != QMessageBox::Yes)
@@ -789,6 +813,7 @@ void ProjectPanel::deleteItem(const QString& filePath)
         QMessageBox::warning(this, tr("Delete"), tr("Failed to move to trash."));
         return;
     }
+    emit fileDeleted(filePath);
 }
 
 void ProjectPanel::copyPath(const QString& filePath)
@@ -798,6 +823,12 @@ void ProjectPanel::copyPath(const QString& filePath)
 
 void ProjectPanel::openInEditor(const QString& filePath)
 {
+    if (!QFileInfo(filePath).exists())
+    {
+        QMessageBox::warning(this, tr("Open"), tr("The item no longer exists."));
+        reloadFilter();
+        return;
+    }
     emit fileActivated(filePath);
 }
 

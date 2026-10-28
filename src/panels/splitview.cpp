@@ -1048,7 +1048,9 @@ void SplitView::removePane(QTabWidget* tw)
 
     if (m_activeWidget == tw)
     {
-        m_activeWidget = m_primaryWidget;
+        // `tw` may be the primary pane itself — never leave m_activeWidget
+        // pointing at the pane we are about to delete.
+        m_activeWidget = m_panes.isEmpty() ? nullptr : m_panes.first();
     }
     tw->deleteLater();
 
@@ -1118,7 +1120,10 @@ void SplitView::detachTabToWindow(int tabIndex, QTabWidget* source)
     emit tabDetachedToWindow(filePath);
 
     source->removeTab(tabIndex);
-    editor->deleteLater();
+    // The editor is a child of the container, so deleting the container
+    // cascades to it (matches TabManager::closeEditor). Deleting only the
+    // editor used to leak the container.
+    container->deleteLater();
 
     if (source->count() == 0)
     {

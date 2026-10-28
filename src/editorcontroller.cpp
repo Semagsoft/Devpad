@@ -31,6 +31,7 @@
 #include "tabmanager.h"
 
 #include <QApplication>
+#include <QDateTime>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QInputDialog>
@@ -114,6 +115,10 @@ bool EditorController::saveFileAs()
 
 bool EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
 {
+    if (!checkSaveConflict(editor, fileName))
+    {
+        return false;
+    }
     m_fileWatcherManager->unwatchFile(fileName);
     bool saved = m_fileManager->saveFile(fileName, editor);
     if (!saved)
@@ -126,6 +131,32 @@ bool EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
     m_fileWatcherManager->watchFile(fileName);
     emit fileSaved(fileName);
     return true;
+}
+
+bool EditorController::checkSaveConflict(CodeEditor* editor, const QString& fileName)
+{
+    if (!editor)
+        return false;
+
+    if (fileName.isEmpty() || fileName == Strings::untitled())
+        return true;
+
+    const QDateTime& known = editor->diskModifiedAt();
+    if (!known.isValid())
+        return true; // No snapshot (never loaded from disk) — nothing to compare.
+
+    QFileInfo info(fileName);
+    if (!info.exists())
+        return true; // Deleted externally — allow saving to recreate it.
+
+    if (info.lastModified() == known)
+        return true;
+
+    Logger::instance().warning(QString("File changed on disk since load: %1").arg(fileName));
+    QMessageBox::StandardButton ret = QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("File Changed on Disk"),
+                                                           tr("%1 has been modified by another program.\n\nOverwrite the external changes?").arg(info.fileName()),
+                                                           QMessageBox::Yes | QMessageBox::No);
+    return ret == QMessageBox::Yes;
 }
 
 void EditorController::saveAll()
@@ -175,23 +206,30 @@ bool EditorController::maybeSave(CodeEditor* editor)
     if (!editor || !editor->isModified())
         return true;
 
+    QPointer<CodeEditor> guard(editor);
     QMessageBox::StandardButton ret =
         QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save"), tr("The document has been modified.\nDo you want to save your changes?"),
                              QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
 
+    if (!guard)
+        return false; // Editor was destroyed while the dialog ran its nested event loop.
+
     if (ret == QMessageBox::Save)
     {
-        if (editor->fileName() == Strings::untitled() || editor->fileName().isEmpty())
+        if (guard->fileName() == Strings::untitled() || guard->fileName().isEmpty())
         {
             QString fileName = QFileDialog::getSaveFileName(qobject_cast<QWidget*>(parent()), tr("Save File As"), QString(), Strings::fileFilter());
             if (fileName.isEmpty())
                 return false;
-            editor->setFileName(fileName);
-            saveEditor(editor, fileName);
-            m_tabManager->updateTabTitle(editor);
+            if (!guard)
+                return false;
+            guard->setFileName(fileName);
+            saveEditor(guard.data(), fileName);
+            if (guard)
+                m_tabManager->updateTabTitle(guard);
             return true;
         }
-        saveEditor(editor, editor->fileName());
+        saveEditor(guard.data(), guard->fileName());
         return true;
     }
     if (ret == QMessageBox::Cancel)
@@ -231,9 +269,12 @@ bool EditorController::onTabCloseRequested(int index)
     if (!editor)
         return true;
 
+    QPointer<CodeEditor> guard(editor);
     if (maybeSave(editor))
     {
-        QString fileName = editor->fileName();
+        if (!guard)
+            return true; // Editor destroyed during the save prompt.
+        QString fileName = guard->fileName();
         m_tabManager->closeEditor(index);
         if (fileName != Strings::untitled() && !fileName.isEmpty())
         {
@@ -248,13 +289,15 @@ void EditorController::closeAllTabs()
 {
     for (int i = m_tabManager->count() - 1; i >= 0; --i)
     {
-        CodeEditor* editor = m_tabManager->editorAt(i);
+        QPointer<CodeEditor> editor = m_tabManager->editorAt(i);
         if (!editor)
             continue;
         if (!maybeSave(editor))
         {
             return;
         }
+        if (!editor)
+            continue; // Editor destroyed during the save prompt.
         QString fileName = editor->fileName();
         m_tabManager->closeEditor(i);
         if (fileName != Strings::untitled() && !fileName.isEmpty())
@@ -475,9 +518,9 @@ void EditorController::autoSave()
 
     bool saveToOriginal = SettingsManager::instance().autoSaveToOriginalFile();
 
-    for (int i = 0; i < m_tabManager->count(); ++i)
+    for (int i = m_tabManager->count() - 1; i >= 0; --i)
     {
-        CodeEditor* editor = m_tabManager->editorAt(i);
+        QPointer<CodeEditor> editor = m_tabManager->editorAt(i);
         if (editor && editor->isModified())
         {
             QString fileName = editor->fileName();
@@ -485,10 +528,18 @@ void EditorController::autoSave()
             {
                 if (saveToOriginal)
                 {
-                    if (m_fileManager->saveFile(fileName, editor))
+                    // Never let background auto-save silently overwrite external
+                    // changes made since the file was loaded.
+                    if (editor->diskModifiedAt().isValid() && QFileInfo(fileName).lastModified() != editor->diskModifiedAt())
+                    {
+                        Logger::instance().warning(QString("Auto-save skipped (file changed on disk): %1").arg(fileName));
+                        continue;
+                    }
+                    if (m_fileManager->saveFile(fileName, editor.data()))
                     {
                         m_fileWatcherManager->updateModificationTime(fileName);
-                        m_tabManager->updateTabTitle(editor);
+                        if (editor)
+                            m_tabManager->updateTabTitle(editor);
                         emit fileSaved(fileName);
                         Logger::instance().debug(QString("Auto-saved file: %1").arg(fileName));
                     }
@@ -614,6 +665,10 @@ void EditorController::reloadWithEncoding(const QString& encoding)
     if (!maybeSave(editor))
         return;
 
+    QPointer<CodeEditor> guard(editor);
+    if (!guard)
+        return; // Editor destroyed while the save prompt ran.
+
     int idx = m_tabManager->indexOf(editor);
     if (idx >= 0)
         m_tabManager->closeEditor(idx);
@@ -650,6 +705,34 @@ void EditorController::saveWithEncoding(const QString& encoding)
 
     editor->setEncoding(encoding);
     saveEditor(editor, fileName);
+}
+
+void EditorController::retargetEditorFile(const QString& oldPath, const QString& newPath)
+{
+    for (int i = 0; i < m_tabManager->count(); ++i)
+    {
+        QPointer<CodeEditor> editor = m_tabManager->editorAt(i);
+        if (editor && editor->fileName() == oldPath)
+        {
+            editor->setFileName(newPath);
+            editor->setDiskModifiedAt(QFileInfo(newPath).lastModified());
+            m_tabManager->updateTabTitle(editor.data());
+            m_fileWatcherManager->unwatchFile(oldPath);
+            m_fileWatcherManager->watchFile(newPath);
+        }
+    }
+}
+
+void EditorController::handleFileDeleted(const QString& path)
+{
+    for (int i = m_tabManager->count() - 1; i >= 0; --i)
+    {
+        QPointer<CodeEditor> editor = m_tabManager->editorAt(i);
+        if (editor && editor->fileName() == path)
+        {
+            m_fileWatcherManager->unwatchFile(path);
+        }
+    }
 }
 
 void EditorController::applyDefaultSyntax(CodeEditor* editor) const

@@ -23,6 +23,7 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QObject>
+#include <QSet>
 #include <QTimer>
 
 class FileWatcherManager : public QObject
@@ -66,6 +67,10 @@ private:
     QTimer m_pollTimer;
     QHash<QString, QDateTime> m_modificationTimes;
     QHash<QString, QDateTime> m_lastReported;
+    // Files reported deleted externally; if one reappears it must always be
+    // re-reported (external editors save via delete+rename), even inside the
+    // coalescing window.
+    QSet<QString> m_deletedPaths;
 };
 
 #endif

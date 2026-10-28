@@ -26,6 +26,7 @@
 #include "snippetengine.h"
 #include "theme.h"
 
+#include <QDateTime>
 #include <QScopedPointer>
 #include <QTimer>
 
@@ -66,6 +67,17 @@ public:
     const QString& encoding() const
     {
         return m_encoding;
+    }
+
+    // Modification time of the file on disk as of the last load/save.
+    // Used to detect external changes before overwriting on save.
+    void setDiskModifiedAt(const QDateTime& dt)
+    {
+        m_diskModifiedAt = dt;
+    }
+    const QDateTime& diskModifiedAt() const
+    {
+        return m_diskModifiedAt;
     }
 
     void setLineNumbersVisible(bool visible);
@@ -178,6 +190,7 @@ private:
     QString m_fileName;
     QString m_syntax;
     QString m_encoding;
+    QDateTime m_diskModifiedAt;
     QFont m_defaultFont;
     ThemeId m_themeId;
     QScopedPointer<QsciLexer> m_lexer;

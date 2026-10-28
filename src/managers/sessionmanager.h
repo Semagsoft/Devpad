@@ -46,6 +46,8 @@ public:
         QString projectPath;
         QString terminalWorkingDir;
         QHash<QString, QList<int>> bookmarks;
+        // Per file: {cursor line, cursor index, first visible line}
+        QHash<QString, QList<int>> cursors;
     };
 
     SessionData restoreSession(std::function<void(const QString& filePath)> loadFileFn, SplitView* splitView, ProjectPanel* projectPanel);
@@ -60,6 +62,8 @@ public:
     QString sessionTerminalWorkingDir();
     void saveSessionBookmarks(const QHash<QString, QList<int>>& bookmarks);
     QHash<QString, QList<int>> loadSessionBookmarks();
+    void saveSessionCursors(const QHash<QString, QList<int>>& cursors);
+    QHash<QString, QList<int>> loadSessionCursors();
     void saveSessionPinnedFiles(const QStringList& pinnedFiles);
     QStringList loadSessionPinnedFiles();
     void clearSession();

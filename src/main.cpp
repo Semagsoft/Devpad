@@ -18,6 +18,7 @@
  */
 #include "devpad_version.h"
 #include "mainwindow.h"
+#include "managers/backupmanager.h"
 #include "managers/settingsmanager.h"
 #include "theme.h"
 
@@ -285,6 +286,10 @@ int main(int argc, char* argv[])
         else if (fileInfo.isDir())
             mainWindow.openFolderFromPath(filePath);
     }
+
+    // Clean up auto-save backups that will never be prompted for again:
+    // originals deleted on disk, or backups older than the retention window.
+    BackupManager::purgeStaleBackups();
 
     mainWindow.show();
     return QApplication::exec();

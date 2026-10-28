@@ -107,6 +107,7 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
     editor->setFileName(fileName);
     editor->setModified(false);
     editor->setEncoding(encoding.isEmpty() ? encodingToDisplayName(enc) : encoding);
+    editor->setDiskModifiedAt(QFileInfo(fileName).lastModified());
 
     Logger::instance().info(QString("Opened file: %1").arg(fileName));
     emit fileLoaded(fileName);
@@ -190,6 +191,7 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
     }
 
     editor->setModified(false);
+    editor->setDiskModifiedAt(QFileInfo(fileName).lastModified());
 
     Logger::instance().info(QString("Saved file: %1").arg(fileName));
     emit fileSaved(fileName);

@@ -45,6 +45,10 @@ void FileWatcherManager::watchFile(const QString& filePath)
         Logger::instance().debug(QString("Watching file: %1").arg(filePath));
     }
     m_lastReported.remove(filePath);
+    // A fresh watch request means the app is engaging with the file again
+    // (e.g. it was just saved or re-created); clear the deleted marker so
+    // coalescing behaves normally from here on.
+    m_deletedPaths.remove(filePath);
 }
 
 void FileWatcherManager::unwatchFile(const QString& filePath)
@@ -52,6 +56,7 @@ void FileWatcherManager::unwatchFile(const QString& filePath)
     m_watcher.removePath(filePath);
     m_modificationTimes.remove(filePath);
     m_lastReported.remove(filePath);
+    m_deletedPaths.remove(filePath);
     Logger::instance().debug(QString("Unwatched file: %1").arg(filePath));
 }
 
@@ -60,6 +65,7 @@ void FileWatcherManager::unwatchAll()
     m_watcher.removePaths(m_watcher.files());
     m_modificationTimes.clear();
     m_lastReported.clear();
+    m_deletedPaths.clear();
 }
 void FileWatcherManager::updateModificationTime(const QString& filePath)
 {
@@ -131,13 +137,15 @@ void FileWatcherManager::pollModifications()
 
         it.value() = currentMod;
 
-        // Mirror the coalescing behavior of onFileChanged: a change inside the
-        // window refreshes the timestamp without re-emitting.
-        if (isWithinCoalesceWindow(filePath))
+        // Mirror the coalescing behavior of onFileChanged, except a file that
+        // was previously reported deleted and has reappeared is always
+        // re-reported (external editors save via delete + rename).
+        if (isWithinCoalesceWindow(filePath) && !m_deletedPaths.contains(filePath))
         {
             continue;
         }
 
+        m_deletedPaths.remove(filePath);
         m_lastReported[filePath] = QDateTime::currentDateTime();
         Logger::instance().info(QString("File modified externally: %1").arg(filePath));
         emit fileModifiedExternally(filePath);
@@ -151,6 +159,8 @@ void FileWatcherManager::onFileChanged(const QString& path)
     if (!info.exists())
     {
         Logger::instance().info(QString("File deleted externally: %1").arg(path));
+        m_deletedPaths.insert(path);
+        m_modificationTimes.remove(path);
         emit fileModifiedExternally(path);
         m_lastReported[path] = QDateTime::currentDateTime();
         return;
@@ -165,15 +175,32 @@ void FileWatcherManager::onFileChanged(const QString& path)
 
         // A single external write often touches the file more than once (truncate then
         // write, save-as, formatter + compiler). Only surface the first of those bursts.
-        if (isWithinCoalesceWindow(path))
+        if (isWithinCoalesceWindow(path) && !m_deletedPaths.contains(path))
         {
             Logger::instance().debug(QString("Coalesced rapid external change: %1").arg(path));
         }
         else
         {
+            // If the file was reported deleted and has now reappeared (delete +
+            // rename save pattern of external editors), the change must always
+            // be surfaced — even inside the coalescing window — otherwise the
+            // editor keeps a stale buffer for the new file contents.
+            if (m_deletedPaths.contains(path))
+                Logger::instance().info(QString("File re-created externally: %1").arg(path));
+            m_deletedPaths.remove(path);
             m_lastReported[path] = QDateTime::currentDateTime();
             Logger::instance().info(QString("File modified externally: %1").arg(path));
             emit fileModifiedExternally(path);
         }
+    }
+    else if (m_deletedPaths.contains(path))
+    {
+        // Reappeared with the same (or older) timestamp — still update state so
+        // future polls have a valid baseline.
+        m_deletedPaths.remove(path);
+        m_modificationTimes[path] = currentMod;
+        m_lastReported[path] = QDateTime::currentDateTime();
+        Logger::instance().info(QString("File re-created externally: %1").arg(path));
+        emit fileModifiedExternally(path);
     }
 }

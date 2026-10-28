@@ -390,6 +390,8 @@ void MainWindow::applyInitialSettings()
 
     applyStartupMode();
     updateRecentFileActions();
+    // Keep recent menus in sync across multiple windows.
+    connect(&SettingsManager::instance(), &SettingsManager::recentFilesChanged, this, &MainWindow::updateRecentFileActions);
     applySettings();
 }
 
@@ -543,6 +545,8 @@ void MainWindow::connectPanelSignals()
                 }
             });
     connect(m_projectPanel, &ProjectPanel::fileActivated, this, &MainWindow::openFileFromProject);
+    connect(m_projectPanel, &ProjectPanel::fileRenamed, m_editorController, &EditorController::retargetEditorFile);
+    connect(m_projectPanel, &ProjectPanel::fileDeleted, m_editorController, &EditorController::handleFileDeleted);
     connect(m_projectPanel, &ProjectPanel::folderSelected, this, &MainWindow::openFolderFromPath);
     connect(m_projectPanel, &ProjectPanel::remoteDirExpandRequested, this,
             [this](const QString& url, const QString& path) { m_remoteFileService->listRemoteDir(url, path); });
@@ -966,14 +970,17 @@ void MainWindow::findInFiles()
                     CodeEditor* existing = m_tabManager->findEditorByFileName(filePath);
                     if (existing)
                     {
-                        for (QTabWidget* pane : m_tabManager->panes())
+                        if (auto* container = m_tabManager->containerFor(existing))
                         {
-                            int idx = pane->indexOf(existing);
-                            if (idx >= 0)
+                            for (QTabWidget* pane : m_tabManager->panes())
                             {
-                                pane->setCurrentIndex(idx);
-                                m_tabManager->setActivePane(pane);
-                                break;
+                                int idx = pane->indexOf(container);
+                                if (idx >= 0)
+                                {
+                                    pane->setCurrentIndex(idx);
+                                    m_tabManager->setActivePane(pane);
+                                    break;
+                                }
                             }
                         }
                         existing->setCursorPosition(lineNumber - 1, 0);
@@ -1678,14 +1685,17 @@ void MainWindow::onNavigateToLocation(const QString& filePath, int line, int col
     CodeEditor* existing = m_tabManager->findEditorByFileName(filePath);
     if (existing)
     {
-        for (QTabWidget* pane : m_tabManager->panes())
+        if (auto* container = m_tabManager->containerFor(existing))
         {
-            int idx = pane->indexOf(existing);
-            if (idx >= 0)
+            for (QTabWidget* pane : m_tabManager->panes())
             {
-                pane->setCurrentIndex(idx);
-                m_tabManager->setActivePane(pane);
-                break;
+                int idx = pane->indexOf(container);
+                if (idx >= 0)
+                {
+                    pane->setCurrentIndex(idx);
+                    m_tabManager->setActivePane(pane);
+                    break;
+                }
             }
         }
         existing->setCursorPosition(line, column);

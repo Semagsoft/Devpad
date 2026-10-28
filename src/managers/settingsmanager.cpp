@@ -872,6 +872,7 @@ void SettingsManager::addRecentFile(const QString& filePath)
         recentFiles.removeLast();
     }
     m_settings.setValue("recentFiles", recentFiles);
+    emit recentFilesChanged();
 }
 
 QStringList SettingsManager::recentFiles() const
@@ -882,6 +883,7 @@ QStringList SettingsManager::recentFiles() const
 void SettingsManager::clearRecentFiles()
 {
     m_settings.remove("recentFiles");
+    emit recentFilesChanged();
 }
 
 void SettingsManager::addRecentFolder(const QString& folderPath)
@@ -894,6 +896,7 @@ void SettingsManager::addRecentFolder(const QString& folderPath)
         recentFolders.removeLast();
     }
     m_settings.setValue("recentFolders", recentFolders);
+    emit recentFilesChanged();
 }
 
 QStringList SettingsManager::recentFolders() const
@@ -904,6 +907,7 @@ QStringList SettingsManager::recentFolders() const
 void SettingsManager::clearRecentFolders()
 {
     m_settings.remove("recentFolders");
+    emit recentFilesChanged();
 }
 
 // ── Plugin-scoped settings ─────────────────────────────────────
