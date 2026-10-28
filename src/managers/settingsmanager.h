@@ -373,6 +373,22 @@ private:
         settingsChanged();
     }
 
+    // Read an enum-valued setting, validating that the stored integer falls
+    // within [minValue, maxValue]. Corrupted or hand-edited settings files
+    // (or values from a newer/older build) fall back to defaultValue instead
+    // of producing an invalid enum via unchecked static_cast.
+    template <typename T>
+    T readEnum(const char* key, T defaultValue, T minValue, T maxValue)
+    {
+        static_assert(std::is_enum_v<T>, "T must be an enum type");
+        int val = m_settings.value(key, static_cast<int>(defaultValue)).toInt();
+        int lo = static_cast<int>(minValue);
+        int hi = static_cast<int>(maxValue);
+        if (val < lo || val > hi)
+            val = static_cast<int>(defaultValue);
+        return static_cast<T>(val);
+    }
+
     Cache m_cache;
     QSettings m_settings;
 };

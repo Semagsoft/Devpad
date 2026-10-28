@@ -169,7 +169,7 @@ void SettingsManager::loadCache()
     m_cache.editor.autoCompletionCaseSensitive = m_settings.value("Options_AutoCompletionCaseSensitive", false).toBool();
     m_cache.editor.autoCloseBrackets = m_settings.value("Options_AutoCloseBrackets", true).toBool();
     m_cache.editor.tabWidth = qBound(1, m_settings.value("Options_TabWidth", 4).toInt(), 16);
-    m_cache.editor.cursorStyle = static_cast<CursorStyle>(m_settings.value("Options_CursorStyle", static_cast<int>(CursorStyle::Line)).toInt());
+    m_cache.editor.cursorStyle = readEnum("Options_CursorStyle", CursorStyle::Line, CursorStyle::Line, CursorStyle::Underline);
     m_cache.editor.cursorBlinking = m_settings.value("Options_CursorBlinking", true).toBool();
     m_cache.editor.highlightCurrentLine = m_settings.value("Options_HighlightCurrentLine", true).toBool();
     m_cache.editor.verticalEdgeEnabled = m_settings.value("Options_VerticalEdgeEnabled", false).toBool();
@@ -177,13 +177,10 @@ void SettingsManager::loadCache()
     m_cache.editor.snippetsEnabled = m_settings.value("Options_SnippetsEnabled", true).toBool();
     m_cache.editor.predictiveSnippets = m_settings.value("Options_PredictiveSnippets", true).toBool();
 
-    m_cache.ui.startupMode = static_cast<StartupMode>(m_settings.value("Options_StartupMode", static_cast<int>(StartupMode::NewFile)).toInt());
-    m_cache.ui.closeButtonMode =
-        static_cast<CloseButtonMode>(m_settings.value("Options_CloseButtonMode", static_cast<int>(CloseButtonMode::Right)).toInt());
-    m_cache.ui.tabDisplayMode =
-        static_cast<TabDisplayMode>(m_settings.value("Options_TabDisplayMode", static_cast<int>(TabDisplayMode::ShowTwoPlus)).toInt());
-    m_cache.ui.tabBarPosition =
-        static_cast<TabBarPosition>(m_settings.value("Options_TabBarPosition", static_cast<int>(TabBarPosition::Top)).toInt());
+    m_cache.ui.startupMode = readEnum("Options_StartupMode", StartupMode::NewFile, StartupMode::NewFile, StartupMode::Empty);
+    m_cache.ui.closeButtonMode = readEnum("Options_CloseButtonMode", CloseButtonMode::Right, CloseButtonMode::Right, CloseButtonMode::Left);
+    m_cache.ui.tabDisplayMode = readEnum("Options_TabDisplayMode", TabDisplayMode::ShowTwoPlus, TabDisplayMode::AlwaysShow, TabDisplayMode::NeverShow);
+    m_cache.ui.tabBarPosition = readEnum("Options_TabBarPosition", TabBarPosition::Top, TabBarPosition::Top, TabBarPosition::Bottom);
     m_cache.ui.showMenuBar = m_settings.value("Options_ShowMenuBar", true).toBool();
     m_cache.ui.showMenuInTitlebar = m_settings.value("Options_ShowMenuInTitlebar", true).toBool();
     m_cache.ui.showToolbar = m_settings.value("Options_ShowToolbar", true).toBool();
@@ -191,8 +188,7 @@ void SettingsManager::loadCache()
     m_cache.ui.uiFontFamily = m_settings.value("Options_UIFont", "Sans Serif").toString();
     m_cache.ui.uiFontSize = m_settings.value("Options_UIFontSize", 10).toInt();
 
-    m_cache.terminal.terminalPanelPosition = static_cast<TerminalPanelPosition>(
-        m_settings.value("Options_TerminalPanelPosition", static_cast<int>(TerminalPanelPosition::Bottom)).toInt());
+    m_cache.terminal.terminalPanelPosition = readEnum("Options_TerminalPanelPosition", TerminalPanelPosition::Bottom, TerminalPanelPosition::Bottom, TerminalPanelPosition::Tab);
     m_cache.terminal.terminalPanelMinWidth = m_settings.value("Options_TerminalPanelMinWidth", 350).toInt();
     m_cache.terminal.terminalFontFamily = m_settings.value("Options_TerminalFont", "Monospace").toString();
     m_cache.terminal.terminalFontSize = m_settings.value("Options_TerminalFontSize", 12).toInt();
@@ -204,10 +200,8 @@ void SettingsManager::loadCache()
 
     m_cache.project.showHiddenFiles = m_settings.value("Options_ShowHiddenFiles", false).toBool();
     m_cache.project.useGitIgnore = m_settings.value("Options_UseGitIgnore", true).toBool();
-    m_cache.project.projectPanelPosition =
-        static_cast<ProjectPanelPosition>(m_settings.value("Options_ProjectPanelPosition", static_cast<int>(ProjectPanelPosition::Left)).toInt());
-    m_cache.project.fileOpenMode =
-        static_cast<FileOpenMode>(m_settings.value("Options_ProjectFileOpenMode", static_cast<int>(FileOpenMode::SingleClick)).toInt());
+    m_cache.project.projectPanelPosition = readEnum("Options_ProjectPanelPosition", ProjectPanelPosition::Left, ProjectPanelPosition::Left, ProjectPanelPosition::Right);
+    m_cache.project.fileOpenMode = readEnum("Options_ProjectFileOpenMode", FileOpenMode::SingleClick, FileOpenMode::SingleClick, FileOpenMode::DoubleClick);
 
     m_cache.lsp.enabled = m_settings.value("LSP/Enabled", true).toBool();
     m_cache.lsp.showErrorList = m_settings.value("LSP/ShowErrorList", true).toBool();
