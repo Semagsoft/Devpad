@@ -313,6 +313,7 @@ target_sources(Devpad PRIVATE
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgentabmodel.cpp>
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoterminal.cpp>
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primofindinfiles.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/filetreemodel.cpp>
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)

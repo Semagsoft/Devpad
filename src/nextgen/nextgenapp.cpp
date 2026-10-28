@@ -7,12 +7,14 @@
 
 #include "core/fileservice.h"
 #include "devpad_version.h"
+#include "managers/settingsmanager.h"
 #include "managers/sessionmanager.h"
 #include "nextgenactions.h"
 #include "nextgentabmodel.h"
 #include "primoeditor.h"
 #include "primofindinfiles.h"
 #include "primoterminal.h"
+#include "filetreemodel.h"
 
 #include <QCommandLineParser>
 #include <QDir>
@@ -205,6 +207,14 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     auto* finder = new PrimoFindInFiles(app);
     engine.rootContext()->setContextProperty(QStringLiteral("finderInstance"), finder);
 
+    // File tree model (respects .gitignore + showHidden via SettingsManager)
+    auto* fileTreeModel = new FileTreeModel(app);
+    fileTreeModel->setShowHidden(SettingsManager::instance().showHiddenFiles());
+    fileTreeModel->setUseGitIgnore(SettingsManager::instance().useGitIgnore());
+    if (!initialFolder.isEmpty())
+        fileTreeModel->setRootPath(initialFolder);
+    engine.rootContext()->setContextProperty(QStringLiteral("fileTreeModel"), fileTreeModel);
+
     // Register primoEditor types for QML
     qmlRegisterType<PrimoEditor>("Devpad.Nextgen", 1, 0, "PrimoEditor");
     qmlRegisterType<PrimoDocument>("Devpad.Nextgen", 1, 0, "PrimoDocument");
@@ -212,6 +222,7 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     qmlRegisterType<NextgenTabModel>("Devpad.Nextgen", 1, 0, "NextgenTabModel");
     qmlRegisterType<PrimoTerminal>("Devpad.Nextgen", 1, 0, "PrimoTerminal");
     qmlRegisterType<PrimoFindInFiles>("Devpad.Nextgen", 1, 0, "PrimoFindInFiles");
+    qmlRegisterType<FileTreeModel>("Devpad.Nextgen", 1, 0, "FileTreeModel");
 
     // Try embedded QML first (resource), fallback to file system for dev builds
     const QUrl qmlUrl(QStringLiteral("qrc:/qml/nextgen/Main.qml"));

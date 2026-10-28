@@ -73,24 +73,11 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 6
-                Label { text: folder ? folder : "No folder"; Layout.fillWidth: true; opacity: 0.8; font.pixelSize: 12; wrapMode: Text.NoWrap }
-                ScrollView {
+                ProjectTree {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    clip: true
-                    ListView {
-                        id: fileList
-                        model: openFiles
-                        delegate: ItemDelegate {
-                            width: fileList.width
-                            text: modelData
-                            onClicked: {
-                                tabs.addTab(modelData)
-                                primo.loadFile(modelData)
-                                if (tabs.splitVisible && primo2) primo2.loadFile(modelData)
-                            }
-                        }
-                    }
+                    rootPath: folder
+                    editor: primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -161,6 +148,10 @@ ApplicationWindow {
                         onDiagnosticsChanged: minimap.requestPaint()
                         onBookmarksChanged: minimap.requestPaint()
                         onTextChanged: minimap.requestPaint()
+                        onCursorChanged: {
+                            var idx = tabs.currentIndex;
+                            tabs.setCursorForTab(idx, primo.cursorLine, primo.cursorColumn);
+                        }
                         // Theme change handled via NextgenActions
                     }
                 }
@@ -197,6 +188,10 @@ ApplicationWindow {
                         }
                         onDiagnosticsChanged: minimap2.requestPaint()
                         onBookmarksChanged: minimap2.requestPaint()
+                        onCursorChanged: {
+                            var idx = tabs.pane2Index;
+                            tabs.setCursorForTab(idx, primo2.cursorLine, primo2.cursorColumn);
+                        }
                     }
                 }
 
@@ -357,27 +352,9 @@ ApplicationWindow {
         title: "Options"
         modal: true
         standardButtons: Dialog.Close
-        ColumnLayout {
+        OptionsDialog {
             anchors.fill: parent
-            Label { text: "Theme:" }
-            ComboBox {
-                id: themeCombo
-                Layout.fillWidth: true
-                model: actions ? actions.themeNames : []
-                currentIndex: {
-                    if (!actions || !themeCombo.model) return 0;
-                    var cur = actions.currentThemeName;
-                    if (cur === undefined || cur === null) return 0;
-                    var idx = themeCombo.model.indexOf(cur);
-                    return idx >=0 ? idx : 0;
-                }
-                onActivated: (idx) => {
-                    if (!themeCombo.model || idx <0 || idx >= themeCombo.model.length) return;
-                    var name = themeCombo.model[idx];
-                    actions.setThemeByName(name);
-                }
-            }
-            Label { text: "Options: toolbar/statusbar persistence shared with Widgets."; wrapMode: Text.Wrap; opacity: 0.7 }
+            actions: win.actions
         }
     }
 
