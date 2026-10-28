@@ -286,7 +286,7 @@ ApplicationWindow {
         ColumnLayout {
             anchors.fill: parent
             Label {
-                text: mode === "folder"
+                text: remotePrompt.mode === "folder"
                       ? "SSH URL, e.g. ssh://user@host/path/to/folder"
                       : "Remote file URL (HTTP/HTTPS or SSH):"
                 Layout.fillWidth: true
@@ -294,7 +294,7 @@ ApplicationWindow {
             }
             TextField {
                 id: remoteUrlField
-                placeholderText: mode === "folder" ? "ssh://" : "https://"
+                placeholderText: remotePrompt.mode === "folder" ? "ssh://" : "https://"
                 Layout.fillWidth: true
             }
             Label {

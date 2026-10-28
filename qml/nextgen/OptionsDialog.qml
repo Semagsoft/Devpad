@@ -171,9 +171,10 @@ Dialog {
                                     RowLayout {
                                         Label { text: qsTr("Tab width:"); Layout.preferredWidth: 140 }
                                         SpinBox {
-                                            from: 1; to: 16; value: actions ? actions.tabWidth : 4
+                                            from: 1; to: 16
                                             Layout.fillWidth: true
-                                            onValueChanged: actions.setTabWidth(value)
+                                            Component.onCompleted: { value = actions ? actions.tabWidth : 4 }
+                                            onValueChanged: { if (actions && value !== actions.tabWidth) actions.setTabWidth(value) }
                                         }
                                     }
                                 }
@@ -240,7 +241,7 @@ Dialog {
                                     }
                                     RowLayout {
                                         Label { text: qsTr("Current:"); Layout.preferredWidth: 140 }
-                                        Label { text: actions ? actions.currentThemeName : qsTr("Light"); Layout.fillWidth: true }
+                                        Label { text: (actions && actions.currentThemeName) ? actions.currentThemeName : qsTr("Light"); Layout.fillWidth: true }
                                     }
                                 }
                             }
