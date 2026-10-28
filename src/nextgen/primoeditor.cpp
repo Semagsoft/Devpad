@@ -25,6 +25,13 @@
 #include <QSGTextNode>
 #include <QTextLayout>
 
+namespace
+{
+// Maximum number of lines to cache in m_linesCache / m_highlightCache.
+// For larger documents, lines are computed on demand to bound memory usage.
+constexpr int MaxCachedLines = 20000;
+} // namespace
+
 PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
 {
     setFlag(ItemHasContents, true);
@@ -1134,21 +1141,35 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
 
     int totalLines;
     QStringList lines;
+    bool useDocLineAt = false;
     if (m_linesDirty || m_linesCache.isEmpty())
     {
         QString txt = m_doc ? m_doc->text() : QString();
         if (txt.isEmpty())
+        {
             lines = QStringList{QString()};
-        else
+        }
+        else if (m_doc && m_doc->lineCount() <= MaxCachedLines)
+        {
             lines = txt.split(QLatin1Char('\n'));
+        }
+        else
+        {
+            // Document too large to cache all lines: compute on demand
+            useDocLineAt = true;
+        }
         m_linesCache = lines;
         m_linesDirty = false;
         // also resize highlight cache
-        if (m_highlightCache.size() != lines.size())
+        int cacheLineCount = useDocLineAt ? 0 : lines.size();
+        if (m_highlightCache.size() != cacheLineCount)
         {
-            m_highlightCache.resize(lines.size());
+            m_highlightCache.resize(cacheLineCount);
             m_highlightDirty = true;
         }
+        // Cap highlight cache size
+        if (m_highlightCache.size() > MaxCachedLines)
+            m_highlightCache.resize(MaxCachedLines);
     }
     else
         lines = m_linesCache;
@@ -1306,7 +1327,13 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
     // Text lines with syntax highlight
     for (int i = firstLine; i <= lastLine; ++i)
     {
-        QString raw = lines.at(i);
+        QString raw;
+        if (i < lines.size())
+            raw = lines.at(i);
+        else if (m_doc)
+            raw = m_doc->lineAt(i);
+        else
+            raw = QString();
         QString disp = expandedTab(raw);
         if (disp.isEmpty())
             continue;
@@ -1331,7 +1358,11 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
     // Cursor with gradient shader (true GLSL) – use gradient rect node for glow
     if (hasActiveFocus() && m_cursorLine >= firstLine && m_cursorLine <= lastLine)
     {
-        QString curLineStr = (m_cursorLine < lines.size()) ? expandedTab(lines.at(m_cursorLine)) : QString();
+        QString curLineStr;
+        if (m_cursorLine < lines.size())
+            curLineStr = expandedTab(lines.at(m_cursorLine));
+        else if (m_doc)
+            curLineStr = expandedTab(m_doc->lineAt(m_cursorLine));
         QString before = curLineStr.left(qMin(m_cursorColumn, curLineStr.size()));
         qreal cx = textLeft + fm.horizontalAdvance(before);
         qreal cy = 4 + m_cursorLine * m_lineHeight;

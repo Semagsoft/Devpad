@@ -98,7 +98,8 @@ public:
     }
 
     // Undo/Redo
-    void pushUndo();
+    // pushUndo is called AFTER modification with the range and before/after states.
+    void pushUndo(int startLine, const QStringList& linesBefore, const QStringList& linesAfter);
     bool canUndo() const;
     bool canRedo() const;
     bool undo();
@@ -157,16 +158,20 @@ private:
     void ensureCursorValid();
     void shiftBookmarksOnInsert(int atLine, int count);
     void shiftBookmarksOnDelete(int atLine, int count);
+    // Diff-based snapshot: stores only the changed line range instead of
+    // the full document. Memory: O(change_size) instead of O(document_size).
     struct Snapshot
     {
-        QStringList lines;
+        int startLine = 0;
+        int lineCount = 0;
+        QStringList linesBefore; // lines in range before modification
+        QStringList linesAfter;  // lines in range after modification
         QList<int> bookmarks;
         int cursorLine = 0;
         int cursorCol = 0;
         bool modified = false;
     };
-    Snapshot snapshot() const;
-    void restore(const Snapshot& s);
+    void restore(const Snapshot& s, bool redo);
 
     QList<Snapshot> m_undoStack;
     QList<Snapshot> m_redoStack;
