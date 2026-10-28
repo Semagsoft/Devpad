@@ -28,6 +28,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QLoggingCategory>
 #include <QTextStream>
 #include <array>
 #include <cstdlib>
@@ -227,6 +228,10 @@ int main(int argc, char* argv[])
         return 1;
 #endif
     }
+
+    // Suppress noisy, non-actionable Qt platform warnings at startup.
+    QLoggingCategory::setFilterRules(
+        QStringLiteral("qt.qpa.services=false\nqt.accessibility.atspi=false"));
 
     QApplication app(argc, argv);
     QApplication::setOrganizationName("Semagsoft");
