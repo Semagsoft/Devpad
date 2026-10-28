@@ -187,6 +187,7 @@ void SettingsManager::loadCache()
     m_cache.ui.showStatusbar = m_settings.value("Options_ShowStatusbar", true).toBool();
     m_cache.ui.uiFontFamily = m_settings.value("Options_UIFont", "Sans Serif").toString();
     m_cache.ui.uiFontSize = m_settings.value("Options_UIFontSize", 10).toInt();
+    m_cache.ui.checkForUpdatesEnabled = m_settings.value("Options_CheckForUpdatesEnabled", true).toBool();
 
     m_cache.terminal.terminalPanelPosition = readEnum("Options_TerminalPanelPosition", TerminalPanelPosition::Bottom, TerminalPanelPosition::Bottom, TerminalPanelPosition::Tab);
     m_cache.terminal.terminalPanelMinWidth = m_settings.value("Options_TerminalPanelMinWidth", 350).toInt();
@@ -378,6 +379,14 @@ QString SettingsManager::uiFontFamily() const
 int SettingsManager::uiFontSize() const
 {
     return m_cache.ui.uiFontSize;
+}
+bool SettingsManager::checkForUpdatesEnabled() const
+{
+    return m_cache.ui.checkForUpdatesEnabled;
+}
+void SettingsManager::setCheckForUpdatesEnabled(bool enabled)
+{
+    writeCached("Options_CheckForUpdatesEnabled", m_cache.ui.checkForUpdatesEnabled, enabled);
 }
 QFont SettingsManager::uiFont() const
 {

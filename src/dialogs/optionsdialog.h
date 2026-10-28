@@ -64,6 +64,7 @@ private:
     QTabWidget* tabWidget = nullptr;
 
     QComboBox* startupComboBox = nullptr;
+    QCheckBox* checkForUpdatesCheckBox = nullptr;
     QComboBox* themeComboBox = nullptr;
     QComboBox* defaultFormatComboBox = nullptr;
     QComboBox* closeButtonComboBox = nullptr;

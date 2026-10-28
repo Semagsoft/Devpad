@@ -108,6 +108,8 @@ void OptionsDialog::setupGeneralTab()
     startupComboBox = new QComboBox(startupGroup);
     startupComboBox->addItems({tr("New File"), tr("Restore Session"), tr("Open Last File"), tr("Empty")});
     startupLayout->addRow(tr("Startup mode:"), startupComboBox);
+    checkForUpdatesCheckBox = new QCheckBox(tr("Check for updates on startup"), startupGroup);
+    startupLayout->addRow(checkForUpdatesCheckBox);
     mainLayout->addWidget(startupGroup);
 
     QGroupBox* defaultsGroup = new QGroupBox(tr("Defaults"), content);
@@ -561,6 +563,7 @@ void OptionsDialog::loadSettings()
 {
     const auto& s = SettingsManager::instance();
     startupComboBox->setCurrentIndex(static_cast<int>(s.startupMode()));
+    checkForUpdatesCheckBox->setChecked(s.checkForUpdatesEnabled());
     m_accentColor = s.accentColor();
     if (m_accentColor.isValid())
     {
@@ -666,6 +669,7 @@ void OptionsDialog::saveSettings()
         SettingsManager::instance().setTheme(static_cast<ThemeId>(themeData));
     }
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(startupComboBox->currentIndex()));
+    SettingsManager::instance().setCheckForUpdatesEnabled(checkForUpdatesCheckBox->isChecked());
     if (m_accentColor.isValid())
         SettingsManager::instance().setAccentColor(m_accentColor);
     else

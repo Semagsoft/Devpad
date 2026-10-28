@@ -393,6 +393,11 @@ void MainWindow::applyInitialSettings()
     // Keep recent menus in sync across multiple windows.
     connect(&SettingsManager::instance(), &SettingsManager::recentFilesChanged, this, &MainWindow::updateRecentFileActions);
     applySettings();
+
+    // Auto-check for updates on startup (respects the 1-hour interval so we
+    // never hit the server more than once per hour).
+    if (SettingsManager::instance().checkForUpdatesEnabled())
+        m_updateChecker->checkForUpdates();
 }
 
 void MainWindow::setupUI()
@@ -1614,8 +1619,18 @@ void MainWindow::showAbout()
 
 void MainWindow::checkForUpdates()
 {
+    if (!SettingsManager::instance().checkForUpdatesEnabled())
+    {
+        statusBar()->showMessage(tr("Update checks are disabled in settings."), 3000);
+        return;
+    }
+
     statusBar()->showMessage(tr("Checking for updates..."));
-    m_updateChecker->checkForUpdates();
+    if (!m_updateChecker->checkForUpdates())
+    {
+        // A check was already performed recently; don't hammer the server.
+        statusBar()->showMessage(tr("Already checked for updates recently. Try again later."), 3000);
+    }
 }
 
 void MainWindow::updateEncodingSelector()

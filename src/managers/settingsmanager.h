@@ -127,6 +127,7 @@ public:
         bool showMenuInTitlebar = true;
         bool showToolbar = true;
         bool showStatusbar = true;
+        bool checkForUpdatesEnabled = true;
         QString uiFontFamily = "Sans Serif";
         int uiFontSize = 10;
     };
@@ -245,6 +246,8 @@ public:
     QString uiFontFamily() const;
     int uiFontSize() const;
     QFont uiFont() const;
+    bool checkForUpdatesEnabled() const;
+    void setCheckForUpdatesEnabled(bool enabled);
     void setStartupMode(StartupMode mode);
     void setCloseButtonMode(CloseButtonMode mode);
     void setTabDisplayMode(TabDisplayMode mode);
