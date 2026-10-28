@@ -40,6 +40,19 @@ ApplicationWindow {
             id: findBar
             Layout.fillWidth: true
         }
+        CommandBar {
+            id: commandBar
+            Layout.fillWidth: true
+            actions: win.actions
+            editor: primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            onCommandEntered: {
+                var msg = actions.runCommand(cmd)
+                if (msg === "quit")
+                    win.close()
+                else if (msg !== "")
+                    statusMsg.text = msg
+            }
+        }
         Pane {
             id: largeBanner
             Layout.fillWidth: true
@@ -141,6 +154,7 @@ ApplicationWindow {
                                 else if (openFiles.length) loadFile(openFiles[0])
                             } else if (openFiles.length) loadFile(openFiles[0])
                         }
+                        onActiveFocusChanged: if (activeFocus) { nextgenActions.editor = primo; commandBar.editor = primo }
                         onFileLoaded: (ok, error) => {
                             if (!ok) console.warn("load failed:", error)
                             else flick.contentY = 0
@@ -186,6 +200,7 @@ ApplicationWindow {
                                 if (f) loadFile(f)
                             }
                         }
+                        onActiveFocusChanged: if (activeFocus) { nextgenActions.editor = primo2; commandBar.editor = primo2 }
                         onDiagnosticsChanged: minimap2.requestPaint()
                         onBookmarksChanged: minimap2.requestPaint()
                         onCursorChanged: {
@@ -433,6 +448,19 @@ ApplicationWindow {
             else terminalDrawer.open()
         }
         function onRequestFindInFiles() { findInFilesDrawer.open() }
+        function onRequestTabNext() {
+            var idx = tabs.currentIndex + 1
+            if (idx >= tabs.count) idx = 0
+            tabs.currentIndex = idx
+        }
+        function onRequestTabPrev() {
+            var idx = tabs.currentIndex - 1
+            if (idx < 0) idx = tabs.count - 1
+            tabs.currentIndex = idx
+        }
+        function onRequestTabFirst() { tabs.currentIndex = 0 }
+        function onRequestTabLast() { tabs.currentIndex = tabs.count - 1 }
+        function onRequestTabClose() { tabs.closeTab(tabs.currentIndex) }
     }
 
     Label {
@@ -459,4 +487,5 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Z"; onActivated: actions.undo() }
     Shortcut { sequence: "Ctrl+Y"; onActivated: actions.redo() }
     Shortcut { sequence: "Ctrl+Shift+Z"; onActivated: actions.redo() }
+    Shortcut { sequence: ":"; onActivated: commandBar.show() }
 }

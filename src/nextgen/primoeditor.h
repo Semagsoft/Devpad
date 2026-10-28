@@ -37,6 +37,7 @@ class PrimoEditor : public QQuickItem
     Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY backgroundColorChanged)
     Q_PROPERTY(QColor foregroundColor READ foregroundColor WRITE setForegroundColor NOTIFY foregroundColorChanged)
     Q_PROPERTY(bool gutterVisible READ gutterVisible WRITE setGutterVisible NOTIFY gutterVisibleChanged)
+    Q_PROPERTY(bool showLineNumbers READ showLineNumbers WRITE setShowLineNumbers NOTIFY showLineNumbersChanged)
     Q_PROPERTY(bool relativeNumbers READ relativeNumbers WRITE setRelativeNumbers NOTIFY relativeNumbersChanged)
     Q_PROPERTY(bool readOnly READ isReadOnly WRITE setReadOnly NOTIFY readOnlyChanged)
     Q_PROPERTY(bool minimapVisible READ minimapVisible WRITE setMinimapVisible NOTIFY minimapVisibleChanged)
@@ -87,6 +88,8 @@ public:
 
     bool gutterVisible() const;
     void setGutterVisible(bool v);
+    bool showLineNumbers() const;
+    void setShowLineNumbers(bool v);
     bool relativeNumbers() const;
     void setRelativeNumbers(bool v);
     bool isReadOnly() const;
@@ -108,6 +111,10 @@ public:
     Q_INVOKABLE bool hasBookmark(int line) const;
     Q_INVOKABLE QList<int> bookmarkLines() const;
     Q_INVOKABLE void clearBookmarks();
+    Q_INVOKABLE void nextBookmark();
+    Q_INVOKABLE void prevBookmark();
+    Q_INVOKABLE void findNext(const QString& pattern, bool caseSensitive = false, bool wholeWord = false, bool regex = false);
+    Q_INVOKABLE void findPrevious(const QString& pattern, bool caseSensitive = false, bool wholeWord = false, bool regex = false);
 
     // Selection model
     Q_INVOKABLE bool hasSelection() const;
@@ -151,6 +158,7 @@ signals:
     void backgroundColorChanged();
     void foregroundColorChanged();
     void gutterVisibleChanged();
+    void showLineNumbersChanged();
     void relativeNumbersChanged();
     void readOnlyChanged();
     void minimapVisibleChanged();
@@ -196,6 +204,7 @@ private:
 
     // Gutter / bookmarks / readOnly
     bool m_gutterVisible = true;
+    bool m_showLineNumbers = true;
     bool m_relativeNumbers = false;
     bool m_readOnly = false;
     bool m_minimapVisible = true;

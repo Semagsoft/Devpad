@@ -309,6 +309,19 @@ void PrimoEditor::setGutterVisible(bool v)
         update();
     }
 }
+bool PrimoEditor::showLineNumbers() const
+{
+    return m_showLineNumbers;
+}
+void PrimoEditor::setShowLineNumbers(bool v)
+{
+    if (m_showLineNumbers != v)
+    {
+        m_showLineNumbers = v;
+        emit showLineNumbersChanged();
+        update();
+    }
+}
 bool PrimoEditor::relativeNumbers() const
 {
     return m_relativeNumbers;
@@ -386,6 +399,195 @@ void PrimoEditor::clearBookmarks()
 {
     m_bookmarks.clear();
     emit bookmarksChanged();
+    update();
+}
+void PrimoEditor::nextBookmark()
+{
+    QList<int> lines = m_bookmarks.values();
+    std::sort(lines.begin(), lines.end());
+    for (int l : lines)
+    {
+        if (l > m_cursorLine)
+        {
+            m_cursorLine = l;
+            m_cursorColumn = 0;
+            emit cursorChanged();
+            update();
+            return;
+        }
+    }
+    // wrap to first
+    if (!lines.isEmpty())
+    {
+        m_cursorLine = lines.first();
+        m_cursorColumn = 0;
+        emit cursorChanged();
+        update();
+    }
+}
+void PrimoEditor::prevBookmark()
+{
+    QList<int> lines = m_bookmarks.values();
+    std::sort(lines.begin(), lines.end(), std::greater<int>());
+    for (int l : lines)
+    {
+        if (l < m_cursorLine)
+        {
+            m_cursorLine = l;
+            m_cursorColumn = 0;
+            emit cursorChanged();
+            update();
+            return;
+        }
+    }
+    // wrap to last
+    if (!lines.isEmpty())
+    {
+        m_cursorLine = lines.last();
+        m_cursorColumn = 0;
+        emit cursorChanged();
+        update();
+    }
+}
+
+static QString escapeRegex(const QString& s)
+{
+    QString out;
+    out.reserve(s.size());
+    for (QChar ch : s)
+    {
+        if (ch == QLatin1Char('\\') || ch == QLatin1Char('.') || ch == QLatin1Char('+') ||
+            ch == QLatin1Char('*') || ch == QLatin1Char('?') || ch == QLatin1Char('^') ||
+            ch == QLatin1Char('$') || ch == QLatin1Char('{') || ch == QLatin1Char('}') ||
+            ch == QLatin1Char('[') || ch == QLatin1Char(']') || ch == QLatin1Char('(') ||
+            ch == QLatin1Char(')') || ch == QLatin1Char('|'))
+        {
+            out += QLatin1Char('\\');
+        }
+        out += ch;
+    }
+    return out;
+}
+
+void PrimoEditor::findNext(const QString& pattern, bool caseSensitive, bool wholeWord, bool regex)
+{
+    if (pattern.isEmpty() || !m_doc)
+        return;
+    QString txt = m_doc->text();
+    QRegularExpression re;
+    if (regex)
+        re = QRegularExpression(pattern, caseSensitive ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption);
+    else
+    {
+        QString p = escapeRegex(pattern);
+        if (wholeWord)
+            p = QStringLiteral("\\b") + p + QStringLiteral("\\b");
+        re = QRegularExpression(p, caseSensitive ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption);
+    }
+    if (!re.isValid())
+        return;
+    // Compute current offset
+    QStringList lines = txt.split(QLatin1Char('\n'));
+    int curOffset = 0;
+    for (int i = 0; i < m_cursorLine && i < lines.size(); ++i)
+        curOffset += lines.at(i).size() + 1;
+    curOffset += qMin(m_cursorColumn, lines.value(m_cursorLine).size());
+    int matchPos = -1;
+    QRegularExpressionMatchIterator it = re.globalMatch(txt);
+    QVector<int> positions;
+    while (it.hasNext())
+    {
+        QRegularExpressionMatch m = it.next();
+        positions.append(m.capturedStart());
+    }
+    for (int pos : positions)
+    {
+        if (pos > curOffset)
+        {
+            matchPos = pos;
+            break;
+        }
+    }
+    if (matchPos == -1 && !positions.isEmpty())
+        matchPos = positions.first();
+    if (matchPos == -1)
+        return;
+    // Convert offset to line/col
+    int off = 0, line = 0, col = 0;
+    for (int l = 0; l < lines.size(); ++l)
+    {
+        int len = lines.at(l).size() + 1;
+        if (matchPos < off + len)
+        {
+            line = l;
+            col = matchPos - off;
+            break;
+        }
+        off += len;
+    }
+    m_cursorLine = line;
+    m_cursorColumn = col;
+    emit cursorChanged();
+    update();
+}
+
+void PrimoEditor::findPrevious(const QString& pattern, bool caseSensitive, bool wholeWord, bool regex)
+{
+    if (pattern.isEmpty() || !m_doc)
+        return;
+    QString txt = m_doc->text();
+    QRegularExpression re;
+    if (regex)
+        re = QRegularExpression(pattern, caseSensitive ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption);
+    else
+    {
+        QString p = escapeRegex(pattern);
+        if (wholeWord)
+            p = QStringLiteral("\\b") + p + QStringLiteral("\\b");
+        re = QRegularExpression(p, caseSensitive ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption);
+    }
+    if (!re.isValid())
+        return;
+    QStringList lines = txt.split(QLatin1Char('\n'));
+    int curOffset = 0;
+    for (int i = 0; i < m_cursorLine && i < lines.size(); ++i)
+        curOffset += lines.at(i).size() + 1;
+    curOffset += qMin(m_cursorColumn, lines.value(m_cursorLine).size());
+    int matchPos = -1;
+    QRegularExpressionMatchIterator it = re.globalMatch(txt);
+    QVector<int> positions;
+    while (it.hasNext())
+    {
+        QRegularExpressionMatch m = it.next();
+        positions.append(m.capturedStart());
+    }
+    for (int i = positions.size() - 1; i >= 0; --i)
+    {
+        if (positions.at(i) < curOffset)
+        {
+            matchPos = positions.at(i);
+            break;
+        }
+    }
+    if (matchPos == -1 && !positions.isEmpty())
+        matchPos = positions.last();
+    if (matchPos == -1)
+        return;
+    int off = 0, line = 0, col = 0;
+    for (int l = 0; l < lines.size(); ++l)
+    {
+        int len = lines.at(l).size() + 1;
+        if (matchPos < off + len)
+        {
+            line = l;
+            col = matchPos - off;
+            break;
+        }
+        off += len;
+    }
+    m_cursorLine = line;
+    m_cursorColumn = col;
+    emit cursorChanged();
     update();
 }
 
@@ -1295,32 +1497,35 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             }
             // Line number
             QString numStr;
-            if (m_relativeNumbers && hasActiveFocus())
+            if (m_showLineNumbers)
             {
-                int rel = qAbs(i - m_cursorLine);
-                if (i == m_cursorLine)
-                    numStr = QString::number(i + 1);
+                if (m_relativeNumbers && hasActiveFocus())
+                {
+                    int rel = qAbs(i - m_cursorLine);
+                    if (i == m_cursorLine)
+                        numStr = QString::number(i + 1);
+                    else
+                        numStr = QString::number(rel);
+                }
                 else
-                    numStr = QString::number(rel);
+                {
+                    numStr = QString::number(i + 1);
+                }
+                QTextLayout numLayout(numStr, m_font);
+                numLayout.beginLayout();
+                QTextLine tl = numLayout.createLine();
+                tl.setLineWidth(gutterW - 20);
+                numLayout.endLayout();
+                QSGTextNode* numNode = win->createTextNode();
+                // active line brighter
+                QColor nc = (i == m_cursorLine) ? m_theme.foreground : m_theme.marginFg;
+                numNode->setColor(nc);
+                numNode->setFiltering(QSGTexture::Linear);
+                qreal nx = gutterW - fm.horizontalAdvance(numStr) - 8;
+                // if bookmark, shift number a bit? keep
+                numNode->addTextLayout(QPointF(nx, y), &numLayout);
+                root->appendChildNode(numNode);
             }
-            else
-            {
-                numStr = QString::number(i + 1);
-            }
-            QTextLayout numLayout(numStr, m_font);
-            numLayout.beginLayout();
-            QTextLine tl = numLayout.createLine();
-            tl.setLineWidth(gutterW - 20);
-            numLayout.endLayout();
-            QSGTextNode* numNode = win->createTextNode();
-            // active line brighter
-            QColor nc = (i == m_cursorLine) ? m_theme.foreground : m_theme.marginFg;
-            numNode->setColor(nc);
-            numNode->setFiltering(QSGTexture::Linear);
-            qreal nx = gutterW - fm.horizontalAdvance(numStr) - 8;
-            // if bookmark, shift number a bit? keep
-            numNode->addTextLayout(QPointF(nx, y), &numLayout);
-            root->appendChildNode(numNode);
         }
     }
 

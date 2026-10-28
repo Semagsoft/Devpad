@@ -154,6 +154,7 @@ public slots:
     void openRecentFile(const QString& path);
     void toggleTerminal();
     void findInFiles(const QString& pattern = QString());
+    QString runCommand(const QString& rawCmd);
 
 signals:
     void showToolbarChanged();
@@ -178,6 +179,12 @@ signals:
     void requestTerminalToggle();
     void requestFindInFiles();
     void showMessage(const QString& msg);
+    // Tab navigation (requested by command mode)
+    void requestTabNext();
+    void requestTabPrev();
+    void requestTabFirst();
+    void requestTabLast();
+    void requestTabClose();
 
 private:
     PrimoEditor* m_editor = nullptr;
