@@ -88,6 +88,8 @@ QVariantList PrimoFindInFiles::search(const QString& pattern, const QString& roo
 
     for (auto& r : raw)
     {
+        if (m_results.size() >= MaxResults)
+            break;
         QVariantMap m;
         m.insert(QStringLiteral("filePath"), r.filePath);
         m.insert(QStringLiteral("line"), r.line);

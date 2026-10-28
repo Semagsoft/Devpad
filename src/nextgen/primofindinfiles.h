@@ -53,6 +53,7 @@ signals:
     void searchStarted();
 
 private:
+    static constexpr int MaxResults = 5000;
     QString m_lastPattern;
     QString m_lastRoot;
     QVariantList m_results; // each is QVariantMap {filePath, line, column, length, lineText}
