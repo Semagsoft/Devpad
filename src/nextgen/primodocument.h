@@ -54,6 +54,9 @@ public:
     Q_INVOKABLE int lineStartOffset(int line) const;
     Q_INVOKABLE QStringList visibleLines(int firstLine, int count) const;
 
+    // Set text without pushing to undo stack (used by TextEditCommand during undo/redo).
+    void setTextWithoutUndo(const QString& text);
+
     bool loadFromFile(const QString& path, QString* error = nullptr);
     bool saveToFile(const QString& path, QString* error = nullptr) const;
 
@@ -78,7 +81,12 @@ signals:
 private:
     void rebuildOffsets() const;
     void invalidateCache();
-    void pushUndo(const QString& oldText, const QString& newText);
+    // Diff-based undo: stores only the changed range instead of full document copies.
+    // position = char offset where the edit starts, removed = text removed,
+    // inserted = text inserted. Memory: O(change_size) instead of O(document_size).
+    void pushUndo(int position, const QString& removed, const QString& inserted);
+    // Compute the diff between old and new text and push a diff-based undo command.
+    void pushUndoDiff(const QString& oldText, const QString& newText);
 
     QString m_filePath;
     QString m_text;
