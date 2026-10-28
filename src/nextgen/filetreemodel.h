@@ -40,6 +40,9 @@ public:
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE QString filePath(int row) const;
+    Q_INVOKABLE bool newFolder(const QString& name);
+    Q_INVOKABLE bool rename(const QString& oldPath, const QString& newPath);
+    Q_INVOKABLE bool remove(const QString& path);
 
 signals:
     void rootPathChanged();

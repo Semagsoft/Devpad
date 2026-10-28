@@ -21,7 +21,7 @@ Pane {
         findField.forceActiveFocus()
         findField.selectAll()
     }
-    function hideBar() { visible = false; if (editor) editor.forceActiveFocus(); }
+    function hideBar() { visible = false; if (editor) { editor.forceActiveFocus(); editor.clearSearchMatches(); } }
     function doFind(next) {
         if (!editor || !editor.document) return
         var pat = findField.text
@@ -49,14 +49,19 @@ Pane {
         var found = -1
         var foundLine = -1
         var foundCol = -1
-        // Find all matches to count
-        var all = []
+        // Find all matches to count and highlight
+        var all = []      // positions only, for find logic
+        var allWithLen = [] // flat [pos1,len1,pos2,len2,...] for editor highlighting
         while ((match = re.exec(txt)) !== null) {
             all.push(match.index)
+            allWithLen.push(match.index)
+            allWithLen.push(match[0].length)
             if (match[0].length === 0) re.lastIndex++
             if (all.length > 5000) break // limit
         }
         status.text = all.length + " matches"
+        if (editor && editor.setSearchMatches)
+            editor.setSearchMatches(allWithLen)
         if (all.length === 0) return
         // Find next/prev relative to curOffset
         if (next) {

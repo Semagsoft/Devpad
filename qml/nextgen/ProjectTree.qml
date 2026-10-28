@@ -11,6 +11,7 @@ Pane {
     property var model: fileTreeModel
     property string rootPath: ""
     property var editor: null
+    property string deletePath: ""
 
     padding: 6
     background: Rectangle { color: palette.base; border.color: palette.mid; border.width: 1 }
@@ -92,6 +93,24 @@ Pane {
                 text: "Refresh"
                 onClicked: model.refresh()
             }
+            ToolButton {
+                text: "New Folder"
+                onClicked: newFolderDialog.open()
+            }
+            ToolButton {
+                text: "Rename"
+                onClicked: {
+                    var idx = fileList.currentIndex
+                    if (idx >= 0) renameInput.text = model.fileName(idx); renameDialog.open()
+                }
+            }
+            ToolButton {
+                text: "Delete"
+                onClicked: {
+                    var idx = fileList.currentIndex
+                    if (idx >= 0) { deletePath = model.filePath(idx); deleteDialog.open() }
+                }
+            }
             Label {
                 text: model ? model.count + " items" : "0 items"
                 opacity: 0.6
@@ -112,6 +131,57 @@ Pane {
             path = decodeURIComponent(path);
             root.rootPath = path;
             model.setRootPath(path);
+        }
+    }
+
+    // New folder dialog
+    InputDialog {
+        id: newFolderDialog
+        title: qsTr("New Folder")
+        label: qsTr("Folder name:")
+        textInputMode: TextInput.NormalText
+        onAccepted: {
+            var name = textInput.text.trimmed()
+            if (name && model) model.newFolder(name)
+        }
+    }
+
+    // Rename dialog
+    InputDialog {
+        id: renameDialog
+        title: qsTr("Rename")
+        label: qsTr("New name:")
+        textInputMode: TextInput.NormalText
+        property string oldPath: ""
+        onAccepted: {
+            var newName = textInput.text.trimmed()
+            if (newName && oldPath) {
+                var dir = oldPath.substring(0, oldPath.lastIndexOf("/") + 1)
+                model.rename(oldPath, dir + newName)
+            }
+        }
+        onOpened: {
+            var idx = fileList.currentIndex
+            if (idx >= 0) {
+                oldPath = model.filePath(idx)
+                textInput.text = model.fileName(idx)
+            }
+        }
+    }
+
+    // Delete confirmation dialog
+    MessageDialog {
+        id: deleteDialog
+        title: qsTr("Delete")
+        icon: MessageDialog.Warning
+        text: qsTr("Delete %1?").arg(root.deletePath.split("/").pop())
+        standardButtons: StandardButtons.Yes | StandardButtons.No
+        onOpened: {
+            var idx = fileList.currentIndex
+            if (idx >= 0) root.deletePath = model.filePath(idx)
+        }
+        onYes: {
+            if (root.deletePath && model) model.remove(root.deletePath)
         }
     }
 

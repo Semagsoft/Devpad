@@ -34,6 +34,8 @@ class PrimoEditor : public QQuickItem
     Q_PROPERTY(int cursorColumn READ cursorColumn WRITE setCursorColumn NOTIFY cursorChanged)
     Q_PROPERTY(qreal contentHeight READ contentHeight NOTIFY contentHeightChanged)
     Q_PROPERTY(qreal lineHeight READ lineHeight NOTIFY fontChanged)
+    Q_PROPERTY(qreal hScroll READ hScroll NOTIFY hScrollChanged)
+    Q_PROPERTY(qreal wrapScrollTop READ wrapScrollTop NOTIFY wrapScrollTopChanged)
     Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY backgroundColorChanged)
     Q_PROPERTY(QColor foregroundColor READ foregroundColor WRITE setForegroundColor NOTIFY foregroundColorChanged)
     Q_PROPERTY(bool gutterVisible READ gutterVisible WRITE setGutterVisible NOTIFY gutterVisibleChanged)
@@ -76,6 +78,11 @@ public:
     int cursorColumn() const;
     void setCursorColumn(int col);
 
+    qreal hScroll() const;
+    void setHScroll(qreal h);
+    qreal wrapScrollTop() const;
+    void setWrapScrollTop(qreal v);
+
     qreal contentHeight() const;
     qreal lineHeight() const;
 
@@ -116,6 +123,15 @@ public:
     Q_INVOKABLE void findNext(const QString& pattern, bool caseSensitive = false, bool wholeWord = false, bool regex = false);
     Q_INVOKABLE void findPrevious(const QString& pattern, bool caseSensitive = false, bool wholeWord = false, bool regex = false);
 
+    // Search match highlighting
+    Q_INVOKABLE void setSearchMatches(const QList<int>& positions);
+    Q_INVOKABLE void clearSearchMatches();
+
+    // Auto-completion / snippets
+    Q_INVOKABLE QStringList completionList(const QString& prefix) const;
+    Q_INVOKABLE void insertSnippet(const QString& trigger);
+    Q_INVOKABLE QString currentWord() const;
+
     // Selection model
     Q_INVOKABLE bool hasSelection() const;
     Q_INVOKABLE QString selectedText() const;
@@ -155,6 +171,8 @@ signals:
     void wordWrapChanged();
     void cursorChanged();
     void contentHeightChanged();
+    void hScrollChanged();
+    void wrapScrollTopChanged();
     void backgroundColorChanged();
     void foregroundColorChanged();
     void gutterVisibleChanged();
@@ -186,6 +204,15 @@ private:
     void scheduleHighlight(int firstLine = -1, int lastLine = -1);
     void applyHighlightResult(int version, int firstLine, const QVector<QVector<QTextLayout::FormatRange>>& fmts);
     void applySettings();
+    void ensureCursorVisibleHorizontally();
+    // Word wrap support
+    struct WrapInfo
+    {
+        int line = 0;
+        int startCol = 0;
+        int len = 0;
+    };
+    QList<WrapInfo> buildWrapInfos(int availGlobal, int* outCursorVisualRow = nullptr);
 
     PrimoDocument* m_doc = nullptr;
     QString m_encoding = QStringLiteral("UTF-8");
@@ -209,8 +236,11 @@ private:
     bool m_readOnly = false;
     bool m_minimapVisible = true;
     qreal m_gutterWidth = 48;
+    qreal m_hScroll = 0;
+    qreal m_wrapScrollTop = 0;
     QSet<int> m_bookmarks;
     QSet<int> m_diagLines;
+    QList<QPair<int, int>> m_searchMatches;
 
     // Selection model
     int m_selAnchorLine = -1;

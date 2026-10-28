@@ -16,6 +16,39 @@ ApplicationWindow {
     property string folder: initialFolder
     property var actions: nextgenActions
     property var tabs: tabModel
+    property var completionModel: []
+    property int completionPrefixLen: 0
+
+    function triggerCompletion() {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed) return
+        var word = ed.currentWord()
+        if (word.length < 2) { completionPopup.close(); return }
+        var list = ed.completionList(word)
+        if (list.length > 0) {
+            completionModel = list
+            completionPrefixLen = word.length
+            completionPopup.x = ed.mapToItem(win.contentItem, 0, 0).x
+            completionPopup.y = ed.mapToItem(win.contentItem, 0, 0).y + ed.lineHeight
+            completionPopup.open()
+        } else {
+            completionPopup.close()
+        }
+    }
+
+    // Auto-save timer
+    Timer {
+        id: autoSaveTimer
+        interval: actions.autoSaveEnabled ? actions.autoSaveInterval * 1000 : 0
+        repeat: true
+        running: actions.autoSaveEnabled
+        onTriggered: {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (ed && !ed.readOnly && ed.document && ed.document.isModified && ed.filePath !== "") {
+                ed.save()
+            }
+        }
+    }
 
     Component.onCompleted: {
         console.log("NEXTGEN_MAIN_LOADED with menuBar=" + (menuBar ? "yes" : "no"))
@@ -51,6 +84,31 @@ ApplicationWindow {
                     win.close()
                 else if (msg !== "")
                     statusMsg.text = msg
+            }
+        }
+        // Completion popup
+        Popup {
+            id: completionPopup
+            modal: false
+            focus: true
+            x: primo.mapToItem(win.contentItem, 0, 0).x + (primo.activeFocus ? 0 : 0)
+            y: primo.mapToItem(win.contentItem, 0, 0).y
+            width: 200
+            ListView {
+                id: completionListView
+                width: 200
+                height: 200
+                model: completionModel
+                delegate: ItemDelegate {
+                    text: modelData
+                    width: completionListView.width
+                    onClicked: {
+                        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                        ed.insertAtCursor(modelData)
+                        completionPopup.close()
+                        ed.forceActiveFocus()
+                    }
+                }
             }
         }
         Pane {
@@ -145,6 +203,30 @@ ApplicationWindow {
                         foregroundColor: palette.text
                         font.family: "Monospace"
                         font.pixelSize: 13
+                        Keys.onPressed: (event) => {
+                            if (event.key === Qt.Key_Tab && completionPopup.visible && completionListView.currentIndex >= 0) {
+                                var item = completionModel[completionListView.currentIndex]
+                                var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                                ed.insertAtCursor(item)
+                                completionPopup.close()
+                                ed.forceActiveFocus()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                if (completionPopup.visible && completionListView.currentIndex >= 0) {
+                                    var item = completionModel[completionListView.currentIndex]
+                                    var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                                    ed.insertAtCursor(item)
+                                    completionPopup.close()
+                                    ed.forceActiveFocus()
+                                    event.accepted = true
+                                } else {
+                                    completionPopup.close()
+                                }
+                            } else if (event.key === Qt.Key_Escape) {
+                                completionPopup.close()
+                                event.accepted = true
+                            }
+                        }
                         Component.onCompleted: {
                             if (nextgenActions) nextgenActions.editor = primo;
                             forceActiveFocus();
@@ -155,9 +237,22 @@ ApplicationWindow {
                             } else if (openFiles.length) loadFile(openFiles[0])
                         }
                         onActiveFocusChanged: if (activeFocus) { nextgenActions.editor = primo; commandBar.editor = primo }
+                        onTextChanged: {
+                            triggerCompletion()
+                            if (lspClient) {
+                                var uri = "file://" + primo.filePath
+                                lspClient.changeDocument(uri, primo.text, 1)
+                            }
+                        }
                         onFileLoaded: (ok, error) => {
                             if (!ok) console.warn("load failed:", error)
-                            else flick.contentY = 0
+                            else {
+                                flick.contentY = 0
+                                if (lspClient && primo.filePath) {
+                                    var uri = "file://" + primo.filePath
+                                    lspClient.openDocument(uri, primo.text, 1)
+                                }
+                            }
                         }
                         onDiagnosticsChanged: minimap.requestPaint()
                         onBookmarksChanged: minimap.requestPaint()
@@ -461,6 +556,25 @@ ApplicationWindow {
         function onRequestTabFirst() { tabs.currentIndex = 0 }
         function onRequestTabLast() { tabs.currentIndex = tabs.count - 1 }
         function onRequestTabClose() { tabs.closeTab(tabs.currentIndex) }
+    }
+
+    Connections {
+        target: lspClient
+        function onDiagnosticsReady(uri, diagnostics) {
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (ed && ed.filePath === path) {
+                var lines = []
+                for (var i = 0; i < diagnostics.length; i++) {
+                    var d = diagnostics[i]
+                    lines.push(d.range.start.line)
+                    if (d.range.end.line !== d.range.start.line)
+                        lines.push(d.range.end.line)
+                }
+                ed.setDiagnostics(lines)
+            }
+        }
     }
 
     Label {

@@ -7,6 +7,7 @@
 
 #include "core/fileservice.h"
 #include "devpad_version.h"
+#include "lsp/lspclient.h"
 #include "managers/settingsmanager.h"
 #include "managers/sessionmanager.h"
 #include "nextgenactions.h"
@@ -186,7 +187,13 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
                          {
                              QString f = tabModel->tabAt(i);
                              if (!f.isEmpty())
-                                 cursors.insert(f, {0, 0}); // placeholder; actual cursor from editor
+                             {
+                                 QVariantList vc = tabModel->cursorForTab(i);
+                                 QList<int> pos;
+                                 for (const QVariant& v : vc)
+                                     pos.append(v.toInt());
+                                 cursors.insert(f, pos);
+                             }
                          }
                          sm.saveSessionCursors(cursors);
                      });
@@ -214,6 +221,10 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     if (!initialFolder.isEmpty())
         fileTreeModel->setRootPath(initialFolder);
     engine.rootContext()->setContextProperty(QStringLiteral("fileTreeModel"), fileTreeModel);
+
+    // LSP client for diagnostics and language features
+    auto* lspClient = new lsp::LspClient(QStringLiteral("cpp"), app);
+    engine.rootContext()->setContextProperty(QStringLiteral("lspClient"), lspClient);
 
     // Register primoEditor types for QML
     qmlRegisterType<PrimoEditor>("Devpad.Nextgen", 1, 0, "PrimoEditor");

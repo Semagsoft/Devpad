@@ -8,6 +8,7 @@
 #include "core/fileservice.h"
 #include "managers/settingsmanager.h"
 #include "primoshader.h"
+#include "keywords.h"
 #include "theme.h"
 
 #include <QClipboard>
@@ -209,8 +210,35 @@ void PrimoEditor::setWordWrap(bool w)
     {
         m_wordWrap = w;
         emit wordWrapChanged();
+        m_wrapScrollTop = 0;
+        emit wrapScrollTopChanged();
         update();
     }
+}
+
+qreal PrimoEditor::hScroll() const
+{
+    return m_hScroll;
+}
+void PrimoEditor::setHScroll(qreal h)
+{
+    if (qFuzzyCompare(m_hScroll, h))
+        return;
+    m_hScroll = qMax(0.0, h);
+    emit hScrollChanged();
+    update();
+}
+qreal PrimoEditor::wrapScrollTop() const
+{
+    return m_wrapScrollTop;
+}
+void PrimoEditor::setWrapScrollTop(qreal v)
+{
+    if (qFuzzyCompare(m_wrapScrollTop, v))
+        return;
+    m_wrapScrollTop = qMax(0.0, v);
+    emit wrapScrollTopChanged();
+    update();
 }
 int PrimoEditor::cursorLine() const
 {
@@ -240,6 +268,35 @@ void PrimoEditor::setCursorColumn(int col)
 }
 qreal PrimoEditor::contentHeight() const
 {
+    if (m_wordWrap && m_doc)
+    {
+        // Word wrap: total height = total wrapped visual rows * lineHeight
+        QString txt = m_doc->text();
+        if (txt.isEmpty())
+            return m_lineHeight + 8;
+        QFontMetricsF fm(m_font);
+        QQuickWindow* win = window();
+        qreal winWidth = win ? win->width() : boundingRect().width();
+        qreal gutterW = m_gutterVisible ? m_gutterWidth : 0;
+        int availGlobal = qMax(1, int(winWidth - gutterW - 16));
+        int totalWrapRows = 0;
+        int total = m_doc->lineCount();
+        for (int i = 0; i < total; ++i)
+        {
+            QString line = m_doc->lineAt(i);
+            if (line.isEmpty())
+            {
+                ++totalWrapRows;
+            }
+            else
+            {
+                QString disp = expandedTab(line);
+                int len = disp.size();
+                totalWrapRows += (len + availGlobal - 1) / qMax(1, availGlobal);
+            }
+        }
+        return totalWrapRows * m_lineHeight + 8;
+    }
     if (m_linesDirty)
     {
         QString txt = m_doc ? m_doc->text() : QString();
@@ -696,6 +753,116 @@ void PrimoEditor::clearDiagnostics()
     emit diagnosticsChanged();
     update();
 }
+void PrimoEditor::setSearchMatches(const QList<int>& positions)
+{
+    // positions is a flat list: [start1, len1, start2, len2, ...]
+    m_searchMatches.clear();
+    for (int i = 0; i + 1 < positions.size(); i += 2)
+        m_searchMatches.append(qMakePair(positions[i], positions[i + 1]));
+    update();
+}
+void PrimoEditor::clearSearchMatches()
+{
+    m_searchMatches.clear();
+    update();
+}
+
+QStringList PrimoEditor::completionList(const QString& prefix) const
+{
+    QStringList result;
+    if (!m_doc)
+        return result;
+    QString lang = m_doc->language().isEmpty() ? QStringLiteral("cpp") : m_doc->language();
+    const QStringList* keywords = nullptr;
+    if (lang == QStringLiteral("cpp")) keywords = &cppKeywords();
+    else if (lang == QStringLiteral("csharp")) keywords = &csharpKeywords();
+    else if (lang == QStringLiteral("java")) keywords = &javaKeywords();
+    else if (lang == QStringLiteral("python")) keywords = &pythonKeywords();
+    else if (lang == QStringLiteral("javascript")) keywords = &javascriptKeywords();
+    else if (lang == QStringLiteral("typescript")) keywords = &typescriptKeywords();
+    else if (lang == QStringLiteral("html")) keywords = &htmlKeywords();
+    else if (lang == QStringLiteral("css")) keywords = &cssKeywords();
+    else if (lang == QStringLiteral("xml")) keywords = &xmlKeywords();
+    else if (lang == QStringLiteral("sql")) keywords = &sqlKeywords();
+    else if (lang == QStringLiteral("bash")) keywords = &bashKeywords();
+    else if (lang == QStringLiteral("lua")) keywords = &luaKeywords();
+    else if (lang == QStringLiteral("go")) keywords = &goKeywords();
+    else if (lang == QStringLiteral("rust")) keywords = &rustKeywords();
+    else if (lang == QStringLiteral("php")) keywords = &phpKeywords();
+    else if (lang == QStringLiteral("markdown")) keywords = &markdownKeywords();
+    else if (lang == QStringLiteral("json")) keywords = &jsonKeywords();
+    else if (lang == QStringLiteral("qml")) keywords = &qmlKeywords();
+    else if (lang == QStringLiteral("cmake")) keywords = &cmakeKeywords();
+    else keywords = &cppKeywords();
+    if (keywords)
+    {
+        for (const QString& kw : *keywords)
+        {
+            if (kw.startsWith(prefix, Qt::CaseInsensitive))
+                result << kw;
+        }
+    }
+    return result;
+}
+
+void PrimoEditor::insertSnippet(const QString& trigger)
+{
+    if (m_readOnly || !m_doc)
+        return;
+    QString snippet;
+    if (trigger == QStringLiteral("for"))
+        snippet = QStringLiteral("for (int i = 0; i < $1; ++i) {\n\t$2\n}");
+    else if (trigger == QStringLiteral("if"))
+        snippet = QStringLiteral("if ($1) {\n\t$2\n}");
+    else if (trigger == QStringLiteral("else"))
+        snippet = QStringLiteral("else {\n\t$1\n}");
+    else if (trigger == QStringLiteral("func") || trigger == QStringLiteral("fn"))
+        snippet = QStringLiteral("$1($2) {\n\t$3\n}");
+    else if (trigger == QStringLiteral("class"))
+        snippet = QStringLiteral("class $1 {\npublic:\n\t$2\n};\n");
+    else if (trigger == QStringLiteral("main"))
+        snippet = QStringLiteral("int main(int argc, char* argv[]) {\n\treturn 0;\n}");
+    else
+        return;
+    // Replace the trigger word with the snippet
+    QString txt = m_doc->text();
+    QStringList lines = txt.split(QLatin1Char('\n'));
+    if (m_cursorLine < 0 || m_cursorLine >= lines.size())
+        return;
+    QString& line = lines[m_cursorLine];
+    // Find the start of the current word
+    int col = m_cursorColumn;
+    int start = col;
+    while (start > 0 && (line.at(start - 1).isLetterOrNumber() || line.at(start - 1) == QLatin1Char('_')))
+        --start;
+    QString word = line.mid(start, col - start);
+    if (word != trigger)
+        return;
+    line.replace(start, col - start, snippet);
+    m_doc->setText(lines.join(QLatin1Char('\n')));
+    // Position cursor after first tab stop ($1)
+    m_cursorColumn = start + snippet.indexOf(QLatin1String("$1"));
+    if (m_cursorColumn < 0)
+        m_cursorColumn = start + snippet.size();
+    emit cursorChanged();
+    update();
+}
+
+QString PrimoEditor::currentWord() const
+{
+    if (!m_doc)
+        return QString();
+    QString txt = m_doc->text();
+    QStringList lines = txt.split(QLatin1Char('\n'));
+    if (m_cursorLine < 0 || m_cursorLine >= lines.size())
+        return QString();
+    QString line = lines.at(m_cursorLine);
+    int col = qMin(m_cursorColumn, line.size());
+    int start = col;
+    while (start > 0 && (line.at(start - 1).isLetterOrNumber() || line.at(start - 1) == QLatin1Char('_')))
+        --start;
+    return line.mid(start, col - start);
+}
 
 bool PrimoEditor::canUndo() const
 {
@@ -1053,6 +1220,82 @@ void PrimoEditor::ensureMetrics()
     setImplicitHeight(contentHeight());
 }
 
+void PrimoEditor::ensureCursorVisibleHorizontally()
+{
+    if (!m_doc || !window())
+        return;
+    QFontMetricsF fm(m_font);
+    QStringList ls = m_doc->text().split(QLatin1Char('\n'));
+    if (m_cursorLine < 0 || m_cursorLine >= ls.size())
+        return;
+    QString curLine = expandedTab(ls.at(m_cursorLine));
+    QString before = curLine.left(qMin(m_cursorColumn, curLine.size()));
+    qreal gutterW = m_gutterVisible ? m_gutterWidth : 0;
+    qreal cx = gutterW + 8 - m_hScroll + fm.horizontalAdvance(before);
+    QQuickWindow* win = window();
+    qreal winWidth = win ? win->width() : boundingRect().width();
+    qreal visibleWidth = winWidth - gutterW - 16;
+    qreal leftEdge = gutterW + 8 - m_hScroll;
+    if (cx < leftEdge)
+    {
+        setHScroll(leftEdge - cx);
+    }
+    else if (cx + 2 > leftEdge + visibleWidth)
+    {
+        setHScroll(cx + 2 - leftEdge - visibleWidth + m_hScroll);
+    }
+}
+
+QList<PrimoEditor::WrapInfo> PrimoEditor::buildWrapInfos(int availGlobal, int* outCursorVisualRow)
+{
+    QList<WrapInfo> wrapInfos;
+    int cursorVisualRow = -1;
+    if (!m_doc || availGlobal <= 0)
+    {
+        if (outCursorVisualRow)
+            *outCursorVisualRow = cursorVisualRow;
+        return wrapInfos;
+    }
+    int total = m_doc->lineCount();
+    for (int i = 0; i < total; ++i)
+    {
+        QString line = m_doc->lineAt(i);
+        if (line.isEmpty())
+        {
+            wrapInfos.append({i, 0, 0});
+            if (i == m_cursorLine && m_cursorColumn == 0)
+                cursorVisualRow = wrapInfos.size() - 1;
+        }
+        else
+        {
+            QString disp = expandedTab(line);
+            for (int off = 0; off < disp.size(); off += availGlobal)
+            {
+                int len = qMin(availGlobal, disp.size() - off);
+                wrapInfos.append({i, off, len});
+                if (i == m_cursorLine && m_cursorColumn >= off && m_cursorColumn < off + len)
+                    cursorVisualRow = wrapInfos.size() - 1;
+            }
+            if (i == m_cursorLine && m_cursorColumn == disp.size())
+            {
+                for (int v = wrapInfos.size() - 1; v >= 0; --v)
+                {
+                    if (wrapInfos[v].line == i)
+                    {
+                        cursorVisualRow = v;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if (cursorVisualRow == -1 && !wrapInfos.isEmpty())
+        cursorVisualRow = 0;
+    if (outCursorVisualRow)
+        *outCursorVisualRow = cursorVisualRow;
+    return wrapInfos;
+}
+
 void PrimoEditor::geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry)
 {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
@@ -1125,6 +1368,7 @@ void PrimoEditor::keyPressEvent(QKeyEvent* event)
             m_cursorColumn = 0;
         }
         emit cursorChanged();
+        ensureCursorVisibleHorizontally();
         update();
         event->accept();
         return;
@@ -1151,6 +1395,28 @@ void PrimoEditor::keyPressEvent(QKeyEvent* event)
     if (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_V)
     {
         paste();
+        event->accept();
+        return;
+    }
+    if (event->key() == Qt::Key_Tab)
+    {
+        // Try snippet expansion first
+        QString word = currentWord();
+        if (!word.isEmpty())
+        {
+            // Check if word matches a snippet trigger
+            QStringList triggers = {QStringLiteral("for"), QStringLiteral("if"), QStringLiteral("else"),
+                                    QStringLiteral("func"), QStringLiteral("fn"), QStringLiteral("class"),
+                                    QStringLiteral("main")};
+            if (triggers.contains(word))
+            {
+                insertSnippet(word);
+                event->accept();
+                return;
+            }
+        }
+        // Fallback: insert tab
+        insertAtCursor(QStringLiteral("\t"));
         event->accept();
         return;
     }
@@ -1459,10 +1725,53 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
 
     QFontMetricsF fm(m_font);
     const qreal leftPad = gutterW + 8;
-    const qreal textLeft = leftPad;
+    const qreal textLeft = leftPad - m_hScroll;
 
-    // Current line highlight (subtle) with gradient shader? Use flat for now, gradient node for selection
-    if (m_cursorLine >= firstLine && m_cursorLine <= lastLine)
+    // Word wrap: build wrap infos and compute visible visual-row range
+    int cursorVisualRow = -1;
+    QList<WrapInfo> wrapInfos;
+    int totalWrapRows = 0;
+    if (m_wordWrap)
+    {
+        int availGlobal = qMax(1, int(bounds.width() - gutterW - 16));
+        wrapInfos = buildWrapInfos(availGlobal, &cursorVisualRow);
+        totalWrapRows = wrapInfos.size();
+    }
+    else
+    {
+        totalWrapRows = totalLines;
+    }
+
+    // Determine visible range
+    int firstVisualRow = 0;
+    int lastVisualRow = qMin(totalWrapRows - 1, int(ceil(bounds.height() / m_lineHeight)) + 1);
+    if (m_wordWrap)
+    {
+        firstVisualRow = int(m_wrapScrollTop / m_lineHeight);
+        lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+        if (firstVisualRow < 0)
+            firstVisualRow = 0;
+        // Ensure cursor visual row is visible
+        if (cursorVisualRow >= 0 && (cursorVisualRow < firstVisualRow || cursorVisualRow > lastVisualRow))
+        {
+            setWrapScrollTop(cursorVisualRow * m_lineHeight);
+            firstVisualRow = cursorVisualRow;
+            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+        }
+    }
+    else
+    {
+        if (contentY > 0)
+        {
+            firstVisualRow = int(contentY / m_lineHeight);
+            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+            if (firstVisualRow < 0)
+                firstVisualRow = 0;
+        }
+    }
+
+    // Current line highlight
+    if (!m_wordWrap && m_cursorLine >= firstVisualRow && m_cursorLine <= lastVisualRow)
     {
         QSGRectangleNode* curBg = win->createRectangleNode();
         curBg->setRect(QRectF(gutterW, 4 + m_cursorLine * m_lineHeight, bounds.width() - gutterW, m_lineHeight));
@@ -1471,23 +1780,31 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
         curBg->setColor(hl);
         root->appendChildNode(curBg);
     }
-
-    // Gutter numbers + bookmarks + diagnostics
-    if (m_gutterVisible)
+    else if (m_wordWrap && cursorVisualRow >= 0 && cursorVisualRow >= firstVisualRow && cursorVisualRow <= lastVisualRow)
     {
-        for (int i = firstLine; i <= lastLine; ++i)
+        QSGRectangleNode* curBg = win->createRectangleNode();
+        curBg->setRect(QRectF(gutterW, 4 + (cursorVisualRow - firstVisualRow) * m_lineHeight, bounds.width() - gutterW, m_lineHeight));
+        QColor hl = m_theme.lineHighlight;
+        hl.setAlpha(180);
+        curBg->setColor(hl);
+        root->appendChildNode(curBg);
+    }
+
+    // Gutter numbers + bookmarks + diagnostics (only in non-wrap mode for now)
+    if (m_gutterVisible && !m_wordWrap)
+    {
+        for (int i = firstVisualRow; i <= lastVisualRow; ++i)
         {
             qreal y = 4 + i * m_lineHeight;
-            // Bookmark marker (orange dot) like CodeEditor::MARKER_BOOKMARK
+            // Bookmark marker
             if (m_bookmarks.contains(i))
             {
                 QSGRectangleNode* bm = win->createRectangleNode();
-                // small square 8x8 centered vertically
                 bm->setRect(QRectF(4, y + (m_lineHeight - 8) / 2, 8, 8));
                 bm->setColor(QColor(255, 160, 0));
                 root->appendChildNode(bm);
             }
-            // Diagnostics dot on right side of gutter
+            // Diagnostics dot
             if (m_diagLines.contains(i))
             {
                 QSGRectangleNode* diag = win->createRectangleNode();
@@ -1496,89 +1813,204 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
                 root->appendChildNode(diag);
             }
             // Line number
-            QString numStr;
             if (m_showLineNumbers)
             {
-                if (m_relativeNumbers && hasActiveFocus())
-                {
-                    int rel = qAbs(i - m_cursorLine);
-                    if (i == m_cursorLine)
-                        numStr = QString::number(i + 1);
-                    else
-                        numStr = QString::number(rel);
-                }
-                else
-                {
-                    numStr = QString::number(i + 1);
-                }
+                QString numStr = QString::number(i + 1);
                 QTextLayout numLayout(numStr, m_font);
                 numLayout.beginLayout();
                 QTextLine tl = numLayout.createLine();
                 tl.setLineWidth(gutterW - 20);
                 numLayout.endLayout();
                 QSGTextNode* numNode = win->createTextNode();
-                // active line brighter
                 QColor nc = (i == m_cursorLine) ? m_theme.foreground : m_theme.marginFg;
                 numNode->setColor(nc);
                 numNode->setFiltering(QSGTexture::Linear);
                 qreal nx = gutterW - fm.horizontalAdvance(numStr) - 8;
-                // if bookmark, shift number a bit? keep
                 numNode->addTextLayout(QPointF(nx, y), &numLayout);
                 root->appendChildNode(numNode);
             }
         }
     }
 
-    // Text lines with syntax highlight
-    for (int i = firstLine; i <= lastLine; ++i)
+    // Text rendering
+    if (m_wordWrap)
     {
-        QString raw;
-        if (i < lines.size())
-            raw = lines.at(i);
-        else if (m_doc)
-            raw = m_doc->lineAt(i);
-        else
-            raw = QString();
-        QString disp = expandedTab(raw);
-        if (disp.isEmpty())
-            continue;
-        QTextLayout layout(disp, m_font);
-        // Apply syntax formats if available
-        if (i < m_highlightCache.size() && !m_highlightCache[i].isEmpty())
+        for (int v = firstVisualRow; v <= lastVisualRow && v < wrapInfos.size(); ++v)
         {
-            layout.setFormats(m_highlightCache[i]);
+            const WrapInfo& wi = wrapInfos[v];
+            int lineIdx = wi.line;
+            qreal y = 4 + (v - firstVisualRow) * m_lineHeight;
+            QString raw = (lineIdx < lines.size()) ? lines.at(lineIdx) : (m_doc ? m_doc->lineAt(lineIdx) : QString());
+            QString disp = expandedTab(raw).mid(wi.startCol, wi.len);
+            if (disp.isEmpty())
+                continue;
+            QTextLayout layout(disp, m_font);
+            if (wi.line < m_highlightCache.size() && !m_highlightCache[wi.line].isEmpty())
+                layout.setFormats(m_highlightCache[wi.line]);
+            layout.beginLayout();
+            QTextLine tl = layout.createLine();
+            tl.setLineWidth(bounds.width() - textLeft - 4);
+            layout.endLayout();
+            QSGTextNode* textNode = win->createTextNode();
+            textNode->setColor(m_fg);
+            textNode->setFiltering(QSGTexture::Linear);
+            textNode->addTextLayout(QPointF(textLeft, y), &layout);
+            root->appendChildNode(textNode);
+            // Cursor for wrap mode
+            if (hasActiveFocus() && v == cursorVisualRow)
+            {
+                QString curLineStr = expandedTab(raw);
+                QString before = curLineStr.left(wi.startCol + qMin(m_cursorColumn - wi.startCol, wi.len));
+                qreal cx = textLeft + fm.horizontalAdvance(before);
+                qreal cy = y;
+                QSGGeometryNode* grad =
+                    createGradientRectNode(QRectF(cx, cy, 2, m_lineHeight - 2), QColor(0xc4, 0xa7, 0xe7, 200), QColor(0x89, 0xb4, 0xfa, 200), 0.95f);
+                root->appendChildNode(grad);
+            }
         }
-        layout.beginLayout();
-        QTextLine tl = layout.createLine();
-        tl.setLineWidth(bounds.width() - textLeft - 4);
-        layout.endLayout();
-        QSGTextNode* textNode = win->createTextNode();
-        // default color already via formats, but set base
-        textNode->setColor(m_fg);
-        textNode->setFiltering(QSGTexture::Linear);
-        textNode->addTextLayout(QPointF(textLeft, 4 + i * m_lineHeight), &layout);
-        root->appendChildNode(textNode);
     }
-
-    // Cursor with gradient shader (true GLSL) – use gradient rect node for glow
-    if (hasActiveFocus() && m_cursorLine >= firstLine && m_cursorLine <= lastLine)
+    else
     {
-        QString curLineStr;
-        if (m_cursorLine < lines.size())
-            curLineStr = expandedTab(lines.at(m_cursorLine));
-        else if (m_doc)
-            curLineStr = expandedTab(m_doc->lineAt(m_cursorLine));
-        QString before = curLineStr.left(qMin(m_cursorColumn, curLineStr.size()));
-        qreal cx = textLeft + fm.horizontalAdvance(before);
-        qreal cy = 4 + m_cursorLine * m_lineHeight;
-        // Use gradient shader for cursor glow
-        QSGGeometryNode* grad =
-            createGradientRectNode(QRectF(cx, cy, 2, m_lineHeight - 2), QColor(0xc4, 0xa7, 0xe7, 200), QColor(0x89, 0xb4, 0xfa, 200), 0.95f);
-        // Fallback if shader not available: the node already has material, but we also add simple rect as backup
-        root->appendChildNode(grad);
+        // Current line highlight already done above for non-wrap
+        // Gutter numbers already done above for non-wrap
+        // Text lines with syntax highlight
+        for (int i = firstVisualRow; i <= lastVisualRow; ++i)
+        {
+            QString raw;
+            if (i < lines.size())
+                raw = lines.at(i);
+            else if (m_doc)
+                raw = m_doc->lineAt(i);
+            else
+                raw = QString();
+            QString disp = expandedTab(raw);
+            if (disp.isEmpty())
+                continue;
+            QTextLayout layout(disp, m_font);
+            if (i < m_highlightCache.size() && !m_highlightCache[i].isEmpty())
+                layout.setFormats(m_highlightCache[i]);
+            layout.beginLayout();
+            QTextLine tl = layout.createLine();
+            tl.setLineWidth(bounds.width() - textLeft - 4);
+            layout.endLayout();
+            QSGTextNode* textNode = win->createTextNode();
+            textNode->setColor(m_fg);
+            textNode->setFiltering(QSGTexture::Linear);
+            textNode->addTextLayout(QPointF(textLeft, 4 + i * m_lineHeight), &layout);
+            root->appendChildNode(textNode);
+        }
+
+        // Cursor with gradient shader (non-wrap mode)
+        if (hasActiveFocus() && m_cursorLine >= firstVisualRow && m_cursorLine <= lastVisualRow)
+        {
+            QString curLineStr;
+            if (m_cursorLine < lines.size())
+                curLineStr = expandedTab(lines.at(m_cursorLine));
+            else if (m_doc)
+                curLineStr = expandedTab(m_doc->lineAt(m_cursorLine));
+            QString before = curLineStr.left(qMin(m_cursorColumn, curLineStr.size()));
+            qreal cx = textLeft + fm.horizontalAdvance(before);
+            qreal cy = 4 + m_cursorLine * m_lineHeight;
+            QSGGeometryNode* grad =
+                createGradientRectNode(QRectF(cx, cy, 2, m_lineHeight - 2), QColor(0xc4, 0xa7, 0xe7, 200), QColor(0x89, 0xb4, 0xfa, 200), 0.95f);
+            root->appendChildNode(grad);
+        }
     }
 
     // Read-only overlay hint? handled in QML banner, not here
+
+    // Search match highlighting
+    if (!m_searchMatches.isEmpty())
+    {
+        // Compute line start offsets
+        QVector<int> lineOffsets;
+        lineOffsets.append(0);
+        int offset = 0;
+        for (int i = 0; i < totalLines; ++i)
+        {
+            QString line = (i < lines.size()) ? lines.at(i) : (m_doc ? m_doc->lineAt(i) : QString());
+            offset += line.size() + 1; // +1 for newline
+            lineOffsets.append(offset);
+        }
+        for (const auto& match : m_searchMatches)
+        {
+            int matchPos = match.first;
+            int matchLen = match.second;
+            // Find which line this match is on
+            int matchLine = -1;
+            int matchCol = -1;
+            for (int i = 0; i < totalLines; ++i)
+            {
+                int lineEnd = lineOffsets.value(i + 1, offset);
+                if (matchPos >= lineOffsets[i] && matchPos < lineEnd)
+                {
+                    matchLine = i;
+                    matchCol = matchPos - lineOffsets[i];
+                    break;
+                }
+            }
+            if (matchLine < 0)
+                continue;
+            // Check visibility
+            bool visible = false;
+            qreal matchY = 0;
+            if (m_wordWrap)
+            {
+                // Find which visual row contains this match
+                int availGlobal = qMax(1, int(bounds.width() - gutterW - 16));
+                int visualRow = 0;
+                for (int i = 0; i < matchLine; ++i)
+                {
+                    QString line = (i < lines.size()) ? lines.at(i) : (m_doc ? m_doc->lineAt(i) : QString());
+                    if (line.isEmpty())
+                        ++visualRow;
+                    else
+                    {
+                        QString disp = expandedTab(line);
+                        visualRow += (disp.size() + availGlobal - 1) / qMax(1, availGlobal);
+                    }
+                }
+                // Find which segment of this line contains the match column
+                QString lineText = (matchLine < lines.size()) ? lines.at(matchLine) : (m_doc ? m_doc->lineAt(matchLine) : QString());
+                QString disp = expandedTab(lineText);
+                int segStart = 0;
+                while (segStart < disp.size())
+                {
+                    int segLen = qMin(availGlobal, disp.size() - segStart);
+                    if (matchCol >= segStart && matchCol < segStart + segLen)
+                    {
+                        visible = (visualRow >= firstVisualRow && visualRow <= lastVisualRow);
+                        matchY = 4 + (visualRow - firstVisualRow) * m_lineHeight;
+                        break;
+                    }
+                    segStart += segLen;
+                    ++visualRow;
+                }
+                if (!visible)
+                    continue;
+            }
+            else
+            {
+                visible = (matchLine >= firstVisualRow && matchLine <= lastVisualRow);
+                matchY = 4 + matchLine * m_lineHeight;
+                if (!visible)
+                    continue;
+            }
+            // Compute X range of the match
+            QString lineText = (matchLine < lines.size()) ? lines.at(matchLine) : (m_doc ? m_doc->lineAt(matchLine) : QString());
+            QString disp = expandedTab(lineText);
+            QString before = disp.left(qMin(matchCol, disp.size()));
+            QString matchText = disp.mid(qMin(matchCol, disp.size()), qMin(matchLen, disp.size() - qMin(matchCol, disp.size())));
+            qreal startX = textLeft + fm.horizontalAdvance(before);
+            qreal endX = startX + fm.horizontalAdvance(matchText);
+            QSGRectangleNode* hl = win->createRectangleNode();
+            hl->setRect(QRectF(startX, matchY, endX - startX, m_lineHeight - 2));
+            QColor hlColor = m_theme.lineHighlight;
+            hlColor.setAlpha(100);
+            hl->setColor(hlColor);
+            root->appendChildNode(hl);
+        }
+    }
 
     return root;
 }

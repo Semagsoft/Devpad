@@ -126,3 +126,45 @@ void FileTreeModel::rebuild()
         m_entries.append({path, name, fi.isDir()});
     }
 }
+
+bool FileTreeModel::newFolder(const QString& name)
+{
+    if (m_rootPath.isEmpty() || name.isEmpty())
+        return false;
+    QString path = m_rootPath + QLatin1Char('/') + name;
+    QDir dir(m_rootPath);
+    if (!dir.mkdir(name))
+        return false;
+    refresh();
+    return true;
+}
+
+bool FileTreeModel::rename(const QString& oldPath, const QString& newPath)
+{
+    if (oldPath.isEmpty() || newPath.isEmpty())
+        return false;
+    QFileInfo fi(oldPath);
+    if (!fi.exists())
+        return false;
+    bool ok = QFile::rename(oldPath, newPath);
+    if (ok)
+        refresh();
+    return ok;
+}
+
+bool FileTreeModel::remove(const QString& path)
+{
+    if (path.isEmpty())
+        return false;
+    QFileInfo fi(path);
+    if (!fi.exists())
+        return false;
+    bool ok;
+    if (fi.isDir())
+        ok = QDir(path).removeRecursively();
+    else
+        ok = QFile::remove(path);
+    if (ok)
+        refresh();
+    return ok;
+}
