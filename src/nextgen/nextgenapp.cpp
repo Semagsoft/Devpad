@@ -7,6 +7,7 @@
 
 #include "core/fileservice.h"
 #include "devpad_version.h"
+#include "managers/sessionmanager.h"
 #include "nextgenactions.h"
 #include "nextgentabmodel.h"
 #include "primoeditor.h"
@@ -134,21 +135,19 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
         if (fi.isDir())
             hasFiles = true;
     }
-    // Shared session: if no files and not --no-session, restore from QSettings (shared with Widgets)
+    // Shared session: if no files and not --no-session, restore via SessionManager
+    // (shared with Widgets frontend; uses flat keys as last-clean-quit snapshot).
     if (!hasFiles && !parser.isSet(QStringLiteral("no-session")))
     {
-        // Use SessionManager's QSettings to load the shared session from the
-        // flat keys (the last clean-quit snapshot). Per-PID Session_* groups
-        // belong to individual instances and are never merged — stale ones
-        // belong to crashed processes (same rule as SessionManager::loadSessionData).
-        QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-        QStringList files = s.value(QStringLiteral("Session_Files")).toStringList();
-        for (auto& f : files)
+        SessionManager sm;
+        SessionManager::SessionData sData = sm.loadSessionData();
+        for (auto& f : sData.files)
             if (QFileInfo::exists(f))
                 tabModel->addTab(f);
-        if (!files.isEmpty() && initialFolder.isEmpty())
+        if (!sData.files.isEmpty() && initialFolder.isEmpty())
         {
-            QString proj = s.value(QStringLiteral("Session_ProjectPath")).toString();
+            tabModel->setCurrentIndex(qBound(0, sData.activeIndex, tabModel->count() - 1));
+            QString proj = sData.projectPath;
             if (!proj.isEmpty() && QDir(proj).exists())
                 initialFolder = proj;
         }
@@ -158,13 +157,9 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     QObject::connect(guiApp, &QGuiApplication::aboutToQuit, guiApp,
                      [tabModel, initialFolder]()
                      {
-                         QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-                         // Write the flat keys — the shared last-quit snapshot —
-                         // so later launches and other front-ends restore it
-                         // without merging per-PID Session_* groups.
-                         s.setValue(QStringLiteral("Session_Files"), tabModel->tabs());
-                         s.setValue(QStringLiteral("Session_ProjectPath"), initialFolder);
-                         s.sync();
+                         SessionManager sm;
+                         sm.saveSessionData(tabModel->tabs(), tabModel->currentIndex(), initialFolder,
+                                            QDir::currentPath());
                      });
 
     // Shared terminal (singleton) – simple QML TextArea via QProcess, shared across windows

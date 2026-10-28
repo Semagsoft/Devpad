@@ -109,6 +109,15 @@ public:
     Q_INVOKABLE QList<int> bookmarkLines() const;
     Q_INVOKABLE void clearBookmarks();
 
+    // Selection model
+    Q_INVOKABLE bool hasSelection() const;
+    Q_INVOKABLE QString selectedText() const;
+    Q_INVOKABLE void setSelectionAnchor(int line, int col);
+    Q_INVOKABLE void clearSelection();
+    Q_INVOKABLE void deleteSelection();
+    Q_INVOKABLE int selectionAnchorLine() const;
+    Q_INVOKABLE int selectionAnchorCol() const;
+
     // Diagnostics for minimap
     Q_INVOKABLE void setDiagnostics(const QList<int>& linesWithError);
     Q_INVOKABLE void clearDiagnostics();
@@ -163,6 +172,7 @@ private:
     QString expandedTab(const QString& line) const;
     void scheduleHighlight(int firstLine = -1, int lastLine = -1);
     void applyHighlightResult(int version, int firstLine, const QVector<QVector<QTextLayout::FormatRange>>& fmts);
+    void applySettings();
 
     PrimoDocument* m_doc = nullptr;
     QString m_encoding = QStringLiteral("UTF-8");
@@ -187,6 +197,10 @@ private:
     qreal m_gutterWidth = 48;
     QSet<int> m_bookmarks;
     QSet<int> m_diagLines;
+
+    // Selection model
+    int m_selAnchorLine = -1;
+    int m_selAnchorCol = -1;
 
     // Highlight
     ThemeColors m_theme = getThemeColors(ThemeId::Dark);

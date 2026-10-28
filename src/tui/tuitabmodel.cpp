@@ -136,3 +136,13 @@ QStringList TuiTabModel::allFilePaths() const
     }
     return out;
 }
+
+QHash<QString, QList<int>> TuiTabModel::cursors() const
+{
+    return m_cursors;
+}
+
+void TuiTabModel::setCursors(const QHash<QString, QList<int>>& cursors)
+{
+    m_cursors = cursors;
+}

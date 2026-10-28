@@ -93,6 +93,38 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
             });
 
     m_contentHeight = contentHeight();
+
+    // Listen for global settings changes (theme, font, etc.) so the nextgen
+    // editor updates live instead of only at construction time.
+    connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
+            &PrimoEditor::applySettings);
+}
+
+void PrimoEditor::applySettings()
+{
+    // Theme
+    ThemeId tid = SettingsManager::instance().theme();
+    m_theme = getThemeColors(tid);
+    m_bg = m_theme.background;
+    m_fg = m_theme.foreground;
+    emit backgroundColorChanged();
+    emit foregroundColorChanged();
+    update();
+
+    // Font
+    m_font = SettingsManager::instance().defaultFont();
+    m_tabWidth = SettingsManager::instance().tabWidth();
+    m_wordWrap = SettingsManager::instance().wordWrap();
+    ensureMetrics();
+    emit fontChanged();
+    emit tabWidthChanged();
+    emit wordWrapChanged();
+
+    // Re-highlight with new theme
+    m_highlightDirty = true;
+    m_highlightVersion++;
+    scheduleHighlight();
+    update();
 }
 
 QString PrimoEditor::filePath() const
@@ -349,6 +381,100 @@ void PrimoEditor::clearBookmarks()
     emit bookmarksChanged();
     update();
 }
+
+bool PrimoEditor::hasSelection() const
+{
+    return m_selAnchorLine != -1 && (m_selAnchorLine != m_cursorLine || m_selAnchorCol != m_cursorColumn);
+}
+
+QString PrimoEditor::selectedText() const
+{
+    if (!hasSelection() || !m_doc)
+        return QString();
+    int aLine = m_selAnchorLine;
+    int aCol = m_selAnchorCol;
+    int cLine = m_cursorLine;
+    int cCol = m_cursorColumn;
+    if (aLine > cLine || (aLine == cLine && aCol > cCol))
+    {
+        std::swap(aLine, cLine);
+        std::swap(aCol, cCol);
+    }
+    QString txt = m_doc->text();
+    QStringList lines = txt.split(QLatin1Char('\n'));
+    if (aLine == cLine)
+    {
+        return lines.value(aLine).mid(aCol, cCol - aCol);
+    }
+    QStringList parts;
+    parts.append(lines.value(aLine).mid(aCol));
+    for (int l = aLine + 1; l < cLine; ++l)
+        parts.append(lines.value(l));
+    parts.append(lines.value(cLine).left(cCol));
+    return parts.join(QLatin1Char("\n"));
+}
+
+void PrimoEditor::setSelectionAnchor(int line, int col)
+{
+    m_selAnchorLine = line;
+    m_selAnchorCol = col;
+    update();
+}
+
+void PrimoEditor::clearSelection()
+{
+    m_selAnchorLine = -1;
+    m_selAnchorCol = -1;
+    update();
+}
+
+void PrimoEditor::deleteSelection()
+{
+    if (!hasSelection() || !m_doc)
+        return;
+    int aLine = m_selAnchorLine;
+    int aCol = m_selAnchorCol;
+    int cLine = m_cursorLine;
+    int cCol = m_cursorColumn;
+    if (aLine > cLine || (aLine == cLine && aCol > cCol))
+    {
+        std::swap(aLine, cLine);
+        std::swap(aCol, cCol);
+    }
+    QString txt = m_doc->text();
+    QStringList lines = txt.split(QLatin1Char('\n'));
+    if (aLine == cLine)
+    {
+        lines[aLine].remove(aCol, cCol - aCol);
+        m_cursorColumn = aCol;
+    }
+    else
+    {
+        QString suffix = lines[cLine].left(cCol);
+        lines[aLine] = lines[aLine].left(aCol) + suffix;
+        for (int l = cLine; l > aLine; --l)
+            lines.removeAt(l);
+        m_cursorLine = aLine;
+        m_cursorColumn = aCol;
+    }
+    m_doc->setText(lines.join(QLatin1Char("\n")));
+    clearSelection();
+    m_cursorLine = qMin(m_cursorLine, lines.size() - 1);
+    m_cursorColumn = qMin(m_cursorColumn, lines.value(m_cursorLine).size());
+    emit cursorChanged();
+    update();
+}
+
+int PrimoEditor::selectionAnchorLine() const
+{
+    return m_selAnchorLine;
+}
+
+int PrimoEditor::selectionAnchorCol() const
+{
+    return m_selAnchorCol;
+}
+
 void PrimoEditor::setDiagnostics(const QList<int>& lines)
 {
     m_diagLines = QSet<int>(lines.begin(), lines.end());
@@ -413,20 +539,35 @@ void PrimoEditor::copy()
 {
     if (!m_doc)
         return;
-    QString line = m_doc->lineAt(m_cursorLine);
-    if (line.isEmpty())
-        return;
+    QString txt = selectedText();
+    if (txt.isEmpty())
+    {
+        // Fallback: copy whole line when nothing selected
+        txt = m_doc->lineAt(m_cursorLine);
+        if (txt.isEmpty())
+            return;
+    }
     if (auto* cb = QGuiApplication::clipboard())
-        cb->setText(line);
+        cb->setText(txt);
 }
 void PrimoEditor::cut()
 {
     if (m_readOnly || !m_doc)
         return;
-    QString line = m_doc->lineAt(m_cursorLine);
+    QString txt = selectedText();
+    if (!txt.isEmpty())
+    {
+        if (auto* cb = QGuiApplication::clipboard())
+            cb->setText(txt);
+        deleteSelection();
+        return;
+    }
+    // Fallback: cut whole line when nothing selected
+    txt = m_doc->lineAt(m_cursorLine);
+    if (txt.isEmpty())
+        return;
     if (auto* cb = QGuiApplication::clipboard())
-        cb->setText(line);
-    // Remove line
+        cb->setText(txt);
     QStringList ls = m_doc->text().split(QLatin1Char('\n'));
     if (m_cursorLine < 0 || m_cursorLine >= ls.size())
         return;
@@ -454,11 +595,13 @@ void PrimoEditor::paste()
 }
 void PrimoEditor::selectAll()
 {
-    // For QSG, selectAll is visual placeholder: move cursor to end and emit
     if (!m_doc)
         return;
-    m_cursorLine = qMax(0, m_doc->lineCount() - 1);
-    QString last = m_doc->lineAt(m_cursorLine);
+    int lastLine = qMax(0, m_doc->lineCount() - 1);
+    QString last = m_doc->lineAt(lastLine);
+    m_selAnchorLine = 0;
+    m_selAnchorCol = 0;
+    m_cursorLine = lastLine;
     m_cursorColumn = last.size();
     emit cursorChanged();
     update();
@@ -769,6 +912,12 @@ void PrimoEditor::keyPressEvent(QKeyEvent* event)
             m_cursorLine++;
         emit cursorChanged();
         update();
+        event->accept();
+        return;
+    }
+    if (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_V)
+    {
+        paste();
         event->accept();
         return;
     }
