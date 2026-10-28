@@ -622,8 +622,11 @@ void OptionsDialog::filterThemes(const QString& text)
 
     themeComboBox->blockSignals(false);
 
-    // Restore selection if the previously selected theme is still visible
+    // Restore selection if the previously selected theme is still visible;
+    // otherwise fall back to the first visible item so the combo is never
+    // left with no selection.
     const auto& s = SettingsManager::instance();
+    bool restored = false;
     if (!s.customTheme().isEmpty())
     {
         for (int i = 0; i < themeComboBox->count(); ++i)
@@ -631,6 +634,7 @@ void OptionsDialog::filterThemes(const QString& text)
             if (themeComboBox->itemText(i) == s.customTheme())
             {
                 themeComboBox->setCurrentIndex(i);
+                restored = true;
                 break;
             }
         }
@@ -643,10 +647,14 @@ void OptionsDialog::filterThemes(const QString& text)
             if (themeComboBox->itemData(i).toInt() == static_cast<int>(currentTheme))
             {
                 themeComboBox->setCurrentIndex(i);
+                restored = true;
                 break;
             }
         }
     }
+    if (!restored && themeComboBox->count() > 0)
+        themeComboBox->setCurrentIndex(0);
+
     updateThemePreview();
 }
 
