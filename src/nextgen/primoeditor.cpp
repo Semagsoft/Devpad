@@ -411,7 +411,7 @@ QString PrimoEditor::selectedText() const
     for (int l = aLine + 1; l < cLine; ++l)
         parts.append(lines.value(l));
     parts.append(lines.value(cLine).left(cCol));
-    return parts.join(QLatin1Char("\n"));
+    return parts.join(QLatin1Char('\n'));
 }
 
 void PrimoEditor::setSelectionAnchor(int line, int col)
@@ -457,7 +457,7 @@ void PrimoEditor::deleteSelection()
         m_cursorLine = aLine;
         m_cursorColumn = aCol;
     }
-    m_doc->setText(lines.join(QLatin1Char("\n")));
+    m_doc->setText(lines.join(QLatin1Char('\n')));
     clearSelection();
     m_cursorLine = qMin(m_cursorLine, lines.size() - 1);
     m_cursorColumn = qMin(m_cursorColumn, lines.value(m_cursorLine).size());
