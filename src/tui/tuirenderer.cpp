@@ -300,6 +300,12 @@ void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTre
         view.ensureCursorVisibleNoWrap(cur, editorH);
     }
 
+    // Horizontal scroll: computed once from the cursor position and applied
+    // to every line so columns stay aligned across the editor.
+    int hScroll = 0;
+    if (cur && availGlobal > 0 && cur->cursorCol() >= availGlobal)
+        hScroll = cur->cursorCol() - availGlobal + 1;
+
     for (int r = 0; r < editorH; ++r)
     {
         int lineIdx = view.scrollTop + r;
@@ -430,10 +436,6 @@ void TuiRenderer::drawEditor(TuiBuffer* cur, const TuiTabModel& tabs, TuiFileTre
         int avail = cols - textX;
         if (avail <= 0)
             continue;
-
-        int hScroll = 0;
-        if (cur->cursorLine() == lineIdx && cur->cursorCol() >= avail)
-            hScroll = cur->cursorCol() - avail + 1;
 
         QString visible = line.mid(hScroll, avail);
 
