@@ -128,7 +128,7 @@ public:
         bool showMenuInTitlebar = true;
         bool showToolbar = true;
         bool showStatusbar = true;
-        bool checkForUpdatesEnabled = true;
+        bool checkForUpdatesEnabled = false;
         QString uiFontFamily = "Sans Serif";
         int uiFontSize = 10;
     };
