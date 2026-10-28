@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs 6.3
 import Devpad.Nextgen 1.0
 
 // ProjectTree: file tree view for NextGen sidebar.
@@ -96,7 +97,7 @@ Pane {
                 opacity: 0.6
                 font.pixelSize: 10
                 Layout.fillWidth: true
-                alignment: Qt.AlignRight
+                Layout.alignment: Qt.AlignRight
             }
         }
     }
@@ -105,6 +106,7 @@ Pane {
     FolderDialog {
         id: folderDialog
         title: qsTr("Open Project Folder")
+        currentFolder: root.rootPath ? "file://" + root.rootPath : ""
         onAccepted: {
             var path = selectedFolder.toString().replace("file://", "");
             path = decodeURIComponent(path);

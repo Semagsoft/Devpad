@@ -102,5 +102,7 @@
         <file alias="DraggableTabBar.qml">../qml/nextgen/DraggableTabBar.qml</file>
         <file alias="TerminalPane.qml">../qml/nextgen/TerminalPane.qml</file>
         <file alias="FindInFilesDrawer.qml">../qml/nextgen/FindInFilesDrawer.qml</file>
+        <file alias="OptionsDialog.qml">../qml/nextgen/OptionsDialog.qml</file>
+        <file alias="ProjectTree.qml">../qml/nextgen/ProjectTree.qml</file>
     </qresource>
 </RCC>

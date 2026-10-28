@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
+import QtQuick.Dialogs 6.3
 import Devpad.Nextgen 1.0
 
 ApplicationWindow {
@@ -353,7 +353,6 @@ ApplicationWindow {
         modal: true
         standardButtons: Dialog.Close
         OptionsDialog {
-            anchors.fill: parent
             actions: win.actions
         }
     }
