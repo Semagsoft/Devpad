@@ -241,7 +241,7 @@ bool ExternalToolManager::runTool(int index, const QString& filePath, const QStr
                                  textGuard->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
                          });
         QObject::connect(process, &QProcess::errorOccurred, outputDialog,
-                         [textGuard, process](QProcess::ProcessError error)
+                         [textGuard](QProcess::ProcessError error)
                          {
                              if (!textGuard)
                                  return;
