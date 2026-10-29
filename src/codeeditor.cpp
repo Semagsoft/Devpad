@@ -565,6 +565,14 @@ void CodeEditor::setAutoCloseBrackets(bool enabled)
     m_autoCloseBrackets = enabled;
 }
 
+void CodeEditor::setMinimapVisible(bool visible)
+{
+    if (m_minimapVisible == visible)
+        return;
+    m_minimapVisible = visible;
+    emit minimapVisibleChanged(visible);
+}
+
 void CodeEditor::setupLspIndicators()
 {
     // Error indicator: red squiggle underline

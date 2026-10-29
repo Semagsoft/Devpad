@@ -175,6 +175,7 @@ void SettingsManager::loadCache()
     m_cache.editor.highlightCurrentLine = m_settings.value("Options_HighlightCurrentLine", true).toBool();
     m_cache.editor.verticalEdgeEnabled = m_settings.value("Options_VerticalEdgeEnabled", false).toBool();
     m_cache.editor.verticalEdgeColumn = qBound(1, m_settings.value("Options_VerticalEdgeColumn", 80).toInt(), 500);
+    m_cache.editor.showMinimap = m_settings.value("Options_ShowMinimap", false).toBool();
     m_cache.editor.snippetsEnabled = m_settings.value("Options_SnippetsEnabled", true).toBool();
     m_cache.editor.predictiveSnippets = m_settings.value("Options_PredictiveSnippets", true).toBool();
 
@@ -481,6 +482,7 @@ void SettingsManager::applyToEditor(CodeEditor* editor) const
     editor->setCursorBlinking(cursorBlinking());
     editor->setHighlightCurrentLine(highlightCurrentLine());
     editor->setVerticalEdge(verticalEdgeEnabled(), verticalEdgeColumn());
+    editor->setMinimapVisible(showMinimap());
 }
 
 void SettingsManager::setDefaultFontFamily(const QString& family)
@@ -592,6 +594,14 @@ void SettingsManager::setVerticalEdgeColumn(int column)
 {
     column = qBound(1, column, 500);
     writeCached("Options_VerticalEdgeColumn", m_cache.editor.verticalEdgeColumn, column);
+}
+bool SettingsManager::showMinimap() const
+{
+    return m_cache.editor.showMinimap;
+}
+void SettingsManager::setShowMinimap(bool visible)
+{
+    writeCached("Options_ShowMinimap", m_cache.editor.showMinimap, visible);
 }
 bool SettingsManager::snippetsEnabled() const
 {

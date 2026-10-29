@@ -113,6 +113,7 @@ public:
         bool highlightCurrentLine = true;
         bool verticalEdgeEnabled = false;
         int verticalEdgeColumn = 80;
+        bool showMinimap = false;
         bool snippetsEnabled = true;
         bool predictiveSnippets = true;
         QString customTheme; // name of active custom user theme, empty for built-in
@@ -234,6 +235,8 @@ public:
     void setHighlightCurrentLine(bool enabled);
     void setVerticalEdgeEnabled(bool enabled);
     void setVerticalEdgeColumn(int column);
+    bool showMinimap() const;
+    void setShowMinimap(bool visible);
     void applyToEditor(CodeEditor* editor) const;
 
     // ── UI settings ────────────────────────────────────────────

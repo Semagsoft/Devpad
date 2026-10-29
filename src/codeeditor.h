@@ -103,6 +103,12 @@ public:
     void setReadOnlyMode(bool enabled);
     bool isReadOnlyMode() const;
 
+    void setMinimapVisible(bool visible);
+    bool minimapVisible() const
+    {
+        return m_minimapVisible;
+    }
+
     void toggleComment();
     void toggleBookmark();
     void toggleBookmark(int line);
@@ -181,6 +187,7 @@ signals:
     void insertSnippetRequested();
     void navigateToLocation(const QString& filePath, int line, int column);
     void diagnosticsChanged(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
+    void minimapVisibleChanged(bool visible);
 
 public slots:
     void forceModified();
@@ -205,6 +212,7 @@ private:
     QScopedPointer<QsciAPIs> m_apis;
     bool m_lineNumbersVisible = true;
     bool m_autoCloseBrackets = true;
+    bool m_minimapVisible = false;
 
     bool handleAutoClose(QChar ch, int pos);
     bool handleBracketSkip(QChar ch, int pos);

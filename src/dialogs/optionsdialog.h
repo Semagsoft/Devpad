@@ -96,6 +96,7 @@ private:
     QCheckBox* wordWrapCheckBox = nullptr;
     QCheckBox* codeCollapsingCheckBox = nullptr;
     QCheckBox* showWhitespaceCheckBox = nullptr;
+    QCheckBox* showMinimapCheckBox = nullptr;
     QCheckBox* cursorBlinkingCheckBox = nullptr;
     QCheckBox* highlightCurrentLineCheckBox = nullptr;
     QCheckBox* verticalEdgeCheckBox = nullptr;

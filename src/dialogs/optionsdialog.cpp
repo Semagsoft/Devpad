@@ -356,11 +356,13 @@ void OptionsDialog::setupEditorTab()
     wordWrapCheckBox = new QCheckBox(tr("Word wrap"), displayGroup);
     codeCollapsingCheckBox = new QCheckBox(tr("Code collapsing"), displayGroup);
     showWhitespaceCheckBox = new QCheckBox(tr("Show whitespace"), displayGroup);
+    showMinimapCheckBox = new QCheckBox(tr("Show minimap"), displayGroup);
     displayLayout->addWidget(showLineNumbersCheckBox);
     displayLayout->addWidget(scrollPastContentCheckBox);
     displayLayout->addWidget(wordWrapCheckBox);
     displayLayout->addWidget(codeCollapsingCheckBox);
     displayLayout->addWidget(showWhitespaceCheckBox);
+    displayLayout->addWidget(showMinimapCheckBox);
     displayLayout->addStretch();
     mainLayout->addWidget(displayGroup);
 
@@ -733,6 +735,7 @@ void OptionsDialog::loadSettings()
     wordWrapCheckBox->setChecked(s.wordWrap());
     codeCollapsingCheckBox->setChecked(s.codeCollapsing());
     showWhitespaceCheckBox->setChecked(s.showWhitespace());
+    showMinimapCheckBox->setChecked(s.showMinimap());
     autoCompletionCheckBox->setChecked(s.autoCompletionEnabled());
     autoCompletionThresholdSpin->setValue(s.autoCompletionThreshold());
     autoCompletionCaseSensitiveCheckBox->setChecked(s.autoCompletionCaseSensitive());
@@ -812,6 +815,7 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setWordWrap(wordWrapCheckBox->isChecked());
     SettingsManager::instance().setCodeCollapsing(codeCollapsingCheckBox->isChecked());
     SettingsManager::instance().setShowWhitespace(showWhitespaceCheckBox->isChecked());
+    SettingsManager::instance().setShowMinimap(showMinimapCheckBox->isChecked());
     SettingsManager::instance().setAutoCompletionEnabled(autoCompletionCheckBox->isChecked());
     SettingsManager::instance().setAutoCompletionThreshold(autoCompletionThresholdSpin->value());
     SettingsManager::instance().setAutoCompletionCaseSensitive(autoCompletionCaseSensitiveCheckBox->isChecked());

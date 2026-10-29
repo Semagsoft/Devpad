@@ -457,6 +457,7 @@ void TabManager::applySettingsToAll(const SettingsManager::EditorSettings& setti
                 editor->setCursorBlinking(settings.cursorBlinking);
                 editor->setHighlightCurrentLine(settings.highlightCurrentLine);
                 editor->setVerticalEdge(settings.verticalEdgeEnabled, settings.verticalEdgeColumn);
+                editor->setMinimapVisible(settings.showMinimap);
                 updateTabTitle(editor);
             }
         }

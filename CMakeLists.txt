@@ -245,6 +245,7 @@ add_library(Devpad_lib STATIC
     src/widgets/windowsframebridge.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/editorcontainer.cpp
+    src/widgets/minimap.cpp
     src/tui/tuisession.cpp
     src/tui/tuicommand.cpp
     src/tui/tuiinput.cpp
