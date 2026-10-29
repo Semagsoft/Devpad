@@ -416,9 +416,14 @@ ApplicationWindow {
             }
         }
         onAccepted: {
-            actions.showMessage(mode === "folder"
-                                ? "Remote folder opening is not yet available in Nextgen (Widgets edition only)."
-                                : "Remote file opening is not yet available in Nextgen (Widgets edition only).");
+            var url = remoteUrlField.text.trimmed()
+            if (url === "") return
+            if (actions.isRemoteLoading()) {
+                actions.showMessage("Remote download already in progress")
+                return
+            }
+            actions.openRemoteFile(url)
+            // The editor will load the file once download finishes (see remoteLoadFinished)
         }
     }
 
@@ -527,7 +532,14 @@ ApplicationWindow {
         target: tabs
         function onCurrentIndexChanged() {
             var f = tabs.currentFile();
-            if (f && primo.filePath !== f) primo.loadFile(f);
+            if (f && primo.filePath !== f)
+            {
+                // Load in the pane this tab is assigned to
+                if (tabs.tabPane(tabs.currentIndex) === 1 && primo2)
+                    primo2.loadFile(f);
+                else
+                    primo.loadFile(f);
+            }
         }
         function onPane2IndexChanged() {
             var f = tabs.pane2File();
@@ -566,6 +578,18 @@ ApplicationWindow {
         }
         function onRequestLspStop() {
             lspClient.stopServer()
+        }
+        function onRemoteLoadFinished(url, localPath, success, error) {
+            if (success && localPath) {
+                var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                if (ed) {
+                    ed.loadFile(localPath)
+                    tabs.addTab(localPath)
+                }
+            } else if (!success) {
+                statusMsg.text = "Remote download failed: " + error
+                statusMsgTimer.restart()
+            }
         }
     }
 

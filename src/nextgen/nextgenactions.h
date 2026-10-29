@@ -13,10 +13,13 @@
 #include "theme.h"
 
 #include <QObject>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QStringList>
 
 class PrimoEditor;
 class ExternalToolManager;
+class QTemporaryDir;
 
 class NextgenActions : public QObject
 {
@@ -115,6 +118,11 @@ public:
     Q_INVOKABLE void runExternalTool(int index, const QString& filePath, const QString& projectDir,
                                      const QString& selectedText, int lineNumber);
 
+    // ── Remote file support ──
+    Q_INVOKABLE void openRemoteFile(const QString& url);
+    Q_INVOKABLE bool isRemoteLoading() const;
+    Q_INVOKABLE QString remoteLoadError() const;
+
 public slots:
     void newFile();
     void openFile(const QString& path = QString());
@@ -188,10 +196,22 @@ signals:
     // LSP server control (requested by command mode)
     void requestLspStart(const QString& command, const QStringList& args, const QString& rootUri);
     void requestLspStop();
+    // Remote file signals
+    void remoteLoadStarted(const QString& url);
+    void remoteLoadProgress(const QString& url, qint64 bytesReceived, qint64 bytesTotal);
+    void remoteLoadFinished(const QString& url, const QString& localPath, bool success, const QString& error);
 
 private:
     PrimoEditor* m_editor = nullptr;
     ExternalToolManager* m_externalToolManager = nullptr;
+    QNetworkAccessManager* m_networkManager = nullptr;
+    QNetworkReply* m_currentReply = nullptr;
+    bool m_remoteLoading = false;
+    QString m_remoteLoadError;
+
+    void onRemoteDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
+    void onRemoteDownloadFinished(const QString& tempPath, const QString& url);
+    void onRemoteDownloadError(QNetworkReply::NetworkError code);
 };
 
 #endif // NEXTGENACTIONS_H

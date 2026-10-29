@@ -10,7 +10,6 @@
 #include "encodingutils.h"
 #include "managers/settingsmanager.h"
 #include "managers/externaltoolmanager.h"
-#include "managers/externaltoolmanager.h"
 #include "nextgen/primoeditor.h"
 #include "nextgen/primoterminal.h"
 #include "theme.h"
@@ -21,9 +20,14 @@
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QRegularExpression>
+#include <QStandardPaths>
+#include <QTemporaryDir>
 
-NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this))
+NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this)),
+    m_networkManager(new QNetworkAccessManager(this)), m_currentReply(nullptr), m_remoteLoading(false)
 {
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
             [this]()
@@ -34,7 +38,8 @@ NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(null
                 emit recentFilesChanged();
             });
 }
-NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent) : QObject(parent), m_editor(editor), m_externalToolManager(new ExternalToolManager(this))
+NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent) : QObject(parent), m_editor(editor), m_externalToolManager(new ExternalToolManager(this)),
+    m_networkManager(new QNetworkAccessManager(this)), m_currentReply(nullptr), m_remoteLoading(false)
 {
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
             [this]()
@@ -881,4 +886,114 @@ QString NextgenActions::runCommand(const QString& rawCmd)
     }
 
     return QStringLiteral("Unknown command: %1").arg(cmd);
+}
+
+// ── Remote file support ────────────────────────────────────────────
+void NextgenActions::openRemoteFile(const QString& url)
+{
+    if (m_remoteLoading)
+    {
+        emit showMessage(QStringLiteral("Remote download already in progress"));
+        return;
+    }
+    QUrl qUrl(url);
+    if (!qUrl.isValid() || qUrl.scheme().isEmpty())
+    {
+        emit showMessage(QStringLiteral("Invalid URL: ") + url);
+        return;
+    }
+
+    m_remoteLoading = true;
+    m_remoteLoadError.clear();
+    emit remoteLoadStarted(url);
+
+    QString fileName = QFileInfo(qUrl.path()).fileName();
+    if (fileName.isEmpty())
+        fileName = QStringLiteral("remote.txt");
+    QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QLatin1Char('/') + fileName;
+
+    QNetworkRequest request(qUrl);
+    m_currentReply = m_networkManager->get(request);
+    connect(m_currentReply, &QNetworkReply::downloadProgress, this, &NextgenActions::onRemoteDownloadProgress);
+    connect(m_currentReply, &QNetworkReply::finished, this, [this, tempPath, url]() {
+        onRemoteDownloadFinished(tempPath, url);
+    });
+    connect(m_currentReply, &QNetworkReply::errorOccurred, this, &NextgenActions::onRemoteDownloadError);
+}
+
+bool NextgenActions::isRemoteLoading() const
+{
+    return m_remoteLoading;
+}
+
+QString NextgenActions::remoteLoadError() const
+{
+    return m_remoteLoadError;
+}
+
+void NextgenActions::onRemoteDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
+{
+    emit remoteLoadProgress(m_currentReply ? m_currentReply->url().toString() : QString(),
+                            bytesReceived, bytesTotal);
+}
+
+void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QString& url)
+{
+    QNetworkReply* reply = m_currentReply;
+    m_currentReply = nullptr;
+    m_remoteLoading = false;
+
+    QString error;
+    QString localPath;
+
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        error = reply->errorString();
+        m_remoteLoadError = error;
+        emit remoteLoadFinished(url, localPath, false, error);
+        emit showMessage(QStringLiteral("Remote download failed: ") + error);
+        reply->deleteLater();
+        return;
+    }
+
+    QByteArray data = reply->readAll();
+    reply->deleteLater();
+
+    // Save to temp file
+    QFile file(tempPath);
+    if (!file.open(QIODevice::WriteOnly))
+    {
+        error = QStringLiteral("Cannot write temp file: ") + tempPath;
+        m_remoteLoadError = error;
+        emit remoteLoadFinished(url, localPath, false, error);
+        emit showMessage(QStringLiteral("Cannot save remote file: ") + error);
+        return;
+    }
+    file.write(data);
+    file.close();
+
+    localPath = tempPath;
+    m_remoteLoadError.clear();
+    emit remoteLoadFinished(url, localPath, true, QString());
+    emit showMessage(QStringLiteral("Remote file downloaded: ") + url);
+
+    // Load into editor
+    if (m_editor)
+    {
+        m_editor->loadFile(localPath);
+    }
+}
+
+void NextgenActions::onRemoteDownloadError(QNetworkReply::NetworkError code)
+{
+    Q_UNUSED(code);
+    m_remoteLoading = false;
+    if (m_currentReply)
+    {
+        m_remoteLoadError = m_currentReply->errorString();
+        emit remoteLoadFinished(m_currentReply->url().toString(), QString(), false, m_remoteLoadError);
+        emit showMessage(QStringLiteral("Remote download error: ") + m_remoteLoadError);
+        m_currentReply->deleteLater();
+        m_currentReply = nullptr;
+    }
 }

@@ -464,6 +464,53 @@ QStringList SessionManager::loadSessionPinnedFiles()
     return files;
 }
 
+void SessionManager::saveSessionSplitState(bool splitVisible, const QVariantList& tabPanes)
+{
+    if (!m_sessionLock.tryLock(5000))
+    {
+        Logger::instance().error("Failed to acquire session lock for saveSessionSplitState");
+        return;
+    }
+
+    m_sessionSettings.beginGroup(sessionGroupPrefix());
+    m_sessionSettings.setValue(QStringLiteral("SplitVisible"), splitVisible);
+    m_sessionSettings.setValue(QStringLiteral("TabPanes"), tabPanes);
+    m_sessionSettings.endGroup();
+    m_sessionSettings.setValue(QStringLiteral("Session_SplitVisible"), splitVisible);
+    m_sessionSettings.setValue(QStringLiteral("Session_TabPanes"), tabPanes);
+    m_sessionSettings.sync();
+
+    m_sessionLock.unlock();
+}
+
+SessionManager::SplitSessionState SessionManager::loadSessionSplitState()
+{
+    SplitSessionState state;
+    if (!m_sessionLock.tryLock(5000))
+    {
+        Logger::instance().error("Failed to acquire session lock in loadSessionSplitState");
+        return state;
+    }
+
+    QString group = sessionGroupPrefix();
+    if (m_sessionSettings.childGroups().contains(group))
+    {
+        m_sessionSettings.beginGroup(group);
+        state.splitVisible = m_sessionSettings.value(QStringLiteral("SplitVisible"), false).toBool();
+        state.tabPanes = m_sessionSettings.value(QStringLiteral("TabPanes")).toList();
+        m_sessionSettings.endGroup();
+    }
+    if (state.tabPanes.isEmpty())
+    {
+        state.splitVisible = m_sessionSettings.value(QStringLiteral("Session_SplitVisible"), false).toBool();
+        state.tabPanes = m_sessionSettings.value(QStringLiteral("Session_TabPanes")).toList();
+    }
+
+    m_sessionLock.unlock();
+
+    return state;
+}
+
 void SessionManager::clearSession()
 {
     if (!m_sessionLock.tryLock(5000))
@@ -489,6 +536,8 @@ void SessionManager::clearSession()
     m_sessionSettings.remove(QStringLiteral("Session_Cursors"));
     m_sessionSettings.remove(QStringLiteral("Session_PinnedFiles"));
     m_sessionSettings.remove(QStringLiteral("Session_TerminalWorkingDir"));
+    m_sessionSettings.remove(QStringLiteral("Session_SplitVisible"));
+    m_sessionSettings.remove(QStringLiteral("Session_TabPanes"));
     m_sessionSettings.remove(QStringLiteral("HasSession"));
     m_sessionSettings.sync();
 

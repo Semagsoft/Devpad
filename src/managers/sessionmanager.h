@@ -69,6 +69,15 @@ public:
     void clearSession();
     SessionData loadSessionData();
 
+    // ── Split view persistence (Nextgen frontend) ────────────────
+    void saveSessionSplitState(bool splitVisible, const QVariantList& tabPanes);
+    struct SplitSessionState
+    {
+        bool splitVisible = false;
+        QVariantList tabPanes;
+    };
+    SplitSessionState loadSessionSplitState();
+
 signals:
     void sessionRestored();
 

@@ -39,6 +39,12 @@ public:
     Q_INVOKABLE void setCursorForTab(int index, int line, int col);
     Q_INVOKABLE QVariantList cursorForTab(int index) const;
 
+    // Per-tab pane assignment (0=left, 1=right) for split persistence
+    Q_INVOKABLE int tabPane(int index) const;
+    Q_INVOKABLE void setTabPane(int index, int pane);
+    Q_INVOKABLE QVariantList tabPanes() const;
+    Q_INVOKABLE void setTabPanes(const QVariantList& panes);
+
     Q_INVOKABLE QString tabAt(int idx) const;
     Q_INVOKABLE QString displayName(int idx) const;
     Q_INVOKABLE void addTab(const QString& filePath);
@@ -65,6 +71,8 @@ private:
     bool m_splitVisible = false;
     // Per-tab cursor positions: parallel list to m_tabs, each entry is {line, col}
     QList<QList<int>> m_tabCursors;
+    // Per-tab pane assignment: parallel list to m_tabs, each entry is 0 (left) or 1 (right)
+    QList<int> m_tabPanes;
 };
 
 #endif // NEXTGENTABMODEL_H

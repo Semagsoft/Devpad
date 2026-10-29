@@ -144,6 +144,7 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     {
         SessionManager sm;
         SessionManager::SessionData sData = sm.loadSessionData();
+        SessionManager::SplitSessionState sSplit = sm.loadSessionSplitState();
         for (auto& f : sData.files)
             if (QFileInfo::exists(f))
                 tabModel->addTab(f);
@@ -153,6 +154,22 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
             QString proj = sData.projectPath;
             if (!proj.isEmpty() && QDir(proj).exists())
                 initialFolder = proj;
+        }
+        // Restore split view state
+        tabModel->setSplitVisible(sSplit.splitVisible);
+        tabModel->setTabPanes(sSplit.tabPanes);
+        // If split is visible and we have a pane2 file, set pane2Index
+        if (sSplit.splitVisible && !sData.files.isEmpty())
+        {
+            // Find first tab assigned to right pane
+            for (int i = 0; i < tabModel->count(); ++i)
+            {
+                if (tabModel->tabPane(i) == 1)
+                {
+                    tabModel->setPane2Index(i);
+                    break;
+                }
+            }
         }
         // Restore per-tab cursor positions
         QHash<QString, QList<int>> sCursors = sm.loadSessionCursors();
@@ -196,6 +213,12 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
                              }
                          }
                          sm.saveSessionCursors(cursors);
+
+                         // Save split view state
+                         QVariantList paneList;
+                         for (int i = 0; i < tabModel->count(); ++i)
+                             paneList.append(tabModel->tabPane(i));
+                         sm.saveSessionSplitState(tabModel->splitVisible(), paneList);
                      });
 
     // Shared terminal (singleton) – simple QML TextArea via QProcess, shared across windows
