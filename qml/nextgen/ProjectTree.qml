@@ -49,41 +49,34 @@ Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            ListView {
+            TreeView {
                 id: fileList
-                width: parent.width
-                height: contentHeight
+                anchors.fill: parent
                 model: fileTreeModel
-                delegate: ItemDelegate {
-                    width: fileList.width
-                    padding: 6
-                    contentItem: Row {
-                        spacing: 8
-                        Item {
-                            width: model.isDir ? 16 : 0
-                            Text {
-                                text: model.isDir ? "📁" : "📄"
-                                font.pixelSize: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
+                delegate: Item {
+                    id: treeDelegate
+                    implicitWidth: fileList.width
+                    implicitHeight: 24
+                    required property var model
+                    required property int depth
+                    Row {
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: depth * 12
+                        spacing: 6
+                        Text { text: model.isDir ? "📁" : "📄"; font.pixelSize: 12 }
                         Text {
                             text: model.fileName
                             elide: Text.ElideMiddle
                             font.pixelSize: 12
                             color: model.isDir ? palette.highlightedText : palette.windowText
-                            anchors.verticalCenter: parent.verticalCenter
-                            Layout.fillWidth: true
                         }
                     }
-                    onClicked: {
-                        if (!model.isDir && editor) {
-                            editor.loadFile(model.filePath)
-                            if (tabs) tabs.addTab(model.filePath)
-                        } else if (model.isDir) {
-                            // For now, just refresh to show directory contents
-                            // Full recursive tree would need a tree model
-                            console.log("Directory: " + model.filePath)
+                    TapHandler {
+                        onTapped: {
+                            if (!model.isDir && editor) {
+                                editor.loadFile(model.filePath)
+                                if (tabs) tabs.addTab(model.filePath)
+                            }
                         }
                     }
                 }
@@ -162,7 +155,7 @@ Pane {
             var newName = textInput.text.trimmed()
             if (newName && oldPath && fileModel) {
                 var dir = oldPath.substring(0, oldPath.lastIndexOf("/") + 1)
-                fileModel.rename(oldPath, dir + newName)
+                fileModel.renamePath(oldPath, dir + newName)
             }
         }
         onOpened: {
