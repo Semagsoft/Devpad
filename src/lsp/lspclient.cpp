@@ -607,6 +607,30 @@ void LspClient::requestSignatureHelp(const QString& uri, const Position& pos)
                 [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit signatureHelpReady(uri, result.toObject()); });
 }
 
+void LspClient::requestCompletionAt(const QString& uri, int line, int character, int triggerKind)
+{
+    Position p; p.line = line; p.character = character;
+    requestCompletion(uri, p, triggerKind);
+}
+
+void LspClient::requestDefinitionAt(const QString& uri, int line, int character)
+{
+    Position p; p.line = line; p.character = character;
+    requestDefinition(uri, p);
+}
+
+void LspClient::requestHoverAt(const QString& uri, int line, int character)
+{
+    Position p; p.line = line; p.character = character;
+    requestHover(uri, p);
+}
+
+void LspClient::requestSignatureHelpAt(const QString& uri, int line, int character)
+{
+    Position p; p.line = line; p.character = character;
+    requestSignatureHelp(uri, p);
+}
+
 void LspClient::requestDiagnostics(const QString& uri)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.diagnosticProvider)

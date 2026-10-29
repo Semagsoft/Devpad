@@ -8,6 +8,7 @@ MenuBar {
     id: root
     property var actions: null
     property var editor: null
+    visible: actions ? actions.showMenuBar : true
 
     // File
     Menu {

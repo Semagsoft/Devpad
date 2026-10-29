@@ -8,7 +8,7 @@ import Devpad.Nextgen 1.0
 // Respects .gitignore and showHidden via FileTreeModel (C++).
 Pane {
     id: root
-    property var model: fileTreeModel
+    property var fileModel: fileTreeModel
     property string rootPath: ""
     property var editor: null
     property string deletePath: ""
@@ -30,15 +30,15 @@ Pane {
             }
             CheckBox {
                 text: qsTr("Hidden")
-                checked: model ? model.showHidden : false
-                onToggled: model.setShowHidden(checked)
+                checked: fileModel ? fileModel.showHidden : false
+                onToggled: if (fileModel) fileModel.showHidden = checked
                 ToolTip.text: qsTr("Show hidden files")
                 font.pixelSize: 10
             }
             CheckBox {
                 text: qsTr("GitIgnore")
-                checked: model ? model.useGitIgnore : true
-                onToggled: model.setUseGitIgnore(checked)
+                checked: fileModel ? fileModel.useGitIgnore : true
+                onToggled: if (fileModel) fileModel.useGitIgnore = checked
                 ToolTip.text: qsTr("Respect .gitignore")
                 font.pixelSize: 10
             }
@@ -50,7 +50,9 @@ Pane {
             clip: true
             ListView {
                 id: fileList
-                model: model
+                width: parent.width
+                height: contentHeight
+                model: fileTreeModel
                 delegate: ItemDelegate {
                     width: fileList.width
                     padding: 6
@@ -91,7 +93,7 @@ Pane {
             spacing: 4
             ToolButton {
                 text: "Refresh"
-                onClicked: model.refresh()
+                onClicked: if (fileModel) fileModel.refresh()
             }
             ToolButton {
                 text: "New Folder"
@@ -101,18 +103,21 @@ Pane {
                 text: "Rename"
                 onClicked: {
                     var idx = fileList.currentIndex
-                    if (idx >= 0) renameInput.text = model.fileName(idx); renameDialog.open()
+                    if (idx >= 0 && fileModel) renameDialog.open()
                 }
             }
             ToolButton {
                 text: "Delete"
                 onClicked: {
                     var idx = fileList.currentIndex
-                    if (idx >= 0) { deletePath = model.filePath(idx); deleteDialog.open() }
+                    if (idx >= 0 && fileModel) {
+                        root.deletePath = fileModel.filePath(idx)
+                        deleteDialog.open()
+                    }
                 }
             }
             Label {
-                text: model ? model.count + " items" : "0 items"
+                text: fileList.count + " items"
                 opacity: 0.6
                 font.pixelSize: 10
                 Layout.fillWidth: true
@@ -130,7 +135,7 @@ Pane {
             var path = selectedFolder.toString().replace("file://", "");
             path = decodeURIComponent(path);
             root.rootPath = path;
-            model.setRootPath(path);
+            if (fileModel) fileModel.rootPath = path
         }
     }
 
@@ -139,10 +144,9 @@ Pane {
         id: newFolderDialog
         title: qsTr("New Folder")
         label: qsTr("Folder name:")
-        textInputMode: TextInput.NormalText
         onAccepted: {
             var name = textInput.text.trimmed()
-            if (name && model) model.newFolder(name)
+            if (name && fileModel) fileModel.newFolder(name)
         }
     }
 
@@ -151,20 +155,19 @@ Pane {
         id: renameDialog
         title: qsTr("Rename")
         label: qsTr("New name:")
-        textInputMode: TextInput.NormalText
         property string oldPath: ""
         onAccepted: {
             var newName = textInput.text.trimmed()
-            if (newName && oldPath) {
+            if (newName && oldPath && fileModel) {
                 var dir = oldPath.substring(0, oldPath.lastIndexOf("/") + 1)
-                model.rename(oldPath, dir + newName)
+                fileModel.rename(oldPath, dir + newName)
             }
         }
         onOpened: {
             var idx = fileList.currentIndex
-            if (idx >= 0) {
-                oldPath = model.filePath(idx)
-                textInput.text = model.fileName(idx)
+            if (idx >= 0 && fileModel) {
+                oldPath = fileModel.filePath(idx)
+                textInput.text = fileModel.fileName(idx)
             }
         }
     }
@@ -173,21 +176,19 @@ Pane {
     MessageDialog {
         id: deleteDialog
         title: qsTr("Delete")
-        icon: MessageDialog.Warning
         text: qsTr("Delete %1?").arg(root.deletePath.split("/").pop())
-        standardButtons: StandardButtons.Yes | StandardButtons.No
-        onOpened: {
-            var idx = fileList.currentIndex
-            if (idx >= 0) root.deletePath = model.filePath(idx)
+        buttons: MessageDialog.Yes | MessageDialog.No
+        onAccepted: {
+            if (root.deletePath && fileModel) fileModel.remove(root.deletePath)
+            root.deletePath = ""
         }
-        onYes: {
-            if (root.deletePath && model) model.remove(root.deletePath)
-        }
+        onRejected: root.deletePath = ""
     }
 
+    onRootPathChanged: {
+        if (rootPath && fileModel) fileModel.rootPath = rootPath
+    }
     Component.onCompleted: {
-        if (rootPath) {
-            model.setRootPath(rootPath);
-        }
+        if (rootPath && fileModel) fileModel.rootPath = rootPath
     }
 }

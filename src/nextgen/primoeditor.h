@@ -24,6 +24,7 @@ class PrimoEditor : public QQuickItem
 {
     Q_OBJECT
     Q_PROPERTY(QString filePath READ filePath WRITE setFilePath NOTIFY filePathChanged)
+    Q_PROPERTY(PrimoDocument* document READ document CONSTANT)
     Q_PROPERTY(QString text READ text WRITE setText NOTIFY textChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(QString encoding READ encoding WRITE setEncoding NOTIFY encodingChanged)

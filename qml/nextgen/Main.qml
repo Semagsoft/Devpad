@@ -44,7 +44,7 @@ ApplicationWindow {
         running: actions.autoSaveEnabled
         onTriggered: {
             var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
-            if (ed && !ed.readOnly && ed.document && ed.document.isModified && ed.filePath !== "") {
+            if (ed && !ed.readOnly && ed.document && ed.document.modified && ed.filePath !== "") {
                 ed.save()
             }
         }
@@ -114,7 +114,7 @@ ApplicationWindow {
         Pane {
             id: largeBanner
             Layout.fillWidth: true
-            visible: primo.readOnly && primo.document && primo.document.length > 50*1024*1024
+            visible: primo.readOnly && primo.document && primo.document.text.length > 50*1024*1024
             padding: 6
             background: Rectangle { color: "#ffcc00"; opacity: 0.9 }
             RowLayout {
@@ -370,7 +370,6 @@ ApplicationWindow {
             var path = selectedFolder.toString().replace("file://", "");
             path = decodeURIComponent(path);
             folder = path;
-            actions.openFile(path);
         }
     }
     FileDialog {
@@ -696,29 +695,29 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Z"; onActivated: actions.undo() }
     Shortcut { sequence: "Ctrl+Y"; onActivated: actions.redo() }
     Shortcut { sequence: "Ctrl+Shift+Z"; onActivated: actions.redo() }
-    Shortcut { sequence: ":"; onActivated: commandBar.show() }
+    Shortcut { sequence: "Ctrl+Shift+P"; onActivated: commandBar.show() }
     Shortcut { sequence: "Ctrl+Space"; onActivated: {
         var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
         if (!ed || !ed.filePath) return
         var uri = "file://" + ed.filePath
-        lspClient.requestCompletion(uri, ed.cursorLine, ed.cursorColumn, 1)
+        lspClient.requestCompletionAt(uri, ed.cursorLine, ed.cursorColumn, 1)
     } }
     Shortcut { sequence: "F12"; onActivated: {
         var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
         if (!ed || !ed.filePath) return
         var uri = "file://" + ed.filePath
-        lspClient.requestDefinition(uri, ed.cursorLine, ed.cursorColumn)
+        lspClient.requestDefinitionAt(uri, ed.cursorLine, ed.cursorColumn)
     } }
     Shortcut { sequence: "Ctrl+Shift+Space"; onActivated: {
         var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
         if (!ed || !ed.filePath) return
         var uri = "file://" + ed.filePath
-        lspClient.requestSignatureHelp(uri, ed.cursorLine, ed.cursorColumn)
+        lspClient.requestSignatureHelpAt(uri, ed.cursorLine, ed.cursorColumn)
     } }
     Shortcut { sequence: "Ctrl+Alt+H"; onActivated: {
         var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
         if (!ed || !ed.filePath) return
         var uri = "file://" + ed.filePath
-        lspClient.requestHover(uri, ed.cursorLine, ed.cursorColumn)
+        lspClient.requestHoverAt(uri, ed.cursorLine, ed.cursorColumn)
     } }
 }

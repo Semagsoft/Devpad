@@ -84,7 +84,7 @@ Pane {
         // Highlight via diagnostics? For MVP just move cursor
     }
     function doReplace() {
-        if (!editor || editor.readOnly || editor.isUndoDisabled) return
+        if (!editor || editor.readOnly || editor.undoDisabled) return
         var pat = findField.text
         var rep = replaceField.text
         if (!pat) return

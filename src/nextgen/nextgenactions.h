@@ -31,6 +31,8 @@ class NextgenActions : public QObject
     Q_PROPERTY(QStringList recentFolders READ recentFolders NOTIFY recentFilesChanged)
     Q_PROPERTY(QString currentEncoding READ currentEncoding NOTIFY currentEncodingChanged)
     Q_PROPERTY(QObject* editor READ editorObj WRITE setEditorObj NOTIFY editorChanged)
+    Q_PROPERTY(QStringList themeNames READ themeNames NOTIFY themeChanged)
+    Q_PROPERTY(QString currentThemeName READ currentThemeName NOTIFY themeChanged)
     // ── Theme/UI options exposed to QML Options dialog ──
     Q_PROPERTY(bool checkForUpdatesEnabled READ checkForUpdatesEnabled WRITE setCheckForUpdatesEnabled NOTIFY settingsChanged)
     Q_PROPERTY(bool wordWrap READ wordWrap WRITE setWordWrap NOTIFY settingsChanged)
@@ -53,11 +55,11 @@ public:
     explicit NextgenActions(PrimoEditor* editor, QObject* parent = nullptr);
 
     bool showToolbar() const;
-    void setShowToolbar(bool v);
+    Q_INVOKABLE void setShowToolbar(bool v);
     bool showStatusbar() const;
-    void setShowStatusbar(bool v);
+    Q_INVOKABLE void setShowStatusbar(bool v);
     bool showMenuBar() const;
-    void setShowMenuBar(bool v);
+    Q_INVOKABLE void setShowMenuBar(bool v);
 
     QStringList recentFiles() const;
     QStringList recentFolders() const;

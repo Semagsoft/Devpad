@@ -301,15 +301,15 @@ Dialog {
                                     spacing: 10
                                     RowLayout {
                                         CheckBox { text: qsTr("Show menu bar"); checked: actions ? actions.showMenuBar : true
-                                              onToggled: actions.setShowMenuBar(checked); Layout.fillWidth: true }
+                                              onToggled: actions.showMenuBar = checked; Layout.fillWidth: true }
                                     }
                                     RowLayout {
                                         CheckBox { text: qsTr("Show tool bar"); checked: actions ? actions.showToolbar : true
-                                              onToggled: actions.setShowToolbar(checked); Layout.fillWidth: true }
+                                              onToggled: actions.showToolbar = checked; Layout.fillWidth: true }
                                     }
                                     RowLayout {
                                         CheckBox { text: qsTr("Show status bar"); checked: actions ? actions.showStatusbar : true
-                                              onToggled: actions.setShowStatusbar(checked); Layout.fillWidth: true }
+                                              onToggled: actions.showStatusbar = checked; Layout.fillWidth: true }
                                     }
                                 }
                             }

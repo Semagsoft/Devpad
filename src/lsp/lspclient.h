@@ -53,6 +53,11 @@ public:
     // LSP requests
     Q_INVOKABLE void requestCompletion(const QString& uri, const Position& pos, int triggerKind = 1);
     Q_INVOKABLE void requestDefinition(const QString& uri, const Position& pos);
+    // Convenience overloads for QML (which cannot construct lsp::Position)
+    Q_INVOKABLE void requestCompletionAt(const QString& uri, int line, int character, int triggerKind = 1);
+    Q_INVOKABLE void requestDefinitionAt(const QString& uri, int line, int character);
+    Q_INVOKABLE void requestHoverAt(const QString& uri, int line, int character);
+    Q_INVOKABLE void requestSignatureHelpAt(const QString& uri, int line, int character);
     Q_INVOKABLE void requestHover(const QString& uri, const Position& pos);
     Q_INVOKABLE void requestSignatureHelp(const QString& uri, const Position& pos);
     Q_INVOKABLE void requestReferences(const QString& uri, const Position& pos);

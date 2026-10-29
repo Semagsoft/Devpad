@@ -189,6 +189,8 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
         }
         tabModel->setTabCursors(cursorList);
     }
+    // Keep QML's initialFolder in sync if session restore changed it
+    engine.rootContext()->setContextProperty(QStringLiteral("initialFolder"), initialFolder);
     engine.rootContext()->setContextProperty(QStringLiteral("tabModel"), tabModel);
     // Save session on quit (shared)
     QObject::connect(guiApp, &QGuiApplication::aboutToQuit, guiApp,
@@ -258,13 +260,13 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     qmlRegisterType<PrimoFindInFiles>("Devpad.Nextgen", 1, 0, "PrimoFindInFiles");
     qmlRegisterType<FileTreeModel>("Devpad.Nextgen", 1, 0, "FileTreeModel");
 
-    // Register LSP types for QML
-    qmlRegisterUncreatableType<lsp::Position>("Devpad.Nextgen", 1, 0, "LspPosition", QStringLiteral("Position is read-only"));
-    qmlRegisterUncreatableType<lsp::Range>("Devpad.Nextgen", 1, 0, "LspRange", QStringLiteral("Range is read-only"));
-    qmlRegisterUncreatableType<lsp::Location>("Devpad.Nextgen", 1, 0, "LspLocation", QStringLiteral("Location is read-only"));
-    qmlRegisterUncreatableType<lsp::Diagnostic>("Devpad.Nextgen", 1, 0, "LspDiagnostic", QStringLiteral("Diagnostic is read-only"));
-    qmlRegisterUncreatableType<lsp::CompletionItem>("Devpad.Nextgen", 1, 0, "LspCompletionItem", QStringLiteral("CompletionItem is read-only"));
-    qmlRegisterUncreatableType<lsp::CompletionList>("Devpad.Nextgen", 1, 0, "LspCompletionList", QStringLiteral("CompletionList is read-only"));
+    // Register LSP types for QML (value type names must begin with a lowercase letter)
+    qmlRegisterUncreatableType<lsp::Position>("Devpad.Nextgen", 1, 0, "lspPosition", QStringLiteral("Position is read-only"));
+    qmlRegisterUncreatableType<lsp::Range>("Devpad.Nextgen", 1, 0, "lspRange", QStringLiteral("Range is read-only"));
+    qmlRegisterUncreatableType<lsp::Location>("Devpad.Nextgen", 1, 0, "lspLocation", QStringLiteral("Location is read-only"));
+    qmlRegisterUncreatableType<lsp::Diagnostic>("Devpad.Nextgen", 1, 0, "lspDiagnostic", QStringLiteral("Diagnostic is read-only"));
+    qmlRegisterUncreatableType<lsp::CompletionItem>("Devpad.Nextgen", 1, 0, "lspCompletionItem", QStringLiteral("CompletionItem is read-only"));
+    qmlRegisterUncreatableType<lsp::CompletionList>("Devpad.Nextgen", 1, 0, "lspCompletionList", QStringLiteral("CompletionList is read-only"));
 
     // Try embedded QML first (resource), fallback to file system for dev builds
     const QUrl qmlUrl(QStringLiteral("qrc:/qml/nextgen/Main.qml"));

@@ -86,7 +86,7 @@ Pane {
             opacity: 0.6
         }
         Label {
-            text: editor && editor.document ? editor.document.length + " chars" : "0 chars"
+            text: editor && editor.document ? editor.document.text.length + " chars" : "0 chars"
             font.pixelSize: 11
             opacity: 0.6
         }
