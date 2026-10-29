@@ -235,6 +235,14 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     qmlRegisterType<PrimoFindInFiles>("Devpad.Nextgen", 1, 0, "PrimoFindInFiles");
     qmlRegisterType<FileTreeModel>("Devpad.Nextgen", 1, 0, "FileTreeModel");
 
+    // Register LSP types for QML
+    qmlRegisterUncreatableType<lsp::Position>("Devpad.Nextgen", 1, 0, "LspPosition", QStringLiteral("Position is read-only"));
+    qmlRegisterUncreatableType<lsp::Range>("Devpad.Nextgen", 1, 0, "LspRange", QStringLiteral("Range is read-only"));
+    qmlRegisterUncreatableType<lsp::Location>("Devpad.Nextgen", 1, 0, "LspLocation", QStringLiteral("Location is read-only"));
+    qmlRegisterUncreatableType<lsp::Diagnostic>("Devpad.Nextgen", 1, 0, "LspDiagnostic", QStringLiteral("Diagnostic is read-only"));
+    qmlRegisterUncreatableType<lsp::CompletionItem>("Devpad.Nextgen", 1, 0, "LspCompletionItem", QStringLiteral("CompletionItem is read-only"));
+    qmlRegisterUncreatableType<lsp::CompletionList>("Devpad.Nextgen", 1, 0, "LspCompletionList", QStringLiteral("CompletionList is read-only"));
+
     // Try embedded QML first (resource), fallback to file system for dev builds
     const QUrl qmlUrl(QStringLiteral("qrc:/qml/nextgen/Main.qml"));
     const QString fsQml = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("../qml/nextgen/Main.qml"));

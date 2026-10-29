@@ -37,45 +37,34 @@ public:
     explicit LspClient(const QString& language, QObject* parent = nullptr);
     ~LspClient() override;
 
-    void startServer(const QString& command, const QStringList& args, const QString& rootUri);
-    void stopServer();
-    bool isRunning() const;
-    const QString& language() const
-    {
-        return m_language;
-    }
-    const ServerCapabilities& capabilities() const
-    {
-        return m_capabilities;
-    }
-    QString rootUri() const
-    {
-        return m_rootUri;
-    }
+    Q_INVOKABLE void startServer(const QString& command, const QStringList& args, const QString& rootUri);
+    Q_INVOKABLE void stopServer();
+    Q_INVOKABLE bool isRunning() const;
+    Q_INVOKABLE QString language() const { return m_language; }
+    Q_INVOKABLE const ServerCapabilities& capabilities() const { return m_capabilities; }
+    Q_INVOKABLE QString rootUri() const { return m_rootUri; }
 
     // Document synchronization
-    void openDocument(const QString& uri, const QString& text, int version);
-    void changeDocument(const QString& uri, const QString& text, int version);
-    void closeDocument(const QString& uri);
-    void saveDocument(const QString& uri);
+    Q_INVOKABLE void openDocument(const QString& uri, const QString& text, int version);
+    Q_INVOKABLE void changeDocument(const QString& uri, const QString& text, int version);
+    Q_INVOKABLE void closeDocument(const QString& uri);
+    Q_INVOKABLE void saveDocument(const QString& uri);
 
     // LSP requests
-    void requestCompletion(const QString& uri, const Position& pos, int triggerKind = 1);
-    void requestDefinition(const QString& uri, const Position& pos);
-    void requestReferences(const QString& uri, const Position& pos);
-    void requestHover(const QString& uri, const Position& pos);
-    void requestDocumentSymbols(const QString& uri);
-    void requestFormatting(const QString& uri, int tabSize, bool insertSpaces);
-    void requestRangeFormatting(const QString& uri, const Range& range, int tabSize, bool insertSpaces);
-    void requestSignatureHelp(const QString& uri, const Position& pos);
-
-    // Force re-diagnostics for a document
-    void requestDiagnostics(const QString& uri);
-    void requestRename(const QString& uri, const Position& pos, const QString& newName);
+    Q_INVOKABLE void requestCompletion(const QString& uri, const Position& pos, int triggerKind = 1);
+    Q_INVOKABLE void requestDefinition(const QString& uri, const Position& pos);
+    Q_INVOKABLE void requestHover(const QString& uri, const Position& pos);
+    Q_INVOKABLE void requestSignatureHelp(const QString& uri, const Position& pos);
+    Q_INVOKABLE void requestReferences(const QString& uri, const Position& pos);
+    Q_INVOKABLE void requestDocumentSymbols(const QString& uri);
+    Q_INVOKABLE void requestFormatting(const QString& uri, int tabSize, bool insertSpaces);
+    Q_INVOKABLE void requestRangeFormatting(const QString& uri, const Range& range, int tabSize, bool insertSpaces);
+    Q_INVOKABLE void requestRename(const QString& uri, const Position& pos, const QString& newName);
+    Q_INVOKABLE void requestCodeAction(const QString& uri, const Range& range, const QList<Diagnostic>& diagnostics);
+    Q_INVOKABLE void requestDiagnostics(const QString& uri);
     void requestDocumentHighlight(const QString& uri, const Position& pos);
     void requestTypeDefinition(const QString& uri, const Position& pos);
     void requestDeclaration(const QString& uri, const Position& pos);
-    void requestCodeAction(const QString& uri, const Range& range, const QList<Diagnostic>& diagnostics);
     void requestWorkspaceSymbols(const QString& query);
     void requestSelectionRanges(const QString& uri, const QList<Position>& positions);
     void requestLinkedEditingRange(const QString& uri, const Position& pos);

@@ -185,6 +185,9 @@ signals:
     void requestTabFirst();
     void requestTabLast();
     void requestTabClose();
+    // LSP server control (requested by command mode)
+    void requestLspStart(const QString& command, const QStringList& args, const QString& rootUri);
+    void requestLspStop();
 
 private:
     PrimoEditor* m_editor = nullptr;

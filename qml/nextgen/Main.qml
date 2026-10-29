@@ -558,6 +558,77 @@ ApplicationWindow {
         function onRequestTabClose() { tabs.closeTab(tabs.currentIndex) }
     }
 
+    // LSP integration
+    Connections {
+        target: actions
+        function onRequestLspStart(command, args, rootUri) {
+            lspClient.startServer(command, args, rootUri)
+        }
+        function onRequestLspStop() {
+            lspClient.stopServer()
+        }
+    }
+
+    // LSP integration
+    Connections {
+        target: lspClient
+        function onServerStarted() {
+            statusMsg.text = "LSP server started"
+            statusMsgTimer.restart()
+        }
+        function onServerStopped() {
+            statusMsg.text = "LSP server stopped"
+            statusMsgTimer.restart()
+        }
+        function onServerError(err) {
+            statusMsg.text = "LSP error: " + err
+            statusMsgTimer.restart()
+        }
+        function onCompletionReady(uri, completions) {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed) return
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            if (ed.filePath !== path) return
+            var items = []
+            for (var i = 0; i < completions.items.length; i++) {
+                var item = completions.items[i]
+                var label = item.label
+                if (item.detail) label += " (" + item.detail + ")"
+                items.push(label)
+            }
+            completionModel = items
+            if (items.length > 0) {
+                completionPopup.x = ed.mapToItem(win.contentItem, 0, 0).x
+                completionPopup.y = ed.mapToItem(win.contentItem, 0, 0).y + ed.lineHeight
+                completionPopup.open()
+            } else {
+                completionPopup.close()
+            }
+        }
+        function onDefinitionReady(uri, location) {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed) return
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            if (ed.filePath !== path) return
+            ed.setCursorPosition(location.range.start.line, location.range.start.character)
+            ed.forceActiveFocus()
+            var fl = ed === primo2 ? flick2 : flick
+            fl.contentY = Math.max(0, location.range.start.line * ed.lineHeight - fl.height / 2)
+            statusMsg.text = "Jumped to definition at line " + (location.range.start.line + 1)
+            statusMsgTimer.restart()
+        }
+        function onHoverReady(uri, contents) {
+            statusMsg.text = contents
+            statusMsgTimer.restart()
+        }
+        function onSignatureHelpReady(uri, info) {
+            statusMsg.text = "Signature: " + JSON.stringify(info)
+            statusMsgTimer.restart()
+        }
+    }
+
     Connections {
         target: lspClient
         function onDiagnosticsReady(uri, diagnostics) {
@@ -602,4 +673,28 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Y"; onActivated: actions.redo() }
     Shortcut { sequence: "Ctrl+Shift+Z"; onActivated: actions.redo() }
     Shortcut { sequence: ":"; onActivated: commandBar.show() }
+    Shortcut { sequence: "Ctrl+Space"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestCompletion(uri, ed.cursorLine, ed.cursorColumn, 1)
+    } }
+    Shortcut { sequence: "F12"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestDefinition(uri, ed.cursorLine, ed.cursorColumn)
+    } }
+    Shortcut { sequence: "Ctrl+Shift+Space"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestSignatureHelp(uri, ed.cursorLine, ed.cursorColumn)
+    } }
+    Shortcut { sequence: "Ctrl+Alt+H"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestHover(uri, ed.cursorLine, ed.cursorColumn)
+    } }
 }

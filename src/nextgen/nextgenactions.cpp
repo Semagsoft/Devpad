@@ -856,5 +856,29 @@ QString NextgenActions::runCommand(const QString& rawCmd)
     if (cmd == QStringLiteral("version") || cmd == QStringLiteral("ver"))
         return QStringLiteral("Devpad Nextgen ") + QStringLiteral(DEVPAD_VERSION);
 
+    // ── LSP ───────────────────────────────────────────
+    if (cmd.startsWith(QStringLiteral("lsp start")) || cmd.startsWith(QStringLiteral("lsp ")))
+    {
+        QString rest = cmd.startsWith(QStringLiteral("lsp start")) ? cmd.mid(QStringLiteral("lsp start").size()).trimmed()
+                                                                    : cmd.mid(QStringLiteral("lsp ").size()).trimmed();
+        QStringList parts = rest.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+        if (parts.isEmpty())
+            return QStringLiteral("Usage: :lsp start <command> [args...]");
+        QString command = parts[0];
+        QStringList args = parts.mid(1);
+        QString rootUri = QStringLiteral("file://") + QDir::currentPath();
+        emit requestLspStart(command, args, rootUri);
+        return QStringLiteral("Starting LSP server: ") + command;
+    }
+    if (cmd == QStringLiteral("lsp stop"))
+    {
+        emit requestLspStop();
+        return QStringLiteral("LSP server stopped");
+    }
+    if (cmd == QStringLiteral("lsp status"))
+    {
+        return QStringLiteral("LSP server status: check server output");
+    }
+
     return QStringLiteral("Unknown command: %1").arg(cmd);
 }
