@@ -397,12 +397,12 @@ TEST(TuiCommand, BookmarkNextPrev)
 
     // Start at line 3, go to prev bookmark (line 1)
     cur->setCursor(3, 0);
-    auto res = runCmd(QStringLiteral("bp"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("bp"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(statusMsg, QStringLiteral("Prev bookmark 2"));
     EXPECT_EQ(cur->cursorLine(), 1);
 
     // From line 1, go to next bookmark (line 3)
-    res = runCmd(QStringLiteral("bn"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("bn"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(statusMsg, QStringLiteral("Next bookmark 4"));
     EXPECT_EQ(cur->cursorLine(), 3);
 
