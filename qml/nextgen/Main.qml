@@ -239,6 +239,7 @@ ApplicationWindow {
                         onActiveFocusChanged: if (activeFocus) { nextgenActions.editor = primo; commandBar.editor = primo }
                         onTextChanged: {
                             triggerCompletion()
+                            minimap.requestPaint()
                             if (lspClient) {
                                 var uri = "file://" + primo.filePath
                                 lspClient.changeDocument(uri, primo.text, 1)
@@ -256,7 +257,6 @@ ApplicationWindow {
                         }
                         onDiagnosticsChanged: minimap.requestPaint()
                         onBookmarksChanged: minimap.requestPaint()
-                        onTextChanged: minimap.requestPaint()
                         onCursorChanged: {
                             var idx = tabs.currentIndex;
                             tabs.setCursorForTab(idx, primo.cursorLine, primo.cursorColumn);
