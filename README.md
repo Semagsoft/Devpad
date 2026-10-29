@@ -215,7 +215,7 @@ DEVPAD_NEXTGEN=1 ./build/Devpad file.txt  # env-var trigger
 
 Without `-DBUILD_NEXTGEN=ON`, `--nextgen` prints a hint and exits with code 1. `--tui` and `--nextgen` are mutually exclusive.
 
-`primoEditor` is a new `QObject`-backed editor (`src/nextgen/primoeditor.h:11`, `src/nextgen/primodocument.h:11`) exposed to QML as `Devpad.Nextgen.PrimoEditor`/`PrimoDocument`. QML shell lives at `qml/nextgen/Main.qml` (loaded via `src/nextgen/nextgenapp.cpp:45`). In headless/offscreen/pipe mode `Devpad --nextgen` cats files to stdout (like TUI). Future work: custom `QSG` rope rendering, async highlighting, LSP bridge reusing `src/lsp/*`.
+`primoEditor` is a `QObject`-backed editor (`src/nextgen/primoeditor.h:11`, `src/nextgen/primodocument.h:11`) exposed to QML as `Devpad.Nextgen.PrimoEditor`/`PrimoDocument`. QML shell lives at `qml/nextgen/Main.qml` (loaded via `src/nextgen/nextgenapp.cpp:45`). Features: QSG rendering with gutter + minimap, async highlighting, draggable split tabs, project tree, Find/Replace + Find in Files, terminal drawer, LSP bridge, 17 themes, command mode (`:`). Requires Qt **6.6+** (uses `QSGTextNode`). In headless/offscreen/pipe mode `Devpad --nextgen` cats files to stdout (like TUI). CI smoke test: `--nextgen --nextgen-smoke-test` (exits 0 on successful QML load).
 
 ## Configuration
 

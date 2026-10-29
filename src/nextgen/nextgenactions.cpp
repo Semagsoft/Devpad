@@ -735,6 +735,21 @@ QString NextgenActions::runCommand(const QString& rawCmd)
             m_editor->setLanguage(arg);
         return QStringLiteral("Syntax language set to %1").arg(arg);
     }
+    if (cmd.startsWith(QStringLiteral("set searchcase")) || cmd.startsWith(QStringLiteral("set searchwhole")) || cmd.startsWith(QStringLiteral("set searchregex")))
+    {
+        QString which = cmd.startsWith(QStringLiteral("set searchcase")) ? QStringLiteral("case")
+                      : cmd.startsWith(QStringLiteral("set searchwhole")) ? QStringLiteral("whole")
+                      : QStringLiteral("regex");
+        QString arg = cmd.section(' ', -1).trimmed().toLower();
+        bool on = (arg == QStringLiteral("on") || arg == QStringLiteral("1") || arg == QStringLiteral("true"));
+        if (arg == QStringLiteral("off") || arg == QStringLiteral("0") || arg == QStringLiteral("false"))
+            on = false;
+        if (arg.isEmpty() || (arg != QStringLiteral("on") && arg != QStringLiteral("off") && arg != QStringLiteral("1") && arg != QStringLiteral("0") && arg != QStringLiteral("true") && arg != QStringLiteral("false")))
+            return QStringLiteral("Usage: :set search%1 [on|off]").arg(which);
+        emit showMessage(QStringLiteral("Search %1: %2 (use Find bar)").arg(which, on ? QStringLiteral("on") : QStringLiteral("off")));
+        return QStringLiteral("Search %1 %2").arg(which, on ? QStringLiteral("on") : QStringLiteral("off"));
+    }
+
     if (cmd.startsWith(QStringLiteral("set encoding")))
     {
         QString arg = cmd.mid(QStringLiteral("set encoding").size()).trimmed();
