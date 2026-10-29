@@ -136,15 +136,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.3'
-          modules: 'qtdeclarative qtquickcontrols2'
-          cache: true
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            qt6-base-dev qt6-declarative-dev qt6-quickcontrols2-dev \
+            qt6-tools-dev libgl-dev
       - name: Configure
         run: cmake -S . -B build-ng -DCMAKE_BUILD_TYPE=Release -DBUILD_NEXTGEN=ON -DBUILD_TESTS=OFF
       - name: Build
