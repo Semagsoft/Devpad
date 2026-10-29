@@ -42,11 +42,17 @@ public:
     explicit Minimap(CodeEditor* editor, QWidget* parent = nullptr);
     ~Minimap() override = default;
 
-    CodeEditor* editor() const { return m_editor; }
+    CodeEditor* editor() const
+    {
+        return m_editor;
+    }
 
     // Width of the minimap strip in pixels.
     void setStripWidth(int width);
-    int stripWidth() const { return m_stripWidth; }
+    int stripWidth() const
+    {
+        return m_stripWidth;
+    }
 
 protected:
     void paintEvent(QPaintEvent* event) override;

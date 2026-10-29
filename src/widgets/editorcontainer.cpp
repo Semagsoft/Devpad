@@ -2,11 +2,11 @@
 
 #include "codeeditor.h"
 #include "inlinefindbar.h"
-#include "minimap.h"
 #include "managers/settingsmanager.h"
+#include "minimap.h"
 
-#include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QVBoxLayout>
 
 EditorContainer::EditorContainer(CodeEditor* editor, QWidget* parent) : QWidget(parent), m_editor(editor)
 {
@@ -36,10 +36,8 @@ EditorContainer::EditorContainer(CodeEditor* editor, QWidget* parent) : QWidget(
     // Keep the minimap visibility in sync with the editor flag and with
     // global setting changes (e.g. toggling in the Options dialog).
     setMinimapVisible(SettingsManager::instance().showMinimap());
-    connect(m_editor, &CodeEditor::minimapVisibleChanged, this,
-            [this](bool visible) { setMinimapVisible(visible); });
-    connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
-            &EditorContainer::applyMinimapSetting);
+    connect(m_editor, &CodeEditor::minimapVisibleChanged, this, [this](bool visible) { setMinimapVisible(visible); });
+    connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this, &EditorContainer::applyMinimapSetting);
 }
 
 void EditorContainer::applyMinimapSetting()

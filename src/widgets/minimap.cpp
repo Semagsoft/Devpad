@@ -20,9 +20,9 @@
 
 #include "codeeditor.h"
 
-#include <QPainter>
 #include <QFontMetrics>
 #include <QMouseEvent>
+#include <QPainter>
 
 namespace
 {
@@ -208,9 +208,8 @@ QColor Minimap::colorForLine(const QString& text) const
         return palette().text().color();
 
     // Comment-ish lines.
-    if (trimmed.startsWith(QLatin1String("//")) || trimmed.startsWith(QLatin1String("#")) ||
-        trimmed.startsWith(QLatin1String("/*")) || trimmed.startsWith(QLatin1String("*")) ||
-        trimmed.startsWith(QLatin1String("'")) || trimmed.startsWith(QLatin1String("--")))
+    if (trimmed.startsWith(QLatin1String("//")) || trimmed.startsWith(QLatin1String("#")) || trimmed.startsWith(QLatin1String("/*")) ||
+        trimmed.startsWith(QLatin1String("*")) || trimmed.startsWith(QLatin1String("'")) || trimmed.startsWith(QLatin1String("--")))
     {
         return QColor(140, 140, 140); // gray
     }
@@ -220,41 +219,34 @@ QColor Minimap::colorForLine(const QString& text) const
 
     const QStringView tv = QStringView(trimmed);
     // Keyword / definition starts.
-    if (tv.startsWith(QLatin1String("function")) || tv.startsWith(QLatin1String("def ")) ||
-        tv.startsWith(QLatin1String("class ")) || tv.startsWith(QLatin1String("struct ")) ||
-        tv.startsWith(QLatin1String("interface")) || tv.startsWith(QLatin1String("enum ")) ||
-        tv.startsWith(QLatin1String("namespace")) || tv.startsWith(QLatin1String("pub ")) ||
-        tv.startsWith(QLatin1String("fn ")))
+    if (tv.startsWith(QLatin1String("function")) || tv.startsWith(QLatin1String("def ")) || tv.startsWith(QLatin1String("class ")) ||
+        tv.startsWith(QLatin1String("struct ")) || tv.startsWith(QLatin1String("interface")) || tv.startsWith(QLatin1String("enum ")) ||
+        tv.startsWith(QLatin1String("namespace")) || tv.startsWith(QLatin1String("pub ")) || tv.startsWith(QLatin1String("fn ")))
     {
         return QColor(180, 110, 220); // purple
     }
     // Imports / includes.
-    if (tv.startsWith(QLatin1String("import")) || tv.startsWith(QLatin1String("include")) ||
-        tv.startsWith(QLatin1String("from ")) || tv.startsWith(QLatin1String("using ")) ||
-        tv.startsWith(QLatin1String("require")))
+    if (tv.startsWith(QLatin1String("import")) || tv.startsWith(QLatin1String("include")) || tv.startsWith(QLatin1String("from ")) ||
+        tv.startsWith(QLatin1String("using ")) || tv.startsWith(QLatin1String("require")))
     {
         return QColor(180, 110, 220); // purple
     }
     // Flow control.
-    if (tv.startsWith(QLatin1String("if")) || tv.startsWith(QLatin1String("for")) ||
-        tv.startsWith(QLatin1String("while")) || tv.startsWith(QLatin1String("switch")) ||
-        tv.startsWith(QLatin1String("case")) || tv.startsWith(QLatin1String("return")) ||
+    if (tv.startsWith(QLatin1String("if")) || tv.startsWith(QLatin1String("for")) || tv.startsWith(QLatin1String("while")) ||
+        tv.startsWith(QLatin1String("switch")) || tv.startsWith(QLatin1String("case")) || tv.startsWith(QLatin1String("return")) ||
         tv.startsWith(QLatin1String("break")) || tv.startsWith(QLatin1String("continue")))
     {
         return QColor(180, 110, 220); // purple
     }
     // Variable declarations.
-    if (tv.startsWith(QLatin1String("const")) || tv.startsWith(QLatin1String("let")) ||
-        tv.startsWith(QLatin1String("var")) || tv.startsWith(QLatin1String("int ")) ||
-        tv.startsWith(QLatin1String("float ")) || tv.startsWith(QLatin1String("double ")) ||
-        tv.startsWith(QLatin1String("bool ")) || tv.startsWith(QLatin1String("auto ")) ||
-        tv.startsWith(QLatin1String("string")))
+    if (tv.startsWith(QLatin1String("const")) || tv.startsWith(QLatin1String("let")) || tv.startsWith(QLatin1String("var")) ||
+        tv.startsWith(QLatin1String("int ")) || tv.startsWith(QLatin1String("float ")) || tv.startsWith(QLatin1String("double ")) ||
+        tv.startsWith(QLatin1String("bool ")) || tv.startsWith(QLatin1String("auto ")) || tv.startsWith(QLatin1String("string")))
     {
         return QColor(220, 180, 60); // yellow
     }
     // String literals present on the line.
-    if (text.contains(QLatin1Char('"')) || text.contains(QLatin1Char('\'')) ||
-        text.contains(QLatin1String("`")))
+    if (text.contains(QLatin1Char('"')) || text.contains(QLatin1Char('\'')) || text.contains(QLatin1String("`")))
     {
         return QColor(120, 180, 100); // green
     }
