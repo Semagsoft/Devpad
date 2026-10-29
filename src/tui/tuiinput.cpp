@@ -11,9 +11,9 @@
 #include "tui/tuihighlighter.h"
 #include "tui/tuisearchengine.h"
 
+#include <QClipboard>
 #include <QDir>
 #include <QFileInfo>
-#include <QClipboard>
 #include <QGuiApplication>
 #include <QRegularExpression>
 
@@ -835,8 +835,8 @@ bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiF
 
 #ifdef BUILD_TUI
 bool TuiInput::handleMouseInput(MEVENT& event, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiInputState& st,
-                                QHash<QString, QDateTime>& /*fileMtimes*/, int editorH, int tabBarH, int treeWidth,
-                                bool fileTreeVisible, int /*rows*/, int /*cols*/)
+                                QHash<QString, QDateTime>& /*fileMtimes*/, int editorH, int tabBarH, int treeWidth, bool fileTreeVisible,
+                                int /*rows*/, int /*cols*/)
 {
     Q_UNUSED(tabs);
 

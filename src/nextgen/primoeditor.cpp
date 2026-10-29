@@ -6,9 +6,9 @@
 #include "primoeditor.h"
 
 #include "core/fileservice.h"
+#include "keywords.h"
 #include "managers/settingsmanager.h"
 #include "primoshader.h"
-#include "keywords.h"
 #include "theme.h"
 
 #include <QClipboard>
@@ -104,8 +104,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
 
     // Listen for global settings changes (theme, font, etc.) so the nextgen
     // editor updates live instead of only at construction time.
-    connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
-            &PrimoEditor::applySettings);
+    connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this, &PrimoEditor::applySettings);
 }
 
 void PrimoEditor::applySettings()
@@ -513,11 +512,9 @@ static QString escapeRegex(const QString& s)
     out.reserve(s.size());
     for (QChar ch : s)
     {
-        if (ch == QLatin1Char('\\') || ch == QLatin1Char('.') || ch == QLatin1Char('+') ||
-            ch == QLatin1Char('*') || ch == QLatin1Char('?') || ch == QLatin1Char('^') ||
-            ch == QLatin1Char('$') || ch == QLatin1Char('{') || ch == QLatin1Char('}') ||
-            ch == QLatin1Char('[') || ch == QLatin1Char(']') || ch == QLatin1Char('(') ||
-            ch == QLatin1Char(')') || ch == QLatin1Char('|'))
+        if (ch == QLatin1Char('\\') || ch == QLatin1Char('.') || ch == QLatin1Char('+') || ch == QLatin1Char('*') || ch == QLatin1Char('?') ||
+            ch == QLatin1Char('^') || ch == QLatin1Char('$') || ch == QLatin1Char('{') || ch == QLatin1Char('}') || ch == QLatin1Char('[') ||
+            ch == QLatin1Char(']') || ch == QLatin1Char('(') || ch == QLatin1Char(')') || ch == QLatin1Char('|'))
         {
             out += QLatin1Char('\\');
         }
@@ -774,26 +771,46 @@ QStringList PrimoEditor::completionList(const QString& prefix) const
         return result;
     QString lang = m_doc->language().isEmpty() ? QStringLiteral("cpp") : m_doc->language();
     const QStringList* keywords = nullptr;
-    if (lang == QStringLiteral("cpp")) keywords = &cppKeywords();
-    else if (lang == QStringLiteral("csharp")) keywords = &csharpKeywords();
-    else if (lang == QStringLiteral("java")) keywords = &javaKeywords();
-    else if (lang == QStringLiteral("python")) keywords = &pythonKeywords();
-    else if (lang == QStringLiteral("javascript")) keywords = &javascriptKeywords();
-    else if (lang == QStringLiteral("typescript")) keywords = &typescriptKeywords();
-    else if (lang == QStringLiteral("html")) keywords = &htmlKeywords();
-    else if (lang == QStringLiteral("css")) keywords = &cssKeywords();
-    else if (lang == QStringLiteral("xml")) keywords = &xmlKeywords();
-    else if (lang == QStringLiteral("sql")) keywords = &sqlKeywords();
-    else if (lang == QStringLiteral("bash")) keywords = &bashKeywords();
-    else if (lang == QStringLiteral("lua")) keywords = &luaKeywords();
-    else if (lang == QStringLiteral("go")) keywords = &goKeywords();
-    else if (lang == QStringLiteral("rust")) keywords = &rustKeywords();
-    else if (lang == QStringLiteral("php")) keywords = &phpKeywords();
-    else if (lang == QStringLiteral("markdown")) keywords = &markdownKeywords();
-    else if (lang == QStringLiteral("json")) keywords = &jsonKeywords();
-    else if (lang == QStringLiteral("qml")) keywords = &qmlKeywords();
-    else if (lang == QStringLiteral("cmake")) keywords = &cmakeKeywords();
-    else keywords = &cppKeywords();
+    if (lang == QStringLiteral("cpp"))
+        keywords = &cppKeywords();
+    else if (lang == QStringLiteral("csharp"))
+        keywords = &csharpKeywords();
+    else if (lang == QStringLiteral("java"))
+        keywords = &javaKeywords();
+    else if (lang == QStringLiteral("python"))
+        keywords = &pythonKeywords();
+    else if (lang == QStringLiteral("javascript"))
+        keywords = &javascriptKeywords();
+    else if (lang == QStringLiteral("typescript"))
+        keywords = &typescriptKeywords();
+    else if (lang == QStringLiteral("html"))
+        keywords = &htmlKeywords();
+    else if (lang == QStringLiteral("css"))
+        keywords = &cssKeywords();
+    else if (lang == QStringLiteral("xml"))
+        keywords = &xmlKeywords();
+    else if (lang == QStringLiteral("sql"))
+        keywords = &sqlKeywords();
+    else if (lang == QStringLiteral("bash"))
+        keywords = &bashKeywords();
+    else if (lang == QStringLiteral("lua"))
+        keywords = &luaKeywords();
+    else if (lang == QStringLiteral("go"))
+        keywords = &goKeywords();
+    else if (lang == QStringLiteral("rust"))
+        keywords = &rustKeywords();
+    else if (lang == QStringLiteral("php"))
+        keywords = &phpKeywords();
+    else if (lang == QStringLiteral("markdown"))
+        keywords = &markdownKeywords();
+    else if (lang == QStringLiteral("json"))
+        keywords = &jsonKeywords();
+    else if (lang == QStringLiteral("qml"))
+        keywords = &qmlKeywords();
+    else if (lang == QStringLiteral("cmake"))
+        keywords = &cmakeKeywords();
+    else
+        keywords = &cppKeywords();
     if (keywords)
     {
         for (const QString& kw : *keywords)
@@ -1405,9 +1422,8 @@ void PrimoEditor::keyPressEvent(QKeyEvent* event)
         if (!word.isEmpty())
         {
             // Check if word matches a snippet trigger
-            QStringList triggers = {QStringLiteral("for"), QStringLiteral("if"), QStringLiteral("else"),
-                                    QStringLiteral("func"), QStringLiteral("fn"), QStringLiteral("class"),
-                                    QStringLiteral("main")};
+            QStringList triggers = {QStringLiteral("for"), QStringLiteral("if"),    QStringLiteral("else"), QStringLiteral("func"),
+                                    QStringLiteral("fn"),  QStringLiteral("class"), QStringLiteral("main")};
             if (triggers.contains(word))
             {
                 insertSnippet(word);

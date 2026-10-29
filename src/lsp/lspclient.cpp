@@ -609,25 +609,33 @@ void LspClient::requestSignatureHelp(const QString& uri, const Position& pos)
 
 void LspClient::requestCompletionAt(const QString& uri, int line, int character, int triggerKind)
 {
-    Position p; p.line = line; p.character = character;
+    Position p;
+    p.line = line;
+    p.character = character;
     requestCompletion(uri, p, triggerKind);
 }
 
 void LspClient::requestDefinitionAt(const QString& uri, int line, int character)
 {
-    Position p; p.line = line; p.character = character;
+    Position p;
+    p.line = line;
+    p.character = character;
     requestDefinition(uri, p);
 }
 
 void LspClient::requestHoverAt(const QString& uri, int line, int character)
 {
-    Position p; p.line = line; p.character = character;
+    Position p;
+    p.line = line;
+    p.character = character;
     requestHover(uri, p);
 }
 
 void LspClient::requestSignatureHelpAt(const QString& uri, int line, int character)
 {
-    Position p; p.line = line; p.character = character;
+    Position p;
+    p.line = line;
+    p.character = character;
     requestSignatureHelp(uri, p);
 }
 

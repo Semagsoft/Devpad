@@ -8,8 +8,8 @@
 #include "core/fileservice.h"
 #include "devpad_version.h"
 #include "encodingutils.h"
-#include "managers/settingsmanager.h"
 #include "managers/externaltoolmanager.h"
+#include "managers/settingsmanager.h"
 #include "nextgen/primoeditor.h"
 #include "nextgen/primoterminal.h"
 #include "theme.h"
@@ -26,8 +26,9 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
-NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this)),
-    m_networkManager(new QNetworkAccessManager(this)), m_currentReply(nullptr), m_remoteLoading(false)
+NextgenActions::NextgenActions(QObject* parent)
+    : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
+      m_currentReply(nullptr), m_remoteLoading(false)
 {
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
             [this]()
@@ -38,8 +39,9 @@ NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(null
                 emit recentFilesChanged();
             });
 }
-NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent) : QObject(parent), m_editor(editor), m_externalToolManager(new ExternalToolManager(this)),
-    m_networkManager(new QNetworkAccessManager(this)), m_currentReply(nullptr), m_remoteLoading(false)
+NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent)
+    : QObject(parent), m_editor(editor), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
+      m_currentReply(nullptr), m_remoteLoading(false)
 {
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
             [this]()
@@ -410,7 +412,8 @@ void NextgenActions::setWordWrap(bool enabled)
 {
     SettingsManager::instance().setWordWrap(enabled);
     emit settingsChanged();
-    if (m_editor) m_editor->setWordWrap(enabled);
+    if (m_editor)
+        m_editor->setWordWrap(enabled);
 }
 bool NextgenActions::showLineNumbers() const
 {
@@ -465,7 +468,8 @@ void NextgenActions::setTabWidth(int width)
 {
     SettingsManager::instance().setTabWidth(width);
     emit settingsChanged();
-    if (m_editor) m_editor->setTabWidth(width);
+    if (m_editor)
+        m_editor->setTabWidth(width);
 }
 int NextgenActions::defaultFontSize() const
 {
@@ -475,7 +479,8 @@ void NextgenActions::setDefaultFontSize(int size)
 {
     SettingsManager::instance().setDefaultFontSize(size);
     emit settingsChanged();
-    if (m_editor) m_editor->setFont(SettingsManager::instance().defaultFont());
+    if (m_editor)
+        m_editor->setFont(SettingsManager::instance().defaultFont());
 }
 QString NextgenActions::defaultFontFamily() const
 {
@@ -485,7 +490,8 @@ void NextgenActions::setDefaultFontFamily(const QString& family)
 {
     SettingsManager::instance().setDefaultFontFamily(family);
     emit settingsChanged();
-    if (m_editor) m_editor->setFont(SettingsManager::instance().defaultFont());
+    if (m_editor)
+        m_editor->setFont(SettingsManager::instance().defaultFont());
 }
 bool NextgenActions::showHiddenFiles() const
 {
@@ -554,8 +560,8 @@ bool NextgenActions::externalToolRunInTerminal(int index) const
 {
     return SettingsManager::instance().externalToolRunInTerminal(index);
 }
-void NextgenActions::addExternalTool(const QString& name, const QString& command, const QString& arguments,
-                                     const QString& workingDir, const QString& shortcut, bool runInTerminal)
+void NextgenActions::addExternalTool(const QString& name, const QString& command, const QString& arguments, const QString& workingDir,
+                                     const QString& shortcut, bool runInTerminal)
 {
     SettingsManager::instance().addExternalTool(name, command, arguments, workingDir, shortcut, runInTerminal);
     emit externalToolsChanged();
@@ -565,13 +571,14 @@ void NextgenActions::removeExternalTool(int index)
     SettingsManager::instance().removeExternalTool(index);
     emit externalToolsChanged();
 }
-void NextgenActions::runExternalTool(int index, const QString& filePath, const QString& projectDir,
-                                     const QString& selectedText, int lineNumber)
+void NextgenActions::runExternalTool(int index, const QString& filePath, const QString& projectDir, const QString& selectedText, int lineNumber)
 {
     // Terminal sender: write to PrimoTerminal shared instance
     auto* term = PrimoTerminal::instance();
-    auto sender = [term](const QString& cmd) {
-        if (term) term->write(cmd);
+    auto sender = [term](const QString& cmd)
+    {
+        if (term)
+            term->write(cmd);
     };
     m_externalToolManager->runTool(index, filePath, projectDir, selectedText, lineNumber, sender);
 }
@@ -735,16 +742,18 @@ QString NextgenActions::runCommand(const QString& rawCmd)
             m_editor->setLanguage(arg);
         return QStringLiteral("Syntax language set to %1").arg(arg);
     }
-    if (cmd.startsWith(QStringLiteral("set searchcase")) || cmd.startsWith(QStringLiteral("set searchwhole")) || cmd.startsWith(QStringLiteral("set searchregex")))
+    if (cmd.startsWith(QStringLiteral("set searchcase")) || cmd.startsWith(QStringLiteral("set searchwhole")) ||
+        cmd.startsWith(QStringLiteral("set searchregex")))
     {
-        QString which = cmd.startsWith(QStringLiteral("set searchcase")) ? QStringLiteral("case")
-                      : cmd.startsWith(QStringLiteral("set searchwhole")) ? QStringLiteral("whole")
-                      : QStringLiteral("regex");
+        QString which = cmd.startsWith(QStringLiteral("set searchcase"))    ? QStringLiteral("case")
+                        : cmd.startsWith(QStringLiteral("set searchwhole")) ? QStringLiteral("whole")
+                                                                            : QStringLiteral("regex");
         QString arg = cmd.section(' ', -1).trimmed().toLower();
         bool on = (arg == QStringLiteral("on") || arg == QStringLiteral("1") || arg == QStringLiteral("true"));
         if (arg == QStringLiteral("off") || arg == QStringLiteral("0") || arg == QStringLiteral("false"))
             on = false;
-        if (arg.isEmpty() || (arg != QStringLiteral("on") && arg != QStringLiteral("off") && arg != QStringLiteral("1") && arg != QStringLiteral("0") && arg != QStringLiteral("true") && arg != QStringLiteral("false")))
+        if (arg.isEmpty() || (arg != QStringLiteral("on") && arg != QStringLiteral("off") && arg != QStringLiteral("1") &&
+                              arg != QStringLiteral("0") && arg != QStringLiteral("true") && arg != QStringLiteral("false")))
             return QStringLiteral("Usage: :set search%1 [on|off]").arg(which);
         emit showMessage(QStringLiteral("Search %1: %2 (use Find bar)").arg(which, on ? QStringLiteral("on") : QStringLiteral("off")));
         return QStringLiteral("Search %1 %2").arg(which, on ? QStringLiteral("on") : QStringLiteral("off"));
@@ -872,7 +881,9 @@ QString NextgenActions::runCommand(const QString& rawCmd)
 
     // ── Help / Version ────────────────────────────────
     if (cmd == QStringLiteral("help") || cmd == QStringLiteral("h"))
-        return QStringLiteral("Commands: :w/:wa/:wq/:q/:q!/:e/:e!/:cd/:set wrap/:set number/:set syntax/:set encoding/:set searchcase/:set searchwhole/:set searchregex/:tabs/:tabnext/:tabprev/:tabfirst/:tablast/:tabclose/:bn/:bp/:bc/:s/:/%s/:/grep/:help/:version");
+        return QStringLiteral(
+            "Commands: :w/:wa/:wq/:q/:q!/:e/:e!/:cd/:set wrap/:set number/:set syntax/:set encoding/:set searchcase/:set searchwhole/:set "
+            "searchregex/:tabs/:tabnext/:tabprev/:tabfirst/:tablast/:tabclose/:bn/:bp/:bc/:s/:/%s/:/grep/:help/:version");
     if (cmd == QStringLiteral("version") || cmd == QStringLiteral("ver"))
         return QStringLiteral("Devpad Nextgen ") + QStringLiteral(DEVPAD_VERSION);
 
@@ -880,7 +891,7 @@ QString NextgenActions::runCommand(const QString& rawCmd)
     if (cmd.startsWith(QStringLiteral("lsp start")) || cmd.startsWith(QStringLiteral("lsp ")))
     {
         QString rest = cmd.startsWith(QStringLiteral("lsp start")) ? cmd.mid(QStringLiteral("lsp start").size()).trimmed()
-                                                                    : cmd.mid(QStringLiteral("lsp ").size()).trimmed();
+                                                                   : cmd.mid(QStringLiteral("lsp ").size()).trimmed();
         QStringList parts = rest.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
         if (parts.isEmpty())
             return QStringLiteral("Usage: :lsp start <command> [args...]");
@@ -930,9 +941,7 @@ void NextgenActions::openRemoteFile(const QString& url)
     QNetworkRequest request(qUrl);
     m_currentReply = m_networkManager->get(request);
     connect(m_currentReply, &QNetworkReply::downloadProgress, this, &NextgenActions::onRemoteDownloadProgress);
-    connect(m_currentReply, &QNetworkReply::finished, this, [this, tempPath, url]() {
-        onRemoteDownloadFinished(tempPath, url);
-    });
+    connect(m_currentReply, &QNetworkReply::finished, this, [this, tempPath, url]() { onRemoteDownloadFinished(tempPath, url); });
     connect(m_currentReply, &QNetworkReply::errorOccurred, this, &NextgenActions::onRemoteDownloadError);
 }
 
@@ -948,8 +957,7 @@ QString NextgenActions::remoteLoadError() const
 
 void NextgenActions::onRemoteDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
-    emit remoteLoadProgress(m_currentReply ? m_currentReply->url().toString() : QString(),
-                            bytesReceived, bytesTotal);
+    emit remoteLoadProgress(m_currentReply ? m_currentReply->url().toString() : QString(), bytesReceived, bytesTotal);
 }
 
 void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QString& url)

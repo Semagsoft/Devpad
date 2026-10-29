@@ -120,8 +120,7 @@ void PrimoDocument::pushUndoDiff(const QString& oldText, const QString& newText)
 
     // Common suffix
     int suffix = 0;
-    while (suffix < minLen - prefix &&
-           oldText[oldText.size() - 1 - suffix] == newText[newText.size() - 1 - suffix])
+    while (suffix < minLen - prefix && oldText[oldText.size() - 1 - suffix] == newText[newText.size() - 1 - suffix])
         ++suffix;
 
     int oldMiddleLen = oldText.size() - prefix - suffix;

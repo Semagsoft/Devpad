@@ -81,8 +81,8 @@ public:
 #ifdef BUILD_TUI
     // Handle a mouse event (KEY_MOUSE from getch). Returns true if handled.
     static bool handleMouseInput(MEVENT& event, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiInputState& st,
-                                 QHash<QString, QDateTime>& fileMtimes, int editorH, int tabBarH, int treeWidth,
-                                 bool fileTreeVisible, int rows, int cols);
+                                 QHash<QString, QDateTime>& fileMtimes, int editorH, int tabBarH, int treeWidth, bool fileTreeVisible, int rows,
+                                 int cols);
 #endif
 
     // Named key constants for readability (was magic numbers)

@@ -232,8 +232,7 @@ int main(int argc, char* argv[])
     }
 
     // Suppress noisy, non-actionable Qt platform warnings at startup.
-    QLoggingCategory::setFilterRules(
-        QStringLiteral("qt.qpa.services=false\nqt.accessibility.atspi=false"));
+    QLoggingCategory::setFilterRules(QStringLiteral("qt.qpa.services=false\nqt.accessibility.atspi=false"));
 
     QApplication app(argc, argv);
     QApplication::setOrganizationName("Semagsoft");

@@ -5,21 +5,18 @@
 
 #include "tui/tuicommand.h"
 
-#include <gtest/gtest.h>
-
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
 
+#include <gtest/gtest.h>
+
 // Helper to run a command through TuiCommand::dispatch and capture results.
-static TuiCommand::Result runCmd(const QString& cmd, TuiTabModel& tabs, TuiBuffer* cur,
-                                 TuiFileTree& fileTree, TuiViewState& view, QString& statusMsg,
-                                 SearchResult& lastSearch, SearchOptions& findOpts,
-                                 QHash<QString, QDateTime>& fileMtimes, bool& saveAsReq)
+static TuiCommand::Result runCmd(const QString& cmd, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiViewState& view, QString& statusMsg,
+                                 SearchResult& lastSearch, SearchOptions& findOpts, QHash<QString, QDateTime>& fileMtimes, bool& saveAsReq)
 {
-    return TuiCommand::dispatch(cmd, tabs, cur, fileTree, view, statusMsg, lastSearch,
-                                findOpts, fileMtimes, saveAsReq);
+    return TuiCommand::dispatch(cmd, tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
 }
 
 // ── Quit commands ──────────────────────────────────────────────────────
@@ -39,8 +36,7 @@ TEST(TuiCommand, QuitNoModified)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("q"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("q"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Quit);
 }
 
@@ -60,8 +56,7 @@ TEST(TuiCommand, QuitBlockedByModified)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("q"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("q"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_EQ(statusMsg, QStringLiteral("Modified buffers - use :wq or :q! to force"));
 }
@@ -82,8 +77,7 @@ TEST(TuiCommand, QuitForce)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("q!"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("q!"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Quit);
 }
 
@@ -107,8 +101,7 @@ TEST(TuiCommand, SaveWithPath)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("w"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("w"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_FALSE(cur->isModified());
     EXPECT_TRUE(QFile::exists(filePath));
@@ -133,8 +126,7 @@ TEST(TuiCommand, SaveAsNewPath)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("w ") + filePath, tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("w ") + filePath, tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_EQ(cur->filePath(), filePath);
     EXPECT_FALSE(cur->isModified());
@@ -166,8 +158,7 @@ TEST(TuiCommand, OpenExistingFile)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("e ") + filePath, tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("e ") + filePath, tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_EQ(tabs.count(), 2);
     EXPECT_EQ(statusMsg, QStringLiteral("Opened ") + filePath);
@@ -195,8 +186,7 @@ TEST(TuiCommand, WqSavesAndQuits)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("wq"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("wq"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Quit);
     EXPECT_FALSE(cur->isModified());
     EXPECT_TRUE(QFile::exists(filePath));
@@ -222,8 +212,7 @@ TEST(TuiCommand, SetWrapOn)
 
     EXPECT_FALSE(view.wordWrap);
 
-    auto res = runCmd(QStringLiteral("set wrap on"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("set wrap on"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_TRUE(view.wordWrap);
     EXPECT_EQ(statusMsg, QStringLiteral("Wrap on"));
@@ -245,8 +234,7 @@ TEST(TuiCommand, SetWrapOff)
     TuiBuffer* cur = tabs.currentBuffer();
     view.wordWrap = true;
 
-    auto res = runCmd(QStringLiteral("set wrap off"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("set wrap off"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_FALSE(view.wordWrap);
     EXPECT_EQ(statusMsg, QStringLiteral("Wrap off"));
@@ -272,8 +260,7 @@ TEST(TuiCommand, SetNumberOn)
     // showLineNumbers defaults to true; turn it off first
     view.showLineNumbers = false;
 
-    auto res = runCmd(QStringLiteral("set number"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("set number"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_TRUE(view.showLineNumbers);
     EXPECT_EQ(statusMsg, QStringLiteral("Line numbers on"));
@@ -295,8 +282,7 @@ TEST(TuiCommand, SetNonumber)
     TuiBuffer* cur = tabs.currentBuffer();
     view.showLineNumbers = true;
 
-    auto res = runCmd(QStringLiteral("set nonumber"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("set nonumber"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_FALSE(view.showLineNumbers);
     EXPECT_EQ(statusMsg, QStringLiteral("Line numbers off"));
@@ -319,8 +305,7 @@ TEST(TuiCommand, SyntaxOn)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("syntax on"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("syntax on"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_TRUE(view.syntaxEnabled);
     EXPECT_EQ(statusMsg, QStringLiteral("Syntax on"));
@@ -341,8 +326,7 @@ TEST(TuiCommand, SetSyntaxLanguage)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("set syntax python"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("set syntax python"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_EQ(statusMsg, QStringLiteral("Syntax language set to python"));
 }
@@ -364,8 +348,7 @@ TEST(TuiCommand, ReplaceSingle)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("s/foo/baz/"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("s/foo/baz/"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_EQ(statusMsg, QStringLiteral("Replaced at 1:1"));
     EXPECT_EQ(cur->text(), QStringLiteral("baz bar foo"));
@@ -386,8 +369,7 @@ TEST(TuiCommand, ReplaceAll)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("%s/foo/qux/g"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("%s/foo/qux/g"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_EQ(statusMsg, QStringLiteral("Replaced 3 occurrences"));
     EXPECT_EQ(cur->text(), QStringLiteral("qux bar qux qux"));
@@ -415,19 +397,16 @@ TEST(TuiCommand, BookmarkNextPrev)
 
     // Start at line 3, go to prev bookmark (line 1)
     cur->setCursor(3, 0);
-    auto res = runCmd(QStringLiteral("bp"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("bp"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(statusMsg, QStringLiteral("Prev bookmark 2"));
     EXPECT_EQ(cur->cursorLine(), 1);
 
     // From line 1, go to next bookmark (line 3)
-    res = runCmd(QStringLiteral("bn"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    res = runCmd(QStringLiteral("bn"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(statusMsg, QStringLiteral("Next bookmark 4"));
     EXPECT_EQ(cur->cursorLine(), 3);
 
-    runCmd(QStringLiteral("bc"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("bc"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(statusMsg, QStringLiteral("Bookmarks cleared"));
     EXPECT_FALSE(cur->hasBookmark(1));
     EXPECT_FALSE(cur->hasBookmark(3));
@@ -452,29 +431,23 @@ TEST(TuiCommand, TabNavigation)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    runCmd(QStringLiteral("tabnext"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("tabnext"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(tabs.currentIndex(), 1);
 
-    runCmd(QStringLiteral("tabnext"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("tabnext"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(tabs.currentIndex(), 2);
 
     // Wrap around
-    runCmd(QStringLiteral("tabnext"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("tabnext"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(tabs.currentIndex(), 0);
 
-    runCmd(QStringLiteral("tabprev"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("tabprev"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(tabs.currentIndex(), 2);
 
-    runCmd(QStringLiteral("tabfirst"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("tabfirst"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(tabs.currentIndex(), 0);
 
-    runCmd(QStringLiteral("tablast"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("tablast"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(tabs.currentIndex(), 2);
 }
 
@@ -495,8 +468,7 @@ TEST(TuiCommand, UnknownCommand)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    auto res = runCmd(QStringLiteral("frobnicate"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-                      findOpts, fileMtimes, saveAsReq);
+    auto res = runCmd(QStringLiteral("frobnicate"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_EQ(res, TuiCommand::Result::Continue);
     EXPECT_EQ(statusMsg, QStringLiteral("Unknown command: frobnicate"));
 }
@@ -518,13 +490,11 @@ TEST(TuiCommand, HelpAndVersion)
     tabs.setCurrentIndex(0);
     TuiBuffer* cur = tabs.currentBuffer();
 
-    runCmd(QStringLiteral("help"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("help"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_TRUE(statusMsg.contains(QStringLiteral(":w")));
     EXPECT_TRUE(statusMsg.contains(QStringLiteral(":q")));
 
-    runCmd(QStringLiteral("version"), tabs, cur, fileTree, view, statusMsg, lastSearch,
-           findOpts, fileMtimes, saveAsReq);
+    runCmd(QStringLiteral("version"), tabs, cur, fileTree, view, statusMsg, lastSearch, findOpts, fileMtimes, saveAsReq);
     EXPECT_TRUE(statusMsg.contains(QStringLiteral("Devpad")));
 }
 

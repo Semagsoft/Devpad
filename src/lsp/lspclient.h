@@ -40,9 +40,18 @@ public:
     Q_INVOKABLE void startServer(const QString& command, const QStringList& args, const QString& rootUri);
     Q_INVOKABLE void stopServer();
     Q_INVOKABLE bool isRunning() const;
-    Q_INVOKABLE QString language() const { return m_language; }
-    Q_INVOKABLE const ServerCapabilities& capabilities() const { return m_capabilities; }
-    Q_INVOKABLE QString rootUri() const { return m_rootUri; }
+    Q_INVOKABLE QString language() const
+    {
+        return m_language;
+    }
+    Q_INVOKABLE const ServerCapabilities& capabilities() const
+    {
+        return m_capabilities;
+    }
+    Q_INVOKABLE QString rootUri() const
+    {
+        return m_rootUri;
+    }
 
     // Document synchronization
     Q_INVOKABLE void openDocument(const QString& uri, const QString& text, int version);

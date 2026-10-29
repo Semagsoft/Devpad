@@ -194,7 +194,8 @@ QVariantList NextgenTabModel::tabCursors() const
     for (const auto& c : m_tabCursors)
     {
         QVariantList entry;
-        for (int v : c) entry.append(v);
+        for (int v : c)
+            entry.append(v);
         result.append(entry);
     }
     return result;

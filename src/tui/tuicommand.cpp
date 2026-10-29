@@ -566,9 +566,8 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
     }
     else if (cmd == QStringLiteral("help") || cmd == QStringLiteral("h"))
     {
-        statusMsg = QStringLiteral(
-            "Commands: :w/:wa/:wq/:q/:q!/:e/:e!/:cd/:set/:reopen/:tabs/:tabnext/:tabprev/:tabclose "
-            ":/bn/:bp/:bc/:grep/:s/");
+        statusMsg = QStringLiteral("Commands: :w/:wa/:wq/:q/:q!/:e/:e!/:cd/:set/:reopen/:tabs/:tabnext/:tabprev/:tabclose "
+                                   ":/bn/:bp/:bc/:grep/:s/");
     }
     else if (cmd == QStringLiteral("version") || cmd == QStringLiteral("ver"))
     {

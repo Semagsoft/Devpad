@@ -160,7 +160,7 @@ void SettingsManager::loadCache()
         if (themeVal < 0 || themeVal >= static_cast<int>(ThemeId::Count))
             themeVal = static_cast<int>(ThemeId::Light);
         m_cache.editor.theme = static_cast<ThemeId>(themeVal);
-    m_cache.editor.customTheme = m_settings.value("Options_CustomTheme").toString();
+        m_cache.editor.customTheme = m_settings.value("Options_CustomTheme").toString();
     }
     m_cache.editor.defaultEncoding = m_settings.value("Options_DefaultEncoding", 0).toInt();
     m_cache.editor.defaultFormat = m_settings.value("Options_DefaultFormat", 0).toInt();
@@ -181,7 +181,8 @@ void SettingsManager::loadCache()
 
     m_cache.ui.startupMode = readEnum("Options_StartupMode", StartupMode::NewFile, StartupMode::NewFile, StartupMode::Empty);
     m_cache.ui.closeButtonMode = readEnum("Options_CloseButtonMode", CloseButtonMode::Right, CloseButtonMode::Right, CloseButtonMode::Left);
-    m_cache.ui.tabDisplayMode = readEnum("Options_TabDisplayMode", TabDisplayMode::ShowTwoPlus, TabDisplayMode::AlwaysShow, TabDisplayMode::NeverShow);
+    m_cache.ui.tabDisplayMode =
+        readEnum("Options_TabDisplayMode", TabDisplayMode::ShowTwoPlus, TabDisplayMode::AlwaysShow, TabDisplayMode::NeverShow);
     m_cache.ui.tabBarPosition = readEnum("Options_TabBarPosition", TabBarPosition::Top, TabBarPosition::Top, TabBarPosition::Bottom);
     m_cache.ui.showMenuBar = m_settings.value("Options_ShowMenuBar", true).toBool();
     m_cache.ui.showMenuInTitlebar = m_settings.value("Options_ShowMenuInTitlebar", true).toBool();
@@ -191,7 +192,8 @@ void SettingsManager::loadCache()
     m_cache.ui.uiFontSize = m_settings.value("Options_UIFontSize", 10).toInt();
     m_cache.ui.checkForUpdatesEnabled = m_settings.value("Options_CheckForUpdatesEnabled", true).toBool();
 
-    m_cache.terminal.terminalPanelPosition = readEnum("Options_TerminalPanelPosition", TerminalPanelPosition::Bottom, TerminalPanelPosition::Bottom, TerminalPanelPosition::Tab);
+    m_cache.terminal.terminalPanelPosition =
+        readEnum("Options_TerminalPanelPosition", TerminalPanelPosition::Bottom, TerminalPanelPosition::Bottom, TerminalPanelPosition::Tab);
     m_cache.terminal.terminalPanelMinWidth = m_settings.value("Options_TerminalPanelMinWidth", 350).toInt();
     m_cache.terminal.terminalFontFamily = m_settings.value("Options_TerminalFont", "Monospace").toString();
     m_cache.terminal.terminalFontSize = m_settings.value("Options_TerminalFontSize", 12).toInt();
@@ -203,8 +205,10 @@ void SettingsManager::loadCache()
 
     m_cache.project.showHiddenFiles = m_settings.value("Options_ShowHiddenFiles", false).toBool();
     m_cache.project.useGitIgnore = m_settings.value("Options_UseGitIgnore", true).toBool();
-    m_cache.project.projectPanelPosition = readEnum("Options_ProjectPanelPosition", ProjectPanelPosition::Left, ProjectPanelPosition::Left, ProjectPanelPosition::Right);
-    m_cache.project.fileOpenMode = readEnum("Options_ProjectFileOpenMode", FileOpenMode::SingleClick, FileOpenMode::SingleClick, FileOpenMode::DoubleClick);
+    m_cache.project.projectPanelPosition =
+        readEnum("Options_ProjectPanelPosition", ProjectPanelPosition::Left, ProjectPanelPosition::Left, ProjectPanelPosition::Right);
+    m_cache.project.fileOpenMode =
+        readEnum("Options_ProjectFileOpenMode", FileOpenMode::SingleClick, FileOpenMode::SingleClick, FileOpenMode::DoubleClick);
 
     m_cache.lsp.enabled = m_settings.value("LSP/Enabled", true).toBool();
     m_cache.lsp.showErrorList = m_settings.value("LSP/ShowErrorList", true).toBool();

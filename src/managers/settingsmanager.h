@@ -386,8 +386,7 @@ private:
     // within [minValue, maxValue]. Corrupted or hand-edited settings files
     // (or values from a newer/older build) fall back to defaultValue instead
     // of producing an invalid enum via unchecked static_cast.
-    template <typename T>
-    T readEnum(const char* key, T defaultValue, T minValue, T maxValue)
+    template <typename T> T readEnum(const char* key, T defaultValue, T minValue, T maxValue)
     {
         static_assert(std::is_enum_v<T>, "T must be an enum type");
         int val = m_settings.value(key, static_cast<int>(defaultValue)).toInt();

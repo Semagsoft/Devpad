@@ -240,7 +240,8 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     }
     catch (const std::exception& e)
     {
-        Logger::instance().error(QStringLiteral("Plugin '%1': uncaught exception in initialize(): %2").arg(entry.info.id, QString::fromUtf8(e.what())));
+        Logger::instance().error(
+            QStringLiteral("Plugin '%1': uncaught exception in initialize(): %2").arg(entry.info.id, QString::fromUtf8(e.what())));
     }
     catch (...)
     {
@@ -278,7 +279,8 @@ void PluginManager::safePluginCall(const QString& pluginId, const char* event, c
     }
     catch (const std::exception& e)
     {
-        Logger::instance().error(QStringLiteral("Plugin '%1': uncaught exception in %2: %3").arg(pluginId, QString::fromUtf8(event), QString::fromUtf8(e.what())));
+        Logger::instance().error(
+            QStringLiteral("Plugin '%1': uncaught exception in %2: %3").arg(pluginId, QString::fromUtf8(event), QString::fromUtf8(e.what())));
     }
     catch (...)
     {

@@ -1,10 +1,11 @@
 #ifndef FILETREEMODEL_H
 #define FILETREEMODEL_H
 
-#include <QAbstractItemModel>
-#include <QStringList>
-#include <QFileInfo>
 #include "gitignore.h"
+
+#include <QAbstractItemModel>
+#include <QFileInfo>
+#include <QStringList>
 
 // FileTreeModel: tree model of files in a directory, gitignore-aware.
 // Used by NextGen ProjectTree.qml for file browsing (lazy-loaded).
@@ -16,7 +17,8 @@ class FileTreeModel : public QAbstractItemModel
     Q_PROPERTY(bool useGitIgnore READ useGitIgnore WRITE setUseGitIgnore NOTIFY useGitIgnoreChanged)
 
 public:
-    enum Roles {
+    enum Roles
+    {
         FilePathRole = Qt::UserRole + 1,
         FileNameRole,
         IsDirRole,
@@ -26,13 +28,22 @@ public:
     explicit FileTreeModel(QObject* parent = nullptr);
     ~FileTreeModel() override;
 
-    QString rootPath() const { return m_rootPath; }
+    QString rootPath() const
+    {
+        return m_rootPath;
+    }
     void setRootPath(const QString& path);
 
-    bool showHidden() const { return m_showHidden; }
+    bool showHidden() const
+    {
+        return m_showHidden;
+    }
     void setShowHidden(bool v);
 
-    bool useGitIgnore() const { return m_useGitIgnore; }
+    bool useGitIgnore() const
+    {
+        return m_useGitIgnore;
+    }
     void setUseGitIgnore(bool v);
 
     // QAbstractItemModel
@@ -61,7 +72,8 @@ signals:
     void useGitIgnoreChanged();
 
 private:
-    struct Node {
+    struct Node
+    {
         QString path;
         QString name;
         bool isDir = false;

@@ -211,8 +211,8 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
             MEVENT event;
             if (getmouse(&event) == OK)
             {
-                if (TuiInput::handleMouseInput(event, tabs, cur, fileTree, st, st.fileMtimes, editorH,
-                                               tabBarH, treeWidth, st.fileTreeVisible, rows, cols))
+                if (TuiInput::handleMouseInput(event, tabs, cur, fileTree, st, st.fileMtimes, editorH, tabBarH, treeWidth, st.fileTreeVisible, rows,
+                                               cols))
                     continue;
             }
         }

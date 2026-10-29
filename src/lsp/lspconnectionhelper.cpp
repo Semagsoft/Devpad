@@ -34,10 +34,7 @@ void setupLspConnections(LspServerManager* manager, TabManager* tabManager, Erro
     QPointer<TabManager> tabGuard(tabManager);
     QPointer<ErrorListPanel> panelGuard(errorPanel);
 
-    auto resolveEditor = [tabGuard](const QString& uri) -> CodeEditor*
-    {
-        return tabGuard ? editorForUri(tabGuard.data(), uri) : nullptr;
-    };
+    auto resolveEditor = [tabGuard](const QString& uri) -> CodeEditor* { return tabGuard ? editorForUri(tabGuard.data(), uri) : nullptr; };
 
     // Definition
     QObject::connect(manager, &LspServerManager::definitionReady, manager,

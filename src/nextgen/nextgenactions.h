@@ -12,9 +12,9 @@
 
 #include "theme.h"
 
-#include <QObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QObject>
 #include <QStringList>
 
 class PrimoEditor;
@@ -114,11 +114,10 @@ public:
     Q_INVOKABLE QString externalToolWorkingDir(int index) const;
     Q_INVOKABLE QString externalToolShortcut(int index) const;
     Q_INVOKABLE bool externalToolRunInTerminal(int index) const;
-    Q_INVOKABLE void addExternalTool(const QString& name, const QString& command, const QString& arguments,
-                                     const QString& workingDir, const QString& shortcut, bool runInTerminal);
+    Q_INVOKABLE void addExternalTool(const QString& name, const QString& command, const QString& arguments, const QString& workingDir,
+                                     const QString& shortcut, bool runInTerminal);
     Q_INVOKABLE void removeExternalTool(int index);
-    Q_INVOKABLE void runExternalTool(int index, const QString& filePath, const QString& projectDir,
-                                     const QString& selectedText, int lineNumber);
+    Q_INVOKABLE void runExternalTool(int index, const QString& filePath, const QString& projectDir, const QString& selectedText, int lineNumber);
 
     // ── Remote file support ──
     Q_INVOKABLE void openRemoteFile(const QString& url);

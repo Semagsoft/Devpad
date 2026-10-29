@@ -7,15 +7,15 @@
 
 #include "core/fileservice.h"
 #include "devpad_version.h"
+#include "filetreemodel.h"
 #include "lsp/lspclient.h"
-#include "managers/settingsmanager.h"
 #include "managers/sessionmanager.h"
+#include "managers/settingsmanager.h"
 #include "nextgenactions.h"
 #include "nextgentabmodel.h"
 #include "primoeditor.h"
 #include "primofindinfiles.h"
 #include "primoterminal.h"
-#include "filetreemodel.h"
 
 #include <QCommandLineParser>
 #include <QDir>
@@ -42,8 +42,7 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
         return 1;
     }
 
-    const bool smokeTest = parser.isSet(QStringLiteral("nextgen-smoke-test"))
-        || qEnvironmentVariableIsSet("DEVPAD_NEXTGEN_SMOKE");
+    const bool smokeTest = parser.isSet(QStringLiteral("nextgen-smoke-test")) || qEnvironmentVariableIsSet("DEVPAD_NEXTGEN_SMOKE");
 
     // Headless / CI fallback: cat files to stdout when no display
     if (!smokeTest && qEnvironmentVariableIsSet("QT_QPA_PLATFORM") && qgetenv("QT_QPA_PLATFORM") == "offscreen")
@@ -187,7 +186,8 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
             else
                 entry = {0, 0};
             QVariantList ve;
-            for (int v : entry) ve.append(v);
+            for (int v : entry)
+                ve.append(v);
             cursorList.append(ve);
         }
         tabModel->setTabCursors(cursorList);
@@ -200,8 +200,7 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
                      [tabModel, initialFolder]()
                      {
                          SessionManager sm;
-                         sm.saveSessionData(tabModel->tabs(), tabModel->currentIndex(), initialFolder,
-                                            QDir::currentPath());
+                         sm.saveSessionData(tabModel->tabs(), tabModel->currentIndex(), initialFolder, QDir::currentPath());
 
                          // Save per-tab cursor positions
                          QHash<QString, QList<int>> cursors;

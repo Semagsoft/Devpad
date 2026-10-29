@@ -106,8 +106,8 @@ public:
 
     bool operator==(const Diagnostic& other) const
     {
-        return range == other.range && message == other.message && severity == other.severity
-            && severityLevel == other.severityLevel && source == other.source && code == other.code;
+        return range == other.range && message == other.message && severity == other.severity && severityLevel == other.severityLevel &&
+               source == other.source && code == other.code;
     }
 
     static Diagnostic fromJson(const QJsonObject& obj);
@@ -136,9 +136,8 @@ public:
 
     bool operator==(const CompletionItem& other) const
     {
-        return label == other.label && kind == other.kind && detail == other.detail
-            && documentation == other.documentation && insertText == other.insertText
-            && startPos == other.startPos && replaceLen == other.replaceLen;
+        return label == other.label && kind == other.kind && detail == other.detail && documentation == other.documentation &&
+               insertText == other.insertText && startPos == other.startPos && replaceLen == other.replaceLen;
     }
 
     static CompletionItem fromJson(const QJsonObject& obj);

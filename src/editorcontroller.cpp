@@ -153,9 +153,9 @@ bool EditorController::checkSaveConflict(CodeEditor* editor, const QString& file
         return true;
 
     Logger::instance().warning(QString("File changed on disk since load: %1").arg(fileName));
-    QMessageBox::StandardButton ret = QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("File Changed on Disk"),
-                                                           tr("%1 has been modified by another program.\n\nOverwrite the external changes?").arg(info.fileName()),
-                                                           QMessageBox::Yes | QMessageBox::No);
+    QMessageBox::StandardButton ret = QMessageBox::warning(
+        qobject_cast<QWidget*>(parent()), tr("File Changed on Disk"),
+        tr("%1 has been modified by another program.\n\nOverwrite the external changes?").arg(info.fileName()), QMessageBox::Yes | QMessageBox::No);
     return ret == QMessageBox::Yes;
 }
 
