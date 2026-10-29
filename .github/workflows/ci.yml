@@ -140,13 +140,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.3'
-          modules: 'qtdeclarative'
-          setup-python: false
+      - name: Install aqtinstall
+        run: pip3 install aqtinstall==3.3.0 py7zr==1.1.0
+      - name: Install Qt
+        run: |
+          python3 -m aqt install --outputdir $HOME/Qt linux desktop 6.8.3 qtdeclarative
       - name: Configure
-        run: cmake -S . -B build-ng -DCMAKE_BUILD_TYPE=Release -DBUILD_NEXTGEN=ON -DBUILD_TESTS=OFF
+        run: cmake -S . -B build-ng -DCMAKE_BUILD_TYPE=Release -DBUILD_NEXTGEN=ON -DBUILD_TESTS=OFF -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64
       - name: Build
         run: cmake --build build-ng -j$(nproc)
       - name: Smoke test
