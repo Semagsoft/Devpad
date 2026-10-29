@@ -144,7 +144,7 @@ jobs:
         run: pip3 install aqtinstall==3.3.0 py7zr==1.1.0
       - name: Install Qt
         run: |
-          python3 -m aqt install --outputdir $HOME/Qt linux desktop 6.8.3 qtdeclarative
+          python3 -m aqt install --outputdir $HOME/Qt linux desktop 6.8.3 qtdeclarative qtquickcontrols2
       - name: Configure
         run: cmake -S . -B build-ng -DCMAKE_BUILD_TYPE=Release -DBUILD_NEXTGEN=ON -DBUILD_TESTS=OFF -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.3/gcc_64
       - name: Build
