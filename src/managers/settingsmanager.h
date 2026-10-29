@@ -28,6 +28,7 @@
 #include <QString>
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 class CodeEditor;
 
@@ -378,7 +379,7 @@ private:
             m_settings.setValue(key, static_cast<int>(value));
         else
             m_settings.setValue(key, value);
-        cacheField = value;
+        cacheField = std::move(value);
         settingsChanged();
     }
 

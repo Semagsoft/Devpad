@@ -122,7 +122,7 @@ void Minimap::paintEvent(QPaintEvent* /*event*/)
         return;
 
     QFontMetrics fm(m_editor->font());
-    const qreal lineHeight = qMax(qreal(fm.height()), 1.0);
+    const qreal lineHeight = qMax(static_cast<qreal>(fm.height()), 1.0);
 
     // Approximate total content height (no-wrap assumption).
     const qreal contentHeight = lineCount * lineHeight;
@@ -291,7 +291,7 @@ void Minimap::scrollTo(qreal y)
         return;
 
     QFontMetrics fm(m_editor->font());
-    const qreal lineHeight = qMax(qreal(fm.height()), 1.0);
+    const qreal lineHeight = qMax(static_cast<qreal>(fm.height()), 1.0);
     const qreal contentHeight = lineCount * lineHeight;
     if (contentHeight <= 0)
         return;

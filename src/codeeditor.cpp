@@ -263,7 +263,7 @@ void CodeEditor::setupEditor()
         setMarginWidth(BOOKMARK_MARGIN, fm.height());
     }
     setMarginSensitivity(BOOKMARK_MARGIN, true);
-    setMarginMarkerMask(BOOKMARK_MARGIN, (1 << MARKER_BOOKMARK));
+    setMarginMarkerMask(BOOKMARK_MARGIN, static_cast<int>(1u << static_cast<unsigned int>(MARKER_BOOKMARK)));
     markerDefine(QsciScintilla::SC_MARK_BOOKMARK, MARKER_BOOKMARK);
     setMarkerForegroundColor(QColor(255, 160, 0), MARKER_BOOKMARK);
     setMarkerBackgroundColor(QColor(255, 200, 100), MARKER_BOOKMARK);
@@ -628,7 +628,7 @@ void CodeEditor::toggleBookmark(int line)
 
 bool CodeEditor::hasBookmark(int line) const
 {
-    return (markersAtLine(line) & (1 << MARKER_BOOKMARK)) != 0;
+    return (static_cast<unsigned int>(markersAtLine(line)) & (1u << static_cast<unsigned int>(MARKER_BOOKMARK))) != 0;
 }
 
 void CodeEditor::nextBookmark()
@@ -707,7 +707,7 @@ QList<int> CodeEditor::bookmarkLines() const
     int lineCount = this->lines();
     for (int i = 0; i < lineCount; ++i)
     {
-        if ((markersAtLine(i) & (1 << MARKER_BOOKMARK)) != 0)
+        if ((static_cast<unsigned int>(markersAtLine(i)) & (1u << static_cast<unsigned int>(MARKER_BOOKMARK))) != 0)
         {
             lines.append(i);
         }
@@ -1363,8 +1363,8 @@ void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& token
 bool CodeEditor::hasLineMarker(int line, int marker) const
 {
     // Check if a specific line has a specific marker
-    unsigned int mask = markersAtLine(line);
-    return (mask & (1 << marker)) != 0;
+    unsigned int mask = static_cast<unsigned int>(markersAtLine(line));
+    return (mask & (1u << static_cast<unsigned int>(marker))) != 0;
 }
 
 void CodeEditor::replaceSelectedText(const QString& text)

@@ -138,12 +138,7 @@ QRegularExpression GitIgnore::patternToRegex(const QString& pattern, bool anchor
             if (followedBySlash)
                 i++;
 
-            if (i >= pattern.size())
-            {
-                // Bare or trailing '**': matches everything below this point.
-                regex += ".*";
-            }
-            else if (followedBySlash)
+            if (followedBySlash)
             {
                 // '**/' is a directory-boundary operator: '**/foo' matches
                 // 'foo' and 'a/b/foo' (a component named foo), but NOT
@@ -152,7 +147,7 @@ QRegularExpression GitIgnore::patternToRegex(const QString& pattern, bool anchor
             }
             else
             {
-                // '**' not followed by '/' (e.g. 'a**b'): crosses separators.
+                // Bare or trailing '**' (or '**' not followed by '/'): matches everything below this point.
                 regex += ".*";
             }
         }
