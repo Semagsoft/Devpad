@@ -45,6 +45,11 @@ public:
         return line == other.line && character == other.character;
     }
 
+    bool operator!=(const Position& other) const
+    {
+        return !(*this == other);
+    }
+
     QJsonObject toJson() const;
     static Position fromJson(const QJsonObject& obj);
 };
@@ -64,6 +69,11 @@ public:
         return start == other.start && end == other.end;
     }
 
+    bool operator!=(const Range& other) const
+    {
+        return !(*this == other);
+    }
+
     QJsonObject toJson() const;
     static Range fromJson(const QJsonObject& obj);
 };
@@ -81,6 +91,11 @@ public:
     bool operator==(const Location& other) const
     {
         return uri == other.uri && range == other.range;
+    }
+
+    bool operator!=(const Location& other) const
+    {
+        return !(*this == other);
     }
 
     static Location fromJson(const QJsonObject& obj);
@@ -108,6 +123,11 @@ public:
     {
         return range == other.range && message == other.message && severity == other.severity && severityLevel == other.severityLevel &&
                source == other.source && code == other.code;
+    }
+
+    bool operator!=(const Diagnostic& other) const
+    {
+        return !(*this == other);
     }
 
     static Diagnostic fromJson(const QJsonObject& obj);
@@ -140,6 +160,11 @@ public:
                insertText == other.insertText && startPos == other.startPos && replaceLen == other.replaceLen;
     }
 
+    bool operator!=(const CompletionItem& other) const
+    {
+        return !(*this == other);
+    }
+
     static CompletionItem fromJson(const QJsonObject& obj);
 };
 
@@ -156,6 +181,11 @@ public:
     bool operator==(const CompletionList& other) const
     {
         return isIncomplete == other.isIncomplete && items == other.items;
+    }
+
+    bool operator!=(const CompletionList& other) const
+    {
+        return !(*this == other);
     }
 };
 
