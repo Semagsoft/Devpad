@@ -292,7 +292,7 @@ endif()
 
 # ── Next-gen / QML mode ─────────────────────────────────────────
 if(BUILD_NEXTGEN)
-    find_package(Qt6 6.2 REQUIRED COMPONENTS Quick Qml QuickControls2)
+    find_package(Qt6 6.6 REQUIRED COMPONENTS Quick Qml QuickControls2)
     message(STATUS "Building with NEXTGEN support (QML + primoEditor)")
 endif()
 

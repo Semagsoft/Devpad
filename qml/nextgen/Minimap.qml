@@ -22,35 +22,10 @@ Item {
         border.width: 1
     }
 
-    // Line number gutter (left side of minimap)
-    Row {
-        id: lineNumberGutter
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        width: 14
-        spacing: 0
-        Repeater {
-            model: editor ? editor.document.lineCount : 0
-            delegate: Text {
-                text: index + 1
-                font.pixelSize: 7
-                color: "#555"
-                width: 14
-                horizontalAlignment: Text.AlignRight
-                visible: index % 5 === 0 // show every 5th line number to reduce clutter
-                opacity: editor && index === editor.cursorLine ? 1.0 : 0.4
-            }
-        }
-    }
-
-    // Canvas: content + viewport + markers
+    // Canvas: content + viewport + markers (line-number gutter removed for perf)
     Canvas {
         id: canvas
-        anchors.left: lineNumberGutter.right
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
+        anchors.fill: parent
         anchors.margins: 0
         onPaint: {
             if (!editor || !editor.document) return;

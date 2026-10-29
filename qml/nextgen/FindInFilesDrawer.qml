@@ -51,7 +51,7 @@ Drawer {
                 Layout.fillWidth: true
                 text: root.folder
                 placeholderText: "Root folder (uses project folder if empty)"
-                onTextChanged: root.folder = text
+                onTextChanged: { if (text !== root.folder) root.folder = text }
             }
             ToolButton {
                 text: "Browse"

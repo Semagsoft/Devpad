@@ -159,10 +159,10 @@ bool FileTreeModel::remove(const QString& path)
     QFileInfo fi(path);
     if (!fi.exists())
         return false;
-    bool ok;
-    if (fi.isDir())
+    bool ok = QFile::moveToTrash(path);
+    if (!ok && fi.isDir())
         ok = QDir(path).removeRecursively();
-    else
+    if (!ok && !fi.isDir())
         ok = QFile::remove(path);
     if (ok)
         refresh();

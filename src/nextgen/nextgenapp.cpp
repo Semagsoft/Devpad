@@ -42,8 +42,11 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
         return 1;
     }
 
+    const bool smokeTest = parser.isSet(QStringLiteral("nextgen-smoke-test"))
+        || qEnvironmentVariableIsSet("DEVPAD_NEXTGEN_SMOKE");
+
     // Headless / CI fallback: cat files to stdout when no display
-    if (qEnvironmentVariableIsSet("QT_QPA_PLATFORM") && qgetenv("QT_QPA_PLATFORM") == "offscreen")
+    if (!smokeTest && qEnvironmentVariableIsSet("QT_QPA_PLATFORM") && qgetenv("QT_QPA_PLATFORM") == "offscreen")
     {
         QTextStream out(stdout);
         if (positional.isEmpty())
@@ -319,6 +322,13 @@ ApplicationWindow {
         QTextStream err(stderr);
         err << "Failed to load Nextgen QML UI. Ensure qml/nextgen/Main.qml exists or rebuild with QML resources.\n";
         return 1;
+    }
+
+    if (smokeTest)
+    {
+        QTextStream out(stdout);
+        out << "Nextgen QML smoke test: OK (" << engine.rootObjects().size() << " root object(s))\n";
+        return 0;
     }
 
     return guiApp->exec();

@@ -131,6 +131,27 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  nextgen-smoke:
+    name: Nextgen QML smoke test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8'
+          modules: 'qtdeclarative qtquickcontrols2'
+      - name: Configure
+        run: cmake -S . -B build-ng -DCMAKE_BUILD_TYPE=Release -DBUILD_NEXTGEN=ON -DBUILD_TESTS=OFF
+      - name: Build
+        run: cmake --build build-ng -j$(nproc)
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          QT_QPA_PLATFORM=offscreen ./build-ng/Devpad --nextgen --nextgen-smoke-test 2>&1 | tee smoke.log
+          if grep -E 'QML warning|objectCreationFailed|Failed to load' smoke.log; then
+            echo "QML errors detected"; exit 1
+          fi
+
   linux:
     name: Build Linux packages
     runs-on: ubuntu-24.04

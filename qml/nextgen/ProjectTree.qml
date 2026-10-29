@@ -11,6 +11,7 @@ Pane {
     property var fileModel: fileTreeModel
     property string rootPath: ""
     property var editor: null
+    property var tabs: null
     property string deletePath: ""
 
     padding: 6
@@ -78,6 +79,7 @@ Pane {
                     onClicked: {
                         if (!model.isDir && editor) {
                             editor.loadFile(model.filePath)
+                            if (tabs) tabs.addTab(model.filePath)
                         } else if (model.isDir) {
                             // For now, just refresh to show directory contents
                             // Full recursive tree would need a tree model

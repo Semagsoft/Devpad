@@ -165,6 +165,8 @@ int main(int argc, char* argv[])
         QCommandLineOption transferOpt2(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"),
                                         QStringLiteral("file"));
         parser.addOption(transferOpt2);
+        QCommandLineOption smokeOpt(QStringList() << "nextgen-smoke-test", QStringLiteral("Load the Nextgen QML UI and exit (for CI)"));
+        parser.addOption(smokeOpt);
         QCommandLineOption noSessionOpt2(QStringList() << "no-session", QStringLiteral("Do not restore previous session"));
         parser.addOption(noSessionOpt2);
         parser.process(app);
