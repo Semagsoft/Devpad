@@ -141,7 +141,7 @@ TEST(TuiCommand, OpenExistingFile)
     QTemporaryDir tmpDir;
     QString filePath = tmpDir.path() + QStringLiteral("/existing.txt");
     QFile file(filePath);
-    file.open(QIODevice::WriteOnly);
+    ASSERT_TRUE(file.open(QIODevice::WriteOnly));
     file.write("existing content");
     file.close();
 
