@@ -51,6 +51,7 @@ else()
             PREFIX ${DEPS_PREFIX}/lxqt-build-tools
             PATCH_COMMAND sh -c "sed -i.bak 's/set(LXQT_MIN_LINGUIST_VERSION \"6.6\")/set(LXQT_MIN_LINGUIST_VERSION \"6.2\")/' CMakeLists.txt && rm -f CMakeLists.txt.bak"
             CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
+                -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
             BUILD_COMMAND ""
             INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
         )
@@ -62,7 +63,7 @@ else()
             PATCH_COMMAND sh -c "sed -i.bak 's/ SHARED / STATIC /' CMakeLists.txt && sed -i.bak 's/set(QT_MINIMUM_VERSION \"6.6.0\")/set(QT_MINIMUM_VERSION \"6.2.0\")/' CMakeLists.txt && rm -f CMakeLists.txt.bak"
             CMAKE_ARGS
                 -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
-                -DCMAKE_PREFIX_PATH=${DEPS_PREFIX}
+                -DCMAKE_PREFIX_PATH=${DEPS_PREFIX};${CMAKE_PREFIX_PATH}
                 -DBUILD_SHARED_LIBS=OFF
             DEPENDS ep_lxqt_build_tools
         )

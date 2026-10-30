@@ -149,6 +149,7 @@ jobs:
       - name: Install Qt
         run: |
           python3 -m aqt install-qt --outputdir $HOME/Qt linux desktop 6.8.1 linux_gcc_64 -m qtmultimedia
+          echo "$HOME/Qt/6.8.1/gcc_64/bin" >> $GITHUB_PATH
       - name: Configure
         run: cmake -S . -B build-ng -DCMAKE_BUILD_TYPE=Release -DBUILD_NEXTGEN=ON -DBUILD_TESTS=OFF -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.1/gcc_64
       - name: Build
