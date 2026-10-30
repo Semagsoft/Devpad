@@ -19,8 +19,10 @@
 #ifndef UPDATECHECKER_H
 #define UPDATECHECKER_H
 
+#include <QDateTime>
 #include <QNetworkAccessManager>
 #include <QObject>
+#include <QSettings>
 #include <QString>
 
 class QNetworkReply;
@@ -32,7 +34,10 @@ class UpdateChecker : public QObject
 public:
     explicit UpdateChecker(QObject* parent = nullptr);
 
-    void checkForUpdates();
+    // Returns true if a network check was actually started, false if a check
+    // is already in progress or the minimum interval since the last check has
+    // not elapsed (to avoid hammering the update server).
+    bool checkForUpdates();
 
     static int compareVersions(const QString& a, const QString& b);
     static QString normalizeVersion(const QString& version);
@@ -47,7 +52,16 @@ private:
     static QString friendlyFailureMessage(const QNetworkReply& reply);
     static int numericPrefix(const QString& version);
 
+    // Minimum time between update checks (GitHub unauthenticated rate limit
+    // is 60 requests/hour; one hour is a safe, user-friendly interval).
+    static constexpr int MinCheckIntervalSecs = 3600;
+
+    void loadLastCheckTime();
+    void saveLastCheckTime();
+
     QNetworkAccessManager m_networkManager;
+    QSettings m_settings;
+    QDateTime m_lastCheckTime;
     bool m_checkInProgress = false;
 };
 

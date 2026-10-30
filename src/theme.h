@@ -115,6 +115,9 @@ bool prefersNativeStyling(ThemeId themeId);
 int builtInThemeCount();
 QList<ThemeId> allBuiltInThemes();
 
+// Apply user accent color override to a ThemeColors object.
+void applyAccent(ThemeColors& colors);
+
 // System dark-mode probes (exposed for unit testing).
 // Each returns nullopt when the source is unavailable or has no opinion,
 // so callers can fall through to the next source in the chain.

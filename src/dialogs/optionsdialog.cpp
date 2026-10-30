@@ -108,6 +108,8 @@ void OptionsDialog::setupGeneralTab()
     startupComboBox = new QComboBox(startupGroup);
     startupComboBox->addItems({tr("New File"), tr("Restore Session"), tr("Open Last File"), tr("Empty")});
     startupLayout->addRow(tr("Startup mode:"), startupComboBox);
+    checkForUpdatesCheckBox = new QCheckBox(tr("Check for updates on startup"), startupGroup);
+    startupLayout->addRow(checkForUpdatesCheckBox);
     mainLayout->addWidget(startupGroup);
 
     QGroupBox* defaultsGroup = new QGroupBox(tr("Defaults"), content);
@@ -185,22 +187,33 @@ void OptionsDialog::setupAppearanceTab()
 
     QGroupBox* themeGroup = new QGroupBox(tr("Theme"), content);
     QFormLayout* themeLayout = new QFormLayout(themeGroup);
+    themeFilterEdit = new QLineEdit(themeGroup);
+    themeFilterEdit->setPlaceholderText(tr("Filter themes..."));
+    themeFilterEdit->setClearButtonEnabled(true);
+    themeLayout->addRow(themeFilterEdit);
     themeComboBox = new QComboBox(themeGroup);
+    m_themeItems.clear();
     for (auto id : allBuiltInThemes())
     {
-        themeComboBox->addItem(themeDisplayName(id), static_cast<int>(id));
+        QString name = themeDisplayName(id);
+        m_themeItems.append({name, static_cast<int>(id)});
+        themeComboBox->addItem(name, static_cast<int>(id));
     }
     // Add custom user themes
     QStringList customThemes = customThemeNames();
     if (!customThemes.isEmpty())
     {
         themeComboBox->insertSeparator(themeComboBox->count());
+        m_themeItems.append({QString(), -2}); // separator marker
         for (const QString& name : customThemes)
         {
+            m_themeItems.append({name, -1});
             themeComboBox->addItem(name, -1);
         }
     }
     themeLayout->addRow(tr("Theme:"), themeComboBox);
+
+    connect(themeFilterEdit, &QLineEdit::textChanged, this, &OptionsDialog::filterThemes);
 
     themePreview = new ThemePreviewWidget(themeGroup);
     themePreview->setFixedHeight(110);
@@ -221,12 +234,22 @@ void OptionsDialog::setupAppearanceTab()
             [this]()
             {
                 int data = themeComboBox->currentData().toInt();
+                bool themeChangedFlag = false;
                 if (data >= 0)
                 {
                     SettingsManager::instance().setTheme(static_cast<ThemeId>(data));
+                    SettingsManager::instance().setCustomTheme(QString());
+                    themeChangedFlag = true;
+                }
+                else if (data == -1)
+                {
+                    QString name = themeComboBox->currentText();
+                    SettingsManager::instance().setCustomTheme(name);
+                    themeChangedFlag = true;
                 }
                 updateThemePreview();
-                emit themeChanged();
+                if (themeChangedFlag)
+                    emit themeChanged();
             });
 
     connect(accentColorButton, &QPushButton::clicked, this,
@@ -333,11 +356,13 @@ void OptionsDialog::setupEditorTab()
     wordWrapCheckBox = new QCheckBox(tr("Word wrap"), displayGroup);
     codeCollapsingCheckBox = new QCheckBox(tr("Code collapsing"), displayGroup);
     showWhitespaceCheckBox = new QCheckBox(tr("Show whitespace"), displayGroup);
+    showMinimapCheckBox = new QCheckBox(tr("Show minimap"), displayGroup);
     displayLayout->addWidget(showLineNumbersCheckBox);
     displayLayout->addWidget(scrollPastContentCheckBox);
     displayLayout->addWidget(wordWrapCheckBox);
     displayLayout->addWidget(codeCollapsingCheckBox);
     displayLayout->addWidget(showWhitespaceCheckBox);
+    displayLayout->addWidget(showMinimapCheckBox);
     displayLayout->addStretch();
     mainLayout->addWidget(displayGroup);
 
@@ -557,10 +582,89 @@ void OptionsDialog::updateThemePreview()
     themePreview->setThemeColors(colors);
 }
 
+void OptionsDialog::filterThemes(const QString& text)
+{
+    QString filter = text.trimmed();
+    themeComboBox->blockSignals(true);
+    themeComboBox->clear();
+
+    for (const auto& item : m_themeItems)
+    {
+        if (item.data == -2)
+        {
+            // Separator: only show if there are visible custom themes on both sides
+            continue; // separators are re-added below if needed
+        }
+        if (!filter.isEmpty() && !item.text.contains(filter, Qt::CaseInsensitive))
+            continue;
+        themeComboBox->addItem(item.text, item.data);
+    }
+
+    // Re-add separators between built-in and custom themes when both groups have visible items
+    int builtInCount = 0;
+    int customCount = 0;
+    for (int i = 0; i < themeComboBox->count(); ++i)
+    {
+        if (themeComboBox->itemData(i).toInt() >= 0)
+            ++builtInCount;
+        else if (themeComboBox->itemData(i).toInt() == -1)
+            ++customCount;
+    }
+    if (builtInCount > 0 && customCount > 0)
+    {
+        // Insert separator after last built-in theme
+        int insertPos = 0;
+        for (int i = 0; i < themeComboBox->count(); ++i)
+        {
+            if (themeComboBox->itemData(i).toInt() >= 0)
+                insertPos = i + 1;
+        }
+        themeComboBox->insertSeparator(insertPos);
+    }
+
+    themeComboBox->blockSignals(false);
+
+    // Restore selection if the previously selected theme is still visible;
+    // otherwise fall back to the first visible item so the combo is never
+    // left with no selection.
+    const auto& s = SettingsManager::instance();
+    bool restored = false;
+    if (!s.customTheme().isEmpty())
+    {
+        for (int i = 0; i < themeComboBox->count(); ++i)
+        {
+            if (themeComboBox->itemText(i) == s.customTheme())
+            {
+                themeComboBox->setCurrentIndex(i);
+                restored = true;
+                break;
+            }
+        }
+    }
+    else
+    {
+        ThemeId currentTheme = s.theme();
+        for (int i = 0; i < themeComboBox->count(); ++i)
+        {
+            if (themeComboBox->itemData(i).toInt() == static_cast<int>(currentTheme))
+            {
+                themeComboBox->setCurrentIndex(i);
+                restored = true;
+                break;
+            }
+        }
+    }
+    if (!restored && themeComboBox->count() > 0)
+        themeComboBox->setCurrentIndex(0);
+
+    updateThemePreview();
+}
+
 void OptionsDialog::loadSettings()
 {
     const auto& s = SettingsManager::instance();
     startupComboBox->setCurrentIndex(static_cast<int>(s.startupMode()));
+    checkForUpdatesCheckBox->setChecked(s.checkForUpdatesEnabled());
     m_accentColor = s.accentColor();
     if (m_accentColor.isValid())
     {
@@ -575,6 +679,18 @@ void OptionsDialog::loadSettings()
             themeComboBox->setCurrentIndex(i);
             found = true;
             break;
+        }
+    }
+    if (!found && !s.customTheme().isEmpty())
+    {
+        for (int i = 0; i < themeComboBox->count(); ++i)
+        {
+            if (themeComboBox->itemText(i) == s.customTheme())
+            {
+                themeComboBox->setCurrentIndex(i);
+                found = true;
+                break;
+            }
         }
     }
     if (!found && themeComboBox->count() > 0)
@@ -619,6 +735,7 @@ void OptionsDialog::loadSettings()
     wordWrapCheckBox->setChecked(s.wordWrap());
     codeCollapsingCheckBox->setChecked(s.codeCollapsing());
     showWhitespaceCheckBox->setChecked(s.showWhitespace());
+    showMinimapCheckBox->setChecked(s.showMinimap());
     autoCompletionCheckBox->setChecked(s.autoCompletionEnabled());
     autoCompletionThresholdSpin->setValue(s.autoCompletionThreshold());
     autoCompletionCaseSensitiveCheckBox->setChecked(s.autoCompletionCaseSensitive());
@@ -666,6 +783,7 @@ void OptionsDialog::saveSettings()
         SettingsManager::instance().setTheme(static_cast<ThemeId>(themeData));
     }
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(startupComboBox->currentIndex()));
+    SettingsManager::instance().setCheckForUpdatesEnabled(checkForUpdatesCheckBox->isChecked());
     if (m_accentColor.isValid())
         SettingsManager::instance().setAccentColor(m_accentColor);
     else
@@ -697,6 +815,7 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setWordWrap(wordWrapCheckBox->isChecked());
     SettingsManager::instance().setCodeCollapsing(codeCollapsingCheckBox->isChecked());
     SettingsManager::instance().setShowWhitespace(showWhitespaceCheckBox->isChecked());
+    SettingsManager::instance().setShowMinimap(showMinimapCheckBox->isChecked());
     SettingsManager::instance().setAutoCompletionEnabled(autoCompletionCheckBox->isChecked());
     SettingsManager::instance().setAutoCompletionThreshold(autoCompletionThresholdSpin->value());
     SettingsManager::instance().setAutoCompletionCaseSensitive(autoCompletionCaseSensitiveCheckBox->isChecked());

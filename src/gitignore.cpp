@@ -133,10 +133,23 @@ QRegularExpression GitIgnore::patternToRegex(const QString& pattern, bool anchor
 
         if (c == '*' && i + 1 < pattern.size() && pattern[i + 1] == '*')
         {
-            regex += ".*";
             i += 2;
-            if (i < pattern.size() && pattern[i] == '/')
+            bool followedBySlash = (i < pattern.size() && pattern[i] == '/');
+            if (followedBySlash)
                 i++;
+
+            if (followedBySlash)
+            {
+                // '**/' is a directory-boundary operator: '**/foo' matches
+                // 'foo' and 'a/b/foo' (a component named foo), but NOT
+                // 'myfoo' — a plain '.*foo' would over-match suffixes.
+                regex += "(?:^|.*/)";
+            }
+            else
+            {
+                // Bare or trailing '**' (or '**' not followed by '/'): matches everything below this point.
+                regex += ".*";
+            }
         }
         else if (c == '*')
         {
@@ -203,6 +216,10 @@ bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
         return false;
 
     bool ignored = false;
+    // Set when a directory component above the target is excluded: git
+    // semantics say nothing beneath an excluded directory can be re-included
+    // by negation patterns from deeper .gitignore files.
+    bool insideExcludedDir = false;
 
     QStringList dirs;
     QString current = fileDir;
@@ -227,19 +244,45 @@ bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
         if (relPath.isEmpty())
             continue;
 
+        if (insideExcludedDir)
+        {
+            ignored = true;
+            break;
+        }
+
+        bool dirExcludedHere = false;
+        const bool hasDirBelow = relPath.contains('/');
+
         for (const Pattern& p : it.value())
         {
-            if (p.dirOnly && !isDir)
-                continue;
+            if (p.dirOnly && !isDir && !hasDirBelow)
+                continue; // a dir-only pattern never matches a bare file
 
-            QString matchTarget;
-            if (!p.dirOnly && !p.anchored && !p.hasSlash && relPath.contains('/'))
-                matchTarget = relPath.section('/', -1);
-            else
-                matchTarget = relPath;
+            // 1) Match against the target itself.
+            if (!(p.dirOnly && !isDir))
+            {
+                QString matchTarget;
+                if (!p.dirOnly && !p.anchored && !p.hasSlash && hasDirBelow)
+                    matchTarget = relPath.section('/', -1);
+                else
+                    matchTarget = relPath;
 
-            if (p.regex.match(matchTarget).hasMatch())
-                ignored = !p.negate;
+                if (p.regex.match(matchTarget).hasMatch())
+                    ignored = !p.negate;
+            }
+
+            // 2) Match against the leading directory component: a pattern
+            // that excludes a directory also excludes everything beneath it.
+            if (hasDirBelow && p.regex.match(relPath.section('/', 0, 0)).hasMatch())
+            {
+                dirExcludedHere = !p.negate;
+            }
+        }
+
+        if (dirExcludedHere)
+        {
+            insideExcludedDir = true;
+            ignored = true;
         }
     }
 

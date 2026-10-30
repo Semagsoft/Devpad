@@ -28,12 +28,21 @@
 
 UpdateChecker::UpdateChecker(QObject* parent) : QObject(parent)
 {
+    loadLastCheckTime();
 }
 
-void UpdateChecker::checkForUpdates()
+bool UpdateChecker::checkForUpdates()
 {
     if (m_checkInProgress)
-        return;
+        return false;
+
+    const auto now = QDateTime::currentDateTimeUtc();
+    if (m_lastCheckTime.isValid() && m_lastCheckTime.secsTo(now) < MinCheckIntervalSecs)
+    {
+        // Don't hammer the update server: a check was performed recently.
+        return false;
+    }
+
     m_checkInProgress = true;
 
     QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/Semagsoft/Devpad/releases/latest")));
@@ -64,11 +73,13 @@ void UpdateChecker::checkForUpdates()
             });
 
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, data, aborted]()
+            [this, reply, data, aborted, now]()
             {
                 if (*aborted)
                 {
                     m_checkInProgress = false;
+                    m_lastCheckTime = now;
+                    saveLastCheckTime();
                     reply->deleteLater();
                     emit checkFailed(tr("The update server response was too large."), QString());
                     return;
@@ -77,8 +88,12 @@ void UpdateChecker::checkForUpdates()
                 // Catch any tail bytes delivered with the finished state
                 // instead of a final readyRead signal.
                 data->append(reply->readAll());
+                m_lastCheckTime = now;
+                saveLastCheckTime();
                 handleReply(reply, *data);
             });
+
+    return true;
 }
 
 void UpdateChecker::handleReply(QNetworkReply* reply, const QByteArray& payload)
@@ -107,6 +122,16 @@ void UpdateChecker::handleReply(QNetworkReply* reply, const QByteArray& payload)
         emit updateAvailable(latest, releaseUrl);
     else
         emit upToDate(latest);
+}
+
+void UpdateChecker::loadLastCheckTime()
+{
+    m_lastCheckTime = m_settings.value("UpdateChecker/LastCheck").toDateTime();
+}
+
+void UpdateChecker::saveLastCheckTime()
+{
+    m_settings.setValue("UpdateChecker/LastCheck", m_lastCheckTime);
 }
 
 QString UpdateChecker::friendlyFailureMessage(const QNetworkReply& reply)

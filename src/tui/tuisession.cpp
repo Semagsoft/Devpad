@@ -54,6 +54,20 @@ bool TuiSession::tryRestore(const QCommandLineParser& parser, const QStringList&
     int active = sm.sessionActiveIndex();
     tabs.setCurrentIndex(qBound(0, active, tabs.count() - 1));
     tabs.setPinnedFiles(pinnedSet);
+
+    // Restore per-buffer cursor positions from session.
+    QHash<QString, QList<int>> sCursors = sm.loadSessionCursors();
+    for (int i = 0; i < tabs.count(); ++i)
+    {
+        TuiBuffer* b = tabs.bufferAt(i);
+        if (b && !b->filePath().isEmpty())
+        {
+            auto it = sCursors.find(b->filePath());
+            if (it != sCursors.end() && it->size() >= 2)
+                b->setCursor((*it)[0], (*it)[1]);
+        }
+    }
+
     QString proj = sm.sessionProjectPath();
     if (!proj.isEmpty() && QDir(proj).exists())
         fileTree.setRootPath(proj);
@@ -79,6 +93,9 @@ void TuiSession::save(const QCommandLineParser& parser, const TuiTabModel& tabs,
     sm.saveSessionBookmarks(bms);
     QStringList pinned = tabs.pinnedFiles().values();
     sm.saveSessionPinnedFiles(pinned);
+
+    QHash<QString, QList<int>> cursors = tabs.cursors();
+    sm.saveSessionCursors(cursors);
 }
 
 void TuiSession::pollExternalChanges(TuiTabModel& tabs, TuiBuffer* cur, QHash<QString, QDateTime>& fileMtimes, QString& statusMsg)
@@ -90,7 +107,11 @@ void TuiSession::pollExternalChanges(TuiTabModel& tabs, TuiBuffer* cur, QHash<QS
             continue;
         QFileInfo fi(b->filePath());
         if (!fi.exists())
+        {
+            if (b->filePath() == cur->filePath())
+                statusMsg = QStringLiteral("File deleted on disk: %1").arg(b->filePath());
             continue;
+        }
         QDateTime curMod = fi.lastModified();
         if (!fileMtimes.contains(b->filePath()))
         {

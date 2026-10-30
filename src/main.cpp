@@ -18,6 +18,7 @@
  */
 #include "devpad_version.h"
 #include "mainwindow.h"
+#include "managers/backupmanager.h"
 #include "managers/settingsmanager.h"
 #include "theme.h"
 
@@ -27,6 +28,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QLoggingCategory>
 #include <QTextStream>
 #include <array>
 #include <cstdlib>
@@ -163,6 +165,8 @@ int main(int argc, char* argv[])
         QCommandLineOption transferOpt2(QStringList() << "transfer", QStringLiteral("Open a file transferred from another instance"),
                                         QStringLiteral("file"));
         parser.addOption(transferOpt2);
+        QCommandLineOption smokeOpt(QStringList() << "nextgen-smoke-test", QStringLiteral("Load the Nextgen QML UI and exit (for CI)"));
+        parser.addOption(smokeOpt);
         QCommandLineOption noSessionOpt2(QStringList() << "no-session", QStringLiteral("Do not restore previous session"));
         parser.addOption(noSessionOpt2);
         parser.process(app);
@@ -227,6 +231,9 @@ int main(int argc, char* argv[])
 #endif
     }
 
+    // Suppress noisy, non-actionable Qt platform warnings at startup.
+    QLoggingCategory::setFilterRules(QStringLiteral("qt.qpa.services=false\nqt.accessibility.atspi=false"));
+
     QApplication app(argc, argv);
     QApplication::setOrganizationName("Semagsoft");
     QApplication::setOrganizationDomain("semagsoft.com");
@@ -285,6 +292,10 @@ int main(int argc, char* argv[])
         else if (fileInfo.isDir())
             mainWindow.openFolderFromPath(filePath);
     }
+
+    // Clean up auto-save backups that will never be prompted for again:
+    // originals deleted on disk, or backups older than the retention window.
+    BackupManager::purgeStaleBackups();
 
     mainWindow.show();
     return QApplication::exec();

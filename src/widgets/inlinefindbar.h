@@ -3,6 +3,7 @@
 
 #include <QList>
 #include <QPair>
+#include <QPointer>
 #include <QString>
 #include <QWidget>
 
@@ -66,7 +67,7 @@ private:
 
     static QIcon paintIcon(const QColor& fg, const QString& text, bool underline = false, bool brackets = false);
 
-    CodeEditor* m_editor;
+    QPointer<CodeEditor> m_editor;
 
     // Find widgets
     QLineEdit* m_findInput;

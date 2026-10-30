@@ -93,6 +93,12 @@ public:
         return m_mainWindow;
     }
 
+    // Track which plugin registers what (called by PluginManager around
+    // initialize/shutdown) so a misbehaving plugin's leftovers can be
+    // removed safely on unload instead of leaving dangling callbacks behind.
+    void beginPluginSession(const QString& pluginId);
+    void endPluginSession(const QString& pluginId);
+
     // Forward editor/file events to all loaded plugins (called by PluginManager).
 signals:
     void editorCreated(CodeEditor* editor);
@@ -114,6 +120,12 @@ private:
 
     // Plugin-registered actions keyed by id so they can be removed on unload.
     QHash<QString, QAction*> m_pluginActions;
+
+    // Plugin id that owns each registered action/dock (recorded while the
+    // plugin's session is active, i.e. between begin/endPluginSession).
+    QHash<QString, QString> m_pluginActionOwners;
+    QHash<QString, QString> m_pluginDockOwners;
+    QString m_currentPluginId;
 
     // Dock widgets keyed by dock id so they can be removed on unload.
     struct DockEntry

@@ -7,6 +7,10 @@
 
 #include "core/fileservice.h"
 #include "devpad_version.h"
+#include "filetreemodel.h"
+#include "lsp/lspclient.h"
+#include "managers/sessionmanager.h"
+#include "managers/settingsmanager.h"
 #include "nextgenactions.h"
 #include "nextgentabmodel.h"
 #include "primoeditor.h"
@@ -38,8 +42,10 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
         return 1;
     }
 
+    const bool smokeTest = parser.isSet(QStringLiteral("nextgen-smoke-test")) || qEnvironmentVariableIsSet("DEVPAD_NEXTGEN_SMOKE");
+
     // Headless / CI fallback: cat files to stdout when no display
-    if (qEnvironmentVariableIsSet("QT_QPA_PLATFORM") && qgetenv("QT_QPA_PLATFORM") == "offscreen")
+    if (!smokeTest && qEnvironmentVariableIsSet("QT_QPA_PLATFORM") && qgetenv("QT_QPA_PLATFORM") == "offscreen")
     {
         QTextStream out(stdout);
         if (positional.isEmpty())
@@ -134,37 +140,89 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
         if (fi.isDir())
             hasFiles = true;
     }
-    // Shared session: if no files and not --no-session, restore from QSettings (shared with Widgets)
+    // Shared session: if no files and not --no-session, restore via SessionManager
+    // (shared with Widgets frontend; uses flat keys as last-clean-quit snapshot).
     if (!hasFiles && !parser.isSet(QStringLiteral("no-session")))
     {
-        // Use SessionManager's QSettings to load the shared session from the
-        // flat keys (the last clean-quit snapshot). Per-PID Session_* groups
-        // belong to individual instances and are never merged — stale ones
-        // belong to crashed processes (same rule as SessionManager::loadSessionData).
-        QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-        QStringList files = s.value(QStringLiteral("Session_Files")).toStringList();
-        for (auto& f : files)
+        SessionManager sm;
+        SessionManager::SessionData sData = sm.loadSessionData();
+        SessionManager::SplitSessionState sSplit = sm.loadSessionSplitState();
+        for (auto& f : sData.files)
             if (QFileInfo::exists(f))
                 tabModel->addTab(f);
-        if (!files.isEmpty() && initialFolder.isEmpty())
+        if (!sData.files.isEmpty() && initialFolder.isEmpty())
         {
-            QString proj = s.value(QStringLiteral("Session_ProjectPath")).toString();
+            tabModel->setCurrentIndex(qBound(0, sData.activeIndex, tabModel->count() - 1));
+            QString proj = sData.projectPath;
             if (!proj.isEmpty() && QDir(proj).exists())
                 initialFolder = proj;
         }
+        // Restore split view state
+        tabModel->setSplitVisible(sSplit.splitVisible);
+        tabModel->setTabPanes(sSplit.tabPanes);
+        // If split is visible and we have a pane2 file, set pane2Index
+        if (sSplit.splitVisible && !sData.files.isEmpty())
+        {
+            // Find first tab assigned to right pane
+            for (int i = 0; i < tabModel->count(); ++i)
+            {
+                if (tabModel->tabPane(i) == 1)
+                {
+                    tabModel->setPane2Index(i);
+                    break;
+                }
+            }
+        }
+        // Restore per-tab cursor positions
+        QHash<QString, QList<int>> sCursors = sm.loadSessionCursors();
+        QVariantList cursorList;
+        for (int i = 0; i < tabModel->count(); ++i)
+        {
+            QString f = tabModel->tabAt(i);
+            auto it = sCursors.find(f);
+            QList<int> entry;
+            if (it != sCursors.end() && it->size() >= 2)
+                entry = {(*it)[0], (*it)[1]};
+            else
+                entry = {0, 0};
+            QVariantList ve;
+            for (int v : entry)
+                ve.append(v);
+            cursorList.append(ve);
+        }
+        tabModel->setTabCursors(cursorList);
     }
+    // Keep QML's initialFolder in sync if session restore changed it
+    engine.rootContext()->setContextProperty(QStringLiteral("initialFolder"), initialFolder);
     engine.rootContext()->setContextProperty(QStringLiteral("tabModel"), tabModel);
     // Save session on quit (shared)
     QObject::connect(guiApp, &QGuiApplication::aboutToQuit, guiApp,
                      [tabModel, initialFolder]()
                      {
-                         QSettings s(QStringLiteral("Semagsoft"), QStringLiteral("Devpad"));
-                         // Write the flat keys — the shared last-quit snapshot —
-                         // so later launches and other front-ends restore it
-                         // without merging per-PID Session_* groups.
-                         s.setValue(QStringLiteral("Session_Files"), tabModel->tabs());
-                         s.setValue(QStringLiteral("Session_ProjectPath"), initialFolder);
-                         s.sync();
+                         SessionManager sm;
+                         sm.saveSessionData(tabModel->tabs(), tabModel->currentIndex(), initialFolder, QDir::currentPath());
+
+                         // Save per-tab cursor positions
+                         QHash<QString, QList<int>> cursors;
+                         for (int i = 0; i < tabModel->count(); ++i)
+                         {
+                             QString f = tabModel->tabAt(i);
+                             if (!f.isEmpty())
+                             {
+                                 QVariantList vc = tabModel->cursorForTab(i);
+                                 QList<int> pos;
+                                 for (const QVariant& v : vc)
+                                     pos.append(v.toInt());
+                                 cursors.insert(f, pos);
+                             }
+                         }
+                         sm.saveSessionCursors(cursors);
+
+                         // Save split view state
+                         QVariantList paneList;
+                         for (int i = 0; i < tabModel->count(); ++i)
+                             paneList.append(tabModel->tabPane(i));
+                         sm.saveSessionSplitState(tabModel->splitVisible(), paneList);
                      });
 
     // Shared terminal (singleton) – simple QML TextArea via QProcess, shared across windows
@@ -183,6 +241,18 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     auto* finder = new PrimoFindInFiles(app);
     engine.rootContext()->setContextProperty(QStringLiteral("finderInstance"), finder);
 
+    // File tree model (respects .gitignore + showHidden via SettingsManager)
+    auto* fileTreeModel = new FileTreeModel(app);
+    fileTreeModel->setShowHidden(SettingsManager::instance().showHiddenFiles());
+    fileTreeModel->setUseGitIgnore(SettingsManager::instance().useGitIgnore());
+    if (!initialFolder.isEmpty())
+        fileTreeModel->setRootPath(initialFolder);
+    engine.rootContext()->setContextProperty(QStringLiteral("fileTreeModel"), fileTreeModel);
+
+    // LSP client for diagnostics and language features
+    auto* lspClient = new lsp::LspClient(QStringLiteral("cpp"), app);
+    engine.rootContext()->setContextProperty(QStringLiteral("lspClient"), lspClient);
+
     // Register primoEditor types for QML
     qmlRegisterType<PrimoEditor>("Devpad.Nextgen", 1, 0, "PrimoEditor");
     qmlRegisterType<PrimoDocument>("Devpad.Nextgen", 1, 0, "PrimoDocument");
@@ -190,6 +260,15 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     qmlRegisterType<NextgenTabModel>("Devpad.Nextgen", 1, 0, "NextgenTabModel");
     qmlRegisterType<PrimoTerminal>("Devpad.Nextgen", 1, 0, "PrimoTerminal");
     qmlRegisterType<PrimoFindInFiles>("Devpad.Nextgen", 1, 0, "PrimoFindInFiles");
+    qmlRegisterType<FileTreeModel>("Devpad.Nextgen", 1, 0, "FileTreeModel");
+
+    // Register LSP types for QML (value type names must begin with a lowercase letter)
+    qmlRegisterUncreatableType<lsp::Position>("Devpad.Nextgen", 1, 0, "lspPosition", QStringLiteral("Position is read-only"));
+    qmlRegisterUncreatableType<lsp::Range>("Devpad.Nextgen", 1, 0, "lspRange", QStringLiteral("Range is read-only"));
+    qmlRegisterUncreatableType<lsp::Location>("Devpad.Nextgen", 1, 0, "lspLocation", QStringLiteral("Location is read-only"));
+    qmlRegisterUncreatableType<lsp::Diagnostic>("Devpad.Nextgen", 1, 0, "lspDiagnostic", QStringLiteral("Diagnostic is read-only"));
+    qmlRegisterUncreatableType<lsp::CompletionItem>("Devpad.Nextgen", 1, 0, "lspCompletionItem", QStringLiteral("CompletionItem is read-only"));
+    qmlRegisterUncreatableType<lsp::CompletionList>("Devpad.Nextgen", 1, 0, "lspCompletionList", QStringLiteral("CompletionList is read-only"));
 
     // Try embedded QML first (resource), fallback to file system for dev builds
     const QUrl qmlUrl(QStringLiteral("qrc:/qml/nextgen/Main.qml"));
@@ -242,6 +321,13 @@ ApplicationWindow {
         QTextStream err(stderr);
         err << "Failed to load Nextgen QML UI. Ensure qml/nextgen/Main.qml exists or rebuild with QML resources.\n";
         return 1;
+    }
+
+    if (smokeTest)
+    {
+        QTextStream out(stdout);
+        out << "Nextgen QML smoke test: OK (" << engine.rootObjects().size() << " root object(s))\n";
+        return 0;
     }
 
     return guiApp->exec();

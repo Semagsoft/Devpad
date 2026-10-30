@@ -11,12 +11,20 @@
 #include "tui/tuihighlighter.h"
 #include "tui/tuisearchengine.h"
 
+#include <QClipboard>
 #include <QDir>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QRegularExpression>
 
 #ifdef BUILD_TUI
 #include <ncurses.h>
+#ifndef BUTTON4
+#define BUTTON4 (1 << 28)
+#endif
+#ifndef BUTTON5
+#define BUTTON5 (1 << 29)
+#endif
 #else
 // Fallback key definitions when ncurses not available (non-TUI build)
 #ifndef KEY_UP
@@ -31,6 +39,7 @@
 #define KEY_DC 330
 #define KEY_BACKSPACE 263
 #define KEY_ENTER 343
+#define KEY_RESIZE 409
 #define KEY_SLEFT 393
 #define KEY_SRIGHT 402
 #define KEY_SR 390
@@ -537,8 +546,8 @@ bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiF
     {
         if (cur->hasSelection())
         {
-            st.clipboard = cur->selectedText();
-            st.statusMsg = QStringLiteral("Copied %1 chars").arg(st.clipboard.size());
+            QGuiApplication::clipboard()->setText(cur->selectedText());
+            st.statusMsg = QStringLiteral("Copied %1 chars").arg(cur->selectedText().size());
         }
         else
             st.statusMsg = QStringLiteral("No selection");
@@ -547,20 +556,17 @@ bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiF
     {
         if (cur->hasSelection())
         {
-            st.clipboard = cur->selectedText();
+            QGuiApplication::clipboard()->setText(cur->selectedText());
             cur->deleteSelection();
-            st.statusMsg = QStringLiteral("Cut %1 chars").arg(st.clipboard.size());
+            st.statusMsg = QStringLiteral("Cut %1 chars").arg(cur->selectedText().size());
         }
         else
             st.statusMsg = QStringLiteral("No selection");
     }
     else if (ch == CtrlV)
     {
-        if (!st.clipboard.isEmpty())
-        {
-            cur->insertText(st.clipboard);
-            st.statusMsg = QStringLiteral("Pasted");
-        }
+        cur->insertText(QGuiApplication::clipboard()->text());
+        st.statusMsg = QStringLiteral("Pasted");
     }
     else if (ch == CtrlW)
     {
@@ -826,3 +832,92 @@ bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiF
 #endif
     return false; // false = not quit, true = quit (only CtrlQ)
 }
+
+#ifdef BUILD_TUI
+bool TuiInput::handleMouseInput(MEVENT& event, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiInputState& st,
+                                QHash<QString, QDateTime>& /*fileMtimes*/, int editorH, int tabBarH, int treeWidth, bool fileTreeVisible,
+                                int /*rows*/, int /*cols*/)
+{
+    Q_UNUSED(tabs);
+
+    // Only handle left-button clicks and wheel scrolls.
+    if (!(event.bstate & (BUTTON1_CLICKED | BUTTON1_PRESSED | BUTTON1_DOUBLE_CLICKED | BUTTON4 | BUTTON5)))
+        return false;
+
+    int mx = event.x;
+    int my = event.y;
+
+    // Wheel scroll in the file tree.
+    if (fileTreeVisible && st.fileTreeFocused && mx < treeWidth)
+    {
+        if (event.bstate & BUTTON4)
+            fileTree.moveCursor(-3);
+        else if (event.bstate & BUTTON5)
+            fileTree.moveCursor(3);
+        return true;
+    }
+
+    // Wheel scroll in the editor.
+    if (mx >= treeWidth && my >= tabBarH && my < tabBarH + editorH && cur)
+    {
+        if (event.bstate & BUTTON4)
+            cur->moveCursor(-3, 0);
+        else if (event.bstate & BUTTON5)
+            cur->moveCursor(3, 0);
+        st.fileTreeFocused = false;
+        return true;
+    }
+
+    // Left-click outside any interactive area is not handled.
+    if (!(event.bstate & (BUTTON1_CLICKED | BUTTON1_PRESSED | BUTTON1_DOUBLE_CLICKED)))
+        return true;
+
+    // File tree click: select the node under the cursor.
+    if (fileTreeVisible && mx < treeWidth && my >= tabBarH && my < tabBarH + editorH)
+    {
+        int treeRow = st.view.fileTreeScroll + (my - tabBarH);
+        auto nodes = fileTree.visibleNodes();
+        if (treeRow >= 0 && treeRow < nodes.size())
+        {
+            fileTree.setCursor(treeRow);
+            st.fileTreeVisible = true;
+            st.fileTreeFocused = true;
+            st.statusMsg = QStringLiteral("File tree focus");
+        }
+        return true;
+    }
+
+    // Editor click: position the cursor at the clicked line/column.
+    if (!cur)
+        return true;
+
+    const int editorXOffset = fileTreeVisible ? treeWidth + 1 : 0;
+    const int textXGlobal = editorXOffset + 7;
+
+    if (mx >= editorXOffset && my >= tabBarH && my < tabBarH + editorH)
+    {
+        int targetLine = st.view.scrollTop + (my - tabBarH);
+        int targetCol = 0;
+
+        if (mx >= textXGlobal)
+            targetCol = mx - textXGlobal;
+
+        if (targetLine < 0)
+            targetLine = 0;
+        if (targetLine >= cur->lineCount())
+            targetLine = cur->lineCount() - 1;
+        if (targetLine < 0)
+            targetLine = 0;
+
+        int lineLen = cur->lines().at(targetLine).size();
+        if (targetCol > lineLen)
+            targetCol = lineLen;
+
+        cur->setCursor(targetLine, targetCol);
+        st.fileTreeFocused = false;
+        st.statusMsg = QStringLiteral("");
+    }
+
+    return true;
+}
+#endif

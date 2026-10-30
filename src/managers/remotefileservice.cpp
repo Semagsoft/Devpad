@@ -52,10 +52,17 @@ constexpr const char* kListingFilesMarker = "__DEVPAD_FILES__";
 
 // Cap on the stdout of a directory listing to bail out of runaway listings.
 constexpr qint64 kMaxListingBytes = 10LL * 1024 * 1024;
+
+// Abort an HTTP/HTTPS transfer that stalls for this long.
+constexpr int kHttpTransferTimeoutMs = 30000;
 } // namespace
 
 RemoteFileService::RemoteFileService(QObject* parent) : QObject(parent)
 {
+    // Stall/stall-out protection: without a transfer timeout a hung server
+    // would leave the download pending forever (the SSH/SCP path has its own
+    // kill timer; this covers HTTP/HTTPS).
+    m_networkManager.setTransferTimeout(kHttpTransferTimeoutMs);
 }
 
 RemoteFileService::~RemoteFileService()

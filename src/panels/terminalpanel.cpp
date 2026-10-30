@@ -60,6 +60,7 @@ TerminalPanel::TerminalPanel(QWidget* parent) : QDockWidget(tr("Terminal"), pare
 
 TerminalPanel::~TerminalPanel()
 {
+    stopTerminal();
     QApplication::instance()->removeEventFilter(this);
 }
 
@@ -265,6 +266,9 @@ void TerminalPanel::stopTerminal()
     QApplication::instance()->removeEventFilter(this);
 
     mainLayout->removeWidget(m_backend);
+    // Backend destructor stops the shell process (see terminalbackend_*).
+    m_backend->hide();
+    m_backend->stop();
     delete m_backend;
     m_backend = nullptr;
     m_isRunning = false;
@@ -337,12 +341,15 @@ void TerminalPanel::contextMenuEvent(QContextMenuEvent* event)
     QMenu menu(this);
 
     QAction* copyAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy"));
+    copyAct->setEnabled(m_backend != nullptr);
 
     QAction* pasteAct = menu.addAction(QIcon(":/icons/Edit/paste.svg"), tr("Paste"));
+    pasteAct->setEnabled(m_backend != nullptr);
 
     menu.addSeparator();
 
     QAction* clearAct = menu.addAction(QIcon(":/icons/Common/clear.svg"), tr("Clear"));
+    clearAct->setEnabled(m_backend != nullptr);
 
     menu.addSeparator();
 

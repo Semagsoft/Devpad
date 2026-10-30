@@ -53,6 +53,8 @@ TabBar {
             onClicked: {
                 if (paneId === 0) tabModel.currentIndex = index
                 else tabModel.pane2Index = index
+                // Assign this tab to the clicked pane
+                tabModel.setTabPane(index, paneId)
                 // Load file into associated editor
                 var path = tabModel.tabAt(index)
                 if (path && editor) editor.loadFile(path)
@@ -96,6 +98,8 @@ TabBar {
                 tabModel.moveTab(draggedTabIndex, toIdx)
             } else {
                 tabModel.moveTabToPane(draggedPaneId, draggedTabIndex, paneId, toIdx)
+                // Assign moved tab to target pane
+                tabModel.setTabPane(toIdx, paneId)
             }
             draggedTabIndex = -1
             draggedPaneId = -1

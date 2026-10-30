@@ -263,7 +263,7 @@ void CodeEditor::setupEditor()
         setMarginWidth(BOOKMARK_MARGIN, fm.height());
     }
     setMarginSensitivity(BOOKMARK_MARGIN, true);
-    setMarginMarkerMask(BOOKMARK_MARGIN, (1 << MARKER_BOOKMARK));
+    setMarginMarkerMask(BOOKMARK_MARGIN, static_cast<int>(1u << static_cast<unsigned int>(MARKER_BOOKMARK)));
     markerDefine(QsciScintilla::SC_MARK_BOOKMARK, MARKER_BOOKMARK);
     setMarkerForegroundColor(QColor(255, 160, 0), MARKER_BOOKMARK);
     setMarkerBackgroundColor(QColor(255, 200, 100), MARKER_BOOKMARK);
@@ -273,7 +273,17 @@ void CodeEditor::applyTheme(ThemeId themeId)
 {
     m_themeId = themeId;
     ThemeColors colors = getThemeColors(themeId);
+    applyThemeColors(colors);
+}
 
+void CodeEditor::applyTheme(const ThemeColors& colors)
+{
+    m_themeId = ThemeId::Light; // placeholder; custom themes aren't a ThemeId
+    applyThemeColors(colors);
+}
+
+void CodeEditor::applyThemeColors(const ThemeColors& colors)
+{
     setMarginsBackgroundColor(colors.marginBg);
     setMarginsForegroundColor(colors.marginFg);
     setFoldMarginColors(colors.foldMarginBg, colors.foldMarginBgAlt);
@@ -290,7 +300,7 @@ void CodeEditor::applyTheme(ThemeId themeId)
         setEdgeColor(colors.separator);
     }
 
-    applyLexerTheme();
+    applyLexerThemeColors(colors);
 }
 
 void CodeEditor::applyLexerTheme()
@@ -300,6 +310,14 @@ void CodeEditor::applyLexerTheme()
         return;
 
     ThemeColors colors = getThemeColors(m_themeId);
+    applyLexerThemeColors(colors);
+}
+
+void CodeEditor::applyLexerThemeColors(const ThemeColors& colors)
+{
+    QsciLexer* lexer = this->lexer();
+    if (!lexer)
+        return;
 
     lexer->setDefaultColor(colors.foreground);
     lexer->setDefaultPaper(colors.background);
@@ -547,6 +565,14 @@ void CodeEditor::setAutoCloseBrackets(bool enabled)
     m_autoCloseBrackets = enabled;
 }
 
+void CodeEditor::setMinimapVisible(bool visible)
+{
+    if (m_minimapVisible == visible)
+        return;
+    m_minimapVisible = visible;
+    emit minimapVisibleChanged(visible);
+}
+
 void CodeEditor::setupLspIndicators()
 {
     // Error indicator: red squiggle underline
@@ -602,7 +628,7 @@ void CodeEditor::toggleBookmark(int line)
 
 bool CodeEditor::hasBookmark(int line) const
 {
-    return (markersAtLine(line) & (1 << MARKER_BOOKMARK)) != 0;
+    return (static_cast<unsigned int>(markersAtLine(line)) & (1u << static_cast<unsigned int>(MARKER_BOOKMARK))) != 0;
 }
 
 void CodeEditor::nextBookmark()
@@ -681,7 +707,7 @@ QList<int> CodeEditor::bookmarkLines() const
     int lineCount = this->lines();
     for (int i = 0; i < lineCount; ++i)
     {
-        if ((markersAtLine(i) & (1 << MARKER_BOOKMARK)) != 0)
+        if ((static_cast<unsigned int>(markersAtLine(i)) & (1u << static_cast<unsigned int>(MARKER_BOOKMARK))) != 0)
         {
             lines.append(i);
         }
@@ -1216,7 +1242,7 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
     // Apply indicators and markers for each diagnostic
     for (const auto& d : diagnostics)
     {
-        if (d.range.start.line < 0 || d.range.end.line < 0)
+        if (d.range.start.line < 0 || d.range.end.line < 0 || d.range.start.line >= lines() || d.range.end.line >= lines())
             continue;
 
         int indicatorId = lsp::LSP_INDICATOR_ERROR;
@@ -1337,8 +1363,8 @@ void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& token
 bool CodeEditor::hasLineMarker(int line, int marker) const
 {
     // Check if a specific line has a specific marker
-    unsigned int mask = markersAtLine(line);
-    return (mask & (1 << marker)) != 0;
+    unsigned int mask = static_cast<unsigned int>(markersAtLine(line));
+    return (mask & (1u << static_cast<unsigned int>(marker))) != 0;
 }
 
 void CodeEditor::replaceSelectedText(const QString& text)

@@ -51,6 +51,7 @@ else()
             PREFIX ${DEPS_PREFIX}/lxqt-build-tools
             PATCH_COMMAND sh -c "sed -i.bak 's/set(LXQT_MIN_LINGUIST_VERSION \"6.6\")/set(LXQT_MIN_LINGUIST_VERSION \"6.2\")/' CMakeLists.txt && rm -f CMakeLists.txt.bak"
             CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
+                -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
             BUILD_COMMAND ""
             INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install
         )
@@ -62,7 +63,7 @@ else()
             PATCH_COMMAND sh -c "sed -i.bak 's/ SHARED / STATIC /' CMakeLists.txt && sed -i.bak 's/set(QT_MINIMUM_VERSION \"6.6.0\")/set(QT_MINIMUM_VERSION \"6.2.0\")/' CMakeLists.txt && rm -f CMakeLists.txt.bak"
             CMAKE_ARGS
                 -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}
-                -DCMAKE_PREFIX_PATH=${DEPS_PREFIX}
+                -DCMAKE_PREFIX_PATH=${DEPS_PREFIX};${CMAKE_PREFIX_PATH}
                 -DBUILD_SHARED_LIBS=OFF
             DEPENDS ep_lxqt_build_tools
         )
@@ -245,6 +246,7 @@ add_library(Devpad_lib STATIC
     src/widgets/windowsframebridge.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/editorcontainer.cpp
+    src/widgets/minimap.cpp
     src/tui/tuisession.cpp
     src/tui/tuicommand.cpp
     src/tui/tuiinput.cpp
@@ -292,7 +294,7 @@ endif()
 
 # ── Next-gen / QML mode ─────────────────────────────────────────
 if(BUILD_NEXTGEN)
-    find_package(Qt6 6.2 REQUIRED COMPONENTS Quick Qml QuickControls2)
+    find_package(Qt6 6.6 REQUIRED COMPONENTS Quick Qml QuickControls2)
     message(STATUS "Building with NEXTGEN support (QML + primoEditor)")
 endif()
 
@@ -313,6 +315,7 @@ target_sources(Devpad PRIVATE
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgentabmodel.cpp>
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoterminal.cpp>
     $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primofindinfiles.cpp>
+    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/filetreemodel.cpp>
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
@@ -475,6 +478,7 @@ if(BUILD_TESTS)
         tests/test_tuifiletree.cpp
         tests/test_tuihighlighter.cpp
         tests/test_tuifindinfiles.cpp
+        tests/test_tuicommand.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)

@@ -21,6 +21,62 @@
 #include <QMap>
 #include <QRegularExpression>
 
+namespace
+{
+// Records a text replacement performed after tab-stop positions were
+// captured: everything at position > shift.pos moves by shift.delta.
+struct ShiftEntry
+{
+    int pos;
+    int delta;
+};
+
+// Replace every occurrence of `from` with `to`, scanning right-to-left so the
+// recorded positions refer to the ORIGINAL text coordinates.
+void replaceTracked(QString& text, const QString& from, const QString& to, QList<ShiftEntry>& shifts)
+{
+    const int delta = to.length() - from.length();
+    int searchStart = text.length();
+    while (true)
+    {
+        int idx = text.lastIndexOf(from, searchStart - 1);
+        if (idx < 0)
+            break;
+        text.replace(idx, from.length(), to);
+        shifts.append({idx, delta});
+        searchStart = idx;
+    }
+}
+
+// Correct a position recorded before the tracked unescape passes.
+int adjustPosition(int pos, const QList<ShiftEntry>& shifts)
+{
+    int adjusted = pos;
+    for (const auto& s : shifts)
+    {
+        if (pos > s.pos)
+            adjusted += s.delta;
+    }
+    return adjusted;
+}
+
+// Apply the final escape decodings to a value (no position tracking). Order
+// mirrors the tracked passes in parseBody.
+QString decodeEscapes(QString value)
+{
+    value.replace(QStringLiteral("\\n"), QStringLiteral("\n"));
+    value.replace(QStringLiteral("\\t"), QStringLiteral("\t"));
+    value.replace(QStringLiteral("\\}"), QStringLiteral("}"));
+    static const QString escDollar = QStringLiteral("\x01"
+                                                    "ESC_DOLLAR\x01");
+    static const QString escBackslash = QStringLiteral("\x01"
+                                                       "ESC_BS\x01");
+    value.replace(escDollar, QStringLiteral("$"));
+    value.replace(escBackslash, QStringLiteral("\\"));
+    return value;
+}
+} // namespace
+
 Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 {
     QString joined = bodyLines.join('\n');
@@ -37,9 +93,13 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 
     ExpandedSnippet result;
     QMap<int, TabStop> tabStopMap;
+    QList<ShiftEntry> shifts;
 
-    // Replace ${n:default} placeholders
-    static const QRegularExpression placeholderRe(R"(\$\{(\d+):([^}]*)\})");
+    // Replace ${n:default} placeholders. The default may contain escaped
+    // braces (\}) and other escapes — the (?:\\.|[^}])* pattern consumes
+    // \-escapes atomically so a literal } inside the default cannot end the
+    // placeholder early.
+    static const QRegularExpression placeholderRe(R"(\$\{(\d+):((?:\\.|[^}])*)\})");
     QRegularExpressionMatchIterator it = placeholderRe.globalMatch(joined);
     struct PlaceholderReplace
     {
@@ -167,18 +227,33 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
         }
     }
 
-    // Restore escaped sequences and handle remaining escapes (\n, \t, \}, etc.)
-    joined.replace(escDollar, QStringLiteral("$"));
-    joined.replace(escBackslash, QStringLiteral("\\"));
-    joined.replace(QStringLiteral("\\n"), QStringLiteral("\n"));
-    joined.replace(QStringLiteral("\\t"), QStringLiteral("\t"));
-    joined.replace(QStringLiteral("\\}"), QStringLiteral("}"));
+    // Restore escaped sequences and handle remaining escapes (\n, \t, \}, etc.).
+    // These replacements change string lengths, so they are tracked and the
+    // recorded tab-stop positions are corrected afterwards — otherwise any
+    // tab stop after an escape would point at the wrong offset.
+    replaceTracked(joined, QStringLiteral("\\n"), QStringLiteral("\n"), shifts);
+    replaceTracked(joined, QStringLiteral("\\t"), QStringLiteral("\t"), shifts);
+    replaceTracked(joined, QStringLiteral("\\}"), QStringLiteral("}"), shifts);
+    // Sentinel restoration LAST: restoring "\\" before the \n pass would turn
+    // a protected "\\n" into a real newline.
+    replaceTracked(joined, escDollar, QStringLiteral("$"), shifts);
+    replaceTracked(joined, escBackslash, QStringLiteral("\\"), shifts);
 
     result.text = joined;
 
     for (auto it2 = tabStopMap.begin(); it2 != tabStopMap.end(); ++it2)
     {
-        result.tabStops.append(it2.value());
+        TabStop ts = it2.value();
+        // The default value text also goes through the final unescape passes,
+        // so its real length differs from the raw captured one.
+        ts.defaultValue = decodeEscapes(ts.defaultValue);
+        ts.length = ts.defaultValue.length();
+        for (int& pos : ts.positions)
+        {
+            pos = adjustPosition(pos, shifts);
+        }
+        std::sort(ts.positions.begin(), ts.positions.end());
+        result.tabStops.append(ts);
     }
 
     std::sort(result.tabStops.begin(), result.tabStops.end(), [](const TabStop& a, const TabStop& b) { return a.number < b.number; });

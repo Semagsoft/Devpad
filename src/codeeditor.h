@@ -26,6 +26,7 @@
 #include "snippetengine.h"
 #include "theme.h"
 
+#include <QDateTime>
 #include <QScopedPointer>
 #include <QTimer>
 
@@ -68,9 +69,28 @@ public:
         return m_encoding;
     }
 
+    // Modification time of the file on disk as of the last load/save.
+    // Used to detect external changes before overwriting on save.
+    void setDiskModifiedAt(const QDateTime& dt)
+    {
+        m_diskModifiedAt = dt;
+    }
+    const QDateTime& diskModifiedAt() const
+    {
+        return m_diskModifiedAt;
+    }
+
     void setLineNumbersVisible(bool visible);
     void applyTheme(ThemeId themeId);
+    void applyTheme(const ThemeColors& colors);
     void applyFont(const QFont& font);
+
+protected:
+    void applyThemeColors(const ThemeColors& colors);
+    void applyLexerThemeColors(const ThemeColors& colors);
+    void applyLexerTheme();
+
+public:
     void setScrollPastEnd(bool enabled);
     void setCodeFolding(bool enabled);
     void setWhitespaceVisible(bool visible);
@@ -82,6 +102,12 @@ public:
     void setAutoCloseBrackets(bool enabled);
     void setReadOnlyMode(bool enabled);
     bool isReadOnlyMode() const;
+
+    void setMinimapVisible(bool visible);
+    bool minimapVisible() const
+    {
+        return m_minimapVisible;
+    }
 
     void toggleComment();
     void toggleBookmark();
@@ -161,6 +187,7 @@ signals:
     void insertSnippetRequested();
     void navigateToLocation(const QString& filePath, int line, int column);
     void diagnosticsChanged(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
+    void minimapVisibleChanged(bool visible);
 
 public slots:
     void forceModified();
@@ -178,18 +205,19 @@ private:
     QString m_fileName;
     QString m_syntax;
     QString m_encoding;
+    QDateTime m_diskModifiedAt;
     QFont m_defaultFont;
     ThemeId m_themeId;
     QScopedPointer<QsciLexer> m_lexer;
     QScopedPointer<QsciAPIs> m_apis;
     bool m_lineNumbersVisible = true;
     bool m_autoCloseBrackets = true;
+    bool m_minimapVisible = false;
 
     bool handleAutoClose(QChar ch, int pos);
     bool handleBracketSkip(QChar ch, int pos);
 
     void setupEditor();
-    void applyLexerTheme();
     void updateLineNumberWidth();
     void onCharAdded(int charadded);
     void setupLspIndicators();

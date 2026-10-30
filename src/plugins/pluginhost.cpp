@@ -93,6 +93,56 @@ void PluginHost::forwardEditorSignals()
             });
 }
 
+void PluginHost::beginPluginSession(const QString& pluginId)
+{
+    m_currentPluginId = pluginId;
+}
+
+void PluginHost::endPluginSession(const QString& pluginId)
+{
+    // Remove everything this plugin registered; must run while the plugin's
+    // library is still loaded (deleteLater()ed widgets may belong to it).
+    for (auto it = m_pluginActions.begin(); it != m_pluginActions.end();)
+    {
+        if (m_pluginActionOwners.value(it.key()) == pluginId)
+        {
+            if (QAction* act = it.value())
+            {
+                if (m_mainWindow)
+                    m_mainWindow->removeAction(act);
+                act->deleteLater();
+            }
+            it = m_pluginActions.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    m_pluginActionOwners.remove(pluginId);
+
+    for (auto it = m_pluginDocks.begin(); it != m_pluginDocks.end();)
+    {
+        if (m_pluginDockOwners.value(it.key()) == pluginId)
+        {
+            if (DockEntry entry = it.value(); entry.dock)
+            {
+                m_mainWindow->removeDockWidget(entry.dock);
+                entry.dock->deleteLater();
+            }
+            it = m_pluginDocks.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    m_pluginDockOwners.remove(pluginId);
+
+    if (m_currentPluginId == pluginId)
+        m_currentPluginId.clear();
+}
+
 QAction* PluginHost::registerAction(const QString& id, const QString& text, const QKeySequence& shortcut, std::function<void()> callback)
 {
     if (!m_actionManager || id.isEmpty())
@@ -110,6 +160,7 @@ QAction* PluginHost::registerAction(const QString& id, const QString& text, cons
                     callback();
             });
     m_pluginActions.insert(id, act);
+    m_pluginActionOwners.insert(id, m_currentPluginId);
 
     // Register the shortcut with the main window so it is active globally.
     if (m_mainWindow && !shortcut.isEmpty())
@@ -223,6 +274,7 @@ QString PluginHost::addDockWidget(QWidget* widget, Qt::DockWidgetArea area)
     entry.dock = dock;
     entry.id = dockId;
     m_pluginDocks.insert(dockId, entry);
+    m_pluginDockOwners.insert(dockId, m_currentPluginId);
 
     // Keep the action checked state in sync with visibility.
     connect(dock, &QDockWidget::visibilityChanged, dock, [dock](bool visible) { dock->setVisible(visible); });

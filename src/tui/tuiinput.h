@@ -6,6 +6,13 @@
 #ifndef TUIINPUT_H
 #define TUIINPUT_H
 
+#ifdef BUILD_TUI
+#include <ncurses.h>
+// ncurses defines 'scroll' as a macro, which conflicts with Qt's QPixmap::scroll.
+#undef scroll
+#undef setcolor
+#endif
+
 #include "tuibuffer.h"
 #include "tuifiletree.h"
 #include "tuisearchengine.h"
@@ -52,7 +59,6 @@ struct TuiInputState
 
     // other
     QString statusMsg = QStringLiteral("Ctrl+Q quit  Ctrl+S save  Ctrl+E tree  Ctrl+F find  F1 help");
-    QString clipboard;
     bool fileTreeVisible = false;
     bool fileTreeFocused = false;
     TuiViewState view;
@@ -71,6 +77,13 @@ public:
     // Handle global shortcuts + editing. Returns true if should quit app.
     static bool handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiInputState& st,
                                   QHash<QString, QDateTime>& fileMtimes, int editorH);
+
+#ifdef BUILD_TUI
+    // Handle a mouse event (KEY_MOUSE from getch). Returns true if handled.
+    static bool handleMouseInput(MEVENT& event, TuiTabModel& tabs, TuiBuffer* cur, TuiFileTree& fileTree, TuiInputState& st,
+                                 QHash<QString, QDateTime>& fileMtimes, int editorH, int tabBarH, int treeWidth, bool fileTreeVisible, int rows,
+                                 int cols);
+#endif
 
     // Named key constants for readability (was magic numbers)
     enum Key

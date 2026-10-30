@@ -131,6 +131,37 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  nextgen-smoke:
+    name: Nextgen QML smoke test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgl1-mesa-dev libpulse-dev
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install aqtinstall
+        run: pip3 install aqtinstall==3.3.0 py7zr==1.1.0
+      - name: Install Qt
+        run: |
+          python3 -m aqt install-qt --outputdir $HOME/Qt linux desktop 6.8.1 linux_gcc_64 -m qtmultimedia
+          echo "$HOME/Qt/6.8.1/gcc_64/bin" >> $GITHUB_PATH
+      - name: Configure
+        run: cmake -S . -B build-ng -DCMAKE_BUILD_TYPE=Release -DBUILD_NEXTGEN=ON -DBUILD_TESTS=OFF -DCMAKE_PREFIX_PATH=$HOME/Qt/6.8.1/gcc_64
+      - name: Build
+        run: cmake --build build-ng -j$(nproc)
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          QT_QPA_PLATFORM=offscreen ./build-ng/Devpad --nextgen --nextgen-smoke-test 2>&1 | tee smoke.log
+          if grep -E 'objectCreationFailed|Failed to load|QML Error:' smoke.log; then
+            echo "QML errors detected"; exit 1
+          fi
+
   linux:
     name: Build Linux packages
     runs-on: ubuntu-24.04

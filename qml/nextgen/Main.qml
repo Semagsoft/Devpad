@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
+import QtQuick.Dialogs 6.3
 import Devpad.Nextgen 1.0
 
 ApplicationWindow {
@@ -16,6 +16,39 @@ ApplicationWindow {
     property string folder: initialFolder
     property var actions: nextgenActions
     property var tabs: tabModel
+    property var completionModel: []
+    property int completionPrefixLen: 0
+
+    function triggerCompletion() {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed) return
+        var word = ed.currentWord()
+        if (word.length < 2) { completionPopup.close(); return }
+        var list = ed.completionList(word)
+        if (list.length > 0) {
+            completionModel = list
+            completionPrefixLen = word.length
+            completionPopup.x = ed.mapToItem(win.contentItem, 0, 0).x
+            completionPopup.y = ed.mapToItem(win.contentItem, 0, 0).y + ed.lineHeight
+            completionPopup.open()
+        } else {
+            completionPopup.close()
+        }
+    }
+
+    // Auto-save timer
+    Timer {
+        id: autoSaveTimer
+        interval: actions.autoSaveEnabled ? actions.autoSaveInterval * 1000 : 0
+        repeat: true
+        running: actions.autoSaveEnabled
+        onTriggered: {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (ed && !ed.readOnly && ed.document && ed.document.modified && ed.filePath !== "") {
+                ed.save()
+            }
+        }
+    }
 
     Component.onCompleted: {
         console.log("NEXTGEN_MAIN_LOADED with menuBar=" + (menuBar ? "yes" : "no"))
@@ -40,10 +73,48 @@ ApplicationWindow {
             id: findBar
             Layout.fillWidth: true
         }
+        CommandBar {
+            id: commandBar
+            Layout.fillWidth: true
+            actions: win.actions
+            editor: primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            onCommandEntered: {
+                var msg = actions.runCommand(cmd)
+                if (msg === "quit")
+                    win.close()
+                else if (msg !== "")
+                    statusMsg.text = msg
+            }
+        }
+        // Completion popup
+        Popup {
+            id: completionPopup
+            modal: false
+            focus: true
+            x: primo.mapToItem(win.contentItem, 0, 0).x + (primo.activeFocus ? 0 : 0)
+            y: primo.mapToItem(win.contentItem, 0, 0).y
+            width: 200
+            ListView {
+                id: completionListView
+                width: 200
+                height: 200
+                model: completionModel
+                delegate: ItemDelegate {
+                    text: modelData
+                    width: completionListView.width
+                    onClicked: {
+                        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                        ed.insertAtCursor(modelData)
+                        completionPopup.close()
+                        ed.forceActiveFocus()
+                    }
+                }
+            }
+        }
         Pane {
             id: largeBanner
             Layout.fillWidth: true
-            visible: primo.readOnly && primo.document && primo.document.length > 50*1024*1024
+            visible: primo.readOnly && primo.document && primo.document.text.length > 50*1024*1024
             padding: 6
             background: Rectangle { color: "#ffcc00"; opacity: 0.9 }
             RowLayout {
@@ -73,24 +144,12 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 6
-                Label { text: folder ? folder : "No folder"; Layout.fillWidth: true; opacity: 0.8; font.pixelSize: 12; wrapMode: Text.NoWrap }
-                ScrollView {
+                ProjectTree {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    clip: true
-                    ListView {
-                        id: fileList
-                        model: openFiles
-                        delegate: ItemDelegate {
-                            width: fileList.width
-                            text: modelData
-                            onClicked: {
-                                tabs.addTab(modelData)
-                                primo.loadFile(modelData)
-                                if (tabs.splitVisible && primo2) primo2.loadFile(modelData)
-                            }
-                        }
-                    }
+                    rootPath: folder
+                    tabs: win.tabs
+                    editor: primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -145,6 +204,30 @@ ApplicationWindow {
                         foregroundColor: palette.text
                         font.family: "Monospace"
                         font.pixelSize: 13
+                        Keys.onPressed: (event) => {
+                            if (event.key === Qt.Key_Tab && completionPopup.visible && completionListView.currentIndex >= 0) {
+                                var item = completionModel[completionListView.currentIndex]
+                                var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                                ed.insertAtCursor(item)
+                                completionPopup.close()
+                                ed.forceActiveFocus()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                if (completionPopup.visible && completionListView.currentIndex >= 0) {
+                                    var item = completionModel[completionListView.currentIndex]
+                                    var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                                    ed.insertAtCursor(item)
+                                    completionPopup.close()
+                                    ed.forceActiveFocus()
+                                    event.accepted = true
+                                } else {
+                                    completionPopup.close()
+                                }
+                            } else if (event.key === Qt.Key_Escape) {
+                                completionPopup.close()
+                                event.accepted = true
+                            }
+                        }
                         Component.onCompleted: {
                             if (nextgenActions) nextgenActions.editor = primo;
                             forceActiveFocus();
@@ -154,13 +237,31 @@ ApplicationWindow {
                                 else if (openFiles.length) loadFile(openFiles[0])
                             } else if (openFiles.length) loadFile(openFiles[0])
                         }
+                        onActiveFocusChanged: if (activeFocus) { nextgenActions.editor = primo; commandBar.editor = primo }
+                        onTextChanged: {
+                            triggerCompletion()
+                            minimap.requestPaint()
+                            if (lspClient) {
+                                var uri = "file://" + primo.filePath
+                                lspClient.changeDocument(uri, primo.text, 1)
+                            }
+                        }
                         onFileLoaded: (ok, error) => {
                             if (!ok) console.warn("load failed:", error)
-                            else flick.contentY = 0
+                            else {
+                                flick.contentY = 0
+                                if (lspClient && primo.filePath) {
+                                    var uri = "file://" + primo.filePath
+                                    lspClient.openDocument(uri, primo.text, 1)
+                                }
+                            }
                         }
                         onDiagnosticsChanged: minimap.requestPaint()
                         onBookmarksChanged: minimap.requestPaint()
-                        onTextChanged: minimap.requestPaint()
+                        onCursorChanged: {
+                            var idx = tabs.currentIndex;
+                            tabs.setCursorForTab(idx, primo.cursorLine, primo.cursorColumn);
+                        }
                         // Theme change handled via NextgenActions
                     }
                 }
@@ -195,8 +296,13 @@ ApplicationWindow {
                                 if (f) loadFile(f)
                             }
                         }
+                        onActiveFocusChanged: if (activeFocus) { nextgenActions.editor = primo2; commandBar.editor = primo2 }
                         onDiagnosticsChanged: minimap2.requestPaint()
                         onBookmarksChanged: minimap2.requestPaint()
+                        onCursorChanged: {
+                            var idx = tabs.pane2Index;
+                            tabs.setCursorForTab(idx, primo2.cursorLine, primo2.cursorColumn);
+                        }
                     }
                 }
 
@@ -265,7 +371,6 @@ ApplicationWindow {
             var path = selectedFolder.toString().replace("file://", "");
             path = decodeURIComponent(path);
             folder = path;
-            actions.openFile(path);
         }
     }
     FileDialog {
@@ -291,7 +396,7 @@ ApplicationWindow {
         ColumnLayout {
             anchors.fill: parent
             Label {
-                text: mode === "folder"
+                text: remotePrompt.mode === "folder"
                       ? "SSH URL, e.g. ssh://user@host/path/to/folder"
                       : "Remote file URL (HTTP/HTTPS or SSH):"
                 Layout.fillWidth: true
@@ -299,7 +404,7 @@ ApplicationWindow {
             }
             TextField {
                 id: remoteUrlField
-                placeholderText: mode === "folder" ? "ssh://" : "https://"
+                placeholderText: remotePrompt.mode === "folder" ? "ssh://" : "https://"
                 Layout.fillWidth: true
             }
             Label {
@@ -311,9 +416,14 @@ ApplicationWindow {
             }
         }
         onAccepted: {
-            actions.showMessage(mode === "folder"
-                                ? "Remote folder opening is not yet available in Nextgen (Widgets edition only)."
-                                : "Remote file opening is not yet available in Nextgen (Widgets edition only).");
+            var url = remoteUrlField.text.trimmed()
+            if (url === "") return
+            if (actions.isRemoteLoading()) {
+                actions.showMessage("Remote download already in progress")
+                return
+            }
+            actions.openRemoteFile(url)
+            // The editor will load the file once download finishes (see remoteLoadFinished)
         }
     }
 
@@ -357,27 +467,8 @@ ApplicationWindow {
         title: "Options"
         modal: true
         standardButtons: Dialog.Close
-        ColumnLayout {
-            anchors.fill: parent
-            Label { text: "Theme:" }
-            ComboBox {
-                id: themeCombo
-                Layout.fillWidth: true
-                model: actions ? actions.themeNames : []
-                currentIndex: {
-                    if (!actions || !themeCombo.model) return 0;
-                    var cur = actions.currentThemeName;
-                    if (cur === undefined || cur === null) return 0;
-                    var idx = themeCombo.model.indexOf(cur);
-                    return idx >=0 ? idx : 0;
-                }
-                onActivated: (idx) => {
-                    if (!themeCombo.model || idx <0 || idx >= themeCombo.model.length) return;
-                    var name = themeCombo.model[idx];
-                    actions.setThemeByName(name);
-                }
-            }
-            Label { text: "Options: toolbar/statusbar persistence shared with Widgets."; wrapMode: Text.Wrap; opacity: 0.7 }
+        OptionsDialog {
+            actions: win.actions
         }
     }
 
@@ -441,7 +532,14 @@ ApplicationWindow {
         target: tabs
         function onCurrentIndexChanged() {
             var f = tabs.currentFile();
-            if (f && primo.filePath !== f) primo.loadFile(f);
+            if (f && primo.filePath !== f)
+            {
+                // Load in the pane this tab is assigned to
+                if (tabs.tabPane(tabs.currentIndex) === 1 && primo2)
+                    primo2.loadFile(f);
+                else
+                    primo.loadFile(f);
+            }
         }
         function onPane2IndexChanged() {
             var f = tabs.pane2File();
@@ -457,6 +555,121 @@ ApplicationWindow {
             else terminalDrawer.open()
         }
         function onRequestFindInFiles() { findInFilesDrawer.open() }
+        function onRequestTabNext() {
+            var idx = tabs.currentIndex + 1
+            if (idx >= tabs.count) idx = 0
+            tabs.currentIndex = idx
+        }
+        function onRequestTabPrev() {
+            var idx = tabs.currentIndex - 1
+            if (idx < 0) idx = tabs.count - 1
+            tabs.currentIndex = idx
+        }
+        function onRequestTabFirst() { tabs.currentIndex = 0 }
+        function onRequestTabLast() { tabs.currentIndex = tabs.count - 1 }
+        function onRequestTabClose() { tabs.closeTab(tabs.currentIndex) }
+    }
+
+    // LSP integration
+    Connections {
+        target: actions
+        function onRequestLspStart(command, args, rootUri) {
+            lspClient.startServer(command, args, rootUri)
+        }
+        function onRequestLspStop() {
+            lspClient.stopServer()
+        }
+        function onRemoteLoadFinished(url, localPath, success, error) {
+            if (success && localPath) {
+                var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                if (ed) {
+                    ed.loadFile(localPath)
+                    tabs.addTab(localPath)
+                }
+            } else if (!success) {
+                statusMsg.text = "Remote download failed: " + error
+                statusMsgTimer.restart()
+            }
+        }
+    }
+
+    // LSP integration
+    Connections {
+        target: lspClient
+        function onServerStarted() {
+            statusMsg.text = "LSP server started"
+            statusMsgTimer.restart()
+        }
+        function onServerStopped() {
+            statusMsg.text = "LSP server stopped"
+            statusMsgTimer.restart()
+        }
+        function onServerError(err) {
+            statusMsg.text = "LSP error: " + err
+            statusMsgTimer.restart()
+        }
+        function onCompletionReady(uri, completions) {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed) return
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            if (ed.filePath !== path) return
+            var items = []
+            for (var i = 0; i < completions.items.length; i++) {
+                var item = completions.items[i]
+                var label = item.label
+                if (item.detail) label += " (" + item.detail + ")"
+                items.push(label)
+            }
+            completionModel = items
+            if (items.length > 0) {
+                completionPopup.x = ed.mapToItem(win.contentItem, 0, 0).x
+                completionPopup.y = ed.mapToItem(win.contentItem, 0, 0).y + ed.lineHeight
+                completionPopup.open()
+            } else {
+                completionPopup.close()
+            }
+        }
+        function onDefinitionReady(uri, location) {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed) return
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            if (ed.filePath !== path) return
+            ed.setCursorPosition(location.range.start.line, location.range.start.character)
+            ed.forceActiveFocus()
+            var fl = ed === primo2 ? flick2 : flick
+            fl.contentY = Math.max(0, location.range.start.line * ed.lineHeight - fl.height / 2)
+            statusMsg.text = "Jumped to definition at line " + (location.range.start.line + 1)
+            statusMsgTimer.restart()
+        }
+        function onHoverReady(uri, contents) {
+            statusMsg.text = contents
+            statusMsgTimer.restart()
+        }
+        function onSignatureHelpReady(uri, info) {
+            statusMsg.text = "Signature: " + JSON.stringify(info)
+            statusMsgTimer.restart()
+        }
+    }
+
+    Connections {
+        target: lspClient
+        function onDiagnosticsReady(uri, diagnostics) {
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (ed && ed.filePath === path) {
+                var lines = []
+                for (var i = 0; i < diagnostics.length; i++) {
+                    var d = diagnostics[i]
+                    lines.push(d.range.start.line)
+                    if (d.range.end.line !== d.range.start.line)
+                        lines.push(d.range.end.line)
+                }
+                ed.setDiagnostics(lines)
+            }
+        }
     }
 
     Label {
@@ -483,4 +696,29 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Z"; onActivated: actions.undo() }
     Shortcut { sequence: "Ctrl+Y"; onActivated: actions.redo() }
     Shortcut { sequence: "Ctrl+Shift+Z"; onActivated: actions.redo() }
+    Shortcut { sequence: "Ctrl+Shift+P"; onActivated: commandBar.show() }
+    Shortcut { sequence: "Ctrl+Space"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestCompletionAt(uri, ed.cursorLine, ed.cursorColumn, 1)
+    } }
+    Shortcut { sequence: "F12"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestDefinitionAt(uri, ed.cursorLine, ed.cursorColumn)
+    } }
+    Shortcut { sequence: "Ctrl+Shift+Space"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestSignatureHelpAt(uri, ed.cursorLine, ed.cursorColumn)
+    } }
+    Shortcut { sequence: "Ctrl+Alt+H"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestHoverAt(uri, ed.cursorLine, ed.cursorColumn)
+    } }
 }

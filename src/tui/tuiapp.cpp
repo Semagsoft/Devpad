@@ -128,6 +128,10 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
     keypad(stdscr, TRUE);
     curs_set(1);
 
+    // Mouse support: enable click events for cursor positioning and file-tree selection.
+    mousemask(ALL_MOUSE_EVENTS, nullptr);
+    mouseinterval(0);
+
     bool hasColors = has_colors();
     if (hasColors)
     {
@@ -192,6 +196,26 @@ int TuiApp::run(QCoreApplication* app, const QCommandLineParser& parser, const Q
 
         refresh();
         ch = getch();
+
+        // Terminal resize: redraw everything on the next iteration.
+        if (ch == KEY_RESIZE)
+        {
+            endwin();
+            refresh();
+            continue;
+        }
+
+        // Mouse input: cursor positioning in editor, file-tree node selection.
+        if (ch == KEY_MOUSE)
+        {
+            MEVENT event;
+            if (getmouse(&event) == OK)
+            {
+                if (TuiInput::handleMouseInput(event, tabs, cur, fileTree, st, st.fileMtimes, editorH, tabBarH, treeWidth, st.fileTreeVisible, rows,
+                                               cols))
+                    continue;
+            }
+        }
 
         if (st.replaceMode || st.findMode || st.saveAsMode || st.gotoMode || st.commandMode || st.fileTreeFilterMode)
         {

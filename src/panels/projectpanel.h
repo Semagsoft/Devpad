@@ -106,6 +106,8 @@ public:
 
 signals:
     void fileActivated(const QString& filePath);
+    void fileRenamed(const QString& oldPath, const QString& newPath);
+    void fileDeleted(const QString& filePath);
     void folderSelected(const QString& folderPath);
     void remoteFileActivated(const QString& url);
     void remoteDirExpandRequested(const QString& url, const QString& remotePath);

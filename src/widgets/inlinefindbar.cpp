@@ -281,7 +281,8 @@ void InlineFindBar::onFindTextChanged(const QString& findText)
     m_findInput->blockSignals(true);
     m_findInput->setText(findText);
     m_findInput->blockSignals(false);
-    performSearch();
+    // Debounce: avoid running a full-document search on every keystroke.
+    m_debounceTimer->start();
 }
 
 void InlineFindBar::onDebounceTimeout()
@@ -335,7 +336,7 @@ void InlineFindBar::findPrevious()
 
 void InlineFindBar::onReplaceClicked()
 {
-    if (m_matches.isEmpty() || m_currentMatch < 0 || m_currentMatch >= m_matches.size())
+    if (!m_editor || m_matches.isEmpty() || m_currentMatch < 0 || m_currentMatch >= m_matches.size())
         return;
 
     const auto& match = m_matches[m_currentMatch];
@@ -353,7 +354,7 @@ void InlineFindBar::onReplaceClicked()
 
 void InlineFindBar::onReplaceAllClicked()
 {
-    if (m_matches.isEmpty())
+    if (!m_editor || m_matches.isEmpty())
         return;
 
     QString replaceText = m_replaceInput->text();
@@ -374,6 +375,8 @@ void InlineFindBar::onReplaceAllClicked()
 
 void InlineFindBar::clearHighlights()
 {
+    if (!m_editor)
+        return;
     long length = m_editor->SendScintilla(QsciScintillaBase::SCI_GETLENGTH);
     m_editor->SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT, FIND_INDICATOR);
     m_editor->SendScintilla(QsciScintillaBase::SCI_INDICATORCLEARRANGE, 0, length);
@@ -384,6 +387,9 @@ void InlineFindBar::clearHighlights()
 
 void InlineFindBar::performSearch()
 {
+    if (!m_editor)
+        return;
+
     clearHighlights();
 
     QString text = m_findInput->text();
@@ -435,7 +441,7 @@ void InlineFindBar::performSearch()
 
 void InlineFindBar::navigateToMatch(int index)
 {
-    if (index < 0 || index >= m_matches.size())
+    if (!m_editor || index < 0 || index >= m_matches.size())
         return;
 
     m_currentMatch = index;
@@ -474,6 +480,8 @@ void InlineFindBar::restoreState()
 
 void InlineFindBar::updateIcons()
 {
+    if (!m_editor)
+        return;
     ThemeColors colors = getThemeColors(m_editor->themeId());
     QColor fg = colors.dialogFg;
 

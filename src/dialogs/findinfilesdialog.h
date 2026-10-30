@@ -94,6 +94,10 @@ private:
     void saveSettings();
     void cleanupSearch();
 
+    // Upper bound on results shown; scanning stops at the cap so a huge tree
+    // cannot flood the GUI thread with item insertions.
+    static constexpr int MaxMatches = 5000;
+
     QLineEdit* searchLineEdit = nullptr;
     QLineEdit* dirLineEdit = nullptr;
     QLineEdit* filterLineEdit = nullptr;

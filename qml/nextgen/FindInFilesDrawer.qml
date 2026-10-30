@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs 6.3
 
 // Find-in-Files Drawer – slide from bottom, respects .gitignore + showHidden via PrimoFindInFiles
 Drawer {
@@ -50,7 +51,7 @@ Drawer {
                 Layout.fillWidth: true
                 text: root.folder
                 placeholderText: "Root folder (uses project folder if empty)"
-                onTextChanged: root.folder = text
+                onTextChanged: { if (text !== root.folder) root.folder = text }
             }
             ToolButton {
                 text: "Browse"
@@ -82,6 +83,8 @@ Drawer {
             clip: true
             ListView {
                 id: resultView
+                width: parent.width
+                height: contentHeight
                 model: resultModel
                 delegate: ItemDelegate {
                     width: resultView.width
@@ -122,8 +125,14 @@ Drawer {
     }
 
     // Folder browse dialog for find-in-files
-    // Use QtQuick.Dialogs FolderDialog via Loader to avoid import conflict if not needed
-    // For simplicity, reuse same FolderDialog as Main.qml would, but we need to create one here
-    // We'll use a simple dialog via QtQuick.Dialogs if available
-    // Fallback: use text input only
+    FolderDialog {
+        id: folderDialog
+        title: qsTr("Open Project Folder")
+        currentFolder: root.folder ? "file://" + root.folder : ""
+        onAccepted: {
+            var path = selectedFolder.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            folderField.text = path
+        }
+    }
 }

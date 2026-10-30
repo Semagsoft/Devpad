@@ -240,6 +240,35 @@ bool ExternalToolManager::runTool(int index, const QString& filePath, const QStr
                              if (textGuard)
                                  textGuard->append(QString::fromLocal8Bit(process->readAllStandardOutput()));
                          });
+        QObject::connect(process, &QProcess::errorOccurred, outputDialog,
+                         [textGuard](QProcess::ProcessError error)
+                         {
+                             if (!textGuard)
+                                 return;
+                             QString reason;
+                             switch (error)
+                             {
+                             case QProcess::FailedToStart:
+                                 reason = ExternalToolManager::tr("Failed to start (command not found or not executable)");
+                                 break;
+                             case QProcess::Crashed:
+                                 reason = ExternalToolManager::tr("Process crashed");
+                                 break;
+                             case QProcess::Timedout:
+                                 reason = ExternalToolManager::tr("Process timed out");
+                                 break;
+                             case QProcess::WriteError:
+                                 reason = ExternalToolManager::tr("Write error");
+                                 break;
+                             case QProcess::ReadError:
+                                 reason = ExternalToolManager::tr("Read error");
+                                 break;
+                             default:
+                                 reason = ExternalToolManager::tr("Unknown error");
+                                 break;
+                             }
+                             textGuard->append(ExternalToolManager::tr("\n--- Error: %1 ---").arg(reason));
+                         });
         QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), outputDialog,
                          [textGuard, process](int, QProcess::ExitStatus)
                          {

@@ -12,14 +12,30 @@
 #include <QCursor>
 #include <QJsonObject>
 #include <QMenu>
+#include <QPointer>
 #include <QToolButton>
 
 namespace lsp
 {
+namespace
+{
+// Resolve the editor that owns a notification/response URI. Several LSP
+// responses arrive asynchronously; applying them to whichever editor is
+// "current" at arrival time would put results into the wrong document.
+CodeEditor* editorForUri(TabManager* tabManager, const QString& uri)
+{
+    return tabManager->findEditorByFileName(pathFromUri(uri));
+}
+} // namespace
 
 void setupLspConnections(LspServerManager* manager, TabManager* tabManager, ErrorListPanel* errorPanel, ActionManager* actionManager,
                          std::function<void(const QString& filePath, int line, int column)> navigateToLocation)
 {
+    QPointer<TabManager> tabGuard(tabManager);
+    QPointer<ErrorListPanel> panelGuard(errorPanel);
+
+    auto resolveEditor = [tabGuard](const QString& uri) -> CodeEditor* { return tabGuard ? editorForUri(tabGuard.data(), uri) : nullptr; };
+
     // Definition
     QObject::connect(manager, &LspServerManager::definitionReady, manager,
                      [navigateToLocation](const QString&, const Location& location)
@@ -30,11 +46,9 @@ void setupLspConnections(LspServerManager* manager, TabManager* tabManager, Erro
 
     // Completion
     QObject::connect(manager, &LspServerManager::completionReady, manager,
-                     [tabManager](const QString& uri, const CompletionList& completions)
+                     [resolveEditor](const QString& uri, const CompletionList& completions)
                      {
-                         Q_UNUSED(uri)
-                         CodeEditor* editor = tabManager->currentEditor();
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->showCompletion(completions);
                      });
 
@@ -56,11 +70,11 @@ void setupLspConnections(LspServerManager* manager, TabManager* tabManager, Erro
 
     // Code Action
     QObject::connect(manager, &LspServerManager::codeActionReady, manager,
-                     [tabManager](const QString& uri, const QList<QJsonObject>& actions)
+                     [resolveEditor](const QString& uri, const QList<QJsonObject>& actions)
                      {
                          if (actions.isEmpty())
                              return;
-                         CodeEditor* editor = tabManager->findEditorByFileName(pathFromUri(uri));
+                         CodeEditor* editor = resolveEditor(uri);
                          if (!editor)
                              return;
 
@@ -95,12 +109,14 @@ void setupLspConnections(LspServerManager* manager, TabManager* tabManager, Erro
 
     // Hover
     QObject::connect(manager, &LspServerManager::hoverReady, manager,
-                     [tabManager](const QString& uri, const QString& contents)
+                     [resolveEditor, tabGuard](const QString& uri, const QString& contents)
                      {
-                         Q_UNUSED(uri)
-                         CodeEditor* editor = tabManager->currentEditor();
-                         if (editor && !contents.isEmpty())
+                         if (CodeEditor* editor = resolveEditor(uri); editor && !contents.isEmpty())
                          {
+                             // Tooltips are transient: only show them in the editor the
+                             // user is currently looking at, at that editor's cursor.
+                             if (!tabGuard || editor != tabGuard->currentEditor())
+                                 return;
                              int pos = editor->cursorPosition();
                              editor->showToolTip(pos, contents);
                          }
@@ -108,77 +124,68 @@ void setupLspConnections(LspServerManager* manager, TabManager* tabManager, Erro
 
     // Selection Ranges
     QObject::connect(manager, &LspServerManager::selectionRangesReady, manager,
-                     [tabManager](const QString& uri, const QJsonArray& ranges)
+                     [resolveEditor](const QString& uri, const QJsonArray& ranges)
                      {
-                         Q_UNUSED(uri)
-                         CodeEditor* editor = tabManager->currentEditor();
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->setSelectionRanges(ranges);
                      });
 
     // Semantic Tokens
     QObject::connect(manager, &LspServerManager::semanticTokensFullReady, manager,
-                     [tabManager](const QString& uri, const QJsonArray& tokens)
+                     [resolveEditor](const QString& uri, const QJsonArray& tokens)
                      {
-                         CodeEditor* editor = tabManager->findEditorByFileName(pathFromUri(uri));
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->applySemanticTokens(uri, tokens);
                      });
 
     // Linked Editing Range
     QObject::connect(manager, &LspServerManager::linkedEditingRangeReady, manager,
-                     [tabManager](const QString& uri, const QJsonObject& result)
+                     [resolveEditor](const QString& uri, const QJsonObject& result)
                      {
-                         CodeEditor* editor = tabManager->findEditorByFileName(pathFromUri(uri));
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->setLinkedEditingRanges(result);
                      });
 
     // Formatting
     QObject::connect(manager, &LspServerManager::formattingReady, manager,
-                     [tabManager](const QString& uri, const QList<QJsonObject>& edits)
+                     [resolveEditor](const QString& uri, const QList<QJsonObject>& edits)
                      {
-                         CodeEditor* editor = tabManager->findEditorByFileName(pathFromUri(uri));
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->applyFormattingEdits(edits);
                      });
 
     // Range Formatting
     QObject::connect(manager, &LspServerManager::rangeFormattingReady, manager,
-                     [tabManager](const QString& uri, const QList<QJsonObject>& edits)
+                     [resolveEditor](const QString& uri, const QList<QJsonObject>& edits)
                      {
-                         CodeEditor* editor = tabManager->findEditorByFileName(pathFromUri(uri));
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->applyFormattingEdits(edits);
                      });
 
     // Signature Help
     QObject::connect(manager, &LspServerManager::signatureHelpReady, manager,
-                     [tabManager](const QString& uri, const QJsonObject& info)
+                     [resolveEditor](const QString& uri, const QJsonObject& info)
                      {
-                         Q_UNUSED(uri)
-                         CodeEditor* editor = tabManager->currentEditor();
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->showSignatureHelp(info);
                      });
 
     // Document Highlight
     QObject::connect(manager, &LspServerManager::documentHighlightReady, manager,
-                     [tabManager](const QString& uri, const QJsonArray& highlights)
+                     [resolveEditor](const QString& uri, const QJsonArray& highlights)
                      {
-                         CodeEditor* editor = tabManager->findEditorByFileName(pathFromUri(uri));
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->applyHighlights(highlights);
                      });
 
     // Diagnostics
     QObject::connect(manager, &LspServerManager::diagnosticsReady, manager,
-                     [tabManager, errorPanel](const QString& uri, const QList<Diagnostic>& diagnostics)
+                     [resolveEditor, panelGuard](const QString& uri, const QList<Diagnostic>& diagnostics)
                      {
-                         CodeEditor* editor = tabManager->findEditorByFileName(pathFromUri(uri));
-                         if (editor)
+                         if (CodeEditor* editor = resolveEditor(uri))
                              editor->applyDiagnostics(uri, diagnostics);
-                         errorPanel->updateDiagnostics(uri, diagnostics);
+                         if (panelGuard)
+                             panelGuard->updateDiagnostics(uri, diagnostics);
                      });
 
     // Error panel navigation

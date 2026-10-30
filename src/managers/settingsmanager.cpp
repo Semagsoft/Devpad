@@ -160,6 +160,7 @@ void SettingsManager::loadCache()
         if (themeVal < 0 || themeVal >= static_cast<int>(ThemeId::Count))
             themeVal = static_cast<int>(ThemeId::Light);
         m_cache.editor.theme = static_cast<ThemeId>(themeVal);
+        m_cache.editor.customTheme = m_settings.value("Options_CustomTheme").toString();
     }
     m_cache.editor.defaultEncoding = m_settings.value("Options_DefaultEncoding", 0).toInt();
     m_cache.editor.defaultFormat = m_settings.value("Options_DefaultFormat", 0).toInt();
@@ -169,30 +170,30 @@ void SettingsManager::loadCache()
     m_cache.editor.autoCompletionCaseSensitive = m_settings.value("Options_AutoCompletionCaseSensitive", false).toBool();
     m_cache.editor.autoCloseBrackets = m_settings.value("Options_AutoCloseBrackets", true).toBool();
     m_cache.editor.tabWidth = qBound(1, m_settings.value("Options_TabWidth", 4).toInt(), 16);
-    m_cache.editor.cursorStyle = static_cast<CursorStyle>(m_settings.value("Options_CursorStyle", static_cast<int>(CursorStyle::Line)).toInt());
+    m_cache.editor.cursorStyle = readEnum("Options_CursorStyle", CursorStyle::Line, CursorStyle::Line, CursorStyle::Underline);
     m_cache.editor.cursorBlinking = m_settings.value("Options_CursorBlinking", true).toBool();
     m_cache.editor.highlightCurrentLine = m_settings.value("Options_HighlightCurrentLine", true).toBool();
     m_cache.editor.verticalEdgeEnabled = m_settings.value("Options_VerticalEdgeEnabled", false).toBool();
     m_cache.editor.verticalEdgeColumn = qBound(1, m_settings.value("Options_VerticalEdgeColumn", 80).toInt(), 500);
+    m_cache.editor.showMinimap = m_settings.value("Options_ShowMinimap", false).toBool();
     m_cache.editor.snippetsEnabled = m_settings.value("Options_SnippetsEnabled", true).toBool();
     m_cache.editor.predictiveSnippets = m_settings.value("Options_PredictiveSnippets", true).toBool();
 
-    m_cache.ui.startupMode = static_cast<StartupMode>(m_settings.value("Options_StartupMode", static_cast<int>(StartupMode::NewFile)).toInt());
-    m_cache.ui.closeButtonMode =
-        static_cast<CloseButtonMode>(m_settings.value("Options_CloseButtonMode", static_cast<int>(CloseButtonMode::Right)).toInt());
+    m_cache.ui.startupMode = readEnum("Options_StartupMode", StartupMode::NewFile, StartupMode::NewFile, StartupMode::Empty);
+    m_cache.ui.closeButtonMode = readEnum("Options_CloseButtonMode", CloseButtonMode::Right, CloseButtonMode::Right, CloseButtonMode::Left);
     m_cache.ui.tabDisplayMode =
-        static_cast<TabDisplayMode>(m_settings.value("Options_TabDisplayMode", static_cast<int>(TabDisplayMode::ShowTwoPlus)).toInt());
-    m_cache.ui.tabBarPosition =
-        static_cast<TabBarPosition>(m_settings.value("Options_TabBarPosition", static_cast<int>(TabBarPosition::Top)).toInt());
+        readEnum("Options_TabDisplayMode", TabDisplayMode::ShowTwoPlus, TabDisplayMode::AlwaysShow, TabDisplayMode::NeverShow);
+    m_cache.ui.tabBarPosition = readEnum("Options_TabBarPosition", TabBarPosition::Top, TabBarPosition::Top, TabBarPosition::Bottom);
     m_cache.ui.showMenuBar = m_settings.value("Options_ShowMenuBar", true).toBool();
     m_cache.ui.showMenuInTitlebar = m_settings.value("Options_ShowMenuInTitlebar", true).toBool();
     m_cache.ui.showToolbar = m_settings.value("Options_ShowToolbar", true).toBool();
     m_cache.ui.showStatusbar = m_settings.value("Options_ShowStatusbar", true).toBool();
     m_cache.ui.uiFontFamily = m_settings.value("Options_UIFont", "Sans Serif").toString();
     m_cache.ui.uiFontSize = m_settings.value("Options_UIFontSize", 10).toInt();
+    m_cache.ui.checkForUpdatesEnabled = m_settings.value("Options_CheckForUpdatesEnabled", true).toBool();
 
-    m_cache.terminal.terminalPanelPosition = static_cast<TerminalPanelPosition>(
-        m_settings.value("Options_TerminalPanelPosition", static_cast<int>(TerminalPanelPosition::Bottom)).toInt());
+    m_cache.terminal.terminalPanelPosition =
+        readEnum("Options_TerminalPanelPosition", TerminalPanelPosition::Bottom, TerminalPanelPosition::Bottom, TerminalPanelPosition::Tab);
     m_cache.terminal.terminalPanelMinWidth = m_settings.value("Options_TerminalPanelMinWidth", 350).toInt();
     m_cache.terminal.terminalFontFamily = m_settings.value("Options_TerminalFont", "Monospace").toString();
     m_cache.terminal.terminalFontSize = m_settings.value("Options_TerminalFontSize", 12).toInt();
@@ -205,9 +206,9 @@ void SettingsManager::loadCache()
     m_cache.project.showHiddenFiles = m_settings.value("Options_ShowHiddenFiles", false).toBool();
     m_cache.project.useGitIgnore = m_settings.value("Options_UseGitIgnore", true).toBool();
     m_cache.project.projectPanelPosition =
-        static_cast<ProjectPanelPosition>(m_settings.value("Options_ProjectPanelPosition", static_cast<int>(ProjectPanelPosition::Left)).toInt());
+        readEnum("Options_ProjectPanelPosition", ProjectPanelPosition::Left, ProjectPanelPosition::Left, ProjectPanelPosition::Right);
     m_cache.project.fileOpenMode =
-        static_cast<FileOpenMode>(m_settings.value("Options_ProjectFileOpenMode", static_cast<int>(FileOpenMode::SingleClick)).toInt());
+        readEnum("Options_ProjectFileOpenMode", FileOpenMode::SingleClick, FileOpenMode::SingleClick, FileOpenMode::DoubleClick);
 
     m_cache.lsp.enabled = m_settings.value("LSP/Enabled", true).toBool();
     m_cache.lsp.showErrorList = m_settings.value("LSP/ShowErrorList", true).toBool();
@@ -288,12 +289,37 @@ ThemeId SettingsManager::theme() const
 {
     return m_cache.editor.theme;
 }
+QString SettingsManager::customTheme() const
+{
+    return m_cache.editor.customTheme;
+}
+void SettingsManager::setCustomTheme(const QString& name)
+{
+    writeCached("Options_CustomTheme", m_cache.editor.customTheme, name);
+}
 bool SettingsManager::isDarkTheme() const
 {
+    if (!m_cache.editor.customTheme.isEmpty())
+    {
+        for (const auto& c : loadCustomThemes())
+        {
+            if (c.name == m_cache.editor.customTheme)
+                return c.isDark;
+        }
+        // Fall back to built-in light if custom theme not found
+        return false;
+    }
     return isThemeDark(theme());
 }
 ThemeColors SettingsManager::currentThemeColors() const
 {
+    if (!m_cache.editor.customTheme.isEmpty())
+    {
+        ThemeColors colors = getCustomThemeColors(m_cache.editor.customTheme);
+        if (m_cache.hasAccentColor)
+            applyAccent(colors);
+        return colors;
+    }
     return getThemeColors(theme());
 }
 int SettingsManager::defaultEncoding() const
@@ -385,6 +411,14 @@ int SettingsManager::uiFontSize() const
 {
     return m_cache.ui.uiFontSize;
 }
+bool SettingsManager::checkForUpdatesEnabled() const
+{
+    return m_cache.ui.checkForUpdatesEnabled;
+}
+void SettingsManager::setCheckForUpdatesEnabled(bool enabled)
+{
+    writeCached("Options_CheckForUpdatesEnabled", m_cache.ui.checkForUpdatesEnabled, enabled);
+}
 QFont SettingsManager::uiFont() const
 {
     return QFont(uiFontFamily(), uiFontSize());
@@ -441,7 +475,10 @@ void SettingsManager::applyToEditor(CodeEditor* editor) const
     editor->setCodeFolding(codeCollapsing());
     editor->setWrapMode(wordWrap() ? QsciScintilla::WrapWord : QsciScintilla::WrapNone);
     editor->setWhitespaceVisible(showWhitespace());
-    editor->applyTheme(theme());
+    if (!customTheme().isEmpty())
+        editor->applyTheme(currentThemeColors());
+    else
+        editor->applyTheme(theme());
     editor->setupAutoCompletion(autoCompletionEnabled(), autoCompletionThreshold(), autoCompletionCaseSensitive());
     editor->setAutoCloseBrackets(autoCloseBrackets());
     editor->setTabWidth(tabWidth());
@@ -449,6 +486,7 @@ void SettingsManager::applyToEditor(CodeEditor* editor) const
     editor->setCursorBlinking(cursorBlinking());
     editor->setHighlightCurrentLine(highlightCurrentLine());
     editor->setVerticalEdge(verticalEdgeEnabled(), verticalEdgeColumn());
+    editor->setMinimapVisible(showMinimap());
 }
 
 void SettingsManager::setDefaultFontFamily(const QString& family)
@@ -560,6 +598,14 @@ void SettingsManager::setVerticalEdgeColumn(int column)
 {
     column = qBound(1, column, 500);
     writeCached("Options_VerticalEdgeColumn", m_cache.editor.verticalEdgeColumn, column);
+}
+bool SettingsManager::showMinimap() const
+{
+    return m_cache.editor.showMinimap;
+}
+void SettingsManager::setShowMinimap(bool visible)
+{
+    writeCached("Options_ShowMinimap", m_cache.editor.showMinimap, visible);
 }
 bool SettingsManager::snippetsEnabled() const
 {
@@ -872,6 +918,7 @@ void SettingsManager::addRecentFile(const QString& filePath)
         recentFiles.removeLast();
     }
     m_settings.setValue("recentFiles", recentFiles);
+    emit recentFilesChanged();
 }
 
 QStringList SettingsManager::recentFiles() const
@@ -882,6 +929,7 @@ QStringList SettingsManager::recentFiles() const
 void SettingsManager::clearRecentFiles()
 {
     m_settings.remove("recentFiles");
+    emit recentFilesChanged();
 }
 
 void SettingsManager::addRecentFolder(const QString& folderPath)
@@ -894,6 +942,7 @@ void SettingsManager::addRecentFolder(const QString& folderPath)
         recentFolders.removeLast();
     }
     m_settings.setValue("recentFolders", recentFolders);
+    emit recentFilesChanged();
 }
 
 QStringList SettingsManager::recentFolders() const
@@ -904,6 +953,7 @@ QStringList SettingsManager::recentFolders() const
 void SettingsManager::clearRecentFolders()
 {
     m_settings.remove("recentFolders");
+    emit recentFilesChanged();
 }
 
 // ── Plugin-scoped settings ─────────────────────────────────────

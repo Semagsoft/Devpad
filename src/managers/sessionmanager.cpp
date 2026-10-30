@@ -60,6 +60,7 @@ SessionManager::SessionData SessionManager::loadSessionData()
     // resurrected files from crashed or exited instances uninvited; their stale
     // groups are pruned below instead of being loaded.
     QVariantMap bookmarkMap;
+    QVariantMap cursorMap;
     if (m_sessionSettings.childGroups().contains(group))
     {
         m_sessionSettings.beginGroup(group);
@@ -68,6 +69,7 @@ SessionManager::SessionData SessionManager::loadSessionData()
         data.projectPath = m_sessionSettings.value(QStringLiteral("ProjectPath")).toString();
         data.terminalWorkingDir = m_sessionSettings.value(QStringLiteral("TerminalWorkingDir")).toString();
         bookmarkMap = m_sessionSettings.value(QStringLiteral("Bookmarks")).toMap();
+        cursorMap = m_sessionSettings.value(QStringLiteral("Cursors")).toMap();
         m_sessionSettings.endGroup();
     }
     else
@@ -77,6 +79,7 @@ SessionManager::SessionData SessionManager::loadSessionData()
         data.projectPath = m_sessionSettings.value(QStringLiteral("Session_ProjectPath")).toString();
         data.terminalWorkingDir = m_sessionSettings.value(QStringLiteral("Session_TerminalWorkingDir")).toString();
         bookmarkMap = m_sessionSettings.value(QStringLiteral("Session_Bookmarks")).toMap();
+        cursorMap = m_sessionSettings.value(QStringLiteral("Session_Cursors")).toMap();
     }
 
     data.activeIndex = qMin(data.activeIndex, qMax(data.files.size() - 1, 0));
@@ -88,6 +91,15 @@ SessionManager::SessionData SessionManager::loadSessionData()
             lines.append(v.toInt());
         if (!lines.isEmpty())
             data.bookmarks.insert(it.key(), lines);
+    }
+
+    for (auto it = cursorMap.constBegin(); it != cursorMap.constEnd(); ++it)
+    {
+        QList<int> values;
+        for (const QVariant& v : it.value().toList())
+            values.append(v.toInt());
+        if (values.size() >= 3)
+            data.cursors.insert(it.key(), values.mid(0, 3));
     }
 
     // Prune groups of other instances (crashed or exited) so they can never be
@@ -150,6 +162,14 @@ SessionManager::SessionData SessionManager::restoreSession(std::function<void(co
                 if (it != data.bookmarks.constEnd())
                 {
                     editor->setBookmarks(it.value());
+                }
+                auto cursorIt = data.cursors.constFind(editor->fileName());
+                if (cursorIt != data.cursors.constEnd() && cursorIt->size() == 3)
+                {
+                    // Apply before setting the cursor so the first visible line
+                    // already reflects the remembered scroll offset.
+                    editor->setFirstVisibleLine((*cursorIt)[2]);
+                    editor->setCursorPosition((*cursorIt)[0], (*cursorIt)[1]);
                 }
                 if (editorCount == targetIndex)
                 {
@@ -345,6 +365,64 @@ QHash<QString, QList<int>> SessionManager::loadSessionBookmarks()
     return result;
 }
 
+void SessionManager::saveSessionCursors(const QHash<QString, QList<int>>& cursors)
+{
+    if (!m_sessionLock.tryLock(5000))
+    {
+        Logger::instance().error("Failed to acquire session lock for saveSessionCursors");
+        return;
+    }
+
+    QVariantMap map;
+    for (auto it = cursors.constBegin(); it != cursors.constEnd(); ++it)
+    {
+        QVariantList values;
+        for (int v : it.value())
+            values.append(v);
+        map.insert(it.key(), values);
+    }
+    m_sessionSettings.beginGroup(sessionGroupPrefix());
+    m_sessionSettings.setValue(QStringLiteral("Cursors"), map);
+    m_sessionSettings.endGroup();
+    m_sessionSettings.setValue(QStringLiteral("Session_Cursors"), map);
+    m_sessionSettings.sync();
+
+    m_sessionLock.unlock();
+}
+
+QHash<QString, QList<int>> SessionManager::loadSessionCursors()
+{
+    if (!m_sessionLock.tryLock(5000))
+    {
+        Logger::instance().error("Failed to acquire session lock in loadSessionCursors");
+        return {};
+    }
+
+    QHash<QString, QList<int>> result;
+    QVariantMap map;
+    QString group = sessionGroupPrefix();
+    if (m_sessionSettings.childGroups().contains(group))
+    {
+        m_sessionSettings.beginGroup(group);
+        map = m_sessionSettings.value(QStringLiteral("Cursors")).toMap();
+        m_sessionSettings.endGroup();
+    }
+    if (map.isEmpty())
+        map = m_sessionSettings.value(QStringLiteral("Session_Cursors")).toMap();
+
+    m_sessionLock.unlock();
+
+    for (auto it = map.constBegin(); it != map.constEnd(); ++it)
+    {
+        QList<int> values;
+        for (const QVariant& v : it.value().toList())
+            values.append(v.toInt());
+        if (values.size() >= 3)
+            result.insert(it.key(), values.mid(0, 3));
+    }
+    return result;
+}
+
 void SessionManager::saveSessionPinnedFiles(const QStringList& pinnedFiles)
 {
     if (!m_sessionLock.tryLock(5000))
@@ -386,6 +464,53 @@ QStringList SessionManager::loadSessionPinnedFiles()
     return files;
 }
 
+void SessionManager::saveSessionSplitState(bool splitVisible, const QVariantList& tabPanes)
+{
+    if (!m_sessionLock.tryLock(5000))
+    {
+        Logger::instance().error("Failed to acquire session lock for saveSessionSplitState");
+        return;
+    }
+
+    m_sessionSettings.beginGroup(sessionGroupPrefix());
+    m_sessionSettings.setValue(QStringLiteral("SplitVisible"), splitVisible);
+    m_sessionSettings.setValue(QStringLiteral("TabPanes"), tabPanes);
+    m_sessionSettings.endGroup();
+    m_sessionSettings.setValue(QStringLiteral("Session_SplitVisible"), splitVisible);
+    m_sessionSettings.setValue(QStringLiteral("Session_TabPanes"), tabPanes);
+    m_sessionSettings.sync();
+
+    m_sessionLock.unlock();
+}
+
+SessionManager::SplitSessionState SessionManager::loadSessionSplitState()
+{
+    SplitSessionState state;
+    if (!m_sessionLock.tryLock(5000))
+    {
+        Logger::instance().error("Failed to acquire session lock in loadSessionSplitState");
+        return state;
+    }
+
+    QString group = sessionGroupPrefix();
+    if (m_sessionSettings.childGroups().contains(group))
+    {
+        m_sessionSettings.beginGroup(group);
+        state.splitVisible = m_sessionSettings.value(QStringLiteral("SplitVisible"), false).toBool();
+        state.tabPanes = m_sessionSettings.value(QStringLiteral("TabPanes")).toList();
+        m_sessionSettings.endGroup();
+    }
+    if (state.tabPanes.isEmpty())
+    {
+        state.splitVisible = m_sessionSettings.value(QStringLiteral("Session_SplitVisible"), false).toBool();
+        state.tabPanes = m_sessionSettings.value(QStringLiteral("Session_TabPanes")).toList();
+    }
+
+    m_sessionLock.unlock();
+
+    return state;
+}
+
 void SessionManager::clearSession()
 {
     if (!m_sessionLock.tryLock(5000))
@@ -408,8 +533,11 @@ void SessionManager::clearSession()
     m_sessionSettings.remove(QStringLiteral("Session_ActiveIndex"));
     m_sessionSettings.remove(QStringLiteral("Session_ProjectPath"));
     m_sessionSettings.remove(QStringLiteral("Session_Bookmarks"));
+    m_sessionSettings.remove(QStringLiteral("Session_Cursors"));
     m_sessionSettings.remove(QStringLiteral("Session_PinnedFiles"));
     m_sessionSettings.remove(QStringLiteral("Session_TerminalWorkingDir"));
+    m_sessionSettings.remove(QStringLiteral("Session_SplitVisible"));
+    m_sessionSettings.remove(QStringLiteral("Session_TabPanes"));
     m_sessionSettings.remove(QStringLiteral("HasSession"));
     m_sessionSettings.sync();
 
@@ -443,6 +571,7 @@ void SessionManager::saveSession(TabManager* tabManager, ProjectPanel* projectPa
     }
 
     QHash<QString, QList<int>> bookmarks;
+    QHash<QString, QList<int>> cursors;
     for (QTabWidget* pane : tabManager->panes())
     {
         for (int i = 0; i < pane->count(); ++i)
@@ -456,6 +585,11 @@ void SessionManager::saveSession(TabManager* tabManager, ProjectPanel* projectPa
                 {
                     bookmarks.insert(editor->fileName(), lines);
                 }
+
+                int line = 0;
+                int index = 0;
+                editor->getCursorPosition(&line, &index);
+                cursors.insert(editor->fileName(), {line, index, editor->firstVisibleLine()});
             }
         }
     }
@@ -463,5 +597,6 @@ void SessionManager::saveSession(TabManager* tabManager, ProjectPanel* projectPa
     QString projectPath = projectPanel->isVisible() ? projectPanel->rootPath() : QString();
     saveSessionData(files, activeIndex, projectPath, terminalWorkingDir);
     saveSessionBookmarks(bookmarks);
+    saveSessionCursors(cursors);
     saveSessionPinnedFiles(tabManager->pinnedFiles());
 }

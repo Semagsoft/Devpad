@@ -34,6 +34,10 @@ public:
     static QString getBackupContent(const QString& filePath);
     static bool deleteBackup(const QString& filePath);
 
+    // Remove backups whose original file no longer exists, plus anything older
+    // than maxAgeDays, so the backup directory cannot grow without bound.
+    static void purgeStaleBackups(int maxAgeDays = 30);
+
 private:
     static QMutex s_mutex;
 };

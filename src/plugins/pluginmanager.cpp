@@ -222,29 +222,70 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
         return false;
     }
 
-    if (!plugin->initialize(m_host.get()))
-    {
-        QString reason = QStringLiteral("initialize() returned false");
-        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
-        emit pluginFailed(pluginId, reason);
-        plugin->shutdown();
-        loader->unload();
-        loader->deleteLater();
-        return false;
-    }
-
     LoadedPlugin entry;
     entry.loader = loader;
     entry.plugin = plugin;
     entry.info = std::move(pluginInfo);
     if (entry.info.id.isEmpty())
         entry.info.id = std::move(pluginId);
+
+    // Bracket the initialize() call so anything the plugin registers
+    // (actions, docks) is attributed to it, even if initialize throws.
+    m_host->beginPluginSession(entry.info.id);
+
+    bool initialized = false;
+    try
+    {
+        initialized = plugin->initialize(m_host.get());
+    }
+    catch (const std::exception& e)
+    {
+        Logger::instance().error(
+            QStringLiteral("Plugin '%1': uncaught exception in initialize(): %2").arg(entry.info.id, QString::fromUtf8(e.what())));
+    }
+    catch (...)
+    {
+        Logger::instance().error(QStringLiteral("Plugin '%1': unknown exception in initialize()").arg(entry.info.id));
+    }
+
+    if (!initialized)
+    {
+        QString reason = QStringLiteral("initialize() returned false");
+        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(entry.info.id, reason));
+        emit pluginFailed(entry.info.id, reason);
+        safePluginCall(entry.info.id, "shutdown", [](IPlugin* p) { p->shutdown(); });
+        m_host->endPluginSession(entry.info.id);
+        loader->unload();
+        loader->deleteLater();
+        return false;
+    }
+
     m_loaded.insert(entry.info.id, entry);
 
     Logger::instance().info(QStringLiteral("PluginManager: loaded plugin '%1' v%2 (%3)").arg(entry.info.id, entry.info.version, entry.info.library));
 
     Q_EMIT pluginLoaded(entry.info.id, entry.info);
     return true;
+}
+
+void PluginManager::safePluginCall(const QString& pluginId, const char* event, const std::function<void(IPlugin*)>& fn)
+{
+    IPlugin* instance = plugin(pluginId);
+    if (!instance)
+        return;
+    try
+    {
+        fn(instance);
+    }
+    catch (const std::exception& e)
+    {
+        Logger::instance().error(
+            QStringLiteral("Plugin '%1': uncaught exception in %2: %3").arg(pluginId, QString::fromUtf8(event), QString::fromUtf8(e.what())));
+    }
+    catch (...)
+    {
+        Logger::instance().error(QStringLiteral("Plugin '%1': unknown exception in %2").arg(pluginId, QString::fromUtf8(event)));
+    }
 }
 
 bool PluginManager::unload(const QString& pluginId)
@@ -255,9 +296,16 @@ bool PluginManager::unload(const QString& pluginId)
     LoadedPlugin entry = m_loaded.take(pluginId);
     if (entry.plugin)
     {
-        entry.plugin->shutdown();
+        safePluginCall(pluginId, "shutdown", [](IPlugin* p) { p->shutdown(); });
         Logger::instance().info(QStringLiteral("PluginManager: unloaded plugin '%1'").arg(pluginId));
     }
+
+    // Remove the plugin's registered actions/docks while its library is still
+    // loaded — triggering an action whose callback lives in an unloaded .so
+    // would crash, and deleting dock contents after unload would crash in the
+    // widget's destructor.
+    if (m_host)
+        m_host->endPluginSession(pluginId);
 
     if (entry.loader)
     {
@@ -303,37 +351,37 @@ void PluginManager::connectHostEventForwarding()
             [this](CodeEditor* editor)
             {
                 for (auto& entry : m_loaded)
-                    entry.plugin->onEditorCreated(editor);
+                    safePluginCall(entry.info.id, "onEditorCreated", [editor](IPlugin* p) { p->onEditorCreated(editor); });
             });
     connect(m_host.get(), &PluginHost::editorClosed, this,
             [this](CodeEditor* editor)
             {
                 for (auto& entry : m_loaded)
-                    entry.plugin->onEditorClosed(editor);
+                    safePluginCall(entry.info.id, "onEditorClosed", [editor](IPlugin* p) { p->onEditorClosed(editor); });
             });
     connect(m_host.get(), &PluginHost::currentEditorChanged, this,
             [this](CodeEditor* editor)
             {
                 for (auto& entry : m_loaded)
-                    entry.plugin->onCurrentEditorChanged(editor);
+                    safePluginCall(entry.info.id, "onCurrentEditorChanged", [editor](IPlugin* p) { p->onCurrentEditorChanged(editor); });
             });
     connect(m_host.get(), &PluginHost::fileOpened, this,
             [this](const QString& path)
             {
                 for (auto& entry : m_loaded)
-                    entry.plugin->onFileOpened(path);
+                    safePluginCall(entry.info.id, "onFileOpened", [path](IPlugin* p) { p->onFileOpened(path); });
             });
     connect(m_host.get(), &PluginHost::fileSaved, this,
             [this](const QString& path)
             {
                 for (auto& entry : m_loaded)
-                    entry.plugin->onFileSaved(path);
+                    safePluginCall(entry.info.id, "onFileSaved", [path](IPlugin* p) { p->onFileSaved(path); });
             });
     connect(m_host.get(), &PluginHost::settingsChanged, this,
             [this]()
             {
                 for (auto& entry : m_loaded)
-                    entry.plugin->onSettingsChanged();
+                    safePluginCall(entry.info.id, "onSettingsChanged", [](IPlugin* p) { p->onSettingsChanged(); });
             });
 }
 

@@ -807,7 +807,7 @@ ThemeColors getCustomThemeColors(const QString& name)
 
 // ── Accent overlay ───────────────────────────────────────────────
 
-static void applyAccent(ThemeColors& colors)
+void applyAccent(ThemeColors& colors)
 {
     const auto& s = SettingsManager::instance();
     if (!s.hasAccentColor())

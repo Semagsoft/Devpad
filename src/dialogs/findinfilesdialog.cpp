@@ -222,7 +222,27 @@ FindInFilesDialog::FindInFilesDialog(const QString& defaultDir, QWidget* parent)
 
 FindInFilesDialog::~FindInFilesDialog()
 {
-    onStop();
+    // Blocking is acceptable only here: the dialog is being destroyed and its
+    // children (including the worker thread) go away right after. Disconnect
+    // first so late results can't reach the dying dialog.
+    if (m_worker)
+        m_worker->disconnect();
+    if (m_workerThread && m_workerThread->isRunning())
+    {
+        m_workerThread->requestInterruption();
+        m_workerThread->quit();
+        if (!m_workerThread->wait(3000))
+        {
+            m_workerThread->terminate();
+            m_workerThread->wait();
+        }
+    }
+    if (m_worker)
+    {
+        delete m_worker;
+        m_worker = nullptr;
+    }
+    m_workerThread = nullptr;
 }
 
 void FindInFilesDialog::setupUI()
@@ -355,6 +375,9 @@ void FindInFilesDialog::onStop()
 
 void FindInFilesDialog::cleanupSearch()
 {
+    // Don't block the GUI waiting for the worker: ask it to stop, drop its
+    // signal connections so late results can't reach the dialog, and let the
+    // thread tear itself down when it notices the interruption.
     if (m_worker)
     {
         m_worker->disconnect();
@@ -364,25 +387,24 @@ void FindInFilesDialog::cleanupSearch()
         m_workerThread->disconnect();
         if (m_workerThread->isRunning())
         {
+            m_workerThread->requestInterruption();
             m_workerThread->quit();
-            if (!m_workerThread->wait(3000))
-            {
-                m_workerThread->terminate();
-                m_workerThread->wait();
-            }
+            connect(m_workerThread, &QThread::finished, m_workerThread, &QObject::deleteLater);
+        }
+        else
+        {
+            m_workerThread->deleteLater();
         }
     }
 
     if (m_worker)
     {
+        // deleteLater() is deferred to the worker thread's own event loop,
+        // so it is safe even while run() is still executing.
         m_worker->deleteLater();
         m_worker = nullptr;
     }
-    if (m_workerThread)
-    {
-        m_workerThread->deleteLater();
-        m_workerThread = nullptr;
-    }
+    m_workerThread = nullptr;
 
     m_searching = false;
     searchButton->setEnabled(true);
@@ -393,6 +415,15 @@ void FindInFilesDialog::onMatchFound(const QString& filePath, int lineNumber, co
 {
     if (!m_searching)
         return;
+
+    if (m_matchCount >= MaxMatches)
+    {
+        // Prevent GUI-thread flooding on huge trees: stop the scan and report.
+        if (m_workerThread)
+            m_workerThread->requestInterruption();
+        return;
+    }
+
     m_matchCount++;
     QString relativePath = QDir(dirLineEdit->text()).relativeFilePath(filePath);
 
@@ -405,6 +436,12 @@ void FindInFilesDialog::onMatchFound(const QString& filePath, int lineNumber, co
 
     if (m_matchCount == 1)
         resultTree->resizeColumnToContents(0);
+
+    if (m_matchCount == MaxMatches)
+    {
+        statusLabel->setText(tr("Result limit reached (%1 matches) — refine the search to see more.").arg(MaxMatches));
+        return;
+    }
 
     statusLabel->setText(tr("Found %1 match(es)...").arg(m_matchCount));
 }

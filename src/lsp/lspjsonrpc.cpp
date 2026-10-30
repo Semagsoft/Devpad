@@ -110,29 +110,35 @@ void LspJsonRpc::handleData(const QByteArray& data)
                 return;
 
             QByteArray header = m_buffer.left(headerEnd);
-            m_buffer.remove(0, headerEnd + 4);
-
+            int parsed = -1;
             for (const QByteArray& line : header.split('\n'))
             {
                 QByteArray l = line.trimmed();
                 if (l.startsWith("Content-Length:"))
                 {
-                    m_contentLength = l.mid(15).trimmed().toInt();
+                    parsed = l.mid(15).trimmed().toInt();
                 }
                 else if (l.startsWith("Content-Type:"))
                 {
                     // Consume but ignore — we only support UTF-8 JSON-RPC
                 }
             }
-        }
 
-        if (m_contentLength <= 0)
-        {
-            // Invalid or unusable Content-Length (missing, zero, or an
-            // overflowed toInt()): wait for the next frame's header instead of
-            // slicing a bogus message out of the stream.
-            m_contentLength = -1;
-            continue;
+            if (parsed <= 0)
+            {
+                // Invalid or unusable Content-Length (missing, zero, or an
+                // overflowed toInt()): the body of this frame cannot be framed
+                // reliably, so drop the header AND the body bytes that follow
+                // it, then resync on the next framed message. Consuming only
+                // the header would make the next header search start inside
+                // the body and permanently desync the stream.
+                m_buffer.remove(0, headerEnd + 4);
+                qWarning("LSP: discarding frame with invalid Content-Length");
+                continue;
+            }
+
+            m_contentLength = parsed;
+            m_buffer.remove(0, headerEnd + 4);
         }
 
         if (m_contentLength > kMaxMessageSize)

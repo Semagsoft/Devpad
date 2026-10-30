@@ -60,10 +60,20 @@ private:
     void loadSettings();
     void saveSettings();
     void updateThemePreview();
+    void filterThemes(const QString& text);
+
+    struct ThemeItem
+    {
+        QString text;
+        int data;
+    };
+    QVector<ThemeItem> m_themeItems;
 
     QTabWidget* tabWidget = nullptr;
 
     QComboBox* startupComboBox = nullptr;
+    QCheckBox* checkForUpdatesCheckBox = nullptr;
+    QLineEdit* themeFilterEdit = nullptr;
     QComboBox* themeComboBox = nullptr;
     QComboBox* defaultFormatComboBox = nullptr;
     QComboBox* closeButtonComboBox = nullptr;
@@ -86,6 +96,7 @@ private:
     QCheckBox* wordWrapCheckBox = nullptr;
     QCheckBox* codeCollapsingCheckBox = nullptr;
     QCheckBox* showWhitespaceCheckBox = nullptr;
+    QCheckBox* showMinimapCheckBox = nullptr;
     QCheckBox* cursorBlinkingCheckBox = nullptr;
     QCheckBox* highlightCurrentLineCheckBox = nullptr;
     QCheckBox* verticalEdgeCheckBox = nullptr;

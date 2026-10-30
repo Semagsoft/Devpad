@@ -28,6 +28,7 @@
 #include <QPointer>
 #include <QString>
 #include <QStringList>
+#include <functional>
 #include <memory>
 
 class MainWindow;
@@ -114,6 +115,9 @@ private:
     static PluginInfo readPluginManifest(const QString& filePath);
     QString pluginFilePath(const QString& pluginId) const;
     void connectHostEventForwarding();
+    // Invoke a plugin entry point with an exception guard so a throwing
+    // plugin cannot take the whole application down.
+    void safePluginCall(const QString& pluginId, const char* event, const std::function<void(IPlugin*)>& fn);
 
     MainWindow* m_mainWindow = nullptr;
     std::unique_ptr<PluginHost> m_host;

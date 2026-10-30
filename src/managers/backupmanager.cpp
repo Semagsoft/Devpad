@@ -26,6 +26,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMutexLocker>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QUrl>
@@ -58,7 +59,9 @@ bool BackupManager::saveBackup(const QString& filePath, const QString& content)
 
     QMutexLocker locker(&s_mutex);
     QString backupPath = backupPathForFile(filePath);
-    QFile file(backupPath);
+    // Write atomically: a crash or power loss mid-write must not leave a
+    // truncated backup behind (it would later be restored into the editor).
+    QSaveFile file(backupPath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
         Logger::instance().warning(QString("Failed to create backup: %1").arg(backupPath));
@@ -70,9 +73,16 @@ bool BackupManager::saveBackup(const QString& filePath, const QString& content)
     out << content;
     out.flush();
 
-    if (file.error() != QFileDevice::NoError)
+    if (out.status() != QTextStream::Ok || file.error() != QFileDevice::NoError)
     {
+        file.cancelWriting();
         Logger::instance().warning(QString("Failed to write backup: %1").arg(backupPath));
+        return false;
+    }
+
+    if (!file.commit())
+    {
+        Logger::instance().warning(QString("Failed to commit backup: %1").arg(backupPath));
         return false;
     }
 
@@ -111,7 +121,15 @@ bool BackupManager::isBackupNewer(const QString& filePath)
         return true;
     }
 
-    return backupInfo.lastModified() > fileInfo.lastModified();
+    if (backupInfo.lastModified() != fileInfo.lastModified())
+    {
+        return backupInfo.lastModified() > fileInfo.lastModified();
+    }
+
+    // Same mtime tick (coarse filesystems, network shares): fall back to a
+    // size comparison so the backup is offered for restore rather than
+    // silently discarded on a coin flip.
+    return backupInfo.size() != fileInfo.size();
 }
 
 QString BackupManager::getBackupContent(const QString& filePath)
@@ -149,4 +167,29 @@ bool BackupManager::deleteBackup(const QString& filePath)
         return QFile::remove(backupPath);
     }
     return false;
+}
+
+void BackupManager::purgeStaleBackups(int maxAgeDays)
+{
+    QMutexLocker locker(&s_mutex);
+
+    QDir dir(backupDirectory());
+    const QFileInfoList entries = dir.entryInfoList(QDir::Files, QDir::Time);
+
+    const QDateTime cutoff = QDateTime::currentDateTimeUtc().addDays(-maxAgeDays);
+    for (const QFileInfo& entry : entries)
+    {
+        // Backup names are percent-encoded original paths.
+        const QString originalPath = QUrl::fromPercentEncoding(entry.fileName().toUtf8());
+        const bool originalGone = !QFileInfo::exists(originalPath);
+        const bool tooOld = entry.lastModified() < cutoff;
+
+        if (originalGone || tooOld)
+        {
+            if (!QFile::remove(entry.absoluteFilePath()))
+            {
+                Logger::instance().warning(QString("Failed to remove stale backup: %1").arg(entry.absoluteFilePath()));
+            }
+        }
+    }
 }

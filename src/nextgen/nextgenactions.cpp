@@ -5,16 +5,30 @@
 
 #include "nextgenactions.h"
 
+#include "core/fileservice.h"
+#include "devpad_version.h"
+#include "encodingutils.h"
+#include "managers/externaltoolmanager.h"
 #include "managers/settingsmanager.h"
 #include "nextgen/primoeditor.h"
+#include "nextgen/primoterminal.h"
 #include "theme.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QRegularExpression>
+#include <QStandardPaths>
+#include <QTemporaryDir>
 
-NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(nullptr)
+NextgenActions::NextgenActions(QObject* parent)
+    : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
+      m_currentReply(nullptr), m_remoteLoading(false)
 {
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
             [this]()
@@ -25,7 +39,9 @@ NextgenActions::NextgenActions(QObject* parent) : QObject(parent), m_editor(null
                 emit recentFilesChanged();
             });
 }
-NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent) : QObject(parent), m_editor(editor)
+NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent)
+    : QObject(parent), m_editor(editor), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
+      m_currentReply(nullptr), m_remoteLoading(false)
 {
     connect(&SettingsManager::instance(), &SettingsManager::settingsChanged, this,
             [this]()
@@ -122,11 +138,16 @@ void NextgenActions::setThemeByName(const QString& name)
         ThemeColors c = getCustomThemeColors(name);
         if (m_editor)
         {
+            m_editor->setCustomTheme(name);
             m_editor->setBackgroundColor(c.background);
             m_editor->setForegroundColor(c.foreground);
-            // also update highlight theme
-            // PrimoEditor will need to know custom theme? For now set via background/foreground
+            // Apply full theme colors via setTheme to update highlight
+            m_editor->applyThemeColors(c);
+            // trigger highlight re-evaluation
+            m_editor->setLanguage(m_editor->language());
         }
+        SettingsManager::instance().setCustomTheme(name);
+        SettingsManager::instance().setTheme(ThemeId::Light); // placeholder; custom tracked separately
         emit themeChanged();
     }
 }
@@ -265,11 +286,11 @@ void NextgenActions::replace()
 }
 void NextgenActions::findNext()
 {
-    emit showMessage(QStringLiteral("Find Next placeholder"));
+    emit showMessage(QStringLiteral("Find Next – use Find bar (Ctrl+F) or press F3 in editor"));
 }
 void NextgenActions::findPrevious()
 {
-    emit showMessage(QStringLiteral("Find Previous placeholder"));
+    emit showMessage(QStringLiteral("Find Previous – use Find bar (Ctrl+F) or press Shift+F3 in editor"));
 }
 void NextgenActions::goToLine()
 {
@@ -282,11 +303,13 @@ void NextgenActions::toggleBookmark()
 }
 void NextgenActions::nextBookmark()
 {
-    emit showMessage(QStringLiteral("Next bookmark – use gutter click"));
+    if (m_editor)
+        m_editor->nextBookmark();
 }
 void NextgenActions::prevBookmark()
 {
-    emit showMessage(QStringLiteral("Prev bookmark – use gutter click"));
+    if (m_editor)
+        m_editor->prevBookmark();
 }
 void NextgenActions::clearBookmarks()
 {
@@ -368,4 +391,632 @@ void NextgenActions::findInFiles(const QString& pattern)
 {
     Q_UNUSED(pattern);
     emit requestFindInFiles();
+}
+
+// ── Settings getters/setters ──────────────────────────────────
+
+bool NextgenActions::checkForUpdatesEnabled() const
+{
+    return SettingsManager::instance().checkForUpdatesEnabled();
+}
+void NextgenActions::setCheckForUpdatesEnabled(bool enabled)
+{
+    SettingsManager::instance().setCheckForUpdatesEnabled(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::wordWrap() const
+{
+    return SettingsManager::instance().wordWrap();
+}
+void NextgenActions::setWordWrap(bool enabled)
+{
+    SettingsManager::instance().setWordWrap(enabled);
+    emit settingsChanged();
+    if (m_editor)
+        m_editor->setWordWrap(enabled);
+}
+bool NextgenActions::showLineNumbers() const
+{
+    return SettingsManager::instance().showLineNumbers();
+}
+void NextgenActions::setShowLineNumbers(bool visible)
+{
+    SettingsManager::instance().setShowLineNumbers(visible);
+    emit settingsChanged();
+}
+bool NextgenActions::autoCloseBrackets() const
+{
+    return SettingsManager::instance().autoCloseBrackets();
+}
+void NextgenActions::setAutoCloseBrackets(bool enabled)
+{
+    SettingsManager::instance().setAutoCloseBrackets(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::snippetsEnabled() const
+{
+    return SettingsManager::instance().snippetsEnabled();
+}
+void NextgenActions::setSnippetsEnabled(bool enabled)
+{
+    SettingsManager::instance().setSnippetsEnabled(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::predictiveSnippets() const
+{
+    return SettingsManager::instance().predictiveSnippets();
+}
+void NextgenActions::setPredictiveSnippets(bool enabled)
+{
+    SettingsManager::instance().setPredictiveSnippets(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::autoCompletionEnabled() const
+{
+    return SettingsManager::instance().autoCompletionEnabled();
+}
+void NextgenActions::setAutoCompletionEnabled(bool enabled)
+{
+    SettingsManager::instance().setAutoCompletionEnabled(enabled);
+    emit settingsChanged();
+}
+int NextgenActions::tabWidth() const
+{
+    return SettingsManager::instance().tabWidth();
+}
+void NextgenActions::setTabWidth(int width)
+{
+    SettingsManager::instance().setTabWidth(width);
+    emit settingsChanged();
+    if (m_editor)
+        m_editor->setTabWidth(width);
+}
+int NextgenActions::defaultFontSize() const
+{
+    return SettingsManager::instance().defaultFontSize();
+}
+void NextgenActions::setDefaultFontSize(int size)
+{
+    SettingsManager::instance().setDefaultFontSize(size);
+    emit settingsChanged();
+    if (m_editor)
+        m_editor->setFont(SettingsManager::instance().defaultFont());
+}
+QString NextgenActions::defaultFontFamily() const
+{
+    return SettingsManager::instance().defaultFontFamily();
+}
+void NextgenActions::setDefaultFontFamily(const QString& family)
+{
+    SettingsManager::instance().setDefaultFontFamily(family);
+    emit settingsChanged();
+    if (m_editor)
+        m_editor->setFont(SettingsManager::instance().defaultFont());
+}
+bool NextgenActions::showHiddenFiles() const
+{
+    return SettingsManager::instance().showHiddenFiles();
+}
+void NextgenActions::setShowHiddenFiles(bool visible)
+{
+    SettingsManager::instance().setShowHiddenFiles(visible);
+    emit settingsChanged();
+}
+bool NextgenActions::useGitIgnore() const
+{
+    return SettingsManager::instance().useGitIgnore();
+}
+void NextgenActions::setUseGitIgnore(bool enabled)
+{
+    SettingsManager::instance().setUseGitIgnore(enabled);
+    emit settingsChanged();
+}
+bool NextgenActions::autoSaveEnabled() const
+{
+    return SettingsManager::instance().autoSaveEnabled();
+}
+void NextgenActions::setAutoSaveEnabled(bool enabled)
+{
+    SettingsManager::instance().setAutoSaveEnabled(enabled);
+    emit settingsChanged();
+}
+int NextgenActions::autoSaveInterval() const
+{
+    return SettingsManager::instance().autoSaveInterval();
+}
+void NextgenActions::setAutoSaveInterval(int seconds)
+{
+    SettingsManager::instance().setAutoSaveInterval(seconds);
+    emit settingsChanged();
+}
+
+// ── External tools ────────────────────────────────────────────
+
+int NextgenActions::externalToolCount() const
+{
+    return SettingsManager::instance().externalToolCount();
+}
+QString NextgenActions::externalToolName(int index) const
+{
+    return SettingsManager::instance().externalToolName(index);
+}
+QString NextgenActions::externalToolCommand(int index) const
+{
+    return SettingsManager::instance().externalToolCommand(index);
+}
+QString NextgenActions::externalToolArguments(int index) const
+{
+    return SettingsManager::instance().externalToolArguments(index);
+}
+QString NextgenActions::externalToolWorkingDir(int index) const
+{
+    return SettingsManager::instance().externalToolWorkingDir(index);
+}
+QString NextgenActions::externalToolShortcut(int index) const
+{
+    return SettingsManager::instance().externalToolShortcut(index);
+}
+bool NextgenActions::externalToolRunInTerminal(int index) const
+{
+    return SettingsManager::instance().externalToolRunInTerminal(index);
+}
+void NextgenActions::addExternalTool(const QString& name, const QString& command, const QString& arguments, const QString& workingDir,
+                                     const QString& shortcut, bool runInTerminal)
+{
+    SettingsManager::instance().addExternalTool(name, command, arguments, workingDir, shortcut, runInTerminal);
+    emit externalToolsChanged();
+}
+void NextgenActions::removeExternalTool(int index)
+{
+    SettingsManager::instance().removeExternalTool(index);
+    emit externalToolsChanged();
+}
+void NextgenActions::runExternalTool(int index, const QString& filePath, const QString& projectDir, const QString& selectedText, int lineNumber)
+{
+    // Terminal sender: write to PrimoTerminal shared instance
+    auto* term = PrimoTerminal::instance();
+    auto sender = [term](const QString& cmd)
+    {
+        if (term)
+            term->write(cmd);
+    };
+    m_externalToolManager->runTool(index, filePath, projectDir, selectedText, lineNumber, sender);
+}
+
+// ── Command mode (:) ────────────────────────────────────────────
+QString NextgenActions::runCommand(const QString& rawCmd)
+{
+    QString cmd = rawCmd.trimmed();
+    if (cmd.isEmpty())
+        return QStringLiteral("");
+
+    // ── File ──────────────────────────────────────────
+    if (cmd == QStringLiteral("wa"))
+    {
+        // Save all modified buffers with file paths (best effort via current editor)
+        if (m_editor && !m_editor->filePath().isEmpty() && m_editor->document() && m_editor->document()->isModified())
+            m_editor->save();
+        return QStringLiteral("Saved all");
+    }
+    if (cmd == QStringLiteral("wqa") || cmd == QStringLiteral("waq"))
+    {
+        if (m_editor && !m_editor->filePath().isEmpty() && m_editor->document() && m_editor->document()->isModified())
+            m_editor->save();
+        return QStringLiteral("quit"); // handled by QML
+    }
+    if (cmd == QStringLiteral("w") || cmd.startsWith(QStringLiteral("w ")))
+    {
+        if (!m_editor)
+            return QStringLiteral("No editor");
+        QString arg = cmd.mid(1).trimmed();
+        if (arg.isEmpty())
+        {
+            if (m_editor->filePath().isEmpty())
+                emit requestSaveAsDialog();
+            else
+                m_editor->save();
+        }
+        else
+        {
+            if (!QFileInfo(arg).isAbsolute())
+                arg = QDir::current().absoluteFilePath(arg);
+            m_editor->saveAs(arg);
+        }
+        return QStringLiteral("Saved");
+    }
+    if (cmd == QStringLiteral("q"))
+    {
+        if (m_editor && m_editor->document() && m_editor->document()->isModified())
+            return QStringLiteral("Modified buffers - use :wq or :q! to force");
+        return QStringLiteral("quit");
+    }
+    if (cmd == QStringLiteral("q!"))
+        return QStringLiteral("quit");
+    if (cmd == QStringLiteral("wq") || cmd.startsWith(QStringLiteral("wq ")))
+    {
+        if (m_editor)
+        {
+            if (m_editor->filePath().isEmpty())
+                emit requestSaveAsDialog();
+            else
+                m_editor->save();
+        }
+        return QStringLiteral("quit");
+    }
+    if (cmd == QStringLiteral("e!"))
+    {
+        if (m_editor && !m_editor->filePath().isEmpty())
+        {
+            // Reload from disk: best effort via loadFile
+            m_editor->loadFile(m_editor->filePath());
+            return QStringLiteral("Reloaded");
+        }
+        return QStringLiteral("No file name");
+    }
+    if (cmd.startsWith(QStringLiteral("e! ")))
+    {
+        QString arg = cmd.mid(3).trimmed();
+        if (!arg.isEmpty())
+        {
+            if (!QFileInfo(arg).isAbsolute())
+                arg = QDir::current().absoluteFilePath(arg);
+            if (m_editor)
+                m_editor->loadFile(arg);
+            return QStringLiteral("Opened ") + arg;
+        }
+        return QStringLiteral("Usage: :e! <path>");
+    }
+    if (cmd.startsWith(QStringLiteral("e ")))
+    {
+        QString arg = cmd.mid(2).trimmed();
+        if (!arg.isEmpty())
+        {
+            if (!QFileInfo(arg).isAbsolute())
+                arg = QDir::current().absoluteFilePath(arg);
+            if (m_editor)
+                m_editor->loadFile(arg);
+            return QStringLiteral("Opened ") + arg;
+        }
+        return QStringLiteral("Usage: :e <path>");
+    }
+    if (cmd.startsWith(QStringLiteral("cd ")) || cmd == QStringLiteral("cd"))
+    {
+        QString arg = cmd == QStringLiteral("cd") ? QDir::currentPath() : cmd.mid(3).trimmed();
+        if (!QFileInfo(arg).isAbsolute())
+            arg = QDir::current().absoluteFilePath(arg);
+        QFileInfo fi(arg);
+        if (fi.isDir() && fi.exists())
+        {
+            emit showMessage(QStringLiteral("Project: %1").arg(arg));
+            return QStringLiteral("Project: ") + arg;
+        }
+        return QStringLiteral("No such directory: ") + arg;
+    }
+
+    // ── Settings ──────────────────────────────────────
+    if (cmd.startsWith(QStringLiteral("set wrap")))
+    {
+        QString arg = cmd.mid(QStringLiteral("set wrap").size()).trimmed().toLower();
+        if (arg.isEmpty())
+            return QStringLiteral("Wrap is %1").arg(m_editor && m_editor->wordWrap() ? QStringLiteral("on") : QStringLiteral("off"));
+        bool on = (arg == QStringLiteral("on") || arg == QStringLiteral("1") || arg == QStringLiteral("true"));
+        if (arg == QStringLiteral("off") || arg == QStringLiteral("0") || arg == QStringLiteral("false"))
+            on = false;
+        if (m_editor)
+            m_editor->setWordWrap(on);
+        SettingsManager::instance().setWordWrap(on);
+        return QStringLiteral("Wrap %1").arg(on ? QStringLiteral("on") : QStringLiteral("off"));
+    }
+    if (cmd == QStringLiteral("set number") || cmd == QStringLiteral("set number on") || cmd == QStringLiteral("set number true"))
+    {
+        if (m_editor)
+            m_editor->setShowLineNumbers(true);
+        SettingsManager::instance().setShowLineNumbers(true);
+        return QStringLiteral("Line numbers on");
+    }
+    if (cmd == QStringLiteral("set nonumber") || cmd == QStringLiteral("set number off") || cmd == QStringLiteral("set number false"))
+    {
+        if (m_editor)
+            m_editor->setShowLineNumbers(false);
+        SettingsManager::instance().setShowLineNumbers(false);
+        return QStringLiteral("Line numbers off");
+    }
+    if (cmd.startsWith(QStringLiteral("set number")))
+    {
+        QString arg = cmd.mid(QStringLiteral("set number").size()).trimmed().toLower();
+        if (arg.isEmpty())
+            return QStringLiteral("Line numbers %1").arg(m_editor && m_editor->showLineNumbers() ? QStringLiteral("on") : QStringLiteral("off"));
+        return QStringLiteral("Usage: :set number [on|off]");
+    }
+    if (cmd.startsWith(QStringLiteral("set syntax ")) || cmd.startsWith(QStringLiteral("set ft ")))
+    {
+        QString arg = cmd.startsWith(QStringLiteral("set syntax ")) ? cmd.mid(QStringLiteral("set syntax ").size()).trimmed()
+                                                                    : cmd.mid(QStringLiteral("set ft ").size()).trimmed();
+        if (arg.isEmpty() || arg == QStringLiteral("off") || arg == QStringLiteral("none"))
+        {
+            if (m_editor)
+                m_editor->setLanguage(QString());
+            return QStringLiteral("Syntax language auto-detected");
+        }
+        if (m_editor)
+            m_editor->setLanguage(arg);
+        return QStringLiteral("Syntax language set to %1").arg(arg);
+    }
+    if (cmd.startsWith(QStringLiteral("set searchcase")) || cmd.startsWith(QStringLiteral("set searchwhole")) ||
+        cmd.startsWith(QStringLiteral("set searchregex")))
+    {
+        QString which = cmd.startsWith(QStringLiteral("set searchcase"))    ? QStringLiteral("case")
+                        : cmd.startsWith(QStringLiteral("set searchwhole")) ? QStringLiteral("whole")
+                                                                            : QStringLiteral("regex");
+        QString arg = cmd.section(' ', -1).trimmed().toLower();
+        bool on = (arg == QStringLiteral("on") || arg == QStringLiteral("1") || arg == QStringLiteral("true"));
+        if (arg == QStringLiteral("off") || arg == QStringLiteral("0") || arg == QStringLiteral("false"))
+            on = false;
+        if (arg.isEmpty() || (arg != QStringLiteral("on") && arg != QStringLiteral("off") && arg != QStringLiteral("1") &&
+                              arg != QStringLiteral("0") && arg != QStringLiteral("true") && arg != QStringLiteral("false")))
+            return QStringLiteral("Usage: :set search%1 [on|off]").arg(which);
+        emit showMessage(QStringLiteral("Search %1: %2 (use Find bar)").arg(which, on ? QStringLiteral("on") : QStringLiteral("off")));
+        return QStringLiteral("Search %1 %2").arg(which, on ? QStringLiteral("on") : QStringLiteral("off"));
+    }
+
+    if (cmd.startsWith(QStringLiteral("set encoding")))
+    {
+        QString arg = cmd.mid(QStringLiteral("set encoding").size()).trimmed();
+        if (arg.isEmpty())
+            return QStringLiteral("Encoding: %1").arg(m_editor ? m_editor->encoding() : QStringLiteral("UTF-8"));
+        if (m_editor)
+            m_editor->setEncoding(arg);
+        return QStringLiteral("Encoding set to %1 (save to apply)").arg(arg);
+    }
+
+    // ── Tabs ──────────────────────────────────────────
+    if (cmd == QStringLiteral("tabs"))
+    {
+        emit showMessage(QStringLiteral("Tabs: use Tab key or Ctrl+Tab in editor"));
+        return QStringLiteral("Tabs");
+    }
+    if (cmd == QStringLiteral("tabnext") || cmd == QStringLiteral("tabn"))
+    {
+        emit requestTabNext();
+        return QStringLiteral("Tab next");
+    }
+    if (cmd == QStringLiteral("tabprev") || cmd == QStringLiteral("tabp"))
+    {
+        emit requestTabPrev();
+        return QStringLiteral("Tab prev");
+    }
+    if (cmd == QStringLiteral("tabfirst") || cmd == QStringLiteral("tabf"))
+    {
+        emit requestTabFirst();
+        return QStringLiteral("Tab first");
+    }
+    if (cmd == QStringLiteral("tablast") || cmd == QStringLiteral("tabl"))
+    {
+        emit requestTabLast();
+        return QStringLiteral("Tab last");
+    }
+    if (cmd == QStringLiteral("tabclose") || cmd == QStringLiteral("tabc"))
+    {
+        emit requestTabClose();
+        return QStringLiteral("Tab closed");
+    }
+
+    // ── Bookmarks ─────────────────────────────────────
+    if (cmd == QStringLiteral("bn") || cmd == QStringLiteral("bnext"))
+    {
+        if (m_editor)
+            m_editor->nextBookmark();
+        return QStringLiteral("Next bookmark");
+    }
+    if (cmd == QStringLiteral("bp") || cmd == QStringLiteral("bprev"))
+    {
+        if (m_editor)
+            m_editor->prevBookmark();
+        return QStringLiteral("Prev bookmark");
+    }
+    if (cmd == QStringLiteral("bc") || cmd == QStringLiteral("bclear"))
+    {
+        if (m_editor)
+            m_editor->clearBookmarks();
+        return QStringLiteral("Bookmarks cleared");
+    }
+
+    // ── Replace ───────────────────────────────────────
+    if (cmd.startsWith(QStringLiteral("s/")) || cmd.startsWith(QStringLiteral("%s/")))
+    {
+        if (!m_editor || !m_editor->document())
+            return QStringLiteral("No buffer");
+        bool global = cmd.startsWith(QStringLiteral("%"));
+        QString rest = global ? cmd.mid(3) : cmd.mid(2);
+        QStringList parts = rest.split(QChar('/'));
+        if (parts.size() >= 2)
+        {
+            QString find = parts[0];
+            QString repl = parts[1];
+            QString flags = parts.size() >= 3 ? parts[2] : QString();
+            bool all = global || flags.contains(QLatin1Char('g'));
+            if (find.isEmpty())
+                return QStringLiteral("Find string empty");
+            QString txt = m_editor->document()->text();
+            if (all)
+            {
+                int cnt = 0;
+                QString newTxt = txt;
+                int pos = 0;
+                while ((pos = newTxt.indexOf(find, pos)) >= 0)
+                {
+                    newTxt.replace(pos, find.size(), repl);
+                    pos += repl.size();
+                    ++cnt;
+                }
+                if (cnt > 0)
+                {
+                    m_editor->setText(newTxt);
+                    return QStringLiteral("Replaced %1 occurrences").arg(cnt);
+                }
+                return QStringLiteral("Not found: %1").arg(find);
+            }
+            else
+            {
+                int pos = txt.indexOf(find);
+                if (pos >= 0)
+                {
+                    QString newTxt = txt;
+                    newTxt.replace(pos, find.size(), repl);
+                    m_editor->setText(newTxt);
+                    return QStringLiteral("Replaced at %1").arg(pos);
+                }
+                return QStringLiteral("Not found: %1").arg(find);
+            }
+        }
+        return QStringLiteral("Usage: :s/old/new/[g] or :%%s/old/new/[g]");
+    }
+
+    // ── Grep / Find in Files ──────────────────────────
+    if (cmd.startsWith(QStringLiteral("grep")) || cmd.startsWith(QStringLiteral("findinfiles")))
+    {
+        emit requestFindInFiles();
+        return QStringLiteral("Find in Files drawer opened");
+    }
+
+    // ── Help / Version ────────────────────────────────
+    if (cmd == QStringLiteral("help") || cmd == QStringLiteral("h"))
+        return QStringLiteral(
+            "Commands: :w/:wa/:wq/:q/:q!/:e/:e!/:cd/:set wrap/:set number/:set syntax/:set encoding/:set searchcase/:set searchwhole/:set "
+            "searchregex/:tabs/:tabnext/:tabprev/:tabfirst/:tablast/:tabclose/:bn/:bp/:bc/:s/:/%s/:/grep/:help/:version");
+    if (cmd == QStringLiteral("version") || cmd == QStringLiteral("ver"))
+        return QStringLiteral("Devpad Nextgen ") + QStringLiteral(DEVPAD_VERSION);
+
+    // ── LSP ───────────────────────────────────────────
+    if (cmd.startsWith(QStringLiteral("lsp start")) || cmd.startsWith(QStringLiteral("lsp ")))
+    {
+        QString rest = cmd.startsWith(QStringLiteral("lsp start")) ? cmd.mid(QStringLiteral("lsp start").size()).trimmed()
+                                                                   : cmd.mid(QStringLiteral("lsp ").size()).trimmed();
+        QStringList parts = rest.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+        if (parts.isEmpty())
+            return QStringLiteral("Usage: :lsp start <command> [args...]");
+        QString command = parts[0];
+        QStringList args = parts.mid(1);
+        QString rootUri = QStringLiteral("file://") + QDir::currentPath();
+        emit requestLspStart(command, args, rootUri);
+        return QStringLiteral("Starting LSP server: ") + command;
+    }
+    if (cmd == QStringLiteral("lsp stop"))
+    {
+        emit requestLspStop();
+        return QStringLiteral("LSP server stopped");
+    }
+    if (cmd == QStringLiteral("lsp status"))
+    {
+        return QStringLiteral("LSP server status: check server output");
+    }
+
+    return QStringLiteral("Unknown command: %1").arg(cmd);
+}
+
+// ── Remote file support ────────────────────────────────────────────
+void NextgenActions::openRemoteFile(const QString& url)
+{
+    if (m_remoteLoading)
+    {
+        emit showMessage(QStringLiteral("Remote download already in progress"));
+        return;
+    }
+    QUrl qUrl(url);
+    if (!qUrl.isValid() || qUrl.scheme().isEmpty())
+    {
+        emit showMessage(QStringLiteral("Invalid URL: ") + url);
+        return;
+    }
+
+    m_remoteLoading = true;
+    m_remoteLoadError.clear();
+    emit remoteLoadStarted(url);
+
+    QString fileName = QFileInfo(qUrl.path()).fileName();
+    if (fileName.isEmpty())
+        fileName = QStringLiteral("remote.txt");
+    QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QLatin1Char('/') + fileName;
+
+    QNetworkRequest request(qUrl);
+    m_currentReply = m_networkManager->get(request);
+    connect(m_currentReply, &QNetworkReply::downloadProgress, this, &NextgenActions::onRemoteDownloadProgress);
+    connect(m_currentReply, &QNetworkReply::finished, this, [this, tempPath, url]() { onRemoteDownloadFinished(tempPath, url); });
+    connect(m_currentReply, &QNetworkReply::errorOccurred, this, &NextgenActions::onRemoteDownloadError);
+}
+
+bool NextgenActions::isRemoteLoading() const
+{
+    return m_remoteLoading;
+}
+
+QString NextgenActions::remoteLoadError() const
+{
+    return m_remoteLoadError;
+}
+
+void NextgenActions::onRemoteDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
+{
+    emit remoteLoadProgress(m_currentReply ? m_currentReply->url().toString() : QString(), bytesReceived, bytesTotal);
+}
+
+void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QString& url)
+{
+    QNetworkReply* reply = m_currentReply;
+    m_currentReply = nullptr;
+    m_remoteLoading = false;
+
+    QString error;
+    QString localPath;
+
+    if (reply->error() != QNetworkReply::NoError)
+    {
+        error = reply->errorString();
+        m_remoteLoadError = error;
+        emit remoteLoadFinished(url, localPath, false, error);
+        emit showMessage(QStringLiteral("Remote download failed: ") + error);
+        reply->deleteLater();
+        return;
+    }
+
+    QByteArray data = reply->readAll();
+    reply->deleteLater();
+
+    // Save to temp file
+    QFile file(tempPath);
+    if (!file.open(QIODevice::WriteOnly))
+    {
+        error = QStringLiteral("Cannot write temp file: ") + tempPath;
+        m_remoteLoadError = error;
+        emit remoteLoadFinished(url, localPath, false, error);
+        emit showMessage(QStringLiteral("Cannot save remote file: ") + error);
+        return;
+    }
+    file.write(data);
+    file.close();
+
+    localPath = tempPath;
+    m_remoteLoadError.clear();
+    emit remoteLoadFinished(url, localPath, true, QString());
+    emit showMessage(QStringLiteral("Remote file downloaded: ") + url);
+
+    // Load into editor
+    if (m_editor)
+    {
+        m_editor->loadFile(localPath);
+    }
+}
+
+void NextgenActions::onRemoteDownloadError(QNetworkReply::NetworkError code)
+{
+    Q_UNUSED(code);
+    m_remoteLoading = false;
+    if (m_currentReply)
+    {
+        m_remoteLoadError = m_currentReply->errorString();
+        emit remoteLoadFinished(m_currentReply->url().toString(), QString(), false, m_remoteLoadError);
+        emit showMessage(QStringLiteral("Remote download error: ") + m_remoteLoadError);
+        m_currentReply->deleteLater();
+        m_currentReply = nullptr;
+    }
 }

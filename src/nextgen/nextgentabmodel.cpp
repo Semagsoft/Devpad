@@ -12,6 +12,7 @@
 NextgenTabModel::NextgenTabModel(QObject* parent) : QObject(parent)
 {
     m_tabs.append(QString()); // Untitled
+    m_tabPanes.append(0);
 }
 
 QStringList NextgenTabModel::tabs() const
@@ -92,6 +93,7 @@ void NextgenTabModel::addTab(const QString& filePath)
     else
     {
         m_tabs.append(filePath);
+        m_tabPanes.append(0); // new tabs go to left pane by default
         m_current = m_tabs.size() - 1;
     }
     emit tabsChanged();
@@ -103,6 +105,8 @@ void NextgenTabModel::closeTab(int idx)
     if (idx < 0 || idx >= m_tabs.size())
         return;
     m_tabs.removeAt(idx);
+    if (m_tabPanes.size() > idx)
+        m_tabPanes.removeAt(idx);
     if (m_tabs.isEmpty())
         m_tabs.append(QString());
     if (m_current >= m_tabs.size())
@@ -152,6 +156,8 @@ void NextgenTabModel::moveTabToPane(int fromPane, int fromIdx, int toPane, int t
             setCurrentIndex(fromIdx);
         else
             setPane2Index(fromIdx);
+        // Assign moved tab to target pane
+        setTabPane(fromIdx, toPane);
         // Optionally show split
         if (!m_splitVisible)
             setSplitVisible(true);
@@ -180,4 +186,83 @@ void NextgenTabModel::detachTab(int idx)
     args << QStringLiteral("--nextgen") << QStringLiteral("--transfer") << path;
     QProcess::startDetached(appPath, args);
     closeTab(idx);
+}
+
+QVariantList NextgenTabModel::tabCursors() const
+{
+    QVariantList result;
+    for (const auto& c : m_tabCursors)
+    {
+        QVariantList entry;
+        for (int v : c)
+            entry.append(v);
+        result.append(entry);
+    }
+    return result;
+}
+
+void NextgenTabModel::setTabCursors(const QVariantList& cursors)
+{
+    m_tabCursors.clear();
+    for (const auto& v : cursors)
+    {
+        QList<int> entry;
+        for (const auto& item : v.toList())
+            entry.append(item.toInt());
+        m_tabCursors.append(entry);
+    }
+}
+
+void NextgenTabModel::setCursorForTab(int index, int line, int col)
+{
+    if (index < 0 || index >= m_tabs.size())
+        return;
+    if (m_tabCursors.size() <= index)
+        m_tabCursors.resize(index + 1);
+    m_tabCursors[index] = {line, col};
+}
+
+QVariantList NextgenTabModel::cursorForTab(int index) const
+{
+    QVariantList result;
+    if (index < 0 || index >= m_tabCursors.size())
+    {
+        result.append(0);
+        result.append(0);
+        return result;
+    }
+    for (int v : m_tabCursors[index])
+        result.append(v);
+    return result;
+}
+
+int NextgenTabModel::tabPane(int index) const
+{
+    if (index < 0 || index >= m_tabPanes.size())
+        return 0;
+    return m_tabPanes.at(index);
+}
+
+void NextgenTabModel::setTabPane(int index, int pane)
+{
+    if (index < 0 || index >= m_tabPanes.size())
+        return;
+    if (m_tabPanes.at(index) == pane)
+        return;
+    m_tabPanes[index] = pane;
+}
+
+QVariantList NextgenTabModel::tabPanes() const
+{
+    QVariantList result;
+    for (int v : m_tabPanes)
+        result.append(v);
+    return result;
+}
+
+void NextgenTabModel::setTabPanes(const QVariantList& panes)
+{
+    m_tabPanes.clear();
+    for (const auto& v : panes)
+        m_tabPanes.append(v.toInt());
 }

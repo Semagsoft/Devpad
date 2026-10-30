@@ -57,10 +57,16 @@ public:
 
     QStringList allFilePaths() const;
 
+    // Per-buffer cursor persistence (line, col) for session save/restore.
+    QHash<QString, QList<int>> cursors() const;
+    void setCursors(const QHash<QString, QList<int>>& cursors);
+
 private:
     QList<TuiBuffer> m_buffers;
     int m_currentIndex = -1;
     QSet<QString> m_pinned;
+    // Per-buffer cursor positions: filePath -> {cursorLine, cursorCol}
+    QHash<QString, QList<int>> m_cursors;
 };
 
 #endif // TUITABMODEL_H

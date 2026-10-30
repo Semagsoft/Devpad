@@ -88,12 +88,21 @@ public:
     // Save the current editor with a specific encoding
     void saveWithEncoding(const QString& encoding);
 
+    // Update every editor (and its watcher) when a file is renamed on disk
+    // via the project panel.
+    void retargetEditorFile(const QString& oldPath, const QString& newPath);
+
+    // Stop watching a file that was deleted on disk (keep the editor tab so
+    // unsaved changes survive; a later save recreates the file).
+    void handleFileDeleted(const QString& path);
+
 signals:
     void fileSaved(const QString& fileName);
     void editorConnected(CodeEditor* editor);
 
 private:
     void applyDefaultSyntax(CodeEditor* editor) const;
+    bool checkSaveConflict(CodeEditor* editor, const QString& fileName);
 
     TabManager* m_tabManager;
     FileManager* m_fileManager;

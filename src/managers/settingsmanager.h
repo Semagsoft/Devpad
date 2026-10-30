@@ -28,6 +28,7 @@
 #include <QString>
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 class CodeEditor;
 
@@ -113,8 +114,10 @@ public:
         bool highlightCurrentLine = true;
         bool verticalEdgeEnabled = false;
         int verticalEdgeColumn = 80;
+        bool showMinimap = false;
         bool snippetsEnabled = true;
         bool predictiveSnippets = true;
+        QString customTheme; // name of active custom user theme, empty for built-in
     };
 
     struct UISettings
@@ -127,6 +130,7 @@ public:
         bool showMenuInTitlebar = true;
         bool showToolbar = true;
         bool showStatusbar = true;
+        bool checkForUpdatesEnabled = false;
         QString uiFontFamily = "Sans Serif";
         int uiFontSize = 10;
     };
@@ -189,6 +193,8 @@ public:
     ThemeId theme() const;
     bool isDarkTheme() const;
     ThemeColors currentThemeColors() const;
+    QString customTheme() const;
+    void setCustomTheme(const QString& name);
     QColor accentColor() const;
     bool hasAccentColor() const;
     void setAccentColor(const QColor& color);
@@ -230,6 +236,8 @@ public:
     void setHighlightCurrentLine(bool enabled);
     void setVerticalEdgeEnabled(bool enabled);
     void setVerticalEdgeColumn(int column);
+    bool showMinimap() const;
+    void setShowMinimap(bool visible);
     void applyToEditor(CodeEditor* editor) const;
 
     // ── UI settings ────────────────────────────────────────────
@@ -245,6 +253,8 @@ public:
     QString uiFontFamily() const;
     int uiFontSize() const;
     QFont uiFont() const;
+    bool checkForUpdatesEnabled() const;
+    void setCheckForUpdatesEnabled(bool enabled);
     void setStartupMode(StartupMode mode);
     void setCloseButtonMode(CloseButtonMode mode);
     void setTabDisplayMode(TabDisplayMode mode);
@@ -328,6 +338,12 @@ public:
 signals:
     void settingsChanged();
 
+    // Emitted when the recent files/folders lists change, so every window (not
+    // just the one that performed the change) can refresh its recent menus.
+    // Deliberately separate from settingsChanged() — plugins should not reload
+    // their configuration every time a file is opened.
+    void recentFilesChanged();
+
 private:
     SettingsManager();
     explicit SettingsManager(const QString& settingsPath);
@@ -363,8 +379,23 @@ private:
             m_settings.setValue(key, static_cast<int>(value));
         else
             m_settings.setValue(key, value);
-        cacheField = value;
+        cacheField = std::move(value);
         settingsChanged();
+    }
+
+    // Read an enum-valued setting, validating that the stored integer falls
+    // within [minValue, maxValue]. Corrupted or hand-edited settings files
+    // (or values from a newer/older build) fall back to defaultValue instead
+    // of producing an invalid enum via unchecked static_cast.
+    template <typename T> T readEnum(const char* key, T defaultValue, T minValue, T maxValue)
+    {
+        static_assert(std::is_enum_v<T>, "T must be an enum type");
+        int val = m_settings.value(key, static_cast<int>(defaultValue)).toInt();
+        int lo = static_cast<int>(minValue);
+        int hi = static_cast<int>(maxValue);
+        if (val < lo || val > hi)
+            val = static_cast<int>(defaultValue);
+        return static_cast<T>(val);
     }
 
     Cache m_cache;
