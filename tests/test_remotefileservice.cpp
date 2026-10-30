@@ -299,3 +299,24 @@ TEST_F(RemoteFileServiceTest, ParseIgnoresStrayMarkerLines)
     EXPECT_EQ(entries.at(0).remotePath, "/p/ok");
     EXPECT_FALSE(entries.at(0).isDir);
 }
+
+TEST_F(RemoteFileServiceTest, SaveRemoteInvalidUrlFails)
+{
+    QString error;
+    ASSERT_FALSE(m_service.saveRemote("::invalid::url", QByteArray("data"), &error));
+    EXPECT_FALSE(error.isEmpty());
+}
+
+TEST_F(RemoteFileServiceTest, SaveRemoteSshMissingHostFails)
+{
+    QString error;
+    ASSERT_FALSE(m_service.saveRemote("ssh://user@/path/to/file", QByteArray("data"), &error));
+    EXPECT_FALSE(error.isEmpty());
+}
+
+TEST_F(RemoteFileServiceTest, SaveRemoteSshMissingPathFails)
+{
+    QString error;
+    ASSERT_FALSE(m_service.saveRemote("ssh://user@host", QByteArray("data"), &error));
+    EXPECT_FALSE(error.isEmpty());
+}

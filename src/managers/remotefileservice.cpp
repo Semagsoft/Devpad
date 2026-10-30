@@ -610,6 +610,108 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
                        });
 }
 
+bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data, QString* error)
+{
+    QUrl url(urlStr);
+    QString user = url.userName();
+    QString host = url.host();
+    int port = url.port(22);
+    QString remotePath = url.path();
+
+    if (host.isEmpty() || remotePath.isEmpty())
+    {
+        if (error)
+            *error = tr("SSH URL must include host and path.\n"
+                        "Example: ssh://user@host/path/to/file");
+        return false;
+    }
+
+    // Same validation as downloadSsh: host/user are strict; the path may
+    // contain spaces/unicode but must be free of shell-breaking control chars.
+    static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
+    if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
+    {
+        if (error)
+            *error = tr("SSH URL contains invalid characters.");
+        return false;
+    }
+    static const QRegularExpression controlCharsRegex(R"([\x00-\x1f\x7f])");
+    if (controlCharsRegex.match(remotePath).hasMatch())
+    {
+        if (error)
+            *error = tr("SSH URL contains invalid characters.");
+        return false;
+    }
+    QString checkPath = remotePath.startsWith('/') ? remotePath.mid(1) : remotePath;
+    if (host.startsWith('-') || checkPath.startsWith('-') || user.startsWith('-'))
+    {
+        if (error)
+            *error = tr("Invalid SSH URL: host, user, or path starts with '-'.");
+        return false;
+    }
+
+    if (user.isEmpty())
+        user = QDir::home().dirName();
+
+    emit statusMessage(tr("Uploading %1 via SSH...").arg(urlStr));
+
+    // Write the payload to a temp file, then scp it onto the remote host.
+    std::unique_ptr<QTemporaryFile> tmpFile{new QTemporaryFile(QDir::temp().filePath("devpad_remote_XXXXXX"))};
+    tmpFile->setAutoRemove(true);
+    if (!tmpFile->open())
+    {
+        if (error)
+            *error = tr("Failed to create temp file.");
+        return false;
+    }
+    tmpFile->write(data);
+    tmpFile->flush();
+    tmpFile->close();
+    QString localPath = tmpFile->fileName();
+
+    QStringList args;
+    if (port != 22)
+        args << "-P" << QString::number(port);
+    // BatchMode prevents interactive prompts without a TTY; ConnectTimeout
+    // fails fast on unreachable hosts.
+    args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
+    args << localPath << QString("%1@%2:%3").arg(user, host, remotePath);
+
+    // Run scp synchronously so the caller (FileManager::saveFile) gets a
+    // definite success/failure result before returning.
+    QString scpPath = findScpPath();
+    QProcess scp;
+    scp.setProgram(scpPath);
+    scp.setArguments(args);
+    scp.start();
+    if (!scp.waitForStarted())
+    {
+        if (error)
+            *error = tr("Failed to start SCP process.");
+        return false;
+    }
+    if (!scp.waitForFinished(30000))
+    {
+        scp.kill();
+        scp.waitForFinished();
+        if (error)
+            *error = tr("SCP transfer timed out.");
+        return false;
+    }
+
+    if (scp.exitCode() != 0 || scp.exitStatus() != QProcess::NormalExit)
+    {
+        if (error)
+            *error = QString::fromUtf8(scp.readAllStandardError()).trimmed();
+        if (error && error->isEmpty())
+            *error = tr("SCP exited with code %1").arg(scp.exitCode());
+        return false;
+    }
+
+    emit fileUploaded(urlStr);
+    return true;
+}
+
 void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringList& args)
 {
     auto* tmpFile = new QTemporaryFile(QDir::temp().filePath("devpad_remote_XXXXXX"));

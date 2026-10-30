@@ -24,6 +24,7 @@
 
 class CodeEditor;
 class QWidget;
+class RemoteFileService;
 
 class FileManager : public QObject
 {
@@ -35,6 +36,9 @@ public:
 
     bool loadFile(const QString& fileName, CodeEditor* editor, const QString& encoding = QString());
     bool saveFile(const QString& fileName, CodeEditor* editor, const QString& encoding = QString());
+
+    // Injects the RemoteFileService so ssh:// file names can be saved over SCP.
+    void setRemoteFileService(RemoteFileService* service);
 
     const QString& lastError() const
     {
@@ -49,7 +53,10 @@ signals:
     void error(const QString& message);
 
 private:
+    bool saveRemoteFile(const QString& fileName, CodeEditor* editor, const QString& encoding);
+
     QString m_lastError;
+    RemoteFileService* m_remoteFileService = nullptr;
 };
 
 #endif // FILEMANAGER_H

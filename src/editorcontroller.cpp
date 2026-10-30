@@ -119,16 +119,28 @@ bool EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
     {
         return false;
     }
-    m_fileWatcherManager->unwatchFile(fileName);
+    if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+    {
+        m_fileWatcherManager->unwatchFile(fileName);
+    }
     bool saved = m_fileManager->saveFile(fileName, editor);
     if (!saved)
     {
-        m_fileWatcherManager->watchFile(fileName);
-        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot save file: ") + fileName);
+        if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+        {
+            m_fileWatcherManager->watchFile(fileName);
+        }
+        QString detail = m_fileManager->lastError();
+        if (detail.isEmpty())
+            detail = fileName;
+        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot save file: %1").arg(detail));
         return false;
     }
     m_tabManager->updateTabTitle(editor);
-    m_fileWatcherManager->watchFile(fileName);
+    if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+    {
+        m_fileWatcherManager->watchFile(fileName);
+    }
     emit fileSaved(fileName);
     return true;
 }

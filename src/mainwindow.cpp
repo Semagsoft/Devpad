@@ -278,6 +278,7 @@ void MainWindow::createManagers()
 
     m_externalToolManager = new ExternalToolManager(this);
     m_remoteFileService = new RemoteFileService(this);
+    m_fileManager->setRemoteFileService(m_remoteFileService);
     m_updateChecker = new UpdateChecker(this);
     m_snippetManager = new SnippetManager(this);
 
@@ -324,6 +325,12 @@ void MainWindow::connectRemoteService()
             {
                 statusBar()->clearMessage();
                 QMessageBox::warning(this, tr("Download Failed"), tr("Failed to download \"%1\":\n%2").arg(url, error));
+            });
+    connect(m_remoteFileService, &RemoteFileService::fileUploaded, this,
+            [this](const QString& url)
+            {
+                statusBar()->clearMessage();
+                Logger::instance().info(QString("Uploaded remote file: %1").arg(url));
             });
     connect(m_remoteFileService, &RemoteFileService::downloadProgress, this,
             [this](const QString&, qint64 received, qint64 total)
