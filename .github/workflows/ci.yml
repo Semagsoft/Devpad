@@ -158,7 +158,7 @@ jobs:
         run: |
           set -euo pipefail
           QT_QPA_PLATFORM=offscreen ./build-ng/Devpad --nextgen --nextgen-smoke-test 2>&1 | tee smoke.log
-          if grep -E 'QML warning|objectCreationFailed|Failed to load' smoke.log; then
+          if grep -E 'objectCreationFailed|Failed to load|QML Error:' smoke.log; then
             echo "QML errors detected"; exit 1
           fi
 

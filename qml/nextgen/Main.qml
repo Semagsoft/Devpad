@@ -148,7 +148,7 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     rootPath: folder
-                    tabs: tabs
+                    tabs: win.tabs
                     editor: primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
                 }
                 RowLayout {
