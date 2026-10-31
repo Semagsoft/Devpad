@@ -242,6 +242,8 @@ bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, co
     }
 
     editor->setModified(false);
+    // Remote (ssh://) paths have no meaningful local disk mtime; skip
+    // setDiskModifiedAt rather than querying an invalid QFileInfo.
     Logger::instance().info(QString("Saved remote file: %1").arg(fileName));
     emit fileSaved(fileName);
     return true;

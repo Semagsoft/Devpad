@@ -680,6 +680,23 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     // Run scp synchronously so the caller (FileManager::saveFile) gets a
     // definite success/failure result before returning.
     QString scpPath = findScpPath();
+    const QStringList scpCandidates = {
+        QStringLiteral("/usr/bin/scp"), QStringLiteral("/bin/scp"),
+        QStringLiteral("/usr/local/bin/scp"), QStringLiteral("/opt/homebrew/bin/scp")};
+    bool scpInstalled = false;
+    for (const QString& c : scpCandidates)
+        if (QFileInfo(c).exists() && QFileInfo(c).isExecutable()) { scpInstalled = true; break; }
+    if (!scpInstalled)
+    {
+        // Fall back to PATH lookup result; if findScpPath returned the bare
+        // name, treat as missing.
+        if (scpPath == QStringLiteral("scp"))
+        {
+            if (error)
+                *error = tr("scp not found on PATH. Install openssh-client.");
+            return false;
+        }
+    }
     QProcess scp;
     scp.setProgram(scpPath);
     scp.setArguments(args);
