@@ -56,8 +56,8 @@ Dialog {
                                         ComboBox {
                                             Layout.fillWidth: true
                                             model: [qsTr("New File"), qsTr("Restore Session"), qsTr("Open Last File"), qsTr("Empty")]
-                                            currentIndex: 0 // TODO: bind to SettingsManager.startupMode()
-                                            onActivated: (i) => { /* actions.setStartupMode(i) */ }
+                                            currentIndex: actions ? actions.startupMode : 0
+                                            onActivated: (i) => { if (actions) actions.setStartupMode(i) }
                                         }
                                     }
                                     RowLayout {
@@ -81,7 +81,7 @@ Dialog {
                                         Label { text: qsTr("Family:"); Layout.preferredWidth: 140 }
                                         TextField {
                                             Layout.fillWidth: true
-                                            text: "Sans Serif" // TODO: bind to SettingsManager.uiFontFamily()
+                                            text: actions ? actions.defaultFontFamily : "Sans Serif"
                                             onAccepted: actions.setDefaultFontFamily(text)
                                         }
                                     }
@@ -191,8 +191,8 @@ Dialog {
                                         ComboBox {
                                             Layout.fillWidth: true
                                             model: [qsTr("Line"), qsTr("Block"), qsTr("Underline")]
-                                            currentIndex: 0
-                                            onActivated: (i) => { /* actions.setCursorStyle(i) */ }
+                                            currentIndex: actions ? actions.cursorStyle : 0
+                                            onActivated: (i) => { if (actions) actions.setCursorStyle(i) }
                                         }
                                     }
                                     RowLayout {

@@ -52,12 +52,18 @@ public:
     void openRemoteFolder(const QString& urlStr);
     void listRemoteDir(const QString& urlStr, const QString& remotePath);
 
+    // Uploads `data` to the remote SSH file at `urlStr` (scp). Blocks until the
+    // transfer completes; returns true on success, false on failure with `error`
+    // populated. Emits fileUploaded() on success.
+    bool saveRemote(const QString& urlStr, const QByteArray& data, QString* error = nullptr);
+
     // Parses raw `find` listing output (dirs/files sections split by the
     // __DEVPAD_FILES__ marker) — public for unit tests.
     static QList<RemoteFsEntry> parseListing(const QString& output, const QString& parentPath);
 
 signals:
     void fileDownloaded(const QString& url, const QString& fileName, const QByteArray& data);
+    void fileUploaded(const QString& url);
     void remoteDirListed(const QString& url, const QString& parentPath, const QList<RemoteFsEntry>& entries);
     void remoteListingFailed(const QString& url, const QString& remotePath, const QString& error);
     void downloadFailed(const QString& url, const QString& error);

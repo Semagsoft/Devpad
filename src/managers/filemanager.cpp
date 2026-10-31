@@ -21,7 +21,9 @@
 #include "codeeditor.h"
 #include "encodingutils.h"
 #include "logger.h"
+#include "remotefileservice.h"
 
+#include <QBuffer>
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
@@ -37,6 +39,11 @@ constexpr qint64 WarningFileSize = 50LL * 1024 * 1024;
 
 FileManager::FileManager(QObject* parent) : QObject(parent)
 {
+}
+
+void FileManager::setRemoteFileService(RemoteFileService* service)
+{
+    m_remoteFileService = service;
 }
 
 bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QString& encoding)
@@ -143,6 +150,11 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
         return false;
     }
 
+    if (fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+    {
+        return saveRemoteFile(fileName, editor, encoding);
+    }
+
     QSaveFile file(fileName);
     if (!file.open(QIODevice::WriteOnly))
     {
@@ -194,6 +206,45 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
     editor->setDiskModifiedAt(QFileInfo(fileName).lastModified());
 
     Logger::instance().info(QString("Saved file: %1").arg(fileName));
+    emit fileSaved(fileName);
+    return true;
+}
+
+bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, const QString& encoding)
+{
+    if (!m_remoteFileService)
+    {
+        m_lastError = tr("Remote file service is not available.");
+        Logger::instance().error(m_lastError);
+        emit error(m_lastError);
+        return false;
+    }
+
+    QString useEncoding = encoding.isEmpty() ? editor->encoding() : encoding;
+
+    // Encode the editor text into a byte buffer. Remote files are written
+    // without a BOM.
+    QBuffer buffer;
+    buffer.open(QIODevice::WriteOnly);
+    QTextStream out(&buffer);
+    auto encOpt = QStringConverter::encodingForName(useEncoding.toUtf8());
+    out.setEncoding(encOpt.value_or(QStringConverter::Utf8));
+    out << editor->text();
+    out.flush();
+
+    QString err;
+    if (!m_remoteFileService->saveRemote(fileName, buffer.data(), &err))
+    {
+        m_lastError = tr("Cannot save file: %1 - %2").arg(fileName, err);
+        Logger::instance().error(m_lastError);
+        emit error(m_lastError);
+        return false;
+    }
+
+    editor->setModified(false);
+    // Remote (ssh://) paths have no meaningful local disk mtime; skip
+    // setDiskModifiedAt rather than querying an invalid QFileInfo.
+    Logger::instance().info(QString("Saved remote file: %1").arg(fileName));
     emit fileSaved(fileName);
     return true;
 }
