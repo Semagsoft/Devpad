@@ -499,6 +499,39 @@ int NextgenActions::startupMode() const
     return static_cast<int>(SettingsManager::instance().startupMode());
 }
 
+int NextgenActions::cursorStyle() const
+{
+    return static_cast<int>(SettingsManager::instance().cursorStyle());
+}
+
+void NextgenActions::setCursorStyle(int style)
+{
+    SettingsManager::instance().setCursorStyle(static_cast<CursorStyle>(style));
+    emit settingsChanged();
+}
+
+bool NextgenActions::cursorBlinking() const
+{
+    return SettingsManager::instance().cursorBlinking();
+}
+
+void NextgenActions::setCursorBlinking(bool enabled)
+{
+    SettingsManager::instance().setCursorBlinking(enabled);
+    emit settingsChanged();
+}
+
+bool NextgenActions::highlightCurrentLine() const
+{
+    return SettingsManager::instance().highlightCurrentLine();
+}
+
+void NextgenActions::setHighlightCurrentLine(bool enabled)
+{
+    SettingsManager::instance().setHighlightCurrentLine(enabled);
+    emit settingsChanged();
+}
+
 void NextgenActions::setStartupMode(int mode)
 {
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(mode));

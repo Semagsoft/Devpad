@@ -191,8 +191,8 @@ Dialog {
                                         ComboBox {
                                             Layout.fillWidth: true
                                             model: [qsTr("Line"), qsTr("Block"), qsTr("Underline")]
-                                            currentIndex: 0
-                                            onActivated: (i) => { /* actions.setCursorStyle(i) */ }
+                                            currentIndex: actions ? actions.cursorStyle : 0
+                                            onActivated: (i) => { if (actions) actions.setCursorStyle(i) }
                                         }
                                     }
                                     RowLayout {

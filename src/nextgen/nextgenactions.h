@@ -44,6 +44,9 @@ class NextgenActions : public QObject
     Q_PROPERTY(int tabWidth READ tabWidth WRITE setTabWidth NOTIFY settingsChanged)
     Q_PROPERTY(int defaultFontSize READ defaultFontSize WRITE setDefaultFontSize NOTIFY settingsChanged)
     Q_PROPERTY(QString defaultFontFamily READ defaultFontFamily WRITE setDefaultFontFamily NOTIFY settingsChanged)
+    Q_PROPERTY(int cursorStyle READ cursorStyle WRITE setCursorStyle NOTIFY settingsChanged)
+    Q_PROPERTY(bool cursorBlinking READ cursorBlinking WRITE setCursorBlinking NOTIFY settingsChanged)
+    Q_PROPERTY(bool highlightCurrentLine READ highlightCurrentLine WRITE setHighlightCurrentLine NOTIFY settingsChanged)
     Q_PROPERTY(int startupMode READ startupMode WRITE setStartupMode NOTIFY settingsChanged)
     Q_PROPERTY(bool showHiddenFiles READ showHiddenFiles WRITE setShowHiddenFiles NOTIFY settingsChanged)
     Q_PROPERTY(bool useGitIgnore READ useGitIgnore WRITE setUseGitIgnore NOTIFY settingsChanged)
@@ -100,6 +103,12 @@ public:
     Q_INVOKABLE void setDefaultFontFamily(const QString& family);
     Q_INVOKABLE int startupMode() const;
     Q_INVOKABLE void setStartupMode(int mode);
+    Q_INVOKABLE int cursorStyle() const;
+    Q_INVOKABLE void setCursorStyle(int style);
+    Q_INVOKABLE bool cursorBlinking() const;
+    Q_INVOKABLE void setCursorBlinking(bool enabled);
+    Q_INVOKABLE bool highlightCurrentLine() const;
+    Q_INVOKABLE void setHighlightCurrentLine(bool enabled);
     Q_INVOKABLE bool showHiddenFiles() const;
     Q_INVOKABLE void setShowHiddenFiles(bool visible);
     Q_INVOKABLE bool useGitIgnore() const;
