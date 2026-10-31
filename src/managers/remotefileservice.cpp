@@ -430,7 +430,6 @@ QString RemoteFileService::findSshPath()
     // Fall back to PATH lookup.
     return QStringLiteral("ssh");
 }
-
 QString RemoteFileService::findScpPath()
 {
     // Try common install locations first (GUI launches may have a limited PATH).
@@ -446,7 +445,8 @@ QString RemoteFileService::findScpPath()
         if (fi.exists() && fi.isExecutable())
             return path;
     }
-    // Fall back to PATH lookup.
+    // Fall back to PATH lookup; if ssh/scp isn't on PATH either, callers
+    // report a clear "not found" message.
     return QStringLiteral("scp");
 }
 
