@@ -493,6 +493,17 @@ void NextgenActions::setDefaultFontFamily(const QString& family)
     if (m_editor)
         m_editor->setFont(SettingsManager::instance().defaultFont());
 }
+
+int NextgenActions::startupMode() const
+{
+    return static_cast<int>(SettingsManager::instance().startupMode());
+}
+
+void NextgenActions::setStartupMode(int mode)
+{
+    SettingsManager::instance().setStartupMode(static_cast<StartupMode>(mode));
+    emit settingsChanged();
+}
 bool NextgenActions::showHiddenFiles() const
 {
     return SettingsManager::instance().showHiddenFiles();

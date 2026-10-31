@@ -56,8 +56,8 @@ Dialog {
                                         ComboBox {
                                             Layout.fillWidth: true
                                             model: [qsTr("New File"), qsTr("Restore Session"), qsTr("Open Last File"), qsTr("Empty")]
-                                            currentIndex: 0
-                                            onActivated: (i) => { /* actions.setStartupMode(i) */ }
+                                            currentIndex: actions ? actions.startupMode : 0
+                                            onActivated: (i) => { if (actions) actions.setStartupMode(i) }
                                         }
                                     }
                                     RowLayout {

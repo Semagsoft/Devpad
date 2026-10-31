@@ -427,8 +427,9 @@ QString RemoteFileService::findSshPath()
         if (fi.exists() && fi.isExecutable())
             return path;
     }
-    // Fall back to PATH lookup.
-    return QStringLiteral("ssh");
+    // Fall back to PATH lookup; if not on PATH, return empty so callers can
+    // report a clear "not found" message instead of failing to start.
+    return {};
 }
 QString RemoteFileService::findScpPath()
 {
@@ -445,9 +446,9 @@ QString RemoteFileService::findScpPath()
         if (fi.exists() && fi.isExecutable())
             return path;
     }
-    // Fall back to PATH lookup; if ssh/scp isn't on PATH either, callers
-    // report a clear "not found" message.
-    return QStringLiteral("scp");
+    // Fall back to PATH lookup; if not on PATH, return empty so callers can
+    // report a clear "not found" message instead of failing to start.
+    return {};
 }
 
 QString RemoteFileService::shellQuote(const QString& path)
@@ -746,6 +747,11 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     QStringList scpArgs = args;
     scpArgs << localPath;
     QString scpPath = findScpPath();
+    if (scpPath.isEmpty())
+    {
+        emit downloadFailed(urlStr, tr("scp not found on PATH. Install openssh-client."));
+        return;
+    }
 
     auto* scp = new QProcess(this);
     scp->setProgram(scpPath);

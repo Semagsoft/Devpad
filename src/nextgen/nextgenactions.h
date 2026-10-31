@@ -44,6 +44,7 @@ class NextgenActions : public QObject
     Q_PROPERTY(int tabWidth READ tabWidth WRITE setTabWidth NOTIFY settingsChanged)
     Q_PROPERTY(int defaultFontSize READ defaultFontSize WRITE setDefaultFontSize NOTIFY settingsChanged)
     Q_PROPERTY(QString defaultFontFamily READ defaultFontFamily WRITE setDefaultFontFamily NOTIFY settingsChanged)
+    Q_PROPERTY(int startupMode READ startupMode WRITE setStartupMode NOTIFY settingsChanged)
     Q_PROPERTY(bool showHiddenFiles READ showHiddenFiles WRITE setShowHiddenFiles NOTIFY settingsChanged)
     Q_PROPERTY(bool useGitIgnore READ useGitIgnore WRITE setUseGitIgnore NOTIFY settingsChanged)
     Q_PROPERTY(bool autoSaveEnabled READ autoSaveEnabled WRITE setAutoSaveEnabled NOTIFY settingsChanged)
@@ -97,6 +98,8 @@ public:
     Q_INVOKABLE void setDefaultFontSize(int size);
     Q_INVOKABLE QString defaultFontFamily() const;
     Q_INVOKABLE void setDefaultFontFamily(const QString& family);
+    Q_INVOKABLE int startupMode() const;
+    Q_INVOKABLE void setStartupMode(int mode);
     Q_INVOKABLE bool showHiddenFiles() const;
     Q_INVOKABLE void setShowHiddenFiles(bool visible);
     Q_INVOKABLE bool useGitIgnore() const;
