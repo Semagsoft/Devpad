@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.08] - 2026-11-04
+
+### What's new in Devpad 1.08:
+
+- Bump version to 1.08.
+
 ## [1.07] - 2026-10-27
 
 What's new in Devpad 1.07:
