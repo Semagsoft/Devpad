@@ -19,6 +19,7 @@
 #include "settingsmanager.h"
 
 #include "codeeditor.h"
+#include "logger.h"
 #include "theme.h"
 
 #include <QCoreApplication>
@@ -954,6 +955,25 @@ void SettingsManager::clearRecentFolders()
 {
     m_settings.remove("recentFolders");
     emit recentFilesChanged();
+}
+
+// ── Reset ──────────────────────────────────────────────────//
+
+void SettingsManager::resetToDefaults()
+{
+    // Remove every persisted key so that built-in defaults take effect on
+    // next load. Iterate over a snapshot since remove() mutates the container.
+    const QStringList allKeys = m_settings.allKeys();
+    for (const QString& key : allKeys)
+        m_settings.remove(key);
+
+    // Also drop plugin-scoped groups that allKeys() may not surface under
+    // some Qt backends, then reload defaults into the cache.
+    m_settings.clear();
+    loadCache();
+    ensureSettingsVersion();
+    emit settingsChanged();
+    Logger::instance().info("All settings reset to defaults");
 }
 
 // ── Plugin-scoped settings ─────────────────────────────────────

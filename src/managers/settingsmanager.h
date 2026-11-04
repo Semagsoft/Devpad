@@ -326,6 +326,12 @@ public:
     QStringList recentFolders() const;
     void clearRecentFolders();
 
+    // ── Reset ──────────────────────────────────────────────────//
+
+    /// Reset every setting to its built-in default. Removes all persisted
+    /// keys, reloads the cache, and emits settingsChanged().
+    void resetToDefaults();
+
     // ── Plugin-scoped settings ─────────────────────────────────
     // Read/write settings stored under Plugins/<pluginId>/<key>, bypassing the
     // core settings cache so plugins can persist their own configuration

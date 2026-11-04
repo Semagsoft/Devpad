@@ -107,7 +107,12 @@ bool EditorController::saveFileAs()
         return false;
 
     editor->setFileName(fileName);
-    saveEditor(editor.data(), fileName);
+    if (!saveEditor(editor.data(), fileName))
+    {
+        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save Failed"),
+                             tr("Could not save \"%1\". Changes were not saved.").arg(QFileInfo(fileName).fileName()));
+        return false;
+    }
     if (editor)
         m_tabManager->updateTabTitle(editor);
     return true;
@@ -174,6 +179,8 @@ bool EditorController::checkSaveConflict(CodeEditor* editor, const QString& file
 void EditorController::saveAll()
 {
     int skippedCount = 0;
+    int failedCount = 0;
+    QStringList failedFiles;
     for (int i = 0; i < m_tabManager->count(); ++i)
     {
         QPointer<CodeEditor> editor = m_tabManager->editorAt(i);
@@ -196,20 +203,40 @@ void EditorController::saveAll()
                 }
 
                 editor->setFileName(fileName);
-                saveEditor(editor, fileName);
-                if (editor)
+                if (!saveEditor(editor, fileName))
+                {
+                    failedCount++;
+                    failedFiles << QFileInfo(fileName).fileName();
+                }
+                else if (editor)
+                {
                     m_tabManager->updateTabTitle(editor);
+                }
             }
             else
             {
-                saveEditor(editor, editor->fileName());
+                if (!saveEditor(editor, editor->fileName()))
+                {
+                    failedCount++;
+                    failedFiles << QFileInfo(editor->fileName()).fileName();
+                }
             }
         }
     }
+    QString message;
     if (skippedCount > 0)
     {
-        QMessageBox::information(qobject_cast<QWidget*>(parent()), tr("Save All"),
-                                 tr("%1 file(s) were not saved because no location was selected.").arg(skippedCount));
+        message = tr("%1 file(s) were not saved because no location was selected.").arg(skippedCount);
+    }
+    if (failedCount > 0)
+    {
+        if (!message.isEmpty())
+            message += QLatin1Char('\n');
+        message += tr("%1 file(s) failed to save: %2").arg(failedCount).arg(failedFiles.join(QLatin1String(", ")));
+    }
+    if (!message.isEmpty())
+    {
+        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save All"), message);
     }
 }
 
@@ -236,12 +263,22 @@ bool EditorController::maybeSave(CodeEditor* editor)
             if (!guard)
                 return false;
             guard->setFileName(fileName);
-            saveEditor(guard.data(), fileName);
+            if (!saveEditor(guard.data(), fileName))
+            {
+                QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save Failed"),
+                                     tr("Could not save \"%1\". Changes were not saved.").arg(QFileInfo(fileName).fileName()));
+                return false;
+            }
             if (guard)
                 m_tabManager->updateTabTitle(guard);
             return true;
         }
-        saveEditor(guard.data(), guard->fileName());
+        if (!saveEditor(guard.data(), guard->fileName()))
+        {
+            QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save Failed"),
+                                 tr("Could not save \"%1\". Changes were not saved.").arg(QFileInfo(guard->fileName()).fileName()));
+            return false;
+        }
         return true;
     }
     if (ret == QMessageBox::Cancel)

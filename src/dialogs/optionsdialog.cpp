@@ -87,8 +87,11 @@ void OptionsDialog::setupUI()
     mainLayout->addWidget(tabWidget);
 
     QHBoxLayout* buttonLayout = new QHBoxLayout();
+    resetButton = new QPushButton(tr("Reset All Settings"), this);
+    resetButton->setStyleSheet("QPushButton { color: #c00; }");
     QPushButton* okButton = new QPushButton(tr("OK"), this);
     QPushButton* cancelButton = new QPushButton(tr("Cancel"), this);
+    buttonLayout->addWidget(resetButton);
     buttonLayout->addStretch();
     buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
@@ -96,6 +99,7 @@ void OptionsDialog::setupUI()
 
     connect(okButton, &QPushButton::clicked, this, &OptionsDialog::accept);
     connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+    connect(resetButton, &QPushButton::clicked, this, &OptionsDialog::resetSettings);
 }
 
 void OptionsDialog::setupGeneralTab()
@@ -866,4 +870,22 @@ void OptionsDialog::reject()
 {
     m_geometrySettings.saveGeometry(this);
     QDialog::reject();
+}
+
+void OptionsDialog::resetSettings()
+{
+    auto result = QMessageBox::question(
+        this, tr("Reset All Settings"),
+        tr("This will reset every Devpad setting to its built-in default.\n\n"
+           "This cannot be undone. Continue?"),
+        QMessageBox::Yes | QMessageBox::No);
+    if (result != QMessageBox::Yes)
+        return;
+
+    SettingsManager::instance().resetToDefaults();
+    loadSettings();
+    QMessageBox::information(
+        this, tr("Settings Reset"),
+        tr("All settings have been reset to their defaults. Restart Devpad "
+           "for all changes to take full effect."));
 }

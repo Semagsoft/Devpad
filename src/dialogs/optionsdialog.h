@@ -47,6 +47,7 @@ signals:
 private slots:
     void accept() override;
     void reject() override;
+    void resetSettings();
 
 private:
     void setupUI();
@@ -114,6 +115,7 @@ private:
     QComboBox* projectFileOpenComboBox = nullptr;
     ThemePreviewWidget* themePreview = nullptr;
     QPushButton* accentColorButton = nullptr;
+    QPushButton* resetButton = nullptr;
     QColor m_accentColor;
     DialogSettings m_geometrySettings;
 
