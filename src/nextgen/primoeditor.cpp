@@ -7,6 +7,7 @@
 
 #include "core/fileservice.h"
 #include "keywords.h"
+#include "languageinfo.h"
 #include "managers/settingsmanager.h"
 #include "primoshader.h"
 #include "theme.h"
@@ -25,6 +26,7 @@
 #include <QSGSimpleRectNode>
 #include <QSGTextNode>
 #include <QTextLayout>
+#include <algorithm>
 
 namespace
 {
@@ -69,6 +71,11 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     m_font = SettingsManager::instance().defaultFont();
     m_tabWidth = SettingsManager::instance().tabWidth();
     m_wordWrap = SettingsManager::instance().wordWrap();
+    m_autoCloseBrackets = SettingsManager::instance().autoCloseBrackets();
+    m_scrollPastEnd = SettingsManager::instance().scrollPastContent();
+    m_showWhitespace = SettingsManager::instance().showWhitespace();
+    m_verticalEdgeEnabled = SettingsManager::instance().verticalEdgeEnabled();
+    m_verticalEdgeColumn = SettingsManager::instance().verticalEdgeColumn();
     // Theme from settings
     ThemeId tid = SettingsManager::instance().theme();
     m_theme = getThemeColors(tid);
@@ -122,10 +129,20 @@ void PrimoEditor::applySettings()
     m_font = SettingsManager::instance().defaultFont();
     m_tabWidth = SettingsManager::instance().tabWidth();
     m_wordWrap = SettingsManager::instance().wordWrap();
+    m_autoCloseBrackets = SettingsManager::instance().autoCloseBrackets();
+    m_scrollPastEnd = SettingsManager::instance().scrollPastContent();
+    m_showWhitespace = SettingsManager::instance().showWhitespace();
+    m_verticalEdgeEnabled = SettingsManager::instance().verticalEdgeEnabled();
+    m_verticalEdgeColumn = SettingsManager::instance().verticalEdgeColumn();
     ensureMetrics();
     emit fontChanged();
     emit tabWidthChanged();
     emit wordWrapChanged();
+    emit autoCloseBracketsChanged();
+    emit scrollPastEndChanged();
+    emit showWhitespaceChanged();
+    emit verticalEdgeEnabledChanged();
+    emit verticalEdgeColumnChanged();
 
     // Re-highlight with new theme
     m_highlightDirty = true;
@@ -294,13 +311,13 @@ qreal PrimoEditor::contentHeight() const
                 totalWrapRows += (len + availGlobal - 1) / qMax(1, availGlobal);
             }
         }
-        return totalWrapRows * m_lineHeight + 8;
+        return totalWrapRows * m_lineHeight + 8 + (m_scrollPastEnd ? m_lineHeight * 20 : 0);
     }
     if (m_linesDirty)
     {
         QString txt = m_doc ? m_doc->text() : QString();
         int lines = txt.isEmpty() ? 1 : txt.count(QLatin1Char('\n')) + 1;
-        return lines * m_lineHeight + 8;
+        return lines * m_lineHeight + 8 + (m_scrollPastEnd ? m_lineHeight * 20 : 0);
     }
     int lines;
     if (!m_linesCache.isEmpty())
@@ -319,7 +336,7 @@ qreal PrimoEditor::contentHeight() const
     {
         lines = m_doc->text().isEmpty() ? 1 : m_doc->text().count(QLatin1Char('\n')) + 1;
     }
-    return lines * m_lineHeight + 8;
+    return lines * m_lineHeight + 8 + (m_scrollPastEnd ? m_lineHeight * 20 : 0);
 }
 qreal PrimoEditor::lineHeight() const
 {
@@ -420,6 +437,396 @@ void PrimoEditor::setMinimapVisible(bool v)
 qreal PrimoEditor::gutterWidth() const
 {
     return m_gutterWidth;
+}
+
+// ── Auto-close brackets/quotes ──
+bool PrimoEditor::autoCloseBrackets() const
+{
+    return m_autoCloseBrackets;
+}
+void PrimoEditor::setAutoCloseBrackets(bool enabled)
+{
+    if (m_autoCloseBrackets != enabled)
+    {
+        m_autoCloseBrackets = enabled;
+        emit autoCloseBracketsChanged();
+    }
+}
+
+// ── Scroll past end ──
+bool PrimoEditor::scrollPastEnd() const
+{
+    return m_scrollPastEnd;
+}
+void PrimoEditor::setScrollPastEnd(bool enabled)
+{
+    if (m_scrollPastEnd != enabled)
+    {
+        m_scrollPastEnd = enabled;
+        emit scrollPastEndChanged();
+    }
+}
+
+// ── Whitespace visibility ──
+bool PrimoEditor::showWhitespace() const
+{
+    return m_showWhitespace;
+}
+void PrimoEditor::setShowWhitespace(bool visible)
+{
+    if (m_showWhitespace != visible)
+    {
+        m_showWhitespace = visible;
+        emit showWhitespaceChanged();
+        update();
+    }
+}
+
+// ── Vertical edge marker ──
+bool PrimoEditor::verticalEdgeEnabled() const
+{
+    return m_verticalEdgeEnabled;
+}
+void PrimoEditor::setVerticalEdgeEnabled(bool enabled)
+{
+    if (m_verticalEdgeEnabled != enabled)
+    {
+        m_verticalEdgeEnabled = enabled;
+        emit verticalEdgeEnabledChanged();
+        update();
+    }
+}
+void PrimoEditor::setVerticalEdgeColumn(int column)
+{
+    if (m_verticalEdgeColumn != column)
+    {
+        m_verticalEdgeColumn = qBound(1, column, 500);
+        emit verticalEdgeColumnChanged();
+        update();
+    }
+}
+int PrimoEditor::verticalEdgeColumn() const
+{
+    return m_verticalEdgeColumn;
+}
+
+// ── Comments ──
+void PrimoEditor::toggleComment()
+{
+    if (m_readOnly || !m_doc)
+        return;
+
+    const auto* cs = commentSyntaxForLanguage(m_doc->language());
+    if (!cs || cs->lineComment.isEmpty())
+        return;
+
+    // Determine line range from selection or cursor
+    int lineFrom, lineTo;
+    bool hasSel = hasSelection();
+    if (hasSel)
+    {
+        int aLine = m_selAnchorLine;
+        int cLine = m_cursorLine;
+        if (aLine > cLine)
+            std::swap(aLine, cLine);
+        lineFrom = aLine;
+        lineTo = cLine;
+        // If selection ends at column 0 on a later line, exclude that line
+        if (m_selAnchorCol == 0 && m_cursorLine > m_selAnchorLine && m_selAnchorLine < m_cursorLine)
+            lineTo--;
+    }
+    else
+    {
+        lineFrom = m_cursorLine;
+        lineTo = m_cursorLine;
+    }
+
+    // Clamp to valid lines
+    int totalLines = m_doc->lineCount();
+    lineFrom = qBound(0, lineFrom, totalLines - 1);
+    lineTo = qBound(0, lineTo, totalLines - 1);
+    if (lineFrom > lineTo)
+        lineTo = lineFrom;
+
+    // Build full text of the range
+    QString fullText;
+    for (int line = lineFrom; line <= lineTo; ++line)
+        fullText += m_doc->lineAt(line) + QLatin1Char('\n');
+
+    QStringList lines = fullText.split(QLatin1Char('\n'));
+    if (!lines.isEmpty() && lines.last().isEmpty())
+        lines.removeLast();
+
+    // Determine mode based on first non-empty line (VS Code behavior)
+    int commentLen = cs->lineComment.length();
+    bool shouldComment = true;
+    for (const QString& ln : lines)
+    {
+        if (ln.isEmpty())
+            continue;
+        int firstNonSpace = 0;
+        while (firstNonSpace < ln.length() && ln[firstNonSpace] == ' ')
+            ++firstNonSpace;
+        shouldComment = !ln.mid(firstNonSpace).startsWith(cs->lineComment);
+        break;
+    }
+
+    // Apply
+    QStringList result;
+    for (const QString& ln : lines)
+    {
+        if (ln.isEmpty())
+        {
+            result << ln;
+            continue;
+        }
+        int firstNonSpace = 0;
+        while (firstNonSpace < ln.length() && ln[firstNonSpace] == ' ')
+            ++firstNonSpace;
+        QString modified = ln;
+        if (shouldComment)
+        {
+            modified.insert(firstNonSpace, cs->lineComment);
+        }
+        else
+        {
+            modified.remove(firstNonSpace, commentLen);
+        }
+        result << modified;
+    }
+
+    QString joined = result.join(QLatin1Char('\n')) + QLatin1Char('\n');
+
+    // Replace the selected range or current line
+    QStringList allLines = m_doc->text().split(QLatin1Char('\n'));
+    if (hasSel)
+    {
+        int aLine = m_selAnchorLine;
+        int cLine = m_cursorLine;
+        if (aLine > cLine)
+            std::swap(aLine, cLine);
+        int startLine = aLine;
+        int endLine = cLine;
+        if (m_selAnchorCol == 0 && m_cursorLine > m_selAnchorLine && m_selAnchorLine < m_cursorLine)
+            endLine--;
+        startLine = qBound(0, startLine, allLines.size() - 1);
+        endLine = qBound(0, endLine, allLines.size() - 1);
+        if (startLine <= endLine)
+        {
+            QStringList newLines;
+            newLines.reserve(allLines.size() - (endLine - startLine + 1) + result.size());
+            for (int i = 0; i < startLine; ++i)
+                newLines << allLines.at(i);
+            newLines << result;
+            for (int i = endLine + 1; i < allLines.size(); ++i)
+                newLines << allLines.at(i);
+            allLines = newLines;
+        }
+    }
+    else
+    {
+        int cl = qBound(0, m_cursorLine, allLines.size() - 1);
+        allLines.replace(cl, result.first());
+    }
+
+    m_doc->setText(allLines.join(QLatin1Char('\n')));
+}
+
+// ── Snippet mode ──
+bool PrimoEditor::isSnippetMode() const
+{
+    return m_snippetActive;
+}
+void PrimoEditor::exitSnippetMode()
+{
+    clearSnippetMarkers();
+    m_snippetActive = false;
+    m_snippetCurrentTabStop = -1;
+    m_snippetTabStops.clear();
+}
+
+void PrimoEditor::enterSnippetMode(const QString& text, int insertPos, const QStringList& tabStopNumbers, const QList<int>& tabStopLengths)
+{
+    if (m_snippetActive)
+        clearSnippetMarkers();
+
+    QString txt = m_doc->text();
+    txt.insert(insertPos, text);
+    m_doc->setTextWithoutUndo(txt);
+
+    m_snippetStartPos = insertPos;
+    m_snippetEndPos = insertPos + text.size();
+
+    m_snippetTabStops.clear();
+    for (int i = 0; i < tabStopNumbers.size(); ++i)
+    {
+        SnippetTabStop ts;
+        ts.number = tabStopNumbers.value(i, 0).toInt();
+        ts.pos = insertPos + qMin(tabStopLengths.value(i, 0), text.size());
+        ts.length = tabStopLengths.value(i, 0);
+        m_snippetTabStops.append(ts);
+    }
+    std::sort(m_snippetTabStops.begin(), m_snippetTabStops.end(),
+              [](const SnippetTabStop& a, const SnippetTabStop& b) { return a.pos < b.pos; });
+
+    if (m_snippetTabStops.isEmpty())
+    {
+        int el = m_cursorLine, ec = m_cursorColumn;
+        // Position cursor at end of inserted text
+        QStringList ls = m_doc->text().split(QLatin1Char('\n'));
+        if (el < ls.size())
+            ec = qMin(ec, ls[el].size());
+        m_cursorLine = el;
+        m_cursorColumn = ec;
+        emit cursorChanged();
+        m_snippetActive = false;
+        return;
+    }
+
+    m_snippetActive = true;
+    m_snippetCurrentTabStop = 0;
+    selectSnippetTabStop(m_snippetTabStops[0].pos, m_snippetTabStops[0].length);
+    update();
+}
+
+void PrimoEditor::advanceSnippetTabStop()
+{
+    if (!m_snippetActive || m_snippetTabStops.isEmpty())
+        return;
+
+    int currentNumber = m_snippetTabStops[m_snippetCurrentTabStop].number;
+    int nextIdx = -1;
+    for (int i = 0; i < m_snippetTabStops.size(); ++i)
+    {
+        if (m_snippetTabStops[i].number > currentNumber)
+        {
+            nextIdx = i;
+            break;
+        }
+    }
+    if (nextIdx < 0)
+    {
+        int el = m_cursorLine, ec = m_cursorColumn;
+        QStringList ls = m_doc->text().split(QLatin1Char('\n'));
+        if (el < ls.size())
+            ec = qMin(ec, ls[el].size());
+        m_cursorLine = el;
+        m_cursorColumn = ec;
+        emit cursorChanged();
+        exitSnippetMode();
+        return;
+    }
+    m_snippetCurrentTabStop = nextIdx;
+    selectSnippetTabStop(m_snippetTabStops[nextIdx].pos, m_snippetTabStops[nextIdx].length);
+}
+
+void PrimoEditor::retreatSnippetTabStop()
+{
+    if (!m_snippetActive || m_snippetTabStops.isEmpty())
+        return;
+
+    int currentNumber = m_snippetTabStops[m_snippetCurrentTabStop].number;
+    int prevIdx = -1;
+    for (int i = m_snippetTabStops.size() - 1; i >= 0; --i)
+    {
+        if (m_snippetTabStops[i].number < currentNumber)
+        {
+            prevIdx = i;
+            break;
+        }
+    }
+    if (prevIdx < 0)
+    {
+        int sl = m_cursorLine, sc = m_cursorColumn;
+        QStringList ls = m_doc->text().split(QLatin1Char('\n'));
+        if (sl < ls.size())
+            sc = qMin(sc, ls[sl].size());
+        m_cursorLine = sl;
+        m_cursorColumn = sc;
+        emit cursorChanged();
+        return;
+    }
+    m_snippetCurrentTabStop = prevIdx;
+    selectSnippetTabStop(m_snippetTabStops[prevIdx].pos, m_snippetTabStops[prevIdx].length);
+}
+
+void PrimoEditor::clearSnippetMarkers()
+{
+    // No visual markers in primoEditor yet; just reset state.
+    Q_UNUSED(this);
+}
+
+void PrimoEditor::selectSnippetTabStop(int pos, int len)
+{
+    if (len > 0)
+    {
+        // Convert position to line/col
+        QString txt = m_doc->text();
+        QStringList lines = txt.split(QLatin1Char('\n'));
+        int off = 0, line = 0, col = 0;
+        for (int l = 0; l < lines.size(); ++l)
+        {
+            int lenLine = lines.at(l).size() + 1;
+            if (pos < off + lenLine)
+            {
+                line = l;
+                col = pos - off;
+                break;
+            }
+            off += lenLine;
+        }
+        m_selAnchorLine = line;
+        m_selAnchorCol = col;
+        m_cursorLine = line;
+        m_cursorColumn = col + qMin(len, lines.value(line).size() - col);
+        emit cursorChanged();
+    }
+    else
+    {
+        QString txt = m_doc->text();
+        QStringList lines = txt.split(QLatin1Char('\n'));
+        int off = 0, line = 0, col = 0;
+        for (int l = 0; l < lines.size(); ++l)
+        {
+            int lenLine = lines.at(l).size() + 1;
+            if (pos < off + lenLine)
+            {
+                line = l;
+                col = pos - off;
+                break;
+            }
+            off += lenLine;
+        }
+        m_selAnchorLine = -1;
+        m_selAnchorCol = -1;
+        m_cursorLine = line;
+        m_cursorColumn = col;
+        emit cursorChanged();
+    }
+    update();
+}
+
+bool PrimoEditor::handleSnippetKeyPress(int key, Qt::KeyboardModifiers modifiers)
+{
+    if (!m_snippetActive)
+        return false;
+
+    if (key == Qt::Key_Tab && !(modifiers & ~Qt::ShiftModifier))
+    {
+        if (modifiers & Qt::ShiftModifier)
+            retreatSnippetTabStop();
+        else
+            advanceSnippetTabStop();
+        return true;
+    }
+
+    if (key == Qt::Key_Escape)
+    {
+        exitSnippetMode();
+        return true;
+    }
+
+    return false;
 }
 PrimoDocument* PrimoEditor::document() const
 {
@@ -855,14 +1262,40 @@ void PrimoEditor::insertSnippet(const QString& trigger)
     QString word = line.mid(start, col - start);
     if (word != trigger)
         return;
-    line.replace(start, col - start, snippet);
+
+    // Remove the trigger word from the line
+    line.remove(start, col - start);
     m_doc->setText(lines.join(QLatin1Char('\n')));
-    // Position cursor after first tab stop ($1)
-    m_cursorColumn = start + snippet.indexOf(QLatin1String("$1"));
-    if (m_cursorColumn < 0)
-        m_cursorColumn = start + snippet.size();
-    emit cursorChanged();
-    update();
+
+    // Parse $1, $2, ... tab stop markers from the snippet
+    QString expanded = snippet;
+    QStringList tabStopNumbers;
+    QList<int> tabStopLengths;
+    QRegularExpression re(QStringLiteral("\\$(\\d+)"));
+    QRegularExpressionMatchIterator it = re.globalMatch(expanded);
+    QVector<int> matchPositions;
+    QVector<int> matchLengths;
+    while (it.hasNext())
+    {
+        QRegularExpressionMatch m = it.next();
+        matchPositions.append(m.capturedStart());
+        matchLengths.append(m.capturedLength());
+        tabStopNumbers.append(m.captured(1));
+        tabStopLengths.append(0); // length of the placeholder (0 for now)
+    }
+    // Remove tab stop markers from the text (from last to first to preserve positions)
+    for (int i = matchPositions.size() - 1; i >= 0; --i)
+    {
+        expanded.remove(matchPositions[i], matchLengths[i]);
+    }
+
+    // Compute insert position (char offset in document)
+    int insertPos = 0;
+    for (int i = 0; i < m_cursorLine && i < lines.size(); ++i)
+        insertPos += lines.at(i).size() + 1;
+    insertPos += start;
+
+    enterSnippetMode(expanded, insertPos, tabStopNumbers, tabStopLengths);
 }
 
 QString PrimoEditor::currentWord() const
@@ -879,6 +1312,100 @@ QString PrimoEditor::currentWord() const
     while (start > 0 && (line.at(start - 1).isLetterOrNumber() || line.at(start - 1) == QLatin1Char('_')))
         --start;
     return line.mid(start, col - start);
+}
+
+void PrimoEditor::applyFormattingEdits(const QJsonArray& edits)
+{
+    if (!m_doc || edits.isEmpty())
+        return;
+
+    // Collect edits as (startLine, startChar, endLine, endChar, newText)
+    struct Edit
+    {
+        int startLine = 0;
+        int startChar = 0;
+        int endLine = 0;
+        int endChar = 0;
+        QString newText;
+    };
+    QList<Edit> editList;
+    editList.reserve(edits.size());
+    for (const auto& v : edits)
+    {
+        auto obj = v.toObject();
+        auto range = obj.value("range").toObject();
+        auto start = range.value("start").toObject();
+        auto end = range.value("end").toObject();
+        Edit e;
+        e.startLine = start.value("line").toInt();
+        e.startChar = start.value("character").toInt();
+        e.endLine = end.value("line").toInt();
+        e.endChar = end.value("character").toInt();
+        e.newText = obj.value("newText").toString();
+        editList.append(e);
+    }
+
+    // Sort descending by position so applying from bottom to top preserves offsets
+    std::sort(editList.begin(), editList.end(),
+              [](const Edit& a, const Edit& b)
+              {
+                  if (a.startLine != b.startLine)
+                      return a.startLine > b.startLine;
+                  return a.startChar > b.startChar;
+              });
+
+    QString txt = m_doc->text();
+    QStringList lines = txt.split(QLatin1Char('\n'));
+
+    for (const auto& e : editList)
+    {
+        if (e.startLine < 0 || e.startLine >= lines.size())
+            continue;
+        int endLine = qMin(e.endLine, lines.size() - 1);
+        int startCol = qMin(e.startChar, lines[e.startLine].size());
+        int endCol = qMin(e.endChar, lines[endLine].size());
+
+        if (e.startLine == endLine)
+        {
+            // Single-line replacement
+            QString& line = lines[e.startLine];
+            line = line.left(startCol) + e.newText + line.mid(endCol);
+        }
+        else
+        {
+            // Multi-line replacement
+            QStringList newLines = e.newText.split(QLatin1Char('\n'));
+            QString firstPart = lines[e.startLine].left(startCol);
+            QString lastPart = lines[endLine].mid(endCol);
+            QStringList replaced;
+            replaced << (firstPart + newLines.first());
+            for (int i = 1; i < newLines.size() - 1; ++i)
+                replaced << newLines.at(i);
+            if (newLines.size() > 1)
+                replaced << (newLines.last() + lastPart);
+            else
+                replaced.last() += lastPart;
+
+            QStringList finalLines;
+            finalLines.reserve(lines.size() - (endLine - e.startLine + 1) + replaced.size());
+            for (int i = 0; i < e.startLine; ++i)
+                finalLines << lines.at(i);
+            finalLines << replaced;
+            for (int i = endLine + 1; i < lines.size(); ++i)
+                finalLines << lines.at(i);
+            lines = finalLines;
+        }
+    }
+
+    m_doc->setText(lines.join(QLatin1Char('\n')));
+    m_cursorLine = qMin(m_cursorLine, lines.size() - 1);
+    m_cursorColumn = qMin(m_cursorColumn, lines.value(m_cursorLine).size());
+    emit cursorChanged();
+    m_linesDirty = true;
+    m_highlightDirty = true;
+    m_highlightVersion++;
+    update();
+    scheduleHighlight();
 }
 
 bool PrimoEditor::canUndo() const
@@ -1313,6 +1840,154 @@ QList<PrimoEditor::WrapInfo> PrimoEditor::buildWrapInfos(int availGlobal, int* o
     return wrapInfos;
 }
 
+// ── Auto-close brackets / bracket context ──
+PrimoEditor::BracketContext PrimoEditor::bracketContextAt(int pos) const
+{
+    BracketContext ctx;
+    if (!m_doc || pos <= 0)
+        return ctx;
+
+    QString txt = m_doc->text();
+    if (pos > txt.size())
+        pos = txt.size();
+
+    // Find the line containing pos
+    int lineStart = 0;
+    int lineEnd = 0;
+    for (int i = 0; i <= pos; ++i)
+    {
+        if (i < txt.size() && txt.at(i) == QLatin1Char('\n'))
+            lineStart = i + 1;
+    }
+    lineEnd = txt.indexOf(QLatin1Char('\n'), lineStart);
+    if (lineEnd < 0)
+        lineEnd = txt.size();
+    QString lineText = txt.mid(lineStart, lineEnd - lineStart);
+    int col = pos - lineStart;
+
+    // Scan the line up to the cursor position to determine context
+    bool inBlockComment = false;
+    for (int i = 0; i < col && i < lineText.length(); ++i)
+    {
+        QChar c = lineText[i];
+        if (inBlockComment)
+        {
+            if (c == '*' && i + 1 < lineText.length() && lineText.at(i + 1) == QLatin1Char('/'))
+            {
+                inBlockComment = false;
+                ++i;
+            }
+            continue;
+        }
+        if (ctx.inComment)
+            continue;
+        if (c == QLatin1Char('/') && i + 1 < lineText.length())
+        {
+            QChar next = lineText.at(i + 1);
+            if (next == QLatin1Char('*'))
+            {
+                inBlockComment = true;
+                ctx.inBlockComment = true;
+                ++i;
+                continue;
+            }
+            if (next == QLatin1Char('/'))
+            {
+                ctx.inComment = true;
+                continue;
+            }
+        }
+        if (c == QLatin1Char('\\') && (ctx.inString || ctx.inCharLiteral))
+        {
+            ++i;
+            continue;
+        }
+        if (c == QLatin1Char('"') && !ctx.inCharLiteral)
+            ctx.inString = !ctx.inString;
+        else if (c == QLatin1Char('\'') && !ctx.inString)
+            ctx.inCharLiteral = !ctx.inCharLiteral;
+    }
+    ctx.inBlockComment = inBlockComment;
+    return ctx;
+}
+
+bool PrimoEditor::handleAutoClose(QChar ch, int pos)
+{
+    struct Pair
+    {
+        QChar open;
+        QChar close;
+    };
+    static constexpr std::array<Pair, 5> pairs{
+        Pair{'(', ')'}, Pair{'[', ']'}, Pair{'{', '}'}, Pair{'"', '"'}, Pair{'\'', '\''}};
+    BracketContext ctx = bracketContextAt(pos);
+    if (ctx.inComment || ctx.inBlockComment || ctx.inCharLiteral)
+        return false;
+
+    for (const auto& pair : pairs)
+    {
+        if (ch != pair.open)
+            continue;
+        if (ch == '"' && ctx.inString)
+            continue;
+        if (ch == '\'' && ctx.inCharLiteral)
+            continue;
+        // Insert open + close, then move cursor between them
+        QString txt = m_doc->text();
+        txt.insert(pos, QString(pair.open) + pair.close);
+        m_doc->setTextWithoutUndo(txt);
+        m_cursorColumn = qMin(m_cursorColumn + 1, m_doc->lineAt(m_cursorLine).size());
+        emit cursorChanged();
+        m_linesDirty = true;
+        m_highlightDirty = true;
+        m_highlightVersion++;
+        update();
+        scheduleHighlight();
+        return true;
+    }
+    return false;
+}
+
+bool PrimoEditor::handleBracketSkip(QChar ch, int pos)
+{
+    static constexpr std::array<QChar, 5> closers{QChar(')'), QChar(']'), QChar('}'), QChar('"'), QChar('\'')};
+    BracketContext ctx = bracketContextAt(pos);
+
+    if (ctx.inComment || ctx.inBlockComment)
+        return false;
+
+    bool isQuote = (ch == '"' || ch == '\'');
+    if (isQuote)
+    {
+        bool inRelevantString = (ch == '"' && ctx.inString) || (ch == '\'' && ctx.inCharLiteral);
+        if (!inRelevantString)
+            return false;
+    }
+    else
+    {
+        if (ctx.inString || ctx.inCharLiteral)
+            return false;
+    }
+
+    for (QChar closer : closers)
+    {
+        if (ch != closer)
+            continue;
+        int nextPos = pos + 1;
+        QString txt = m_doc->text();
+        if (nextPos >= txt.size())
+            return false;
+        if (txt.at(nextPos) == closer)
+        {
+            m_cursorColumn = qMin(m_cursorColumn + 1, m_doc->lineAt(m_cursorLine).size());
+            emit cursorChanged();
+            update();
+            return true;
+        }
+    }
+    return false;
+}
+
 void PrimoEditor::geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry)
 {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
@@ -1415,8 +2090,21 @@ void PrimoEditor::keyPressEvent(QKeyEvent* event)
         event->accept();
         return;
     }
+    // Ctrl+/: toggle comment
+    if (!m_readOnly && (event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_Slash)
+    {
+        toggleComment();
+        event->accept();
+        return;
+    }
     if (event->key() == Qt::Key_Tab)
     {
+        // If in snippet mode, navigate tab stops
+        if (handleSnippetKeyPress(Qt::Key_Tab, event->modifiers()))
+        {
+            event->accept();
+            return;
+        }
         // Try snippet expansion first
         QString word = currentWord();
         if (!word.isEmpty())
@@ -1439,6 +2127,22 @@ void PrimoEditor::keyPressEvent(QKeyEvent* event)
     QString t = event->text();
     if (!t.isEmpty() && t.at(0).isPrint() && !(event->modifiers() & Qt::ControlModifier))
     {
+        if (m_autoCloseBrackets && !m_readOnly)
+        {
+            QChar ch = t.at(0);
+            // Compute cursor position as a char offset in the document
+            QString txt = m_doc->text();
+            QStringList lines = txt.split(QLatin1Char('\n'));
+            int pos = 0;
+            for (int i = 0; i < m_cursorLine && i < lines.size(); ++i)
+                pos += lines.at(i).size() + 1;
+            pos += qMin(m_cursorColumn, lines.value(m_cursorLine).size());
+            if (handleAutoClose(ch, pos) || handleBracketSkip(ch, pos))
+            {
+                event->accept();
+                return;
+            }
+        }
         insertAtCursor(t);
         event->accept();
         return;
@@ -1515,6 +2219,24 @@ QString PrimoEditor::expandedTab(const QString& line) const
     {
         if (ch == QLatin1Char('\t'))
             out += QString(m_tabWidth, QLatin1Char(' '));
+        else
+            out += ch;
+    }
+    return out;
+}
+
+QString PrimoEditor::whitespaceDisplayString(const QString& disp) const
+{
+    if (!m_showWhitespace)
+        return disp;
+    QString out;
+    out.reserve(disp.size());
+    for (QChar ch : disp)
+    {
+        if (ch == QLatin1Char(' '))
+            out += QChar(0x00B7); // middle dot for spaces
+        else if (ch == QLatin1Char('\t'))
+            out += QChar(0x2192); // right arrow for tabs
         else
             out += ch;
     }
@@ -1694,6 +2416,19 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
         root->appendChildNode(sep);
     }
 
+    // Vertical edge marker (column guide)
+    if (m_verticalEdgeEnabled)
+    {
+        qreal edgeX = gutterW + m_verticalEdgeColumn * m_charWidth;
+        if (edgeX < bounds.width() && edgeX > gutterW)
+        {
+            QSGRectangleNode* edge = win->createRectangleNode();
+            edge->setRect(QRectF(edgeX, 0, 1, bounds.height()));
+            edge->setColor(m_theme.separator);
+            root->appendChildNode(edge);
+        }
+    }
+
     // Determine visible range via Flickable contentY
     int firstLine = 0;
     int lastLine = qMin(totalLines - 1, int(ceil(bounds.height() / m_lineHeight)) + 1);
@@ -1858,6 +2593,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             qreal y = 4 + (v - firstVisualRow) * m_lineHeight;
             QString raw = (lineIdx < lines.size()) ? lines.at(lineIdx) : (m_doc ? m_doc->lineAt(lineIdx) : QString());
             QString disp = expandedTab(raw).mid(wi.startCol, wi.len);
+            disp = whitespaceDisplayString(disp);
             if (disp.isEmpty())
                 continue;
             QTextLayout layout(disp, m_font);
@@ -1868,7 +2604,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             tl.setLineWidth(bounds.width() - textLeft - 4);
             layout.endLayout();
             QSGTextNode* textNode = win->createTextNode();
-            textNode->setColor(m_fg);
+            textNode->setColor(m_showWhitespace ? m_theme.marginFg : m_fg);
             textNode->setFiltering(QSGTexture::Linear);
             textNode->addTextLayout(QPointF(textLeft, y), &layout);
             root->appendChildNode(textNode);
@@ -1900,6 +2636,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             else
                 raw = QString();
             QString disp = expandedTab(raw);
+            disp = whitespaceDisplayString(disp);
             if (disp.isEmpty())
                 continue;
             QTextLayout layout(disp, m_font);
@@ -1910,7 +2647,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             tl.setLineWidth(bounds.width() - textLeft - 4);
             layout.endLayout();
             QSGTextNode* textNode = win->createTextNode();
-            textNode->setColor(m_fg);
+            textNode->setColor(m_showWhitespace ? m_theme.marginFg : m_fg);
             textNode->setFiltering(QSGTexture::Linear);
             textNode->addTextLayout(QPointF(textLeft, 4 + i * m_lineHeight), &layout);
             root->appendChildNode(textNode);

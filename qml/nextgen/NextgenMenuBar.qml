@@ -14,7 +14,7 @@ MenuBar {
     Menu {
         title: qsTr("&File")
         Action { text: qsTr("&New"); shortcut: "Ctrl+N"; onTriggered: actions.newFile() }
-        Action { text: qsTr("New &Window"); shortcut: "Ctrl+Shift+N"; onTriggered: actions.newFile() } // placeholder
+        Action { text: qsTr("New &Window"); shortcut: "Ctrl+Shift+N"; onTriggered: actions.newWindow() }
         MenuSeparator {}
         Action { text: qsTr("&Open..."); shortcut: "Ctrl+O"; onTriggered: actions.openFileDialog() }
         Action { text: qsTr("Open &Folder..."); shortcut: "Ctrl+Shift+O"; onTriggered: actions.openFolderDialog() }
@@ -37,7 +37,13 @@ MenuBar {
         Action { text: qsTr("&Save"); shortcut: "Ctrl+S"; enabled: editor && editor.filePath !== ""; onTriggered: actions.saveFile() }
         Action { text: qsTr("Save &As..."); shortcut: "Ctrl+Shift+S"; onTriggered: actions.saveFileAsDialog() }
         MenuSeparator {}
+        Action { text: qsTr("&Print..."); shortcut: "Ctrl+P"; onTriggered: actions.printFile() }
+        Action { text: qsTr("Print &Preview..."); onTriggered: actions.printPreview() }
+        Action { text: qsTr("Page &Setup..."); onTriggered: actions.pageSetup() }
+        MenuSeparator {}
         Action { text: qsTr("Close &File"); shortcut: "Ctrl+W"; onTriggered: actions.closeFile() }
+        Action { text: qsTr("Close &All Tabs"); shortcut: "Ctrl+Shift+W"; onTriggered: actions.closeAllTabs() }
+        Action { text: qsTr("Close &Project"); onTriggered: actions.closeProject() }
         MenuSeparator {}
         Action { text: qsTr("E&xit"); shortcut: "Ctrl+Q"; onTriggered: actions.exitApp() }
     }
@@ -59,6 +65,38 @@ MenuBar {
         Action { text: qsTr("Find in &Files..."); shortcut: "Ctrl+Shift+F"; onTriggered: actions.findInFiles() }
         Action { text: qsTr("&Go to Line..."); shortcut: "Ctrl+G"; onTriggered: actions.goToLine() }
         MenuSeparator {}
+        // ── LSP ──
+        Action { text: qsTr("Find &References"); shortcut: "Shift+F12"; onTriggered: {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (ed && ed.filePath) {
+                var uri = "file://" + ed.filePath
+                lspClient.requestReferencesAt(uri, ed.cursorLine, ed.cursorColumn)
+            }
+        } }
+        Action { text: qsTr("&Format Document"); shortcut: "Shift+Alt+F"; onTriggered: {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (ed && ed.filePath) {
+                var uri = "file://" + ed.filePath
+                lspClient.requestFormatting(uri, 4, true)
+            }
+        } }
+        Action { text: qsTr("&Rename Symbol"); shortcut: "Ctrl+Shift+R"; onTriggered: renameDlg.open() }
+        Action { text: qsTr("&Code Actions"); shortcut: "Ctrl+Shift+A"; onTriggered: {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (ed && ed.filePath) {
+                var uri = "file://" + ed.filePath
+                var range = {start: {line: ed.cursorLine, character: ed.cursorColumn}, end: {line: ed.cursorLine, character: ed.cursorColumn}}
+                lspClient.requestCodeAction(uri, range, [])
+            }
+        } }
+        Action { text: qsTr("&Document Symbols"); shortcut: "Ctrl+Shift+O"; onTriggered: {
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (ed && ed.filePath) {
+                var uri = "file://" + ed.filePath
+                lspClient.requestDocumentSymbols(uri)
+            }
+        } }
+        MenuSeparator {}
         Action { text: qsTr("Toggle &Comment"); shortcut: "Ctrl+/"; onTriggered: actions.showMessage ? actions.showMessage("Toggle comment") : console.log("comment") }
         MenuSeparator {}
         Action { text: qsTr("Toggle &Bookmark"); shortcut: "Ctrl+F2"; onTriggered: actions.toggleBookmark() }
@@ -78,6 +116,7 @@ MenuBar {
         Action { text: qsTr("Show &Minimap"); checkable: true; checked: editor ? editor.minimapVisible : true; onTriggered: editor.minimapVisible = checked }
         Action { text: qsTr("&Word Wrap"); checkable: true; checked: editor ? editor.wordWrap : false; onTriggered: editor.wordWrap = checked; shortcut: "Alt+Z" }
         Action { text: qsTr("&Terminal"); shortcut: "Ctrl+`"; checkable: true; onTriggered: actions.toggleTerminal() }
+        Action { text: qsTr("&Error List"); shortcut: "Ctrl+Shift+E"; onTriggered: actions.toggleErrorList() }
         MenuSeparator {}
         Action { text: qsTr("Zoom &In"); shortcut: "Ctrl++"; onTriggered: actions.zoomIn() }
         Action { text: qsTr("Zoom &Out"); shortcut: "Ctrl+-"; onTriggered: actions.zoomOut() }

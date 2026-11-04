@@ -15,6 +15,7 @@
 #include "theme.h"
 
 #include <QFont>
+#include <QJsonArray>
 #include <QQuickItem>
 #include <QSGNode>
 #include <QSet>
@@ -45,6 +46,11 @@ class PrimoEditor : public QQuickItem
     Q_PROPERTY(bool readOnly READ isReadOnly WRITE setReadOnly NOTIFY readOnlyChanged)
     Q_PROPERTY(bool minimapVisible READ minimapVisible WRITE setMinimapVisible NOTIFY minimapVisibleChanged)
     Q_PROPERTY(qreal gutterWidth READ gutterWidth NOTIFY gutterWidthChanged)
+    Q_PROPERTY(bool autoCloseBrackets READ autoCloseBrackets WRITE setAutoCloseBrackets NOTIFY autoCloseBracketsChanged)
+    Q_PROPERTY(bool scrollPastEnd READ scrollPastEnd WRITE setScrollPastEnd NOTIFY scrollPastEndChanged)
+    Q_PROPERTY(bool showWhitespace READ showWhitespace WRITE setShowWhitespace NOTIFY showWhitespaceChanged)
+    Q_PROPERTY(bool verticalEdgeEnabled READ verticalEdgeEnabled WRITE setVerticalEdgeEnabled NOTIFY verticalEdgeEnabledChanged)
+    Q_PROPERTY(int verticalEdgeColumn READ verticalEdgeColumn NOTIFY verticalEdgeColumnChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY canUndoChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY canRedoChanged)
     Q_PROPERTY(bool undoDisabled READ isUndoDisabled NOTIFY undoDisabledChanged)
@@ -106,6 +112,31 @@ public:
     void setMinimapVisible(bool v);
     qreal gutterWidth() const;
 
+    // ── Auto-close brackets/quotes ──
+    bool autoCloseBrackets() const;
+    void setAutoCloseBrackets(bool enabled);
+
+    // ── Scroll past end ──
+    bool scrollPastEnd() const;
+    void setScrollPastEnd(bool enabled);
+
+    // ── Whitespace visibility ──
+    bool showWhitespace() const;
+    void setShowWhitespace(bool visible);
+
+    // ── Vertical edge marker ──
+    bool verticalEdgeEnabled() const;
+    void setVerticalEdgeEnabled(bool enabled);
+    int verticalEdgeColumn() const;
+    void setVerticalEdgeColumn(int column);
+
+    // ── Comments ──
+    Q_INVOKABLE void toggleComment();
+
+    // ── Snippet mode ──
+    bool isSnippetMode() const;
+    void exitSnippetMode();
+
     Q_INVOKABLE void loadFile(const QString& path);
     Q_INVOKABLE bool save();
     Q_INVOKABLE bool saveAs(const QString& path);
@@ -127,6 +158,9 @@ public:
     // Search match highlighting
     Q_INVOKABLE void setSearchMatches(const QList<int>& positions);
     Q_INVOKABLE void clearSearchMatches();
+
+    // ── LSP formatting ──
+    Q_INVOKABLE void applyFormattingEdits(const QJsonArray& edits);
 
     // Auto-completion / snippets
     Q_INVOKABLE QStringList completionList(const QString& prefix) const;
@@ -182,6 +216,11 @@ signals:
     void readOnlyChanged();
     void minimapVisibleChanged();
     void gutterWidthChanged();
+    void autoCloseBracketsChanged();
+    void scrollPastEndChanged();
+    void showWhitespaceChanged();
+    void verticalEdgeEnabledChanged();
+    void verticalEdgeColumnChanged();
     void bookmarksChanged();
     void diagnosticsChanged();
     void canUndoChanged();
@@ -215,6 +254,29 @@ private:
     };
     QList<WrapInfo> buildWrapInfos(int availGlobal, int* outCursorVisualRow = nullptr);
 
+    // ── Auto-close brackets / bracket context ──
+    struct BracketContext
+    {
+        bool inString = false;
+        bool inCharLiteral = false;
+        bool inComment = false;
+        bool inBlockComment = false;
+    };
+    BracketContext bracketContextAt(int pos) const;
+    bool handleAutoClose(QChar ch, int pos);
+    bool handleBracketSkip(QChar ch, int pos);
+
+    // ── Whitespace display ──
+    QString whitespaceDisplayString(const QString& disp) const;
+
+    // ── Snippet mode ──
+    void enterSnippetMode(const QString& text, int insertPos, const QStringList& tabStopNumbers, const QList<int>& tabStopLengths);
+    void advanceSnippetTabStop();
+    void retreatSnippetTabStop();
+    void clearSnippetMarkers();
+    void selectSnippetTabStop(int pos, int len);
+    bool handleSnippetKeyPress(int key, Qt::KeyboardModifiers modifiers);
+
     PrimoDocument* m_doc = nullptr;
     QString m_encoding = QStringLiteral("UTF-8");
     QFont m_font = QFont(QStringLiteral("Monospace"), 11);
@@ -246,6 +308,27 @@ private:
     // Selection model
     int m_selAnchorLine = -1;
     int m_selAnchorCol = -1;
+
+    // Editor behavior settings
+    bool m_autoCloseBrackets = true;
+    bool m_scrollPastEnd = false;
+    bool m_showWhitespace = false;
+    bool m_verticalEdgeEnabled = false;
+    int m_verticalEdgeColumn = 80;
+
+    // Snippet mode (tab-stop navigation)
+    bool m_snippetActive = false;
+    int m_snippetCurrentTabStop = -1;
+    int m_snippetStartPos = 0;
+    int m_snippetEndPos = 0;
+    struct SnippetTabStop
+    {
+        int number = 0;
+        int pos = 0;
+        int length = 0;
+        QString defaultValue;
+    };
+    QList<SnippetTabStop> m_snippetTabStops;
 
     // Highlight
     ThemeColors m_theme = getThemeColors(ThemeId::Dark);

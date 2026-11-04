@@ -20,8 +20,10 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
+#include <QLocale>
 #include <QSettings>
 #include <QTextStream>
+#include <QTranslator>
 
 #ifdef BUILD_NEXTGEN
 #include <QGuiApplication>
@@ -88,6 +90,33 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     }
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
+
+    // ── Translations ──
+    {
+        auto* translator = new QTranslator(guiApp);
+        QString sysLocale = QLocale::system().name(); // e.g. "de_DE"
+        QStringList candidates = {
+            QStringLiteral("devpad_") + sysLocale,
+            QStringLiteral("devpad_") + sysLocale.left(2), // e.g. "de"
+            QStringLiteral("devpad_de"),
+            QStringLiteral("devpad_es"),
+            QStringLiteral("devpad_fr")
+        };
+        bool loaded = false;
+        for (const QString& base : candidates)
+        {
+            if (translator->load(base, QStringLiteral(":/i18n")))
+            {
+                guiApp->installTranslator(translator);
+                loaded = true;
+                break;
+            }
+        }
+        if (!loaded)
+        {
+            translator->deleteLater();
+        }
+    }
 
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, &engine,

@@ -18,6 +18,16 @@ ApplicationWindow {
     property var tabs: tabModel
     property var completionModel: []
     property int completionPrefixLen: 0
+    property var refModel: []
+    property var codeActionModel: []
+    property var symbolModel: []
+    property var lspDiagnostics: []
+
+    function pathFromUri(uri) {
+        var p = uri.toString()
+        if (p.startsWith("file://")) p = p.substring(7)
+        return decodeURIComponent(p)
+    }
 
     function triggerCompletion() {
         var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
@@ -451,6 +461,128 @@ ApplicationWindow {
         }
     }
 
+    // References dialog
+    Dialog {
+        id: refDlg
+        title: "Find References"
+        modal: true
+        standardButtons: Dialog.Close
+        width: 600
+        height: 300
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 8
+            anchors.margins: 12
+            ListView {
+                id: refListView
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                model: refModel
+                delegate: ItemDelegate {
+                    width: refListView.width
+                    text: modelData.file + ":" + modelData.line + ":" + modelData.col + "  —  " + modelData.text
+                    onClicked: {
+                        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                        if (ed) {
+                            ed.loadFile(modelData.path)
+                            ed.setCursorPosition(modelData.line - 1, modelData.col - 1)
+                            ed.forceActiveFocus()
+                            var fl = ed === primo2 ? flick2 : flick
+                            fl.contentY = Math.max(0, (modelData.line - 1) * ed.lineHeight - fl.height / 2)
+                        }
+                        refDlg.close()
+                    }
+                }
+            }
+        }
+    }
+
+    // Code actions dialog
+    Dialog {
+        id: codeActionDlg
+        title: "Code Actions"
+        modal: true
+        standardButtons: Dialog.Close
+        width: 500
+        height: 300
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 8
+            anchors.margins: 12
+            ListView {
+                id: codeActionListView
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                model: codeActionModel
+                delegate: ItemDelegate {
+                    width: codeActionListView.width
+                    text: modelData.title
+                    onClicked: {
+                        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                        if (!ed) return
+                        var action = modelData.action
+                        var uri = "file://" + ed.filePath
+                        var range = action.range ? action.range : {start: {line: ed.cursorLine, character: ed.cursorColumn}, end: {line: ed.cursorLine, character: ed.cursorColumn}}
+                        var diagnostics = []
+                        if (action.diagnostics) diagnostics = action.diagnostics
+                        lspClient.requestCodeAction(uri, range, diagnostics)
+                        codeActionDlg.close()
+                    }
+                }
+            }
+        }
+    }
+
+    // Document symbols dialog
+    Dialog {
+        id: symbolDlg
+        title: "Document Symbols"
+        modal: true
+        standardButtons: Dialog.Close
+        width: 400
+        height: 300
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 8
+            anchors.margins: 12
+            ListView {
+                id: symbolListView
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                model: symbolModel
+                delegate: ItemDelegate {
+                    width: symbolListView.width
+                    text: modelData.name + "  (line " + modelData.line + ")"
+                    onClicked: {
+                        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+                        if (ed) {
+                            ed.setCursorPosition(modelData.line - 1, 0)
+                            ed.forceActiveFocus()
+                            var fl = ed === primo2 ? flick2 : flick
+                            fl.contentY = Math.max(0, (modelData.line - 1) * ed.lineHeight - fl.height / 2)
+                        }
+                        symbolDlg.close()
+                    }
+                }
+            }
+        }
+    }
+
+    // Rename symbol input dialog
+    InputDialog {
+        id: renameDlg
+        title: "Rename Symbol"
+        label: "New name:"
+        onAccepted: {
+            var newName = textInput.text.trimmed()
+            if (!newName) return
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed || !ed.filePath) return
+            var uri = "file://" + ed.filePath
+            lspClient.requestRenameAt(uri, ed.cursorLine, ed.cursorColumn, newName)
+        }
+    }
+
     Dialog {
         id: aboutDlg
         title: "About Devpad Nextgen"
@@ -497,6 +629,26 @@ ApplicationWindow {
         }
         function onRequestAboutDialog() { aboutDlg.open(); }
         function onRequestOptionsDialog() { optionsDlg.open(); }
+        function onLspReferencesRequested(filePath, line, character) {
+            var uri = "file://" + filePath
+            lspClient.requestReferencesAt(uri, line, character)
+        }
+        function onLspFormatRequested(filePath) {
+            var uri = "file://" + filePath
+            lspClient.requestFormatting(uri, 4, true)
+        }
+        function onLspRenameRequested(filePath, line, character) {
+            renameDlg.open()
+        }
+        function onLspCodeActionRequested(filePath, line, character) {
+            var uri = "file://" + filePath
+            var range = {start: {line: line, character: character}, end: {line: line, character: character}}
+            lspClient.requestCodeAction(uri, range, [])
+        }
+        function onLspDocumentSymbolsRequested(filePath) {
+            var uri = "file://" + filePath
+            lspClient.requestDocumentSymbols(uri)
+        }
         function onShowMessage(msg) {
             statusMsg.text = msg;
             statusMsgTimer.restart();
@@ -527,6 +679,22 @@ ApplicationWindow {
         finder: finderInstance
     }
 
+    // Error List Panel – LSP diagnostics drawer
+    Drawer {
+        id: errorListDrawer
+        edge: Qt.BottomEdge
+        width: win.width
+        height: win.height * 0.35
+        dim: false
+        modal: false
+        interactive: true
+        ErrorListPanel {
+            anchors.fill: parent
+            editor: primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            diagnostics: lspClient ? lspDiagnostics : []
+        }
+    }
+
     // Sync tabModel current file to editor
     Connections {
         target: tabs
@@ -555,6 +723,10 @@ ApplicationWindow {
             else terminalDrawer.open()
         }
         function onRequestFindInFiles() { findInFilesDrawer.open() }
+        function onRequestErrorListToggle() {
+            if (errorListDrawer.visible) errorListDrawer.close()
+            else errorListDrawer.open()
+        }
         function onRequestTabNext() {
             var idx = tabs.currentIndex + 1
             if (idx >= tabs.count) idx = 0
@@ -651,6 +823,91 @@ ApplicationWindow {
             statusMsg.text = "Signature: " + JSON.stringify(info)
             statusMsgTimer.restart()
         }
+        function onReferencesReady(uri, locations) {
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed || ed.filePath !== path) return
+            if (locations.length === 0) {
+                statusMsg.text = "No references found"
+                statusMsgTimer.restart()
+                return
+            }
+            // Show references list in a simple dialog
+            refModel.clear()
+            for (var i = 0; i < locations.length; i++) {
+                var loc = locations[i]
+                var lp = pathFromUri(loc.uri)
+                refModel.append({
+                    file: lp.split("/").pop(),
+                    path: lp,
+                    line: loc.range.start.line + 1,
+                    col: loc.range.start.character + 1,
+                    text: loc.range.start.line + ":" + (loc.range.start.character + 1)
+                })
+            }
+            refDlg.open()
+        }
+        function onFormattingReady(uri, edits) {
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed || ed.filePath !== path) return
+            ed.applyFormattingEdits(edits)
+            statusMsg.text = "Document formatted (" + edits.length + " edit(s))"
+            statusMsgTimer.restart()
+        }
+        function onRenameReady(uri, result) {
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed || ed.filePath !== path) return
+            // Apply workspace edit (documentChanges)
+            var changes = result.documentChanges
+            if (changes) {
+                for (var i = 0; i < changes.length; i++) {
+                    var ch = changes[i]
+                    if (ch.kind === "edit" && ch.textDocument) {
+                        var cp = pathFromUri(ch.textDocument.uri)
+                        if (cp === path) {
+                            var edits = ch.edits
+                            ed.applyFormattingEdits(edits)
+                        }
+                    }
+                }
+            }
+            statusMsg.text = "Symbol renamed"
+            statusMsgTimer.restart()
+        }
+        function onCodeActionReady(uri, actions) {
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed || ed.filePath !== path) return
+            codeActionModel.clear()
+            for (var i = 0; i < actions.length; i++) {
+                var a = actions[i]
+                codeActionModel.append({title: a.title, command: a.command ? a.command.command : "", action: a})
+            }
+            if (codeActionModel.length > 0) {
+                codeActionDlg.open()
+            } else {
+                statusMsg.text = "No code actions available"
+                statusMsgTimer.restart()
+            }
+        }
+        function onDocumentSymbolsReady(uri, symbols) {
+            var path = uri.toString().replace("file://", "")
+            path = decodeURIComponent(path)
+            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+            if (!ed || ed.filePath !== path) return
+            symbolModel.clear()
+            for (var i = 0; i < symbols.length; i++) {
+                var s = symbols[i]
+                symbolModel.append({name: s.name, kind: s.kind, line: s.range.start.line + 1})
+            }
+            symbolDlg.open()
+        }
     }
 
     Connections {
@@ -658,6 +915,37 @@ ApplicationWindow {
         function onDiagnosticsReady(uri, diagnostics) {
             var path = uri.toString().replace("file://", "")
             path = decodeURIComponent(path)
+            // Accumulate all diagnostics for the Error List panel
+            var existing = false
+            for (var i = 0; i < lspDiagnostics.length; i++) {
+                if (lspDiagnostics[i].uri === uri) {
+                    lspDiagnostics[i].diagnostics = diagnostics
+                    existing = true
+                    break
+                }
+            }
+            if (!existing) {
+                lspDiagnostics.push({uri: uri, diagnostics: diagnostics})
+            }
+            // Flatten for the panel
+            var flat = []
+            for (var i = 0; i < lspDiagnostics.length; i++) {
+                var entry = lspDiagnostics[i]
+                for (var j = 0; j < entry.diagnostics.length; j++) {
+                    var d = entry.diagnostics[j]
+                    flat.push({
+                        uri: entry.uri,
+                        range: d.range,
+                        message: d.message,
+                        severity: d.severity,
+                        severityLevel: d.severityLevel,
+                        source: d.source,
+                        code: d.code
+                    })
+                }
+            }
+            lspDiagnostics = flat
+
             var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
             if (ed && ed.filePath === path) {
                 var lines = []
@@ -687,6 +975,7 @@ ApplicationWindow {
 
     Shortcut { sequence: "Ctrl+S"; onActivated: actions.saveFile() }
     Shortcut { sequence: "Ctrl+Shift+S"; onActivated: actions.saveFileAsDialog() }
+    Shortcut { sequence: "Ctrl+P"; onActivated: actions.printFile() }
     Shortcut { sequence: "Ctrl+O"; onActivated: actions.openFileDialog() }
     Shortcut { sequence: "Ctrl+G"; onActivated: actions.goToLine() }
     Shortcut { sequence: "Ctrl+F"; onActivated: { var ed = primo2 && primo2.activeFocus ? primo2 : primo; var fl = ed === primo2 ? flick2 : flick; findBar.editor = ed; findBar.flick = fl; findBar.show(true) } }
@@ -721,4 +1010,37 @@ ApplicationWindow {
         var uri = "file://" + ed.filePath
         lspClient.requestHoverAt(uri, ed.cursorLine, ed.cursorColumn)
     } }
+    Shortcut { sequence: "Shift+F12"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestReferencesAt(uri, ed.cursorLine, ed.cursorColumn)
+    } }
+    Shortcut { sequence: "Shift+Alt+F"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestFormatting(uri, 4, true)
+    } }
+    Shortcut { sequence: "Ctrl+Shift+R"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        renameDlg.newName = ""
+        renameDlg.open()
+    } }
+    Shortcut { sequence: "Ctrl+Shift+A"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        var range = {start: {line: ed.cursorLine, character: ed.cursorColumn}, end: {line: ed.cursorLine, character: ed.cursorColumn}}
+        var diagnostics = ed.diagLines ? ed.diagLines : []
+        lspClient.requestCodeAction(uri, range, diagnostics)
+    } }
+    Shortcut { sequence: "Ctrl+Shift+O"; onActivated: {
+        var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
+        if (!ed || !ed.filePath) return
+        var uri = "file://" + ed.filePath
+        lspClient.requestDocumentSymbols(uri)
+    } }
+    Shortcut { sequence: "Ctrl+Shift+E"; onActivated: actions.toggleErrorList() }
 }
