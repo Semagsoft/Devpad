@@ -332,6 +332,12 @@ public:
     /// keys, reloads the cache, and emits settingsChanged().
     void resetToDefaults();
 
+    // ── Keyboard shortcuts ───────────────────────────────────────
+
+    QString shortcutForAction(const QString& actionId) const;
+    void setShortcutForAction(const QString& actionId, const QString& shortcut);
+    void resetShortcutForAction(const QString& actionId);
+
     // ── Plugin-scoped settings ─────────────────────────────────
     // Read/write settings stored under Plugins/<pluginId>/<key>, bypassing the
     // core settings cache so plugins can persist their own configuration

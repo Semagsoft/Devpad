@@ -31,6 +31,7 @@ class QSpinBox;
 class QTabWidget;
 class QTableWidget;
 
+class ActionManager;
 class ThemePreviewWidget;
 
 class OptionsDialog : public QDialog
@@ -56,12 +57,17 @@ private:
     void setupAppearanceTab();
     void setupEditorTab();
     void setupPanelsTab();
+    void setupKeyboardTab();
     void setupPluginsTab();
     void populatePluginsTable();
     void loadSettings();
     void saveSettings();
     void updateThemePreview();
     void filterThemes(const QString& text);
+    void loadKeyboardShortcuts();
+    void saveKeyboardShortcuts();
+    void changeShortcutById(const QString& actionId);
+    ActionManager* actionManager() const;
 
     struct ThemeItem
     {
@@ -118,6 +124,10 @@ private:
     QPushButton* resetButton = nullptr;
     QColor m_accentColor;
     DialogSettings m_geometrySettings;
+
+    // Keyboard shortcuts
+    QTableWidget* shortcutsTable = nullptr;
+    QPushButton* resetAllShortcutsButton = nullptr;
 
     // LSP settings
     QCheckBox* lspEnabledCheckBox = nullptr;

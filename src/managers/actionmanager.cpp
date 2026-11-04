@@ -40,6 +40,8 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QUrl>
+#include <algorithm>
+#include <QKeySequence>
 
 ActionManager::ActionManager(QObject* parent) : QObject(parent)
 {
@@ -55,6 +57,8 @@ void ActionManager::createActions()
     createLspActions();
     createViewActions();
     createHelpActions();
+
+    applyStoredShortcuts();
 }
 
 void ActionManager::createFileActions()
@@ -64,68 +68,68 @@ void ActionManager::createFileActions()
                                        {
                                            emit quitDevpadTriggered();
                                            emit fileActionTriggered(FileAction::Quit);
-                                       });
+                                       }, "File.Quit");
 
     m_newAct = createIconAction(":/icons/File/newfile.svg", tr("New File"), QKeySequence::New,
                                 [this]()
                                 {
                                     emit newFileTriggered();
                                     emit fileActionTriggered(FileAction::New);
-                                });
+                                }, "File.New");
     m_newWindowAct = createIconAction(":/icons/File/newwindow.svg", tr("New Window"), QKeySequence("Ctrl+Shift+N"),
                                       [this]()
                                       {
                                           emit newWindowTriggered();
                                           emit fileActionTriggered(FileAction::NewWindow);
-                                      });
+                                      }, "File.NewWindow");
     m_openAct = createIconAction(":/icons/File/open.svg", tr("Open File..."), QKeySequence::Open,
                                  [this]()
                                  {
                                      emit openFileTriggered();
                                      emit fileActionTriggered(FileAction::Open);
-                                 });
+                                 }, "File.Open");
     m_openFolderAct = createIconAction(":/icons/File/openfolder.svg", tr("Open Folder..."), QKeySequence("Ctrl+Shift+O"),
                                        [this]()
                                        {
                                            emit openFolderTriggered();
                                            emit fileActionTriggered(FileAction::OpenFolder);
-                                       });
+                                       }, "File.OpenFolder");
     m_openRemoteAct = createIconAction(":/icons/File/open.svg", tr("Open Remote File..."), QKeySequence(),
                                        [this]()
                                        {
                                            emit openRemoteTriggered();
                                            emit fileActionTriggered(FileAction::OpenRemote);
-                                       });
+                                       }, "File.OpenRemote");
     m_openRemoteFolderAct = createIconAction(":/icons/File/openfolder.svg", tr("Open Remote Folder..."), QKeySequence(),
                                              [this]()
                                              {
                                                  emit openRemoteFolderTriggered();
                                                  emit fileActionTriggered(FileAction::OpenRemoteFolder);
-                                             });
+                                             }, "File.OpenRemoteFolder");
     m_saveAct = createIconAction(":/icons/File/save.svg", tr("Save"), QKeySequence::Save,
                                  [this]()
                                  {
                                      emit saveFileTriggered();
                                      emit fileActionTriggered(FileAction::Save);
-                                 });
+                                 }, "File.Save");
     m_saveAsAct = createIconAction(":/icons/File/saveas.svg", tr("Save As..."), QKeySequence("Ctrl+Alt+S"),
                                    [this]()
                                    {
                                        emit saveFileAsTriggered();
                                        emit fileActionTriggered(FileAction::SaveAs);
-                                   });
+                                   }, "File.SaveAs");
     m_saveAllAct = createIconAction(":/icons/File/saveall.svg", tr("Save All"), QKeySequence("Ctrl+Shift+S"),
                                     [this]()
                                     {
                                         emit saveAllTriggered();
                                         emit fileActionTriggered(FileAction::SaveAll);
-                                    });
+                                    }, "File.SaveAll");
     m_revertAct = createIconAction(":/icons/File/revert.svg", tr("Revert"), QKeySequence(),
                                    [this]()
                                    {
                                        emit revertTriggered();
                                        emit fileActionTriggered(FileAction::Revert);
-                                   });
+                                   }, "File.Revert");
     m_readOnlyAct = new QAction(QIcon(":/icons/File/readonly.svg"), tr("Read Only"), this);
     m_readOnlyAct->setCheckable(true);
     connect(m_readOnlyAct, &QAction::triggered, this,
@@ -134,31 +138,32 @@ void ActionManager::createFileActions()
                 emit toggleReadOnlyTriggered();
                 emit documentActionTriggered(DocumentAction::ReadOnly);
             });
-    m_printAct = createIconAction(":/icons/File/print.svg", tr("Print"), QKeySequence::Print, [this]() { emit printFileTriggered(); });
+    registerAction(m_readOnlyAct, "File.ReadOnly");
+    m_printAct = createIconAction(":/icons/File/print.svg", tr("Print"), QKeySequence::Print, [this]() { emit printFileTriggered(); }, "File.Print");
     m_pageSetupAct = createIconAction(":/icons/File/pagesetup.svg", tr("Page Setup..."), QKeySequence(),
                                       [this]()
                                       {
                                           emit pageSetupTriggered();
                                           emit documentActionTriggered(DocumentAction::PageSetup);
-                                      });
+                                      }, "File.PageSetup");
     m_printPreviewAct = createIconAction(":/icons/File/printpreview.svg", tr("Print Preview..."), QKeySequence(),
                                          [this]()
                                          {
                                              emit printPreviewTriggered();
                                              emit documentActionTriggered(DocumentAction::PrintPreview);
-                                         });
+                                         }, "File.PrintPreview");
     m_closeAct = createIconAction(":/icons/File/close.svg", tr("Close Editor"), QKeySequence("Ctrl+W"),
                                   [this]()
                                   {
                                       emit closeCurrentTabTriggered();
                                       emit fileActionTriggered(FileAction::CloseTab);
-                                  });
+                                  }, "File.CloseTab");
     m_closeAllAct = createIconAction(":/icons/File/closeall.svg", tr("Close All"), QKeySequence("Ctrl+Alt+W"),
                                      [this]()
                                      {
                                          emit closeAllTabsTriggered();
                                          emit fileActionTriggered(FileAction::CloseAllTabs);
-                                     });
+                                     }, "File.CloseAllTabs");
     m_closeProjectAct = new QAction(QIcon(":/icons/File/closefolder.svg"), tr("Close Folder"), this);
     connect(m_closeProjectAct, &QAction::triggered, this,
             [this]()
@@ -166,12 +171,13 @@ void ActionManager::createFileActions()
                 emit closeProjectTriggered();
                 emit fileActionTriggered(FileAction::CloseProject);
             });
+    registerAction(m_closeProjectAct, "File.CloseProject");
     m_exitAct = createIconAction(":/icons/File/closewindow.svg", tr("Close Window"), QKeySequence("Ctrl+Shift+W"),
                                  [this]()
                                  {
                                      emit exitTriggered();
                                      emit fileActionTriggered(FileAction::Exit);
-                                 });
+                                 }, "File.Exit");
 }
 
 void ActionManager::createEditActions()
@@ -181,85 +187,85 @@ void ActionManager::createEditActions()
                                  {
                                      emit undoTriggered();
                                      emit editActionTriggered(EditAction::Undo);
-                                 });
+                                 }, "Edit.Undo");
     m_redoAct = createIconAction(":/icons/Edit/redo.svg", tr("Redo"), QKeySequence::Redo,
                                  [this]()
                                  {
                                      emit redoTriggered();
                                      emit editActionTriggered(EditAction::Redo);
-                                 });
+                                 }, "Edit.Redo");
     m_cutAct = createIconAction(":/icons/Edit/cut.svg", tr("Cut"), QKeySequence::Cut,
                                 [this]()
                                 {
                                     emit cutTriggered();
                                     emit editActionTriggered(EditAction::Cut);
-                                });
+                                }, "Edit.Cut");
     m_copyAct = createIconAction(":/icons/Edit/copy.svg", tr("Copy"), QKeySequence::Copy,
                                  [this]()
                                  {
                                      emit copyTriggered();
                                      emit editActionTriggered(EditAction::Copy);
-                                 });
+                                 }, "Edit.Copy");
     m_pasteAct = createIconAction(":/icons/Edit/paste.svg", tr("Paste"), QKeySequence::Paste,
                                   [this]()
                                   {
                                       emit pasteTriggered();
                                       emit editActionTriggered(EditAction::Paste);
-                                  });
+                                  }, "Edit.Paste");
     m_deleteAct = createIconAction(":/icons/Edit/delete.svg", tr("Delete"), QKeySequence::Delete,
                                    [this]()
                                    {
                                        emit deleteTriggered();
                                        emit editActionTriggered(EditAction::Delete);
-                                   });
+                                   }, "Edit.Delete");
     m_selectAllAct = createIconAction(":/icons/Edit/selectall.svg", tr("Select All"), QKeySequence::SelectAll,
                                       [this]()
                                       {
                                           emit selectAllTriggered();
                                           emit editActionTriggered(EditAction::SelectAll);
-                                      });
+                                      }, "Edit.SelectAll");
     m_findAct = createIconAction(":/icons/Edit/find.svg", tr("Find..."), QKeySequence::Find,
                                  [this]()
                                  {
                                      emit findTriggered();
                                      emit editActionTriggered(EditAction::Find);
-                                 });
+                                 }, "Edit.Find");
     m_replaceAct = createIconAction(":/icons/Edit/replace.svg", tr("Replace..."), QKeySequence("Ctrl+H"),
                                     [this]()
                                     {
                                         emit replaceTriggered();
                                         emit editActionTriggered(EditAction::Replace);
-                                    });
+                                    }, "Edit.Replace");
     m_findInFilesAct = createIconAction(":/icons/Edit/findinfiles.svg", tr("Find In Files..."), QKeySequence("Ctrl+Shift+F"),
                                         [this]()
                                         {
                                             emit findInFilesTriggered();
                                             emit editActionTriggered(EditAction::FindInFiles);
-                                        });
+                                        }, "Edit.FindInFiles");
     m_goToAct = createIconAction(":/icons/Edit/goto.svg", tr("Go To Line..."), QKeySequence("Ctrl+G"),
                                  [this]()
                                  {
                                      emit goToLineTriggered();
                                      emit editActionTriggered(EditAction::GoToLine);
-                                 });
+                                 }, "Edit.GoToLine");
     m_formatSelectionAct = createIconAction(":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Ctrl+Shift+F"),
                                             [this]()
                                             {
                                                 emit formatSelectionTriggered();
                                                 emit editActionTriggered(EditAction::FormatSelection);
-                                            });
+                                            }, "Edit.FormatSelection");
     m_insertSnippetAct = createIconAction(":/icons/Edit/insertsnippet.svg", tr("Insert Snippet..."), QKeySequence("Ctrl+Shift+I"),
                                           [this]()
                                           {
                                               emit insertSnippetTriggered();
                                               emit documentActionTriggered(DocumentAction::InsertSnippet);
-                                          });
+                                          }, "Edit.InsertSnippet");
     m_toggleCommentAct = createIconAction(":/icons/Edit/togglecomment.svg", tr("Toggle Comment"), QKeySequence("Ctrl+/"),
                                           [this]()
                                           {
                                               emit toggleCommentTriggered();
                                               emit editActionTriggered(EditAction::ToggleComment);
-                                          });
+                                          }, "Edit.ToggleComment");
     // Both need an editable editor; EditorController::updateUndoRedoState() enables
     // them once one is available.
     m_insertSnippetAct->setEnabled(false);
@@ -271,6 +277,7 @@ void ActionManager::createBookmarkActions()
     m_toggleBookmarkAct = new QAction(QIcon(":/icons/Edit/togglebookmark.svg"), tr("Toggle Bookmark"), this);
     m_toggleBookmarkAct->setShortcut(QKeySequence("Ctrl+F2"));
     m_actionsWithShortcuts.append(m_toggleBookmarkAct);
+    registerAction(m_toggleBookmarkAct, "Bookmark.Toggle");
     connect(m_toggleBookmarkAct, &QAction::triggered, this,
             [this]()
             {
@@ -280,6 +287,7 @@ void ActionManager::createBookmarkActions()
     m_nextBookmarkAct = new QAction(QIcon(":/icons/Edit/bookmarknext.svg"), tr("Next Bookmark"), this);
     m_nextBookmarkAct->setShortcut(QKeySequence("F2"));
     m_actionsWithShortcuts.append(m_nextBookmarkAct);
+    registerAction(m_nextBookmarkAct, "Bookmark.Next");
     connect(m_nextBookmarkAct, &QAction::triggered, this,
             [this]()
             {
@@ -289,6 +297,7 @@ void ActionManager::createBookmarkActions()
     m_prevBookmarkAct = new QAction(QIcon(":/icons/Edit/bookmarkprevious.svg"), tr("Previous Bookmark"), this);
     m_prevBookmarkAct->setShortcut(QKeySequence("Shift+F2"));
     m_actionsWithShortcuts.append(m_prevBookmarkAct);
+    registerAction(m_prevBookmarkAct, "Bookmark.Previous");
     connect(m_prevBookmarkAct, &QAction::triggered, this,
             [this]()
             {
@@ -298,6 +307,7 @@ void ActionManager::createBookmarkActions()
     m_clearBookmarksAct = new QAction(QIcon(":/icons/Common/clear.svg"), tr("Clear All Bookmarks"), this);
     m_clearBookmarksAct->setShortcut(QKeySequence("Ctrl+Shift+F2"));
     m_actionsWithShortcuts.append(m_clearBookmarksAct);
+    registerAction(m_clearBookmarksAct, "Bookmark.Clear");
     connect(m_clearBookmarksAct, &QAction::triggered, this,
             [this]()
             {
@@ -313,49 +323,52 @@ void ActionManager::createLspActions()
                                            {
                                                emit goToDefinitionTriggered();
                                                emit lspActionTriggered(LspAction::GoToDefinition);
-                                           });
+                                           }, "LSP.GoToDefinition");
     m_goToTypeDefinitionAct = createIconAction(":/icons/Edit/goto.svg", tr("Go to Type Definition"), QKeySequence("Ctrl+F12"),
                                                [this]()
                                                {
                                                    emit goToTypeDefinitionTriggered();
                                                    emit lspActionTriggered(LspAction::GoToTypeDefinition);
-                                               });
+                                               }, "LSP.GoToTypeDefinition");
     m_goToDeclarationAct = createIconAction(":/icons/Edit/goto.svg", tr("Go to Declaration"), QKeySequence("Ctrl+Shift+F12"),
                                             [this]()
                                             {
                                                 emit goToDeclarationTriggered();
                                                 emit lspActionTriggered(LspAction::GoToDeclaration);
-                                            });
+                                            }, "LSP.GoToDeclaration");
     m_findReferencesAct = createIconAction(":/icons/Edit/find.svg", tr("Find References"), QKeySequence("Shift+F12"),
                                            [this]()
                                            {
                                                emit findReferencesTriggered();
                                                emit lspActionTriggered(LspAction::FindReferences);
-                                           });
+                                           }, "LSP.FindReferences");
     m_triggerCompletionAct = createIconAction(":/icons/Edit/find.svg", tr("Trigger Completion"), QKeySequence("Ctrl+Space"),
                                               [this]()
                                               {
                                                   emit triggerCompletionTriggered();
                                                   emit lspActionTriggered(LspAction::TriggerCompletion);
-                                              });
+                                              }, "LSP.TriggerCompletion");
     m_renameSymbolAct = createIconAction(":/icons/Common/rename.svg", tr("Rename Symbol"), QKeySequence("Ctrl+Shift+R"),
                                          [this]()
                                          {
                                              emit renameSymbolTriggered();
                                              emit lspActionTriggered(LspAction::RenameSymbol);
-                                         });
+                                         }, "LSP.RenameSymbol");
 
     m_findSymbolsAct = new QAction(tr("Find Symbol..."), this);
     connect(m_findSymbolsAct, &QAction::triggered, this, [this]() { emit findSymbolsTriggered(); });
+    registerAction(m_findSymbolsAct, "LSP.FindSymbols");
 
     m_expandSelectionAct = new QAction(tr("Expand Selection"), this);
     m_expandSelectionAct->setShortcut(QKeySequence("Ctrl+Shift+="));
     m_actionsWithShortcuts.append(m_expandSelectionAct);
+    registerAction(m_expandSelectionAct, "LSP.ExpandSelection");
     connect(m_expandSelectionAct, &QAction::triggered, this, [this]() { emit expandSelectionTriggered(); });
 
     m_shrinkSelectionAct = new QAction(tr("Shrink Selection"), this);
     m_shrinkSelectionAct->setShortcut(QKeySequence("Ctrl+Shift+-"));
     m_actionsWithShortcuts.append(m_shrinkSelectionAct);
+    registerAction(m_shrinkSelectionAct, "LSP.ShrinkSelection");
     connect(m_shrinkSelectionAct, &QAction::triggered, this, [this]() { emit shrinkSelectionTriggered(); });
 }
 
@@ -366,19 +379,19 @@ void ActionManager::createViewActions()
                                    {
                                        emit zoomInTriggered();
                                        emit viewActionTriggered(ViewAction::ZoomIn);
-                                   });
+                                   }, "View.ZoomIn");
     m_zoomOutAct = createIconAction(":/icons/View/zoomout.svg", tr("Zoom Out"), QKeySequence("Ctrl+-"),
                                     [this]()
                                     {
                                         emit zoomOutTriggered();
                                         emit viewActionTriggered(ViewAction::ZoomOut);
-                                    });
+                                    }, "View.ZoomOut");
     m_zoomResetAct = createIconAction(":/icons/View/zoomreset.svg", tr("Reset Zoom"), QKeySequence("Ctrl+0"),
                                       [this]()
                                       {
                                           emit zoomResetTriggered();
                                           emit viewActionTriggered(ViewAction::ZoomReset);
-                                      });
+                                      }, "View.ZoomReset");
     m_fullScreenAct = createIconAction(":/icons/View/fullscreen.svg", tr("Fullscreen"),
 #ifdef Q_OS_MACOS
                                        QKeySequence(),
@@ -389,12 +402,13 @@ void ActionManager::createViewActions()
                                        {
                                            emit toggleFullScreenTriggered();
                                            emit viewActionTriggered(ViewAction::FullScreen);
-                                       });
+                                       }, "View.Fullscreen");
     m_projectPanelAct = new QAction(QIcon(":/icons/Common/folder.svg"), tr("Project Panel"), this);
     m_projectPanelAct->setCheckable(true);
     m_projectPanelAct->setChecked(false);
     m_projectPanelAct->setShortcut(QKeySequence("Ctrl+B"));
     m_actionsWithShortcuts.append(m_projectPanelAct);
+    registerAction(m_projectPanelAct, "View.ProjectPanel");
     connect(m_projectPanelAct, &QAction::triggered, this,
             [this]()
             {
@@ -406,6 +420,7 @@ void ActionManager::createViewActions()
     m_terminalPanelAct->setChecked(false);
     m_terminalPanelAct->setShortcut(QKeySequence("Ctrl+`"));
     m_actionsWithShortcuts.append(m_terminalPanelAct);
+    registerAction(m_terminalPanelAct, "View.TerminalPanel");
     connect(m_terminalPanelAct, &QAction::triggered, this,
             [this]()
             {
@@ -415,10 +430,12 @@ void ActionManager::createViewActions()
     m_errorListPanelAct = new QAction(QIcon(":/icons/View/error.svg"), tr("Error List"), this);
     m_errorListPanelAct->setCheckable(true);
     m_errorListPanelAct->setChecked(false);
+    registerAction(m_errorListPanelAct, "View.ErrorList");
     connect(m_errorListPanelAct, &QAction::triggered, this, [this]() { emit toggleErrorListPanelTriggered(); });
 
     m_menuBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Menu Bar\tCtrl+Alt+M"), this);
     m_menuBarAct->setCheckable(true);
+    registerAction(m_menuBarAct, "View.MenuBar");
     connect(m_menuBarAct, &QAction::triggered, this,
             [this]()
             {
@@ -428,6 +445,7 @@ void ActionManager::createViewActions()
 
     m_toolBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Toolbar"), this);
     m_toolBarAct->setCheckable(true);
+    registerAction(m_toolBarAct, "View.ToolBar");
     connect(m_toolBarAct, &QAction::triggered, this,
             [this]()
             {
@@ -437,6 +455,7 @@ void ActionManager::createViewActions()
 
     m_statusBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Status Bar"), this);
     m_statusBarAct->setCheckable(true);
+    registerAction(m_statusBarAct, "View.StatusBar");
     connect(m_statusBarAct, &QAction::triggered, this,
             [this]()
             {
@@ -448,22 +467,123 @@ void ActionManager::createViewActions()
     m_menuTitlebarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Menu in Titlebar"), this);
     m_menuTitlebarAct->setCheckable(true);
     m_menuTitlebarAct->setChecked(SettingsManager::instance().showMenuInTitlebar());
+    registerAction(m_menuTitlebarAct, "View.MenuTitlebar");
     connect(m_menuTitlebarAct, &QAction::triggered, this, [this]() { emit toggleMenuTitlebarTriggered(); });
 #endif
 }
 
 void ActionManager::createHelpActions()
 {
-    m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options"), QKeySequence(), [this]() { emit optionsTriggered(); });
+    m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options"), QKeySequence(), [this]() { emit optionsTriggered(); }, "Help.Options");
 #ifdef Q_OS_MACOS
     m_optionsAct->setMenuRole(QAction::PreferencesRole);
 #endif
 
-    m_donateAct = createIconAction(":/icons/Help/donate.svg", tr("Donate"), QKeySequence(), [this]() { emit donateTriggered(); });
-    m_websiteAct = createIconAction(":/icons/Help/website.svg", tr("Website"), QKeySequence(), [this]() { emit websiteTriggered(); });
-    m_aboutAct = createIconAction(":/icons/Help/about.svg", tr("About"), QKeySequence(), [this]() { emit aboutTriggered(); });
+    m_donateAct = createIconAction(":/icons/Help/donate.svg", tr("Donate"), QKeySequence(), [this]() { emit donateTriggered(); }, "Help.Donate");
+    m_websiteAct = createIconAction(":/icons/Help/website.svg", tr("Website"), QKeySequence(), [this]() { emit websiteTriggered(); }, "Help.Website");
+    m_aboutAct = createIconAction(":/icons/Help/about.svg", tr("About"), QKeySequence(), [this]() { emit aboutTriggered(); }, "Help.About");
     m_checkForUpdatesAct =
-        createIconAction(":/icons/Help/update.svg", tr("Check for Updates"), QKeySequence(), [this]() { emit checkForUpdatesTriggered(); });
+        createIconAction(":/icons/Help/update.svg", tr("Check for Updates"), QKeySequence(), [this]() { emit checkForUpdatesTriggered(); }, "Help.CheckForUpdates");
+}
+
+void ActionManager::registerAction(QAction* action, const QString& actionId)
+{
+    if (!action || actionId.isEmpty())
+        return;
+
+    // Remove any previous registration for this action or ID.
+    if (m_actionIds.contains(action))
+    {
+        QString oldId = m_actionIds.value(action);
+        m_actionsById.remove(oldId);
+    }
+    m_actionsById.remove(actionId);
+
+    m_actionIds.insert(action, actionId);
+    m_actionsById.insert(actionId, action);
+}
+
+void ActionManager::applyStoredShortcuts()
+{
+    for (auto it = m_actionsById.constBegin(); it != m_actionsById.constEnd(); ++it)
+    {
+        const QString& actionId = it.key();
+        QAction* action = it.value();
+        QString stored = SettingsManager::instance().shortcutForAction(actionId);
+        if (!stored.isEmpty())
+        {
+            QKeySequence ks(stored);
+            action->setShortcut(ks);
+            if (!ks.isEmpty())
+            {
+                m_actionsWithShortcuts.removeAll(action);
+                m_actionsWithShortcuts.append(action);
+            }
+        }
+    }
+    emit actionsWithShortcutsChanged();
+}
+
+QString ActionManager::actionId(QAction* action) const
+{
+    return m_actionIds.value(action, QString());
+}
+
+QAction* ActionManager::actionForId(const QString& actionId) const
+{
+    return m_actionsById.value(actionId, nullptr);
+}
+
+QList<QPair<QString, QKeySequence>> ActionManager::shortcuts() const
+{
+    QList<QPair<QString, QKeySequence>> result;
+    for (auto it = m_actionsById.constBegin(); it != m_actionsById.constEnd(); ++it)
+        result.append({it.key(), it.value()->shortcut()});
+    std::sort(result.begin(), result.end(),
+              [](const QPair<QString, QKeySequence>& a, const QPair<QString, QKeySequence>& b)
+              { return a.first < b.first; });
+    return result;
+}
+
+void ActionManager::setShortcut(const QString& actionId, const QKeySequence& shortcut)
+{
+    QAction* action = m_actionsById.value(actionId);
+    if (!action)
+        return;
+
+    action->setShortcut(shortcut);
+    if (!shortcut.isEmpty())
+        SettingsManager::instance().setShortcutForAction(actionId, shortcut.toString());
+    else
+        SettingsManager::instance().resetShortcutForAction(actionId);
+
+    // Refresh the m_actionsWithShortcuts list.
+    m_actionsWithShortcuts.removeAll(action);
+    if (!shortcut.isEmpty())
+        m_actionsWithShortcuts.append(action);
+
+    emit actionsWithShortcutsChanged();
+    emit shortcutChanged(actionId, shortcut);
+}
+
+void ActionManager::resetShortcut(const QString& actionId)
+{
+    QAction* action = m_actionsById.value(actionId);
+    if (!action)
+        return;
+
+    SettingsManager::instance().resetShortcutForAction(actionId);
+
+    // Restore the built-in default shortcut.
+    QKeySequence def = m_defaultShortcuts.value(actionId);
+    action->setShortcut(def);
+
+    m_actionsWithShortcuts.removeAll(action);
+    if (!def.isEmpty())
+        m_actionsWithShortcuts.append(action);
+
+    emit actionsWithShortcutsChanged();
+    emit shortcutChanged(actionId, def);
 }
 
 void ActionManager::buildMenus(QMenuBar* menuBar)

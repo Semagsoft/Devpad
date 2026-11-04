@@ -976,6 +976,25 @@ void SettingsManager::resetToDefaults()
     Logger::instance().info("All settings reset to defaults");
 }
 
+// ── Keyboard shortcuts ───────────────────────────────────────
+
+QString SettingsManager::shortcutForAction(const QString& actionId) const
+{
+    return m_settings.value(QString("Shortcuts/%1").arg(actionId)).toString();
+}
+
+void SettingsManager::setShortcutForAction(const QString& actionId, const QString& shortcut)
+{
+    m_settings.setValue(QString("Shortcuts/%1").arg(actionId), shortcut);
+    emit settingsChanged();
+}
+
+void SettingsManager::resetShortcutForAction(const QString& actionId)
+{
+    m_settings.remove(QString("Shortcuts/%1").arg(actionId));
+    emit settingsChanged();
+}
+
 // ── Plugin-scoped settings ─────────────────────────────────────
 
 QString SettingsManager::pluginGroup(const QString& pluginId)
