@@ -29,10 +29,13 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QLoggingCategory>
+#include <QProcess>
 #include <QTextStream>
 #include <array>
 #include <cstdlib>
 #include <iostream>
+
+#include "logger.h"
 
 #ifdef Q_OS_UNIX
 #include <csignal>
@@ -265,11 +268,45 @@ int main(int argc, char* argv[])
 
     MainWindow mainWindow;
 
+    // Helpers to honor the shell open mode settings when files/folders are
+    // passed on the command line. NewWindow launches a detached Devpad window;
+    // CurrentWindow opens in the existing window.
+    const auto openFileFromShell = [&](const QString& path)
+    {
+        if (SettingsManager::instance().shellOpenModeFiles() == ShellOpenMode::NewWindow)
+        {
+            const QString appPath = QApplication::applicationFilePath();
+            if (!QProcess::startDetached(appPath, QStringList() << path))
+            {
+                Logger::instance().error(QString("Failed to start detached process for: %1").arg(path));
+            }
+        }
+        else
+        {
+            mainWindow.openFileFromPath(path);
+        }
+    };
+    const auto openFolderFromShell = [&](const QString& path)
+    {
+        if (SettingsManager::instance().shellOpenModeFolders() == ShellOpenMode::NewWindow)
+        {
+            const QString appPath = QApplication::applicationFilePath();
+            if (!QProcess::startDetached(appPath, QStringList() << path))
+            {
+                Logger::instance().error(QString("Failed to start detached process for folder: %1").arg(path));
+            }
+        }
+        else
+        {
+            mainWindow.openFolderFromPath(path);
+        }
+    };
+
     if (parser.isSet(transferOpt))
     {
         const QString transferPath = parser.value(transferOpt);
         if (!transferPath.isEmpty())
-            mainWindow.openTransferFile(transferPath);
+            openFileFromShell(transferPath);
     }
 
     // Legacy --transfer positional handling for drag-detached tabs
@@ -279,7 +316,7 @@ int main(int argc, char* argv[])
         QString arg = positional.at(i);
         if (arg == QStringLiteral("--transfer") && i + 1 < positional.size())
         {
-            mainWindow.openTransferFile(positional.at(++i));
+            openFileFromShell(positional.at(++i));
             continue;
         }
         QString filePath = arg;
@@ -288,9 +325,9 @@ int main(int argc, char* argv[])
 
         QFileInfo fileInfo(filePath);
         if (fileInfo.isFile())
-            mainWindow.openFileFromPath(filePath);
+            openFileFromShell(filePath);
         else if (fileInfo.isDir())
-            mainWindow.openFolderFromPath(filePath);
+            openFolderFromShell(filePath);
     }
 
     // Clean up auto-save backups that will never be prompted for again:

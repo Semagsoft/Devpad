@@ -119,6 +119,8 @@ private:
     QCheckBox* useGitIgnoreCheckBox = nullptr;
     QComboBox* projectPanelPositionComboBox = nullptr;
     QComboBox* projectFileOpenComboBox = nullptr;
+    QComboBox* shellOpenFilesComboBox = nullptr;
+    QComboBox* shellOpenFoldersComboBox = nullptr;
     ThemePreviewWidget* themePreview = nullptr;
     QPushButton* accentColorButton = nullptr;
     QPushButton* resetButton = nullptr;

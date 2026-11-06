@@ -68,6 +68,24 @@ Dialog {
                                             Layout.fillWidth: true
                                         }
                                     }
+                                    RowLayout {
+                                        Label { text: qsTr("Open files from shell:"); Layout.preferredWidth: 140 }
+                                        ComboBox {
+                                            Layout.fillWidth: true
+                                            model: [qsTr("New window"), qsTr("Current window")]
+                                            currentIndex: actions ? actions.shellOpenModeFiles : 0
+                                            onActivated: (i) => { if (actions) actions.setShellOpenModeFiles(i) }
+                                        }
+                                    }
+                                    RowLayout {
+                                        Label { text: qsTr("Open folders from shell:"); Layout.preferredWidth: 140 }
+                                        ComboBox {
+                                            Layout.fillWidth: true
+                                            model: [qsTr("New window"), qsTr("Current window")]
+                                            currentIndex: actions ? actions.shellOpenModeFolders : 0
+                                            onActivated: (i) => { if (actions) actions.setShellOpenModeFolders(i) }
+                                        }
+                                    }
                                 }
                             }
 

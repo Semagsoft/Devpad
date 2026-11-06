@@ -52,6 +52,9 @@ class NextgenActions : public QObject
     Q_PROPERTY(bool useGitIgnore READ useGitIgnore WRITE setUseGitIgnore NOTIFY settingsChanged)
     Q_PROPERTY(bool autoSaveEnabled READ autoSaveEnabled WRITE setAutoSaveEnabled NOTIFY settingsChanged)
     Q_PROPERTY(int autoSaveInterval READ autoSaveInterval WRITE setAutoSaveInterval NOTIFY settingsChanged)
+    // ── Shell open modes ──
+    Q_PROPERTY(int shellOpenModeFiles READ shellOpenModeFiles WRITE setShellOpenModeFiles NOTIFY settingsChanged)
+    Q_PROPERTY(int shellOpenModeFolders READ shellOpenModeFolders WRITE setShellOpenModeFolders NOTIFY settingsChanged)
     // ── Editor behavior settings ──
     Q_PROPERTY(bool scrollPastEnd READ scrollPastEnd WRITE setScrollPastEnd NOTIFY settingsChanged)
     Q_PROPERTY(bool showWhitespace READ showWhitespace WRITE setShowWhitespace NOTIFY settingsChanged)
@@ -126,6 +129,10 @@ public:
     Q_INVOKABLE void setDefaultFontFamily(const QString& family);
     Q_INVOKABLE int startupMode() const;
     Q_INVOKABLE void setStartupMode(int mode);
+    Q_INVOKABLE int shellOpenModeFiles() const;
+    Q_INVOKABLE void setShellOpenModeFiles(int mode);
+    Q_INVOKABLE int shellOpenModeFolders() const;
+    Q_INVOKABLE void setShellOpenModeFolders(int mode);
     Q_INVOKABLE int cursorStyle() const;
     Q_INVOKABLE void setCursorStyle(int style);
     Q_INVOKABLE bool cursorBlinking() const;

@@ -109,6 +109,36 @@ TEST_F(SettingsManagerTest, FileOpenModeSetAndGet)
     EXPECT_EQ(SettingsManager::instance().fileOpenMode(), FileOpenMode::SingleClick);
 }
 
+TEST_F(SettingsManagerTest, ShellOpenModeFilesDefaultIsNewWindow)
+{
+    EXPECT_EQ(SettingsManager::instance().shellOpenModeFiles(), ShellOpenMode::NewWindow);
+}
+
+TEST_F(SettingsManagerTest, ShellOpenModeFoldersDefaultIsNewWindow)
+{
+    EXPECT_EQ(SettingsManager::instance().shellOpenModeFolders(), ShellOpenMode::NewWindow);
+}
+
+TEST_F(SettingsManagerTest, ShellOpenModeFilesSetAndGet)
+{
+    SettingsManager::instance().setShellOpenModeFiles(ShellOpenMode::CurrentWindow);
+    EXPECT_EQ(SettingsManager::instance().shellOpenModeFiles(), ShellOpenMode::CurrentWindow);
+    EXPECT_EQ(SettingsManager::instance().uiSettings().shellOpenModeFiles, ShellOpenMode::CurrentWindow);
+
+    SettingsManager::instance().setShellOpenModeFiles(ShellOpenMode::NewWindow);
+    EXPECT_EQ(SettingsManager::instance().shellOpenModeFiles(), ShellOpenMode::NewWindow);
+}
+
+TEST_F(SettingsManagerTest, ShellOpenModeFoldersSetAndGet)
+{
+    SettingsManager::instance().setShellOpenModeFolders(ShellOpenMode::CurrentWindow);
+    EXPECT_EQ(SettingsManager::instance().shellOpenModeFolders(), ShellOpenMode::CurrentWindow);
+    EXPECT_EQ(SettingsManager::instance().uiSettings().shellOpenModeFolders, ShellOpenMode::CurrentWindow);
+
+    SettingsManager::instance().setShellOpenModeFolders(ShellOpenMode::NewWindow);
+    EXPECT_EQ(SettingsManager::instance().shellOpenModeFolders(), ShellOpenMode::NewWindow);
+}
+
 TEST_F(SettingsManagerTest, DefaultSyntaxLanguagesNonEmpty)
 {
     auto langs = defaultSyntaxLanguages();

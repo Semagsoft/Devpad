@@ -77,6 +77,11 @@ enum class FileOpenMode
     SingleClick = 0,
     DoubleClick = 1
 };
+enum class ShellOpenMode
+{
+    NewWindow = 0,
+    CurrentWindow = 1
+};
 
 // SettingsManager is intentionally a true singleton (not parented to MainWindow)
 // because it is accessed from many contexts (CodeEditor, dialogs, panels, etc.)
@@ -133,6 +138,8 @@ public:
         bool checkForUpdatesEnabled = false;
         QString uiFontFamily = "Sans Serif";
         int uiFontSize = 10;
+        ShellOpenMode shellOpenModeFiles = ShellOpenMode::NewWindow;
+        ShellOpenMode shellOpenModeFolders = ShellOpenMode::NewWindow;
     };
 
     struct TerminalSettings
@@ -265,6 +272,12 @@ public:
     void setShowStatusbar(bool visible);
     void setUiFontFamily(const QString& family);
     void setUiFontSize(int size);
+
+    // ── Shell open modes ─────────────────────────────────────────
+    ShellOpenMode shellOpenModeFiles() const;
+    void setShellOpenModeFiles(ShellOpenMode mode);
+    ShellOpenMode shellOpenModeFolders() const;
+    void setShellOpenModeFolders(ShellOpenMode mode);
 
     // ── Terminal settings ──────────────────────────────────────
     TerminalSettings terminalSettings() const;

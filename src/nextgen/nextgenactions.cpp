@@ -571,6 +571,25 @@ void NextgenActions::setStartupMode(int mode)
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(mode));
     emit settingsChanged();
 }
+
+int NextgenActions::shellOpenModeFiles() const
+{
+    return static_cast<int>(SettingsManager::instance().shellOpenModeFiles());
+}
+void NextgenActions::setShellOpenModeFiles(int mode)
+{
+    SettingsManager::instance().setShellOpenModeFiles(static_cast<ShellOpenMode>(mode));
+    emit settingsChanged();
+}
+int NextgenActions::shellOpenModeFolders() const
+{
+    return static_cast<int>(SettingsManager::instance().shellOpenModeFolders());
+}
+void NextgenActions::setShellOpenModeFolders(int mode)
+{
+    SettingsManager::instance().setShellOpenModeFolders(static_cast<ShellOpenMode>(mode));
+    emit settingsChanged();
+}
 bool NextgenActions::showHiddenFiles() const
 {
     return SettingsManager::instance().showHiddenFiles();

@@ -204,6 +204,15 @@ void OptionsDialog::setupGeneralTab()
     startupLayout->addRow(tr("Startup mode:"), startupComboBox);
     checkForUpdatesCheckBox = new QCheckBox(tr("Check for updates on startup"), startupGroup);
     startupLayout->addRow(checkForUpdatesCheckBox);
+
+    shellOpenFilesComboBox = new QComboBox(startupGroup);
+    shellOpenFilesComboBox->addItems({tr("New window"), tr("Current window")});
+    startupLayout->addRow(tr("Open files from shell:"), shellOpenFilesComboBox);
+
+    shellOpenFoldersComboBox = new QComboBox(startupGroup);
+    shellOpenFoldersComboBox->addItems({tr("New window"), tr("Current window")});
+    startupLayout->addRow(tr("Open folders from shell:"), shellOpenFoldersComboBox);
+
     mainLayout->addWidget(startupGroup);
 
     QGroupBox* defaultsGroup = new QGroupBox(tr("Defaults"), content);
@@ -888,6 +897,8 @@ void OptionsDialog::loadSettings()
     const auto& s = SettingsManager::instance();
     startupComboBox->setCurrentIndex(static_cast<int>(s.startupMode()));
     checkForUpdatesCheckBox->setChecked(s.checkForUpdatesEnabled());
+    shellOpenFilesComboBox->setCurrentIndex(static_cast<int>(s.shellOpenModeFiles()));
+    shellOpenFoldersComboBox->setCurrentIndex(static_cast<int>(s.shellOpenModeFolders()));
     m_accentColor = s.accentColor();
     if (m_accentColor.isValid())
     {
@@ -1007,6 +1018,8 @@ void OptionsDialog::saveSettings()
     }
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(startupComboBox->currentIndex()));
     SettingsManager::instance().setCheckForUpdatesEnabled(checkForUpdatesCheckBox->isChecked());
+    SettingsManager::instance().setShellOpenModeFiles(static_cast<ShellOpenMode>(shellOpenFilesComboBox->currentIndex()));
+    SettingsManager::instance().setShellOpenModeFolders(static_cast<ShellOpenMode>(shellOpenFoldersComboBox->currentIndex()));
     if (m_accentColor.isValid())
         SettingsManager::instance().setAccentColor(m_accentColor);
     else

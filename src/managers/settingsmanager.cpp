@@ -192,6 +192,10 @@ void SettingsManager::loadCache()
     m_cache.ui.uiFontFamily = m_settings.value("Options_UIFont", "Sans Serif").toString();
     m_cache.ui.uiFontSize = m_settings.value("Options_UIFontSize", 10).toInt();
     m_cache.ui.checkForUpdatesEnabled = m_settings.value("Options_CheckForUpdatesEnabled", true).toBool();
+    m_cache.ui.shellOpenModeFiles =
+        readEnum("Options_ShellOpenModeFiles", ShellOpenMode::NewWindow, ShellOpenMode::NewWindow, ShellOpenMode::CurrentWindow);
+    m_cache.ui.shellOpenModeFolders =
+        readEnum("Options_ShellOpenModeFolders", ShellOpenMode::NewWindow, ShellOpenMode::NewWindow, ShellOpenMode::CurrentWindow);
 
     m_cache.terminal.terminalPanelPosition =
         readEnum("Options_TerminalPanelPosition", TerminalPanelPosition::Bottom, TerminalPanelPosition::Bottom, TerminalPanelPosition::Tab);
@@ -663,6 +667,16 @@ void SettingsManager::setUiFontFamily(const QString& family)
 void SettingsManager::setUiFontSize(int size)
 {
     writeCached("Options_UIFontSize", m_cache.ui.uiFontSize, size);
+}
+ShellOpenMode SettingsManager::shellOpenModeFiles() const { return m_cache.ui.shellOpenModeFiles; }
+void SettingsManager::setShellOpenModeFiles(ShellOpenMode mode)
+{
+    writeCached("Options_ShellOpenModeFiles", m_cache.ui.shellOpenModeFiles, mode);
+}
+ShellOpenMode SettingsManager::shellOpenModeFolders() const { return m_cache.ui.shellOpenModeFolders; }
+void SettingsManager::setShellOpenModeFolders(ShellOpenMode mode)
+{
+    writeCached("Options_ShellOpenModeFolders", m_cache.ui.shellOpenModeFolders, mode);
 }
 void SettingsManager::setTerminalPanelPosition(TerminalPanelPosition position)
 {
