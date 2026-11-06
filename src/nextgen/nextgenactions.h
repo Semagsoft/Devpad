@@ -52,6 +52,32 @@ class NextgenActions : public QObject
     Q_PROPERTY(bool useGitIgnore READ useGitIgnore WRITE setUseGitIgnore NOTIFY settingsChanged)
     Q_PROPERTY(bool autoSaveEnabled READ autoSaveEnabled WRITE setAutoSaveEnabled NOTIFY settingsChanged)
     Q_PROPERTY(int autoSaveInterval READ autoSaveInterval WRITE setAutoSaveInterval NOTIFY settingsChanged)
+    // ── Shell open modes ──
+    Q_PROPERTY(int shellOpenModeFiles READ shellOpenModeFiles WRITE setShellOpenModeFiles NOTIFY settingsChanged)
+    Q_PROPERTY(int shellOpenModeFolders READ shellOpenModeFolders WRITE setShellOpenModeFolders NOTIFY settingsChanged)
+    // ── Editor behavior settings ──
+    Q_PROPERTY(bool scrollPastEnd READ scrollPastEnd WRITE setScrollPastEnd NOTIFY settingsChanged)
+    Q_PROPERTY(bool showWhitespace READ showWhitespace WRITE setShowWhitespace NOTIFY settingsChanged)
+    Q_PROPERTY(bool verticalEdgeEnabled READ verticalEdgeEnabled WRITE setVerticalEdgeEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(int verticalEdgeColumn READ verticalEdgeColumn WRITE setVerticalEdgeColumn NOTIFY settingsChanged)
+    // ── Accent color ──
+    Q_PROPERTY(bool hasAccentColor READ hasAccentColor NOTIFY settingsChanged)
+    Q_PROPERTY(QString accentColor READ accentColor NOTIFY settingsChanged)
+    Q_INVOKABLE QColor accentColorQml() const;
+    Q_INVOKABLE void setAccentColor(const QString& color);
+    Q_INVOKABLE void clearAccentColor();
+    Q_INVOKABLE bool hasAccentColor() const;
+    Q_INVOKABLE QString accentColor() const;
+    // ── Tab bar settings ──
+    Q_PROPERTY(int tabBarPosition READ tabBarPosition WRITE setTabBarPosition NOTIFY settingsChanged)
+    Q_PROPERTY(int closeButtonMode READ closeButtonMode WRITE setCloseButtonMode NOTIFY settingsChanged)
+    Q_PROPERTY(int tabDisplayMode READ tabDisplayMode WRITE setTabDisplayMode NOTIFY settingsChanged)
+    Q_INVOKABLE int tabBarPosition() const;
+    Q_INVOKABLE void setTabBarPosition(int position);
+    Q_INVOKABLE int closeButtonMode() const;
+    Q_INVOKABLE void setCloseButtonMode(int mode);
+    Q_INVOKABLE int tabDisplayMode() const;
+    Q_INVOKABLE void setTabDisplayMode(int mode);
     Q_PROPERTY(int externalToolCount READ externalToolCount NOTIFY externalToolsChanged)
 
 public:
@@ -103,6 +129,10 @@ public:
     Q_INVOKABLE void setDefaultFontFamily(const QString& family);
     Q_INVOKABLE int startupMode() const;
     Q_INVOKABLE void setStartupMode(int mode);
+    Q_INVOKABLE int shellOpenModeFiles() const;
+    Q_INVOKABLE void setShellOpenModeFiles(int mode);
+    Q_INVOKABLE int shellOpenModeFolders() const;
+    Q_INVOKABLE void setShellOpenModeFolders(int mode);
     Q_INVOKABLE int cursorStyle() const;
     Q_INVOKABLE void setCursorStyle(int style);
     Q_INVOKABLE bool cursorBlinking() const;
@@ -117,6 +147,16 @@ public:
     Q_INVOKABLE void setAutoSaveEnabled(bool enabled);
     Q_INVOKABLE int autoSaveInterval() const;
     Q_INVOKABLE void setAutoSaveInterval(int seconds);
+
+    // ── Editor behavior settings ──
+    Q_INVOKABLE bool scrollPastEnd() const;
+    Q_INVOKABLE void setScrollPastEnd(bool enabled);
+    Q_INVOKABLE bool showWhitespace() const;
+    Q_INVOKABLE void setShowWhitespace(bool visible);
+    Q_INVOKABLE bool verticalEdgeEnabled() const;
+    Q_INVOKABLE void setVerticalEdgeEnabled(bool enabled);
+    Q_INVOKABLE int verticalEdgeColumn() const;
+    Q_INVOKABLE void setVerticalEdgeColumn(int column);
 
     // ── External tools (QML model) ──
     Q_INVOKABLE int externalToolCount() const;
@@ -138,6 +178,7 @@ public:
 
 public slots:
     void newFile();
+    void newWindow();
     void openFile(const QString& path = QString());
     void openFileDialog();
     void openFolderDialog();
@@ -147,6 +188,8 @@ public slots:
     void saveFileAs();
     void saveFileAsDialog();
     void closeFile();
+    void closeAllTabs();
+    void closeProject();
     void exitApp();
     void undo();
     void redo();
@@ -176,6 +219,20 @@ public slots:
     void toggleTerminal();
     void findInFiles(const QString& pattern = QString());
     QString runCommand(const QString& rawCmd);
+    void printFile();
+    void printPreview();
+    void pageSetup();
+    void toggleErrorList();
+
+signals:
+    void lspReferencesRequested(const QString& filePath, int line, int character);
+    void lspFormatRequested(const QString& filePath);
+    void lspRenameRequested(const QString& filePath, int line, int character);
+    void lspCodeActionRequested(const QString& filePath, int line, int character);
+    void lspDocumentSymbolsRequested(const QString& filePath);
+
+private:
+    QString generateHighlightedHtml(PrimoEditor* editor) const;
 
 signals:
     void showToolbarChanged();
@@ -199,6 +256,7 @@ signals:
     void requestOptionsDialog();
     void requestTerminalToggle();
     void requestFindInFiles();
+    void requestErrorListToggle();
     void showMessage(const QString& msg);
     // Tab navigation (requested by command mode)
     void requestTabNext();

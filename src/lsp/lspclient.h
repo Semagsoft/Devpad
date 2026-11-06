@@ -76,6 +76,10 @@ public:
     Q_INVOKABLE void requestRename(const QString& uri, const Position& pos, const QString& newName);
     Q_INVOKABLE void requestCodeAction(const QString& uri, const Range& range, const QList<Diagnostic>& diagnostics);
     Q_INVOKABLE void requestDiagnostics(const QString& uri);
+
+    // ── QML-friendly convenience overloads ──
+    Q_INVOKABLE void requestReferencesAt(const QString& uri, int line, int character);
+    Q_INVOKABLE void requestRenameAt(const QString& uri, int line, int character, const QString& newName);
     void requestDocumentHighlight(const QString& uri, const Position& pos);
     void requestTypeDefinition(const QString& uri, const Position& pos);
     void requestDeclaration(const QString& uri, const Position& pos);

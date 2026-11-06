@@ -11,6 +11,7 @@
 #include "managers/externaltoolmanager.h"
 #include "managers/settingsmanager.h"
 #include "nextgen/primoeditor.h"
+#include "nextgen/primohighlighter.h"
 #include "nextgen/primoterminal.h"
 #include "theme.h"
 
@@ -22,9 +23,14 @@
 #include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QPageSetupDialog>
+#include <QPrintDialog>
+#include <QPrintPreviewDialog>
+#include <QPrinter>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QTextDocument>
 
 NextgenActions::NextgenActions(QObject* parent)
     : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
@@ -185,6 +191,32 @@ void NextgenActions::newFile()
     m_editor->setFilePath(QString());
     m_editor->setCursorPosition(0, 0);
     emit currentEncodingChanged();
+}
+
+void NextgenActions::newWindow()
+{
+    // Nextgen runs a single QML window; "new window" reinitializes with an empty buffer.
+    newFile();
+}
+
+void NextgenActions::closeAllTabs()
+{
+    if (!m_editor)
+        return;
+    m_editor->setText(QString());
+    m_editor->setFilePath(QString());
+    m_editor->setCursorPosition(0, 0);
+    emit currentEncodingChanged();
+}
+
+void NextgenActions::closeProject()
+{
+    closeAllTabs();
+}
+
+void NextgenActions::toggleErrorList()
+{
+    emit requestErrorListToggle();
 }
 void NextgenActions::openFile(const QString& path)
 {
@@ -431,6 +463,8 @@ bool NextgenActions::autoCloseBrackets() const
 void NextgenActions::setAutoCloseBrackets(bool enabled)
 {
     SettingsManager::instance().setAutoCloseBrackets(enabled);
+    if (m_editor)
+        m_editor->setAutoCloseBrackets(enabled);
     emit settingsChanged();
 }
 bool NextgenActions::snippetsEnabled() const
@@ -537,6 +571,25 @@ void NextgenActions::setStartupMode(int mode)
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(mode));
     emit settingsChanged();
 }
+
+int NextgenActions::shellOpenModeFiles() const
+{
+    return static_cast<int>(SettingsManager::instance().shellOpenModeFiles());
+}
+void NextgenActions::setShellOpenModeFiles(int mode)
+{
+    SettingsManager::instance().setShellOpenModeFiles(static_cast<ShellOpenMode>(mode));
+    emit settingsChanged();
+}
+int NextgenActions::shellOpenModeFolders() const
+{
+    return static_cast<int>(SettingsManager::instance().shellOpenModeFolders());
+}
+void NextgenActions::setShellOpenModeFolders(int mode)
+{
+    SettingsManager::instance().setShellOpenModeFolders(static_cast<ShellOpenMode>(mode));
+    emit settingsChanged();
+}
 bool NextgenActions::showHiddenFiles() const
 {
     return SettingsManager::instance().showHiddenFiles();
@@ -571,6 +624,134 @@ int NextgenActions::autoSaveInterval() const
 void NextgenActions::setAutoSaveInterval(int seconds)
 {
     SettingsManager::instance().setAutoSaveInterval(seconds);
+    emit settingsChanged();
+}
+
+// ── Editor behavior settings ───────────────────────────────────
+
+bool NextgenActions::scrollPastEnd() const
+{
+    return SettingsManager::instance().scrollPastContent();
+}
+void NextgenActions::setScrollPastEnd(bool enabled)
+{
+    SettingsManager::instance().setScrollPastContent(enabled);
+    if (m_editor)
+        m_editor->setScrollPastEnd(enabled);
+    emit settingsChanged();
+}
+
+bool NextgenActions::showWhitespace() const
+{
+    return SettingsManager::instance().showWhitespace();
+}
+void NextgenActions::setShowWhitespace(bool visible)
+{
+    SettingsManager::instance().setShowWhitespace(visible);
+    if (m_editor)
+        m_editor->setShowWhitespace(visible);
+    emit settingsChanged();
+}
+
+bool NextgenActions::verticalEdgeEnabled() const
+{
+    return SettingsManager::instance().verticalEdgeEnabled();
+}
+void NextgenActions::setVerticalEdgeEnabled(bool enabled)
+{
+    SettingsManager::instance().setVerticalEdgeEnabled(enabled);
+    if (m_editor)
+        m_editor->setVerticalEdgeEnabled(enabled);
+    emit settingsChanged();
+}
+
+int NextgenActions::verticalEdgeColumn() const
+{
+    return SettingsManager::instance().verticalEdgeColumn();
+}
+void NextgenActions::setVerticalEdgeColumn(int column)
+{
+    SettingsManager::instance().setVerticalEdgeColumn(column);
+    if (m_editor)
+        m_editor->setVerticalEdgeColumn(column);
+    emit settingsChanged();
+}
+
+// ── Accent color ───────────────────────────────────────────────
+
+bool NextgenActions::hasAccentColor() const
+{
+    return SettingsManager::instance().hasAccentColor();
+}
+QString NextgenActions::accentColor() const
+{
+    QColor c = SettingsManager::instance().accentColor();
+    return c.isValid() ? c.name() : QString();
+}
+QColor NextgenActions::accentColorQml() const
+{
+    return SettingsManager::instance().accentColor();
+}
+void NextgenActions::setAccentColor(const QString& color)
+{
+    QColor c(color);
+    if (c.isValid())
+    {
+        SettingsManager::instance().setAccentColor(c);
+        // Re-apply theme to editor with accent
+        if (m_editor)
+        {
+            ThemeColors tc = getThemeColors(SettingsManager::instance().theme());
+            if (!SettingsManager::instance().customTheme().isEmpty())
+                tc = getCustomThemeColors(SettingsManager::instance().customTheme());
+            applyAccent(tc);
+            m_editor->applyThemeColors(tc);
+            m_editor->setLanguage(m_editor->language());
+        }
+        emit settingsChanged();
+    }
+}
+void NextgenActions::clearAccentColor()
+{
+    SettingsManager::instance().clearAccentColor();
+    if (m_editor)
+    {
+        ThemeColors tc = getThemeColors(SettingsManager::instance().theme());
+        if (!SettingsManager::instance().customTheme().isEmpty())
+            tc = getCustomThemeColors(SettingsManager::instance().customTheme());
+        m_editor->applyThemeColors(tc);
+        m_editor->setLanguage(m_editor->language());
+    }
+    emit settingsChanged();
+}
+
+// ── Tab bar settings ───────────────────────────────────────────
+
+int NextgenActions::tabBarPosition() const
+{
+    return static_cast<int>(SettingsManager::instance().tabBarPosition());
+}
+void NextgenActions::setTabBarPosition(int position)
+{
+    SettingsManager::instance().setTabBarPosition(static_cast<TabBarPosition>(position));
+    emit settingsChanged();
+}
+int NextgenActions::closeButtonMode() const
+{
+    return static_cast<int>(SettingsManager::instance().closeButtonMode());
+}
+void NextgenActions::setCloseButtonMode(int mode)
+{
+    SettingsManager::instance().setCloseButtonMode(static_cast<CloseButtonMode>(mode));
+    emit settingsChanged();
+}
+int NextgenActions::tabDisplayMode() const
+{
+    return static_cast<int>(SettingsManager::instance().tabDisplayMode());
+}
+void NextgenActions::setTabDisplayMode(int mode)
+{
+    SettingsManager::instance().setTabDisplayMode(static_cast<TabDisplayMode>(mode));
     emit settingsChanged();
 }
 
@@ -923,6 +1104,38 @@ QString NextgenActions::runCommand(const QString& rawCmd)
         return QStringLiteral("Find in Files drawer opened");
     }
 
+    // ── LSP ───────────────────────────────────────────
+    if (cmd == QStringLiteral("references") || cmd == QStringLiteral("refs"))
+    {
+        if (m_editor && !m_editor->filePath().isEmpty())
+            emit lspReferencesRequested(m_editor->filePath(), m_editor->cursorLine(), m_editor->cursorColumn());
+        return QStringLiteral("Find references");
+    }
+    if (cmd == QStringLiteral("format"))
+    {
+        if (m_editor && !m_editor->filePath().isEmpty())
+            emit lspFormatRequested(m_editor->filePath());
+        return QStringLiteral("Format document");
+    }
+    if (cmd == QStringLiteral("rename"))
+    {
+        if (m_editor && !m_editor->filePath().isEmpty())
+            emit lspRenameRequested(m_editor->filePath(), m_editor->cursorLine(), m_editor->cursorColumn());
+        return QStringLiteral("Rename symbol");
+    }
+    if (cmd == QStringLiteral("codeaction") || cmd == QStringLiteral("ca"))
+    {
+        if (m_editor && !m_editor->filePath().isEmpty())
+            emit lspCodeActionRequested(m_editor->filePath(), m_editor->cursorLine(), m_editor->cursorColumn());
+        return QStringLiteral("Code actions");
+    }
+    if (cmd == QStringLiteral("symbols") || cmd == QStringLiteral("documentSymbols"))
+    {
+        if (m_editor && !m_editor->filePath().isEmpty())
+            emit lspDocumentSymbolsRequested(m_editor->filePath());
+        return QStringLiteral("Document symbols");
+    }
+
     // ── Help / Version ────────────────────────────────
     if (cmd == QStringLiteral("help") || cmd == QStringLiteral("h"))
         return QStringLiteral(
@@ -956,6 +1169,121 @@ QString NextgenActions::runCommand(const QString& rawCmd)
     }
 
     return QStringLiteral("Unknown command: %1").arg(cmd);
+}
+
+// ── Print / Print Preview ──
+QString NextgenActions::generateHighlightedHtml(PrimoEditor* editor) const
+{
+    if (!editor)
+        return QString();
+
+    QString text = editor->text();
+    if (text.isEmpty())
+        text = QStringLiteral("\n");
+
+    QString lang = editor->language();
+    ThemeColors colors = getThemeColors(SettingsManager::instance().theme());
+    if (!editor->customTheme().isEmpty())
+        colors = getCustomThemeColors(editor->customTheme());
+
+    QStringList lines = text.split(QLatin1Char('\n'));
+    // Remove trailing empty element if text ends with newline
+    if (!lines.isEmpty() && lines.last().isEmpty())
+        lines.removeLast();
+
+    QString html;
+    html += QStringLiteral("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>");
+    html += QStringLiteral("body { font-family: 'Monospace', monospace; font-size: 11pt; color: %1; background-color: %2; }")
+                .arg(colors.foreground.name())
+                .arg(colors.background.name());
+    html += QStringLiteral("pre { white-space: pre-wrap; word-wrap: break-word; margin: 0; }");
+    html += QStringLiteral("</style></head><body><pre>");
+
+    for (int i = 0; i < lines.size(); ++i)
+    {
+        QString line = lines.at(i);
+        if (line.isEmpty())
+        {
+            html += QStringLiteral("<br>");
+            continue;
+        }
+        auto formats = PrimoHighlighter::formatsForLine(line, lang, colors);
+        // Build HTML segments from format ranges
+        QString escaped = line.toHtmlEscaped();
+        // Apply formats: sort by start position
+        QVector<QTextLayout::FormatRange> sorted = formats;
+        std::sort(sorted.begin(), sorted.end(),
+                  [](const QTextLayout::FormatRange& a, const QTextLayout::FormatRange& b) { return a.start < b.start; });
+        int htmlPos = 0;
+        for (const auto& fmt : sorted)
+        {
+            int fmtStart = fmt.start;
+            int fmtEnd = fmt.start + fmt.length;
+            if (fmtStart > htmlPos)
+            {
+                // Plain text before this format
+                html += QStringLiteral("<span style=\"color: %1;\">%2</span>")
+                            .arg(colors.foreground.name())
+                            .arg(escaped.mid(htmlPos, fmtStart - htmlPos));
+            }
+            QString segment = escaped.mid(fmtStart, fmtEnd - fmtStart);
+            QString style = QStringLiteral("color: %1;").arg(fmt.format.foreground().color().name());
+            if (fmt.format.fontWeight() > QFont::Normal)
+                style += QStringLiteral(" font-weight: bold;");
+            if (fmt.format.fontItalic())
+                style += QStringLiteral(" font-style: italic;");
+            html += QStringLiteral("<span style=\"%1\">%2</span>").arg(style, segment);
+            htmlPos = fmtEnd;
+        }
+        if (htmlPos < escaped.size())
+        {
+            html += QStringLiteral("<span style=\"color: %1;\">%2</span>").arg(colors.foreground.name()).arg(escaped.mid(htmlPos));
+        }
+        if (i < lines.size() - 1)
+            html += QStringLiteral("<br>");
+    }
+
+    html += QStringLiteral("</pre></body></html>");
+    return html;
+}
+
+void NextgenActions::printFile()
+{
+    if (!m_editor)
+        return;
+
+    QPrinter printer(QPrinter::HighResolution);
+    QPrintDialog dialog(&printer);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        QString html = generateHighlightedHtml(m_editor);
+        QTextDocument doc;
+        doc.setDefaultFont(m_editor->font());
+        doc.setHtml(html);
+        doc.print(&printer);
+    }
+}
+
+void NextgenActions::printPreview()
+{
+    if (!m_editor)
+        return;
+
+    QPrinter printer(QPrinter::HighResolution);
+    QPrintPreviewDialog preview(&printer);
+    QString html = generateHighlightedHtml(m_editor);
+    QTextDocument doc;
+    doc.setDefaultFont(m_editor->font());
+    doc.setHtml(html);
+    connect(&preview, &QPrintPreviewDialog::paintRequested, &doc, [&doc](QPrinter* p) { doc.print(p); });
+    preview.exec();
+}
+
+void NextgenActions::pageSetup()
+{
+    QPrinter printer(QPrinter::HighResolution);
+    QPageSetupDialog dlg(&printer);
+    dlg.exec();
 }
 
 // ── Remote file support ────────────────────────────────────────────

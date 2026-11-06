@@ -508,6 +508,11 @@ void LspClient::requestReferences(const QString& uri, const Position& pos)
                 });
 }
 
+void LspClient::requestReferencesAt(const QString& uri, int line, int character)
+{
+    requestReferences(uri, Position{line, character});
+}
+
 void LspClient::requestHover(const QString& uri, const Position& pos)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.hoverProvider)
@@ -669,6 +674,11 @@ void LspClient::requestRename(const QString& uri, const Position& pos, const QSt
     params["newName"] = newName;
     sendRequest("textDocument/rename", params,
                 [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit renameReady(uri, result.toObject()); });
+}
+
+void LspClient::requestRenameAt(const QString& uri, int line, int character, const QString& newName)
+{
+    requestRename(uri, Position{line, character}, newName);
 }
 
 void LspClient::requestDocumentHighlight(const QString& uri, const Position& pos)

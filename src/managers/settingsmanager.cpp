@@ -19,6 +19,7 @@
 #include "settingsmanager.h"
 
 #include "codeeditor.h"
+#include "logger.h"
 #include "theme.h"
 
 #include <QCoreApplication>
@@ -191,6 +192,10 @@ void SettingsManager::loadCache()
     m_cache.ui.uiFontFamily = m_settings.value("Options_UIFont", "Sans Serif").toString();
     m_cache.ui.uiFontSize = m_settings.value("Options_UIFontSize", 10).toInt();
     m_cache.ui.checkForUpdatesEnabled = m_settings.value("Options_CheckForUpdatesEnabled", true).toBool();
+    m_cache.ui.shellOpenModeFiles =
+        readEnum("Options_ShellOpenModeFiles", ShellOpenMode::NewWindow, ShellOpenMode::NewWindow, ShellOpenMode::CurrentWindow);
+    m_cache.ui.shellOpenModeFolders =
+        readEnum("Options_ShellOpenModeFolders", ShellOpenMode::NewWindow, ShellOpenMode::NewWindow, ShellOpenMode::CurrentWindow);
 
     m_cache.terminal.terminalPanelPosition =
         readEnum("Options_TerminalPanelPosition", TerminalPanelPosition::Bottom, TerminalPanelPosition::Bottom, TerminalPanelPosition::Tab);
@@ -663,6 +668,22 @@ void SettingsManager::setUiFontSize(int size)
 {
     writeCached("Options_UIFontSize", m_cache.ui.uiFontSize, size);
 }
+ShellOpenMode SettingsManager::shellOpenModeFiles() const
+{
+    return m_cache.ui.shellOpenModeFiles;
+}
+void SettingsManager::setShellOpenModeFiles(ShellOpenMode mode)
+{
+    writeCached("Options_ShellOpenModeFiles", m_cache.ui.shellOpenModeFiles, mode);
+}
+ShellOpenMode SettingsManager::shellOpenModeFolders() const
+{
+    return m_cache.ui.shellOpenModeFolders;
+}
+void SettingsManager::setShellOpenModeFolders(ShellOpenMode mode)
+{
+    writeCached("Options_ShellOpenModeFolders", m_cache.ui.shellOpenModeFolders, mode);
+}
 void SettingsManager::setTerminalPanelPosition(TerminalPanelPosition position)
 {
     writeCached("Options_TerminalPanelPosition", m_cache.terminal.terminalPanelPosition, position);
@@ -954,6 +975,44 @@ void SettingsManager::clearRecentFolders()
 {
     m_settings.remove("recentFolders");
     emit recentFilesChanged();
+}
+
+// ── Reset ──────────────────────────────────────────────────//
+
+void SettingsManager::resetToDefaults()
+{
+    // Remove every persisted key so that built-in defaults take effect on
+    // next load. Iterate over a snapshot since remove() mutates the container.
+    const QStringList allKeys = m_settings.allKeys();
+    for (const QString& key : allKeys)
+        m_settings.remove(key);
+
+    // Also drop plugin-scoped groups that allKeys() may not surface under
+    // some Qt backends, then reload defaults into the cache.
+    m_settings.clear();
+    loadCache();
+    ensureSettingsVersion();
+    emit settingsChanged();
+    Logger::instance().info("All settings reset to defaults");
+}
+
+// ── Keyboard shortcuts ───────────────────────────────────────
+
+QString SettingsManager::shortcutForAction(const QString& actionId) const
+{
+    return m_settings.value(QString("Shortcuts/%1").arg(actionId)).toString();
+}
+
+void SettingsManager::setShortcutForAction(const QString& actionId, const QString& shortcut)
+{
+    m_settings.setValue(QString("Shortcuts/%1").arg(actionId), shortcut);
+    emit settingsChanged();
+}
+
+void SettingsManager::resetShortcutForAction(const QString& actionId)
+{
+    m_settings.remove(QString("Shortcuts/%1").arg(actionId));
+    emit settingsChanged();
 }
 
 // ── Plugin-scoped settings ─────────────────────────────────────

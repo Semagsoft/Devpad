@@ -106,5 +106,6 @@
         <file alias="InputDialog.qml">../qml/nextgen/InputDialog.qml</file>
         <file alias="OptionsDialog.qml">../qml/nextgen/OptionsDialog.qml</file>
         <file alias="ProjectTree.qml">../qml/nextgen/ProjectTree.qml</file>
+        <file alias="ErrorListPanel.qml">../qml/nextgen/ErrorListPanel.qml</file>
     </qresource>
 </RCC>

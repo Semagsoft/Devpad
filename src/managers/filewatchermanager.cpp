@@ -125,6 +125,16 @@ void FileWatcherManager::pollModifications()
         QFileInfo info(filePath);
         if (!info.exists())
         {
+            // File was deleted. QFileSystemWatcher on macOS auto-removes deleted
+            // paths and stops notifying, so the poll fallback must catch this and
+            // surface the deletion just like onFileChanged() does.
+            if (!m_deletedPaths.contains(filePath))
+            {
+                m_deletedPaths.insert(filePath);
+                m_modificationTimes.remove(filePath);
+                Logger::instance().info(QString("File deleted externally: %1").arg(filePath));
+                emit fileModifiedExternally(filePath);
+            }
             continue;
         }
 
@@ -135,8 +145,6 @@ void FileWatcherManager::pollModifications()
             continue;
         }
 
-        it.value() = currentMod;
-
         // Mirror the coalescing behavior of onFileChanged, except a file that
         // was previously reported deleted and has reappeared is always
         // re-reported (external editors save via delete + rename).
@@ -145,6 +153,7 @@ void FileWatcherManager::pollModifications()
             continue;
         }
 
+        it.value() = currentMod;
         m_deletedPaths.remove(filePath);
         m_lastReported[filePath] = QDateTime::currentDateTime();
         Logger::instance().info(QString("File modified externally: %1").arg(filePath));

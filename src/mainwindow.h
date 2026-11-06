@@ -120,6 +120,11 @@ public slots:
         return m_pluginManager;
     }
 
+    ActionManager* actionManager() const
+    {
+        return m_actionManager;
+    }
+
 private slots:
     void updateStatusBar();
     void updateFileTypeLabel();

@@ -417,6 +417,30 @@ public:
         return m_actionsWithShortcuts;
     }
 
+    // ── Keyboard shortcut customization ──────────────────────────
+
+    /// Registers an action with a unique ID and applies any stored custom shortcut.
+    void registerAction(QAction* action, const QString& actionId);
+
+    /// Applies any user-stored shortcut overrides to all registered actions.
+    /// Call this after all actions have been created.
+    void applyStoredShortcuts();
+
+    /// Returns the action ID for a given action, or empty if not registered.
+    QString actionId(QAction* action) const;
+
+    /// Returns the action for a given ID, or nullptr if not found.
+    QAction* actionForId(const QString& actionId) const;
+
+    /// Returns all registered action IDs with their current shortcuts.
+    QList<QPair<QString, QKeySequence>> shortcuts() const;
+
+    /// Sets a shortcut for an action (by ID) and applies it immediately.
+    void setShortcut(const QString& actionId, const QKeySequence& shortcut);
+
+    /// Resets an action's shortcut to its built-in default.
+    void resetShortcut(const QString& actionId);
+
 signals:
     // ── Individual signals (existing) ──────────────────────────
     void newFileTriggered();
@@ -494,6 +518,7 @@ signals:
     void openRecentFileTriggered(const QString& filePath);
     void clearRecentFilesTriggered();
     void actionsWithShortcutsChanged();
+    void shortcutChanged(const QString& actionId, const QKeySequence& shortcut);
 
     // ── Grouped signals ────────────────────────────────────────
     void fileActionTriggered(FileAction action);
@@ -504,7 +529,9 @@ signals:
     void helpActionTriggered(HelpAction action);
 
 private:
-    template <typename Functor> QAction* createIconAction(const QString& iconPath, const QString& text, const QKeySequence& shortcut, Functor slot)
+    template <typename Functor>
+    QAction* createIconAction(const QString& iconPath, const QString& text, const QKeySequence& shortcut, Functor slot,
+                              const QString& actionId = QString())
     {
         QIcon icon(iconPath);
         QAction* action = new QAction(icon, text, this);
@@ -512,6 +539,11 @@ private:
         if (!shortcut.isEmpty())
             m_actionsWithShortcuts.append(action);
         connect(action, &QAction::triggered, this, slot);
+        if (!actionId.isEmpty())
+        {
+            m_defaultShortcuts.insert(actionId, shortcut);
+            registerAction(action, actionId);
+        }
         return action;
     }
 
@@ -610,6 +642,9 @@ private:
     EncodingMenuHelper* m_encodingHelper = nullptr;
     QMenu* m_toolsMenu = nullptr;
     QList<QAction*> m_actionsWithShortcuts;
+    QHash<QAction*, QString> m_actionIds;
+    QHash<QString, QAction*> m_actionsById;
+    QHash<QString, QKeySequence> m_defaultShortcuts;
 
     QToolBar* m_toolBar = nullptr;
     QLabel* m_lineColLabel = nullptr;

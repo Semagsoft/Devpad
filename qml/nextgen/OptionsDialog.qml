@@ -68,6 +68,24 @@ Dialog {
                                             Layout.fillWidth: true
                                         }
                                     }
+                                    RowLayout {
+                                        Label { text: qsTr("Open files from shell:"); Layout.preferredWidth: 140 }
+                                        ComboBox {
+                                            Layout.fillWidth: true
+                                            model: [qsTr("New window"), qsTr("Current window")]
+                                            currentIndex: actions ? actions.shellOpenModeFiles : 0
+                                            onActivated: (i) => { if (actions) actions.setShellOpenModeFiles(i) }
+                                        }
+                                    }
+                                    RowLayout {
+                                        Label { text: qsTr("Open folders from shell:"); Layout.preferredWidth: 140 }
+                                        ComboBox {
+                                            Layout.fillWidth: true
+                                            model: [qsTr("New window"), qsTr("Current window")]
+                                            currentIndex: actions ? actions.shellOpenModeFolders : 0
+                                            onActivated: (i) => { if (actions) actions.setShellOpenModeFolders(i) }
+                                        }
+                                    }
                                 }
                             }
 
@@ -144,8 +162,30 @@ Dialog {
                                               onToggled: actions.setWordWrap(checked); Layout.fillWidth: true }
                                     }
                                     RowLayout {
-                                        CheckBox { text: qsTr("Auto-close brackets"); checked: actions ? actions.autoCloseBrackets : false
+                                        CheckBox { text: qsTr("Auto-close brackets"); checked: actions ? actions.autoCloseBrackets : true
                                               onToggled: actions.setAutoCloseBrackets(checked); Layout.fillWidth: true }
+                                    }
+                                    RowLayout {
+                                        CheckBox { text: qsTr("Show whitespace"); checked: actions ? actions.showWhitespace : false
+                                              onToggled: actions.setShowWhitespace(checked); Layout.fillWidth: true }
+                                    }
+                                    RowLayout {
+                                        CheckBox { text: qsTr("Scroll past end"); checked: actions ? actions.scrollPastEnd : false
+                                              onToggled: actions.setScrollPastEnd(checked); Layout.fillWidth: true }
+                                    }
+                                    RowLayout {
+                                        CheckBox { text: qsTr("Vertical edge"); checked: actions ? actions.verticalEdgeEnabled : false
+                                              onToggled: actions.setVerticalEdgeEnabled(checked); Layout.fillWidth: true }
+                                    }
+                                    RowLayout {
+                                        Label { text: qsTr("Edge column:"); Layout.preferredWidth: 140; enabled: actions ? actions.verticalEdgeEnabled : false }
+                                        SpinBox {
+                                            from: 1; to: 500
+                                            Layout.fillWidth: true
+                                            enabled: actions ? actions.verticalEdgeEnabled : false
+                                            Component.onCompleted: { value = actions ? actions.verticalEdgeColumn : 80 }
+                                            onValueChanged: { if (actions && value !== actions.verticalEdgeColumn) actions.setVerticalEdgeColumn(value) }
+                                        }
                                     }
                                     RowLayout {
                                         CheckBox { text: qsTr("Enable snippets"); checked: actions ? actions.snippetsEnabled : true
@@ -256,7 +296,7 @@ Dialog {
                                         Rectangle {
                                             id: accentSwatch
                                             width: 24; height: 24
-                                            color: "#3399ff"
+                                            color: (actions && actions.hasAccentColor) ? actions.accentColor : "#3399ff"
                                             border.color: "black"
                                             radius: 4
                                         }
@@ -266,7 +306,7 @@ Dialog {
                                         }
                                         ToolButton {
                                             text: qsTr("Clear")
-                                            onClicked: { /* actions.clearAccentColor() */ }
+                                            onClicked: { if (actions) actions.clearAccentColor() }
                                         }
                                         Label { text: qsTr("Accent color applied to selection, cursor, brace matching"); Layout.fillWidth: true; opacity: 0.7; wrapMode: Text.Wrap }
                                     }
@@ -277,8 +317,7 @@ Dialog {
                                 id: colorDialog
                                 title: qsTr("Choose Accent Color")
                                 onAccepted: {
-                                    // actions.setAccentColor(colorDialog.color)
-                                    accentSwatch.color = colorDialog.color
+                                    if (actions) actions.setAccentColor(colorDialog.color.name())
                                 }
                             }
                         }
@@ -310,6 +349,42 @@ Dialog {
                                     RowLayout {
                                         CheckBox { text: qsTr("Show status bar"); checked: actions ? actions.showStatusbar : true
                                               onToggled: actions.showStatusbar = checked; Layout.fillWidth: true }
+                                    }
+                                }
+                            }
+
+                            GroupBox {
+                                title: qsTr("Tabs")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    spacing: 10
+                                    RowLayout {
+                                        Label { text: qsTr("Tab bar position:"); Layout.preferredWidth: 140 }
+                                        ComboBox {
+                                            Layout.fillWidth: true
+                                            model: [qsTr("Top"), qsTr("Bottom")]
+                                            currentIndex: actions ? actions.tabBarPosition : 0
+                                            onActivated: (i) => { if (actions) actions.setTabBarPosition(i) }
+                                        }
+                                    }
+                                    RowLayout {
+                                        Label { text: qsTr("Close button:"); Layout.preferredWidth: 140 }
+                                        ComboBox {
+                                            Layout.fillWidth: true
+                                            model: [qsTr("Right"), qsTr("Left")]
+                                            currentIndex: actions ? actions.closeButtonMode : 0
+                                            onActivated: (i) => { if (actions) actions.setCloseButtonMode(i) }
+                                        }
+                                    }
+                                    RowLayout {
+                                        Label { text: qsTr("Tab display:"); Layout.preferredWidth: 140 }
+                                        ComboBox {
+                                            Layout.fillWidth: true
+                                            model: [qsTr("Always"), qsTr("Two+ Tabs"), qsTr("Never")]
+                                            currentIndex: actions ? actions.tabDisplayMode : 0
+                                            onActivated: (i) => { if (actions) actions.setTabDisplayMode(i) }
+                                        }
                                     }
                                 }
                             }

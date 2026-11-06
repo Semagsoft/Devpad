@@ -22,6 +22,7 @@
 #include "encodingutils.h"
 #include "lsp/lspservermanager.h"
 #include "mainwindow.h"
+#include "managers/actionmanager.h"
 #include "settingsmanager.h"
 #include "theme.h"
 #include "widgets/themepreviewwidget.h"
@@ -39,6 +40,8 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QIntValidator>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -48,6 +51,94 @@
 #include <QTabWidget>
 #include <QTableWidget>
 #include <QVBoxLayout>
+
+// ── KeyCaptureDialog ─────────────────────────────────────────────
+// Captures a single key combination from the user.
+
+class KeyCaptureDialog : public QDialog
+{
+public:
+    explicit KeyCaptureDialog(QWidget* parent, const QString& label, const QKeySequence& current) : QDialog(parent)
+    {
+        setWindowTitle(tr("Set Keyboard Shortcut"));
+        setModal(true);
+
+        auto* layout = new QVBoxLayout(this);
+
+        auto* lbl = new QLabel(label, this);
+        lbl->setWordWrap(true);
+        layout->addWidget(lbl);
+
+        m_sequenceLabel = new QLabel(current.isEmpty() ? tr("Press a key combination…") : current.toString(QKeySequence::NativeText), this);
+        m_sequenceLabel->setAlignment(Qt::AlignCenter);
+        m_sequenceLabel->setStyleSheet("QLabel { font-size: 14px; padding: 8px; border: 1px solid palette(mid); border-radius: 4px; }");
+        layout->addWidget(m_sequenceLabel);
+
+        auto* btnLayout = new QHBoxLayout();
+        auto* okBtn = new QPushButton(tr("OK"), this);
+        auto* cancelBtn = new QPushButton(tr("Cancel"), this);
+        btnLayout->addStretch();
+        btnLayout->addWidget(okBtn);
+        btnLayout->addWidget(cancelBtn);
+        layout->addLayout(btnLayout);
+
+        connect(okBtn, &QPushButton::clicked, this, &QDialog::accept);
+        connect(cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
+
+        m_current = current;
+        m_captured = false;
+    }
+
+    QKeySequence capturedSequence() const
+    {
+        return m_sequence;
+    }
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override
+    {
+        if (event->key() == Qt::Key_Escape)
+        {
+            reject();
+            return;
+        }
+
+        Qt::KeyboardModifiers mods = event->modifiers();
+        int key = event->key();
+
+        // Ignore modifier-only keys.
+        if (key == Qt::Key_Control || key == Qt::Key_Shift || key == Qt::Key_Alt || key == Qt::Key_Meta)
+            return;
+
+        // Build a human-readable shortcut string like "Ctrl+Shift+S".
+        QStringList parts;
+        if (mods & Qt::ControlModifier)
+            parts << tr("Ctrl");
+        if (mods & Qt::ShiftModifier)
+            parts << tr("Shift");
+        if (mods & Qt::AltModifier)
+            parts << tr("Alt");
+        if (mods & Qt::MetaModifier)
+            parts << tr("Meta");
+        parts << QKeySequence(key).toString(QKeySequence::NativeText);
+
+        QString combined = parts.join(QLatin1String("+"));
+        m_sequence = QKeySequence(combined);
+        m_sequenceLabel->setText(m_sequence.toString(QKeySequence::NativeText));
+        m_captured = true;
+    }
+
+    void focusInEvent(QFocusEvent* event) override
+    {
+        QDialog::focusInEvent(event);
+    }
+
+private:
+    QLabel* m_sequenceLabel = nullptr;
+    QKeySequence m_current;
+    QKeySequence m_sequence;
+    bool m_captured = false;
+};
 
 OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent), m_geometrySettings("Options")
 {
@@ -80,6 +171,7 @@ void OptionsDialog::setupUI()
     setupAppearanceTab();
     setupEditorTab();
     setupPanelsTab();
+    setupKeyboardTab();
 #ifdef BUILD_PLUGINS
     setupPluginsTab();
 #endif
@@ -87,8 +179,11 @@ void OptionsDialog::setupUI()
     mainLayout->addWidget(tabWidget);
 
     QHBoxLayout* buttonLayout = new QHBoxLayout();
+    resetButton = new QPushButton(tr("Reset All Settings"), this);
+    resetButton->setStyleSheet("QPushButton { color: #c00; }");
     QPushButton* okButton = new QPushButton(tr("OK"), this);
     QPushButton* cancelButton = new QPushButton(tr("Cancel"), this);
+    buttonLayout->addWidget(resetButton);
     buttonLayout->addStretch();
     buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
@@ -96,6 +191,7 @@ void OptionsDialog::setupUI()
 
     connect(okButton, &QPushButton::clicked, this, &OptionsDialog::accept);
     connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+    connect(resetButton, &QPushButton::clicked, this, &OptionsDialog::resetSettings);
 }
 
 void OptionsDialog::setupGeneralTab()
@@ -110,6 +206,15 @@ void OptionsDialog::setupGeneralTab()
     startupLayout->addRow(tr("Startup mode:"), startupComboBox);
     checkForUpdatesCheckBox = new QCheckBox(tr("Check for updates on startup"), startupGroup);
     startupLayout->addRow(checkForUpdatesCheckBox);
+
+    shellOpenFilesComboBox = new QComboBox(startupGroup);
+    shellOpenFilesComboBox->addItems({tr("New window"), tr("Current window")});
+    startupLayout->addRow(tr("Open files from shell:"), shellOpenFilesComboBox);
+
+    shellOpenFoldersComboBox = new QComboBox(startupGroup);
+    shellOpenFoldersComboBox->addItems({tr("New window"), tr("Current window")});
+    startupLayout->addRow(tr("Open folders from shell:"), shellOpenFoldersComboBox);
+
     mainLayout->addWidget(startupGroup);
 
     QGroupBox* defaultsGroup = new QGroupBox(tr("Defaults"), content);
@@ -478,6 +583,133 @@ void OptionsDialog::setupPanelsTab()
     tabWidget->addTab(createScrollContainer(content), tr("Panels"));
 }
 
+void OptionsDialog::setupKeyboardTab()
+{
+    QWidget* content = new QWidget();
+    QVBoxLayout* mainLayout = new QVBoxLayout(content);
+
+    QLabel* hint = new QLabel(tr("Select an action and press a key combination to assign a new shortcut. "
+                                 "Press Escape to cancel."),
+                              content);
+    hint->setWordWrap(true);
+    hint->setStyleSheet("QLabel { color: palette(text); }");
+    mainLayout->addWidget(hint);
+
+    shortcutsTable = new QTableWidget(content);
+    shortcutsTable->setColumnCount(3);
+    shortcutsTable->setHorizontalHeaderLabels({tr("Action"), tr("Shortcut"), tr("")});
+    shortcutsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    shortcutsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    shortcutsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    shortcutsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    shortcutsTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    shortcutsTable->setAlternatingRowColors(true);
+    mainLayout->addWidget(shortcutsTable);
+
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    resetAllShortcutsButton = new QPushButton(tr("Reset All Shortcuts"), content);
+    resetAllShortcutsButton->setStyleSheet("QPushButton { color: #c00; }");
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(resetAllShortcutsButton);
+    mainLayout->addLayout(buttonLayout);
+
+    connect(resetAllShortcutsButton, &QPushButton::clicked, this,
+            [this]()
+            {
+                auto result = QMessageBox::question(this, tr("Reset All Shortcuts"),
+                                                    tr("Reset all keyboard shortcuts to their defaults?\n\nThis cannot be undone."),
+                                                    QMessageBox::Yes | QMessageBox::No);
+                if (result != QMessageBox::Yes)
+                    return;
+                auto* am = actionManager();
+                for (const auto& pair : am->shortcuts())
+                    am->resetShortcut(pair.first);
+                loadKeyboardShortcuts();
+            });
+
+    tabWidget->addTab(createScrollContainer(content), tr("Keyboard"));
+
+    loadKeyboardShortcuts();
+}
+
+ActionManager* OptionsDialog::actionManager() const
+{
+    if (auto* mw = qobject_cast<MainWindow*>(parentWidget()))
+        return mw->actionManager();
+    return nullptr;
+}
+
+void OptionsDialog::loadKeyboardShortcuts()
+{
+    if (!shortcutsTable)
+        return;
+
+    auto* am = actionManager();
+    if (!am)
+        return;
+
+    shortcutsTable->setRowCount(0);
+
+    const auto allShortcuts = am->shortcuts();
+    for (const auto& pair : allShortcuts)
+    {
+        const QString& actionId = pair.first;
+        const QKeySequence& ks = pair.second;
+
+        int row = shortcutsTable->rowCount();
+        shortcutsTable->insertRow(row);
+
+        // Action name
+        QString displayName = actionId;
+        displayName.replace("_", " ");
+        for (int i = 0; i < displayName.size(); ++i)
+        {
+            if (i == 0 || displayName[i - 1] == '.')
+                displayName[i] = displayName[i].toUpper();
+        }
+        displayName.replace(".", " › ");
+        shortcutsTable->setItem(row, 0, new QTableWidgetItem(displayName));
+        shortcutsTable->item(row, 0)->setData(Qt::UserRole, actionId);
+        shortcutsTable->item(row, 0)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+
+        // Shortcut display
+        QString shortcutText = ks.isEmpty() ? tr("None") : ks.toString(QKeySequence::NativeText);
+        shortcutsTable->setItem(row, 1, new QTableWidgetItem(shortcutText));
+        shortcutsTable->item(row, 1)->setData(Qt::UserRole, actionId);
+        shortcutsTable->item(row, 1)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+
+        // Set button
+        QPushButton* setBtn = new QPushButton(tr("Set..."), shortcutsTable);
+        setBtn->setProperty("actionId", actionId);
+        connect(setBtn, &QPushButton::clicked, this, [this, actionId]() { changeShortcutById(actionId); });
+        shortcutsTable->setCellWidget(row, 2, setBtn);
+    }
+}
+
+void OptionsDialog::saveKeyboardShortcuts()
+{
+    // Shortcuts are saved immediately when changed; nothing to do here.
+}
+
+void OptionsDialog::changeShortcutById(const QString& actionId)
+{
+    auto* am = actionManager();
+    if (!am)
+        return;
+
+    QAction* action = am->actionForId(actionId);
+    if (!action)
+        return;
+
+    QKeySequence current = action->shortcut();
+    KeyCaptureDialog dlg(this, tr("Press the key combination for \"%1\":").arg(action->text()), current);
+    if (dlg.exec() == QDialog::Accepted && !dlg.capturedSequence().isEmpty())
+    {
+        am->setShortcut(actionId, dlg.capturedSequence());
+        loadKeyboardShortcuts();
+    }
+}
+
 #ifdef BUILD_PLUGINS
 void OptionsDialog::setupPluginsTab()
 {
@@ -665,6 +897,8 @@ void OptionsDialog::loadSettings()
     const auto& s = SettingsManager::instance();
     startupComboBox->setCurrentIndex(static_cast<int>(s.startupMode()));
     checkForUpdatesCheckBox->setChecked(s.checkForUpdatesEnabled());
+    shellOpenFilesComboBox->setCurrentIndex(static_cast<int>(s.shellOpenModeFiles()));
+    shellOpenFoldersComboBox->setCurrentIndex(static_cast<int>(s.shellOpenModeFolders()));
     m_accentColor = s.accentColor();
     if (m_accentColor.isValid())
     {
@@ -784,6 +1018,8 @@ void OptionsDialog::saveSettings()
     }
     SettingsManager::instance().setStartupMode(static_cast<StartupMode>(startupComboBox->currentIndex()));
     SettingsManager::instance().setCheckForUpdatesEnabled(checkForUpdatesCheckBox->isChecked());
+    SettingsManager::instance().setShellOpenModeFiles(static_cast<ShellOpenMode>(shellOpenFilesComboBox->currentIndex()));
+    SettingsManager::instance().setShellOpenModeFolders(static_cast<ShellOpenMode>(shellOpenFoldersComboBox->currentIndex()));
     if (m_accentColor.isValid())
         SettingsManager::instance().setAccentColor(m_accentColor);
     else
@@ -866,4 +1102,20 @@ void OptionsDialog::reject()
 {
     m_geometrySettings.saveGeometry(this);
     QDialog::reject();
+}
+
+void OptionsDialog::resetSettings()
+{
+    auto result = QMessageBox::question(this, tr("Reset All Settings"),
+                                        tr("This will reset every Devpad setting to its built-in default.\n\n"
+                                           "This cannot be undone. Continue?"),
+                                        QMessageBox::Yes | QMessageBox::No);
+    if (result != QMessageBox::Yes)
+        return;
+
+    SettingsManager::instance().resetToDefaults();
+    loadSettings();
+    QMessageBox::information(this, tr("Settings Reset"),
+                             tr("All settings have been reset to their defaults. Restart Devpad "
+                                "for all changes to take full effect."));
 }
