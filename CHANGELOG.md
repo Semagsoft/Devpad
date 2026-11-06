@@ -1,10 +1,20 @@
 # Changelog
 
-## [1.08] - 2026-11-04
+## [1.08] - 2026-11-06
 
-### What's new in Devpad 1.08:
+What's new in Devpad 1.08:
 
-- Bump version to 1.08.
+- New Mini-map support. SHA: 1cd7ba92fb282233101cbbef690291414cbd9339
+- "Reset All Settings" button in Options dialog. SHA: 55a827170c67921e742b432a4852ebfb0426ac97
+- Open files from shell and Open folders from shell — each with two modes: New window (default) and Open in current window. SHA: 55a827170c67921e742b432a4852ebfb0426ac97
+
+Bug fixes for version 1.08:
+
+-  SVG fixes. SHA: 1cd7ba92fb282233101cbbef690291414cbd9339
+-  Fix for saving remote files. SHA: 75718f32995f5809eaf963713e589a3b41ea7063
+-  Fix file save issues. SHA: 55a827170c67921e742b432a4852ebfb0426ac97
+-  Fix file watcher issues. SHA: 55a827170c67921e742b432a4852ebfb0426ac97
+-  Fix Update Download button doing nothing. SHA: 55a827170c67921e742b432a4852ebfb0426ac97
 
 ## [1.07] - 2026-10-27
 
