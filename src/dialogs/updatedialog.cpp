@@ -21,8 +21,8 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QCoreApplication>
-#include <QDesktopServices>
 #include <QDebug>
+#include <QDesktopServices>
 #include <QFont>
 #include <QHBoxLayout>
 #include <QLabel>

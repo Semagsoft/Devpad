@@ -668,12 +668,18 @@ void SettingsManager::setUiFontSize(int size)
 {
     writeCached("Options_UIFontSize", m_cache.ui.uiFontSize, size);
 }
-ShellOpenMode SettingsManager::shellOpenModeFiles() const { return m_cache.ui.shellOpenModeFiles; }
+ShellOpenMode SettingsManager::shellOpenModeFiles() const
+{
+    return m_cache.ui.shellOpenModeFiles;
+}
 void SettingsManager::setShellOpenModeFiles(ShellOpenMode mode)
 {
     writeCached("Options_ShellOpenModeFiles", m_cache.ui.shellOpenModeFiles, mode);
 }
-ShellOpenMode SettingsManager::shellOpenModeFolders() const { return m_cache.ui.shellOpenModeFolders; }
+ShellOpenMode SettingsManager::shellOpenModeFolders() const
+{
+    return m_cache.ui.shellOpenModeFolders;
+}
 void SettingsManager::setShellOpenModeFolders(ShellOpenMode mode)
 {
     writeCached("Options_ShellOpenModeFolders", m_cache.ui.shellOpenModeFolders, mode);
