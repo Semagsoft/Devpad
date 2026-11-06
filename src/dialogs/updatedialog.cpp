@@ -22,6 +22,7 @@
 #include <QClipboard>
 #include <QCoreApplication>
 #include <QDesktopServices>
+#include <QDebug>
 #include <QFont>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -171,9 +172,13 @@ void UpdateDialog::setupUi()
 
 void UpdateDialog::downloadUpdate()
 {
+    qInfo() << "UpdateDialog::downloadUpdate() called; releaseUrl =" << m_releaseUrl;
+
     if (m_releaseUrl.isEmpty())
     {
-        accept();
+        QMessageBox::warning(this, tr("Download Unavailable"),
+                             tr("The update download URL is empty. "
+                                "Please check your internet connection and try checking for updates again."));
         return;
     }
 
@@ -184,6 +189,8 @@ void UpdateDialog::downloadUpdate()
     if (!opened)
         opened = QProcess::startDetached(QStringLiteral("xdg-open"), QStringList{m_releaseUrl});
 #endif
+
+    qInfo() << "UpdateDialog::downloadUpdate() openUrl result =" << opened;
 
     if (!opened)
     {

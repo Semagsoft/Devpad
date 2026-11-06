@@ -48,8 +48,11 @@ private:
     UpdateDialog(Mode mode, const QString& version, const QString& releaseUrl, const QString& details, QWidget* parent = nullptr);
 
     void setupUi();
+
+private slots:
     void downloadUpdate();
 
+private:
     Mode m_mode;
     QString m_version;
     QString m_releaseUrl;
