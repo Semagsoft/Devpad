@@ -666,8 +666,7 @@ void PrimoEditor::enterSnippetMode(const QString& text, int insertPos, const QSt
         ts.length = tabStopLengths.value(i, 0);
         m_snippetTabStops.append(ts);
     }
-    std::sort(m_snippetTabStops.begin(), m_snippetTabStops.end(),
-              [](const SnippetTabStop& a, const SnippetTabStop& b) { return a.pos < b.pos; });
+    std::sort(m_snippetTabStops.begin(), m_snippetTabStops.end(), [](const SnippetTabStop& a, const SnippetTabStop& b) { return a.pos < b.pos; });
 
     if (m_snippetTabStops.isEmpty())
     {
@@ -1918,8 +1917,7 @@ bool PrimoEditor::handleAutoClose(QChar ch, int pos)
         QChar open;
         QChar close;
     };
-    static constexpr std::array<Pair, 5> pairs{
-        Pair{'(', ')'}, Pair{'[', ']'}, Pair{'{', '}'}, Pair{'"', '"'}, Pair{'\'', '\''}};
+    static constexpr std::array<Pair, 5> pairs{Pair{'(', ')'}, Pair{'[', ']'}, Pair{'{', '}'}, Pair{'"', '"'}, Pair{'\'', '\''}};
     BracketContext ctx = bracketContextAt(pos);
     if (ctx.inComment || ctx.inBlockComment || ctx.inCharLiteral)
         return false;

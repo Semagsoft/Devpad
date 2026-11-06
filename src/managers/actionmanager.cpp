@@ -32,6 +32,7 @@
 #include <QDesktopServices>
 #include <QDockWidget>
 #include <QFile>
+#include <QKeySequence>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
@@ -41,7 +42,6 @@
 #include <QToolButton>
 #include <QUrl>
 #include <algorithm>
-#include <QKeySequence>
 
 ActionManager::ActionManager(QObject* parent) : QObject(parent)
 {
@@ -63,73 +63,95 @@ void ActionManager::createActions()
 
 void ActionManager::createFileActions()
 {
-    m_quitDevpadAct = createIconAction(":/icons/File/exit.svg", tr("Quit Devpad"), QKeySequence::Quit,
-                                       [this]()
-                                       {
-                                           emit quitDevpadTriggered();
-                                           emit fileActionTriggered(FileAction::Quit);
-                                       }, "File.Quit");
+    m_quitDevpadAct = createIconAction(
+        ":/icons/File/exit.svg", tr("Quit Devpad"), QKeySequence::Quit,
+        [this]()
+        {
+            emit quitDevpadTriggered();
+            emit fileActionTriggered(FileAction::Quit);
+        },
+        "File.Quit");
 
-    m_newAct = createIconAction(":/icons/File/newfile.svg", tr("New File"), QKeySequence::New,
-                                [this]()
-                                {
-                                    emit newFileTriggered();
-                                    emit fileActionTriggered(FileAction::New);
-                                }, "File.New");
-    m_newWindowAct = createIconAction(":/icons/File/newwindow.svg", tr("New Window"), QKeySequence("Ctrl+Shift+N"),
-                                      [this]()
-                                      {
-                                          emit newWindowTriggered();
-                                          emit fileActionTriggered(FileAction::NewWindow);
-                                      }, "File.NewWindow");
-    m_openAct = createIconAction(":/icons/File/open.svg", tr("Open File..."), QKeySequence::Open,
-                                 [this]()
-                                 {
-                                     emit openFileTriggered();
-                                     emit fileActionTriggered(FileAction::Open);
-                                 }, "File.Open");
-    m_openFolderAct = createIconAction(":/icons/File/openfolder.svg", tr("Open Folder..."), QKeySequence("Ctrl+Shift+O"),
-                                       [this]()
-                                       {
-                                           emit openFolderTriggered();
-                                           emit fileActionTriggered(FileAction::OpenFolder);
-                                       }, "File.OpenFolder");
-    m_openRemoteAct = createIconAction(":/icons/File/open.svg", tr("Open Remote File..."), QKeySequence(),
-                                       [this]()
-                                       {
-                                           emit openRemoteTriggered();
-                                           emit fileActionTriggered(FileAction::OpenRemote);
-                                       }, "File.OpenRemote");
-    m_openRemoteFolderAct = createIconAction(":/icons/File/openfolder.svg", tr("Open Remote Folder..."), QKeySequence(),
-                                             [this]()
-                                             {
-                                                 emit openRemoteFolderTriggered();
-                                                 emit fileActionTriggered(FileAction::OpenRemoteFolder);
-                                             }, "File.OpenRemoteFolder");
-    m_saveAct = createIconAction(":/icons/File/save.svg", tr("Save"), QKeySequence::Save,
-                                 [this]()
-                                 {
-                                     emit saveFileTriggered();
-                                     emit fileActionTriggered(FileAction::Save);
-                                 }, "File.Save");
-    m_saveAsAct = createIconAction(":/icons/File/saveas.svg", tr("Save As..."), QKeySequence("Ctrl+Alt+S"),
-                                   [this]()
-                                   {
-                                       emit saveFileAsTriggered();
-                                       emit fileActionTriggered(FileAction::SaveAs);
-                                   }, "File.SaveAs");
-    m_saveAllAct = createIconAction(":/icons/File/saveall.svg", tr("Save All"), QKeySequence("Ctrl+Shift+S"),
-                                    [this]()
-                                    {
-                                        emit saveAllTriggered();
-                                        emit fileActionTriggered(FileAction::SaveAll);
-                                    }, "File.SaveAll");
-    m_revertAct = createIconAction(":/icons/File/revert.svg", tr("Revert"), QKeySequence(),
-                                   [this]()
-                                   {
-                                       emit revertTriggered();
-                                       emit fileActionTriggered(FileAction::Revert);
-                                   }, "File.Revert");
+    m_newAct = createIconAction(
+        ":/icons/File/newfile.svg", tr("New File"), QKeySequence::New,
+        [this]()
+        {
+            emit newFileTriggered();
+            emit fileActionTriggered(FileAction::New);
+        },
+        "File.New");
+    m_newWindowAct = createIconAction(
+        ":/icons/File/newwindow.svg", tr("New Window"), QKeySequence("Ctrl+Shift+N"),
+        [this]()
+        {
+            emit newWindowTriggered();
+            emit fileActionTriggered(FileAction::NewWindow);
+        },
+        "File.NewWindow");
+    m_openAct = createIconAction(
+        ":/icons/File/open.svg", tr("Open File..."), QKeySequence::Open,
+        [this]()
+        {
+            emit openFileTriggered();
+            emit fileActionTriggered(FileAction::Open);
+        },
+        "File.Open");
+    m_openFolderAct = createIconAction(
+        ":/icons/File/openfolder.svg", tr("Open Folder..."), QKeySequence("Ctrl+Shift+O"),
+        [this]()
+        {
+            emit openFolderTriggered();
+            emit fileActionTriggered(FileAction::OpenFolder);
+        },
+        "File.OpenFolder");
+    m_openRemoteAct = createIconAction(
+        ":/icons/File/open.svg", tr("Open Remote File..."), QKeySequence(),
+        [this]()
+        {
+            emit openRemoteTriggered();
+            emit fileActionTriggered(FileAction::OpenRemote);
+        },
+        "File.OpenRemote");
+    m_openRemoteFolderAct = createIconAction(
+        ":/icons/File/openfolder.svg", tr("Open Remote Folder..."), QKeySequence(),
+        [this]()
+        {
+            emit openRemoteFolderTriggered();
+            emit fileActionTriggered(FileAction::OpenRemoteFolder);
+        },
+        "File.OpenRemoteFolder");
+    m_saveAct = createIconAction(
+        ":/icons/File/save.svg", tr("Save"), QKeySequence::Save,
+        [this]()
+        {
+            emit saveFileTriggered();
+            emit fileActionTriggered(FileAction::Save);
+        },
+        "File.Save");
+    m_saveAsAct = createIconAction(
+        ":/icons/File/saveas.svg", tr("Save As..."), QKeySequence("Ctrl+Alt+S"),
+        [this]()
+        {
+            emit saveFileAsTriggered();
+            emit fileActionTriggered(FileAction::SaveAs);
+        },
+        "File.SaveAs");
+    m_saveAllAct = createIconAction(
+        ":/icons/File/saveall.svg", tr("Save All"), QKeySequence("Ctrl+Shift+S"),
+        [this]()
+        {
+            emit saveAllTriggered();
+            emit fileActionTriggered(FileAction::SaveAll);
+        },
+        "File.SaveAll");
+    m_revertAct = createIconAction(
+        ":/icons/File/revert.svg", tr("Revert"), QKeySequence(),
+        [this]()
+        {
+            emit revertTriggered();
+            emit fileActionTriggered(FileAction::Revert);
+        },
+        "File.Revert");
     m_readOnlyAct = new QAction(QIcon(":/icons/File/readonly.svg"), tr("Read Only"), this);
     m_readOnlyAct->setCheckable(true);
     connect(m_readOnlyAct, &QAction::triggered, this,
@@ -140,30 +162,38 @@ void ActionManager::createFileActions()
             });
     registerAction(m_readOnlyAct, "File.ReadOnly");
     m_printAct = createIconAction(":/icons/File/print.svg", tr("Print"), QKeySequence::Print, [this]() { emit printFileTriggered(); }, "File.Print");
-    m_pageSetupAct = createIconAction(":/icons/File/pagesetup.svg", tr("Page Setup..."), QKeySequence(),
-                                      [this]()
-                                      {
-                                          emit pageSetupTriggered();
-                                          emit documentActionTriggered(DocumentAction::PageSetup);
-                                      }, "File.PageSetup");
-    m_printPreviewAct = createIconAction(":/icons/File/printpreview.svg", tr("Print Preview..."), QKeySequence(),
-                                         [this]()
-                                         {
-                                             emit printPreviewTriggered();
-                                             emit documentActionTriggered(DocumentAction::PrintPreview);
-                                         }, "File.PrintPreview");
-    m_closeAct = createIconAction(":/icons/File/close.svg", tr("Close Editor"), QKeySequence("Ctrl+W"),
-                                  [this]()
-                                  {
-                                      emit closeCurrentTabTriggered();
-                                      emit fileActionTriggered(FileAction::CloseTab);
-                                  }, "File.CloseTab");
-    m_closeAllAct = createIconAction(":/icons/File/closeall.svg", tr("Close All"), QKeySequence("Ctrl+Alt+W"),
-                                     [this]()
-                                     {
-                                         emit closeAllTabsTriggered();
-                                         emit fileActionTriggered(FileAction::CloseAllTabs);
-                                     }, "File.CloseAllTabs");
+    m_pageSetupAct = createIconAction(
+        ":/icons/File/pagesetup.svg", tr("Page Setup..."), QKeySequence(),
+        [this]()
+        {
+            emit pageSetupTriggered();
+            emit documentActionTriggered(DocumentAction::PageSetup);
+        },
+        "File.PageSetup");
+    m_printPreviewAct = createIconAction(
+        ":/icons/File/printpreview.svg", tr("Print Preview..."), QKeySequence(),
+        [this]()
+        {
+            emit printPreviewTriggered();
+            emit documentActionTriggered(DocumentAction::PrintPreview);
+        },
+        "File.PrintPreview");
+    m_closeAct = createIconAction(
+        ":/icons/File/close.svg", tr("Close Editor"), QKeySequence("Ctrl+W"),
+        [this]()
+        {
+            emit closeCurrentTabTriggered();
+            emit fileActionTriggered(FileAction::CloseTab);
+        },
+        "File.CloseTab");
+    m_closeAllAct = createIconAction(
+        ":/icons/File/closeall.svg", tr("Close All"), QKeySequence("Ctrl+Alt+W"),
+        [this]()
+        {
+            emit closeAllTabsTriggered();
+            emit fileActionTriggered(FileAction::CloseAllTabs);
+        },
+        "File.CloseAllTabs");
     m_closeProjectAct = new QAction(QIcon(":/icons/File/closefolder.svg"), tr("Close Folder"), this);
     connect(m_closeProjectAct, &QAction::triggered, this,
             [this]()
@@ -172,100 +202,130 @@ void ActionManager::createFileActions()
                 emit fileActionTriggered(FileAction::CloseProject);
             });
     registerAction(m_closeProjectAct, "File.CloseProject");
-    m_exitAct = createIconAction(":/icons/File/closewindow.svg", tr("Close Window"), QKeySequence("Ctrl+Shift+W"),
-                                 [this]()
-                                 {
-                                     emit exitTriggered();
-                                     emit fileActionTriggered(FileAction::Exit);
-                                 }, "File.Exit");
+    m_exitAct = createIconAction(
+        ":/icons/File/closewindow.svg", tr("Close Window"), QKeySequence("Ctrl+Shift+W"),
+        [this]()
+        {
+            emit exitTriggered();
+            emit fileActionTriggered(FileAction::Exit);
+        },
+        "File.Exit");
 }
 
 void ActionManager::createEditActions()
 {
-    m_undoAct = createIconAction(":/icons/Edit/undo.svg", tr("Undo"), QKeySequence::Undo,
-                                 [this]()
-                                 {
-                                     emit undoTriggered();
-                                     emit editActionTriggered(EditAction::Undo);
-                                 }, "Edit.Undo");
-    m_redoAct = createIconAction(":/icons/Edit/redo.svg", tr("Redo"), QKeySequence::Redo,
-                                 [this]()
-                                 {
-                                     emit redoTriggered();
-                                     emit editActionTriggered(EditAction::Redo);
-                                 }, "Edit.Redo");
-    m_cutAct = createIconAction(":/icons/Edit/cut.svg", tr("Cut"), QKeySequence::Cut,
-                                [this]()
-                                {
-                                    emit cutTriggered();
-                                    emit editActionTriggered(EditAction::Cut);
-                                }, "Edit.Cut");
-    m_copyAct = createIconAction(":/icons/Edit/copy.svg", tr("Copy"), QKeySequence::Copy,
-                                 [this]()
-                                 {
-                                     emit copyTriggered();
-                                     emit editActionTriggered(EditAction::Copy);
-                                 }, "Edit.Copy");
-    m_pasteAct = createIconAction(":/icons/Edit/paste.svg", tr("Paste"), QKeySequence::Paste,
-                                  [this]()
-                                  {
-                                      emit pasteTriggered();
-                                      emit editActionTriggered(EditAction::Paste);
-                                  }, "Edit.Paste");
-    m_deleteAct = createIconAction(":/icons/Edit/delete.svg", tr("Delete"), QKeySequence::Delete,
-                                   [this]()
-                                   {
-                                       emit deleteTriggered();
-                                       emit editActionTriggered(EditAction::Delete);
-                                   }, "Edit.Delete");
-    m_selectAllAct = createIconAction(":/icons/Edit/selectall.svg", tr("Select All"), QKeySequence::SelectAll,
-                                      [this]()
-                                      {
-                                          emit selectAllTriggered();
-                                          emit editActionTriggered(EditAction::SelectAll);
-                                      }, "Edit.SelectAll");
-    m_findAct = createIconAction(":/icons/Edit/find.svg", tr("Find..."), QKeySequence::Find,
-                                 [this]()
-                                 {
-                                     emit findTriggered();
-                                     emit editActionTriggered(EditAction::Find);
-                                 }, "Edit.Find");
-    m_replaceAct = createIconAction(":/icons/Edit/replace.svg", tr("Replace..."), QKeySequence("Ctrl+H"),
-                                    [this]()
-                                    {
-                                        emit replaceTriggered();
-                                        emit editActionTriggered(EditAction::Replace);
-                                    }, "Edit.Replace");
-    m_findInFilesAct = createIconAction(":/icons/Edit/findinfiles.svg", tr("Find In Files..."), QKeySequence("Ctrl+Shift+F"),
-                                        [this]()
-                                        {
-                                            emit findInFilesTriggered();
-                                            emit editActionTriggered(EditAction::FindInFiles);
-                                        }, "Edit.FindInFiles");
-    m_goToAct = createIconAction(":/icons/Edit/goto.svg", tr("Go To Line..."), QKeySequence("Ctrl+G"),
-                                 [this]()
-                                 {
-                                     emit goToLineTriggered();
-                                     emit editActionTriggered(EditAction::GoToLine);
-                                 }, "Edit.GoToLine");
-    m_formatSelectionAct = createIconAction(":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Ctrl+Shift+F"),
-                                            [this]()
-                                            {
-                                                emit formatSelectionTriggered();
-                                                emit editActionTriggered(EditAction::FormatSelection);
-                                            }, "Edit.FormatSelection");
-    m_insertSnippetAct = createIconAction(":/icons/Edit/insertsnippet.svg", tr("Insert Snippet..."), QKeySequence("Ctrl+Shift+I"),
-                                          [this]()
-                                          {
-                                              emit insertSnippetTriggered();
-                                              emit documentActionTriggered(DocumentAction::InsertSnippet);
-                                          }, "Edit.InsertSnippet");
-    m_toggleCommentAct = createIconAction(":/icons/Edit/togglecomment.svg", tr("Toggle Comment"), QKeySequence("Ctrl+/"),
-                                          [this]()
-                                          {
-                                              emit toggleCommentTriggered();
-                                              emit editActionTriggered(EditAction::ToggleComment);
-                                          }, "Edit.ToggleComment");
+    m_undoAct = createIconAction(
+        ":/icons/Edit/undo.svg", tr("Undo"), QKeySequence::Undo,
+        [this]()
+        {
+            emit undoTriggered();
+            emit editActionTriggered(EditAction::Undo);
+        },
+        "Edit.Undo");
+    m_redoAct = createIconAction(
+        ":/icons/Edit/redo.svg", tr("Redo"), QKeySequence::Redo,
+        [this]()
+        {
+            emit redoTriggered();
+            emit editActionTriggered(EditAction::Redo);
+        },
+        "Edit.Redo");
+    m_cutAct = createIconAction(
+        ":/icons/Edit/cut.svg", tr("Cut"), QKeySequence::Cut,
+        [this]()
+        {
+            emit cutTriggered();
+            emit editActionTriggered(EditAction::Cut);
+        },
+        "Edit.Cut");
+    m_copyAct = createIconAction(
+        ":/icons/Edit/copy.svg", tr("Copy"), QKeySequence::Copy,
+        [this]()
+        {
+            emit copyTriggered();
+            emit editActionTriggered(EditAction::Copy);
+        },
+        "Edit.Copy");
+    m_pasteAct = createIconAction(
+        ":/icons/Edit/paste.svg", tr("Paste"), QKeySequence::Paste,
+        [this]()
+        {
+            emit pasteTriggered();
+            emit editActionTriggered(EditAction::Paste);
+        },
+        "Edit.Paste");
+    m_deleteAct = createIconAction(
+        ":/icons/Edit/delete.svg", tr("Delete"), QKeySequence::Delete,
+        [this]()
+        {
+            emit deleteTriggered();
+            emit editActionTriggered(EditAction::Delete);
+        },
+        "Edit.Delete");
+    m_selectAllAct = createIconAction(
+        ":/icons/Edit/selectall.svg", tr("Select All"), QKeySequence::SelectAll,
+        [this]()
+        {
+            emit selectAllTriggered();
+            emit editActionTriggered(EditAction::SelectAll);
+        },
+        "Edit.SelectAll");
+    m_findAct = createIconAction(
+        ":/icons/Edit/find.svg", tr("Find..."), QKeySequence::Find,
+        [this]()
+        {
+            emit findTriggered();
+            emit editActionTriggered(EditAction::Find);
+        },
+        "Edit.Find");
+    m_replaceAct = createIconAction(
+        ":/icons/Edit/replace.svg", tr("Replace..."), QKeySequence("Ctrl+H"),
+        [this]()
+        {
+            emit replaceTriggered();
+            emit editActionTriggered(EditAction::Replace);
+        },
+        "Edit.Replace");
+    m_findInFilesAct = createIconAction(
+        ":/icons/Edit/findinfiles.svg", tr("Find In Files..."), QKeySequence("Ctrl+Shift+F"),
+        [this]()
+        {
+            emit findInFilesTriggered();
+            emit editActionTriggered(EditAction::FindInFiles);
+        },
+        "Edit.FindInFiles");
+    m_goToAct = createIconAction(
+        ":/icons/Edit/goto.svg", tr("Go To Line..."), QKeySequence("Ctrl+G"),
+        [this]()
+        {
+            emit goToLineTriggered();
+            emit editActionTriggered(EditAction::GoToLine);
+        },
+        "Edit.GoToLine");
+    m_formatSelectionAct = createIconAction(
+        ":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Ctrl+Shift+F"),
+        [this]()
+        {
+            emit formatSelectionTriggered();
+            emit editActionTriggered(EditAction::FormatSelection);
+        },
+        "Edit.FormatSelection");
+    m_insertSnippetAct = createIconAction(
+        ":/icons/Edit/insertsnippet.svg", tr("Insert Snippet..."), QKeySequence("Ctrl+Shift+I"),
+        [this]()
+        {
+            emit insertSnippetTriggered();
+            emit documentActionTriggered(DocumentAction::InsertSnippet);
+        },
+        "Edit.InsertSnippet");
+    m_toggleCommentAct = createIconAction(
+        ":/icons/Edit/togglecomment.svg", tr("Toggle Comment"), QKeySequence("Ctrl+/"),
+        [this]()
+        {
+            emit toggleCommentTriggered();
+            emit editActionTriggered(EditAction::ToggleComment);
+        },
+        "Edit.ToggleComment");
     // Both need an editable editor; EditorController::updateUndoRedoState() enables
     // them once one is available.
     m_insertSnippetAct->setEnabled(false);
@@ -318,42 +378,54 @@ void ActionManager::createBookmarkActions()
 
 void ActionManager::createLspActions()
 {
-    m_goToDefinitionAct = createIconAction(":/icons/Edit/goto.svg", tr("Go to Definition"), QKeySequence("F12"),
-                                           [this]()
-                                           {
-                                               emit goToDefinitionTriggered();
-                                               emit lspActionTriggered(LspAction::GoToDefinition);
-                                           }, "LSP.GoToDefinition");
-    m_goToTypeDefinitionAct = createIconAction(":/icons/Edit/goto.svg", tr("Go to Type Definition"), QKeySequence("Ctrl+F12"),
-                                               [this]()
-                                               {
-                                                   emit goToTypeDefinitionTriggered();
-                                                   emit lspActionTriggered(LspAction::GoToTypeDefinition);
-                                               }, "LSP.GoToTypeDefinition");
-    m_goToDeclarationAct = createIconAction(":/icons/Edit/goto.svg", tr("Go to Declaration"), QKeySequence("Ctrl+Shift+F12"),
-                                            [this]()
-                                            {
-                                                emit goToDeclarationTriggered();
-                                                emit lspActionTriggered(LspAction::GoToDeclaration);
-                                            }, "LSP.GoToDeclaration");
-    m_findReferencesAct = createIconAction(":/icons/Edit/find.svg", tr("Find References"), QKeySequence("Shift+F12"),
-                                           [this]()
-                                           {
-                                               emit findReferencesTriggered();
-                                               emit lspActionTriggered(LspAction::FindReferences);
-                                           }, "LSP.FindReferences");
-    m_triggerCompletionAct = createIconAction(":/icons/Edit/find.svg", tr("Trigger Completion"), QKeySequence("Ctrl+Space"),
-                                              [this]()
-                                              {
-                                                  emit triggerCompletionTriggered();
-                                                  emit lspActionTriggered(LspAction::TriggerCompletion);
-                                              }, "LSP.TriggerCompletion");
-    m_renameSymbolAct = createIconAction(":/icons/Common/rename.svg", tr("Rename Symbol"), QKeySequence("Ctrl+Shift+R"),
-                                         [this]()
-                                         {
-                                             emit renameSymbolTriggered();
-                                             emit lspActionTriggered(LspAction::RenameSymbol);
-                                         }, "LSP.RenameSymbol");
+    m_goToDefinitionAct = createIconAction(
+        ":/icons/Edit/goto.svg", tr("Go to Definition"), QKeySequence("F12"),
+        [this]()
+        {
+            emit goToDefinitionTriggered();
+            emit lspActionTriggered(LspAction::GoToDefinition);
+        },
+        "LSP.GoToDefinition");
+    m_goToTypeDefinitionAct = createIconAction(
+        ":/icons/Edit/goto.svg", tr("Go to Type Definition"), QKeySequence("Ctrl+F12"),
+        [this]()
+        {
+            emit goToTypeDefinitionTriggered();
+            emit lspActionTriggered(LspAction::GoToTypeDefinition);
+        },
+        "LSP.GoToTypeDefinition");
+    m_goToDeclarationAct = createIconAction(
+        ":/icons/Edit/goto.svg", tr("Go to Declaration"), QKeySequence("Ctrl+Shift+F12"),
+        [this]()
+        {
+            emit goToDeclarationTriggered();
+            emit lspActionTriggered(LspAction::GoToDeclaration);
+        },
+        "LSP.GoToDeclaration");
+    m_findReferencesAct = createIconAction(
+        ":/icons/Edit/find.svg", tr("Find References"), QKeySequence("Shift+F12"),
+        [this]()
+        {
+            emit findReferencesTriggered();
+            emit lspActionTriggered(LspAction::FindReferences);
+        },
+        "LSP.FindReferences");
+    m_triggerCompletionAct = createIconAction(
+        ":/icons/Edit/find.svg", tr("Trigger Completion"), QKeySequence("Ctrl+Space"),
+        [this]()
+        {
+            emit triggerCompletionTriggered();
+            emit lspActionTriggered(LspAction::TriggerCompletion);
+        },
+        "LSP.TriggerCompletion");
+    m_renameSymbolAct = createIconAction(
+        ":/icons/Common/rename.svg", tr("Rename Symbol"), QKeySequence("Ctrl+Shift+R"),
+        [this]()
+        {
+            emit renameSymbolTriggered();
+            emit lspActionTriggered(LspAction::RenameSymbol);
+        },
+        "LSP.RenameSymbol");
 
     m_findSymbolsAct = new QAction(tr("Find Symbol..."), this);
     connect(m_findSymbolsAct, &QAction::triggered, this, [this]() { emit findSymbolsTriggered(); });
@@ -374,35 +446,43 @@ void ActionManager::createLspActions()
 
 void ActionManager::createViewActions()
 {
-    m_zoomInAct = createIconAction(":/icons/View/zoomin.svg", tr("Zoom In"), QKeySequence("Ctrl+="),
-                                   [this]()
-                                   {
-                                       emit zoomInTriggered();
-                                       emit viewActionTriggered(ViewAction::ZoomIn);
-                                   }, "View.ZoomIn");
-    m_zoomOutAct = createIconAction(":/icons/View/zoomout.svg", tr("Zoom Out"), QKeySequence("Ctrl+-"),
-                                    [this]()
-                                    {
-                                        emit zoomOutTriggered();
-                                        emit viewActionTriggered(ViewAction::ZoomOut);
-                                    }, "View.ZoomOut");
-    m_zoomResetAct = createIconAction(":/icons/View/zoomreset.svg", tr("Reset Zoom"), QKeySequence("Ctrl+0"),
-                                      [this]()
-                                      {
-                                          emit zoomResetTriggered();
-                                          emit viewActionTriggered(ViewAction::ZoomReset);
-                                      }, "View.ZoomReset");
-    m_fullScreenAct = createIconAction(":/icons/View/fullscreen.svg", tr("Fullscreen"),
+    m_zoomInAct = createIconAction(
+        ":/icons/View/zoomin.svg", tr("Zoom In"), QKeySequence("Ctrl+="),
+        [this]()
+        {
+            emit zoomInTriggered();
+            emit viewActionTriggered(ViewAction::ZoomIn);
+        },
+        "View.ZoomIn");
+    m_zoomOutAct = createIconAction(
+        ":/icons/View/zoomout.svg", tr("Zoom Out"), QKeySequence("Ctrl+-"),
+        [this]()
+        {
+            emit zoomOutTriggered();
+            emit viewActionTriggered(ViewAction::ZoomOut);
+        },
+        "View.ZoomOut");
+    m_zoomResetAct = createIconAction(
+        ":/icons/View/zoomreset.svg", tr("Reset Zoom"), QKeySequence("Ctrl+0"),
+        [this]()
+        {
+            emit zoomResetTriggered();
+            emit viewActionTriggered(ViewAction::ZoomReset);
+        },
+        "View.ZoomReset");
+    m_fullScreenAct = createIconAction(
+        ":/icons/View/fullscreen.svg", tr("Fullscreen"),
 #ifdef Q_OS_MACOS
-                                       QKeySequence(),
+        QKeySequence(),
 #else
-                                       QKeySequence("F11"),
+        QKeySequence("F11"),
 #endif
-                                       [this]()
-                                       {
-                                           emit toggleFullScreenTriggered();
-                                           emit viewActionTriggered(ViewAction::FullScreen);
-                                       }, "View.Fullscreen");
+        [this]()
+        {
+            emit toggleFullScreenTriggered();
+            emit viewActionTriggered(ViewAction::FullScreen);
+        },
+        "View.Fullscreen");
     m_projectPanelAct = new QAction(QIcon(":/icons/Common/folder.svg"), tr("Project Panel"), this);
     m_projectPanelAct->setCheckable(true);
     m_projectPanelAct->setChecked(false);
@@ -474,7 +554,8 @@ void ActionManager::createViewActions()
 
 void ActionManager::createHelpActions()
 {
-    m_optionsAct = createIconAction(":/icons/Tools/options.svg", tr("Options"), QKeySequence(), [this]() { emit optionsTriggered(); }, "Help.Options");
+    m_optionsAct =
+        createIconAction(":/icons/Tools/options.svg", tr("Options"), QKeySequence(), [this]() { emit optionsTriggered(); }, "Help.Options");
 #ifdef Q_OS_MACOS
     m_optionsAct->setMenuRole(QAction::PreferencesRole);
 #endif
@@ -482,8 +563,8 @@ void ActionManager::createHelpActions()
     m_donateAct = createIconAction(":/icons/Help/donate.svg", tr("Donate"), QKeySequence(), [this]() { emit donateTriggered(); }, "Help.Donate");
     m_websiteAct = createIconAction(":/icons/Help/website.svg", tr("Website"), QKeySequence(), [this]() { emit websiteTriggered(); }, "Help.Website");
     m_aboutAct = createIconAction(":/icons/Help/about.svg", tr("About"), QKeySequence(), [this]() { emit aboutTriggered(); }, "Help.About");
-    m_checkForUpdatesAct =
-        createIconAction(":/icons/Help/update.svg", tr("Check for Updates"), QKeySequence(), [this]() { emit checkForUpdatesTriggered(); }, "Help.CheckForUpdates");
+    m_checkForUpdatesAct = createIconAction(
+        ":/icons/Help/update.svg", tr("Check for Updates"), QKeySequence(), [this]() { emit checkForUpdatesTriggered(); }, "Help.CheckForUpdates");
 }
 
 void ActionManager::registerAction(QAction* action, const QString& actionId)
@@ -540,8 +621,7 @@ QList<QPair<QString, QKeySequence>> ActionManager::shortcuts() const
     for (auto it = m_actionsById.constBegin(); it != m_actionsById.constEnd(); ++it)
         result.append({it.key(), it.value()->shortcut()});
     std::sort(result.begin(), result.end(),
-              [](const QPair<QString, QKeySequence>& a, const QPair<QString, QKeySequence>& b)
-              { return a.first < b.first; });
+              [](const QPair<QString, QKeySequence>& a, const QPair<QString, QKeySequence>& b) { return a.first < b.first; });
     return result;
 }
 

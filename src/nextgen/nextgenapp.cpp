@@ -95,13 +95,9 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
     {
         auto* translator = new QTranslator(guiApp);
         QString sysLocale = QLocale::system().name(); // e.g. "de_DE"
-        QStringList candidates = {
-            QStringLiteral("devpad_") + sysLocale,
-            QStringLiteral("devpad_") + sysLocale.left(2), // e.g. "de"
-            QStringLiteral("devpad_de"),
-            QStringLiteral("devpad_es"),
-            QStringLiteral("devpad_fr")
-        };
+        QStringList candidates = {QStringLiteral("devpad_") + sysLocale,
+                                  QStringLiteral("devpad_") + sysLocale.left(2), // e.g. "de"
+                                  QStringLiteral("devpad_de"), QStringLiteral("devpad_es"), QStringLiteral("devpad_fr")};
         bool loaded = false;
         for (const QString& base : candidates)
         {

@@ -24,13 +24,13 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPageSetupDialog>
-#include <QPrinter>
 #include <QPrintDialog>
 #include <QPrintPreviewDialog>
+#include <QPrinter>
 #include <QRegularExpression>
 #include <QStandardPaths>
-#include <QTextDocument>
 #include <QTemporaryDir>
+#include <QTextDocument>
 
 NextgenActions::NextgenActions(QObject* parent)
     : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
@@ -1194,7 +1194,8 @@ QString NextgenActions::generateHighlightedHtml(PrimoEditor* editor) const
     QString html;
     html += QStringLiteral("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>");
     html += QStringLiteral("body { font-family: 'Monospace', monospace; font-size: 11pt; color: %1; background-color: %2; }")
-        .arg(colors.foreground.name()).arg(colors.background.name());
+                .arg(colors.foreground.name())
+                .arg(colors.background.name());
     html += QStringLiteral("pre { white-space: pre-wrap; word-wrap: break-word; margin: 0; }");
     html += QStringLiteral("</style></head><body><pre>");
 
@@ -1222,8 +1223,8 @@ QString NextgenActions::generateHighlightedHtml(PrimoEditor* editor) const
             {
                 // Plain text before this format
                 html += QStringLiteral("<span style=\"color: %1;\">%2</span>")
-                    .arg(colors.foreground.name())
-                    .arg(escaped.mid(htmlPos, fmtStart - htmlPos));
+                            .arg(colors.foreground.name())
+                            .arg(escaped.mid(htmlPos, fmtStart - htmlPos));
             }
             QString segment = escaped.mid(fmtStart, fmtEnd - fmtStart);
             QString style = QStringLiteral("color: %1;").arg(fmt.format.foreground().color().name());
@@ -1236,9 +1237,7 @@ QString NextgenActions::generateHighlightedHtml(PrimoEditor* editor) const
         }
         if (htmlPos < escaped.size())
         {
-            html += QStringLiteral("<span style=\"color: %1;\">%2</span>")
-                .arg(colors.foreground.name())
-                .arg(escaped.mid(htmlPos));
+            html += QStringLiteral("<span style=\"color: %1;\">%2</span>").arg(colors.foreground.name()).arg(escaped.mid(htmlPos));
         }
         if (i < lines.size() - 1)
             html += QStringLiteral("<br>");
@@ -1276,8 +1275,7 @@ void NextgenActions::printPreview()
     QTextDocument doc;
     doc.setDefaultFont(m_editor->font());
     doc.setHtml(html);
-    connect(&preview, &QPrintPreviewDialog::paintRequested,
-            &doc, [&doc](QPrinter* p) { doc.print(p); });
+    connect(&preview, &QPrintPreviewDialog::paintRequested, &doc, [&doc](QPrinter* p) { doc.print(p); });
     preview.exec();
 }
 

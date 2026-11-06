@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "devpad_version.h"
+#include "logger.h"
 #include "mainwindow.h"
 #include "managers/backupmanager.h"
 #include "managers/settingsmanager.h"
@@ -34,8 +35,6 @@
 #include <array>
 #include <cstdlib>
 #include <iostream>
-
-#include "logger.h"
 
 #ifdef Q_OS_UNIX
 #include <csignal>

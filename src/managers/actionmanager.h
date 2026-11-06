@@ -530,8 +530,8 @@ signals:
 
 private:
     template <typename Functor>
-    QAction* createIconAction(const QString& iconPath, const QString& text, const QKeySequence& shortcut,
-                              Functor slot, const QString& actionId = QString())
+    QAction* createIconAction(const QString& iconPath, const QString& text, const QKeySequence& shortcut, Functor slot,
+                              const QString& actionId = QString())
     {
         QIcon icon(iconPath);
         QAction* action = new QAction(icon, text, this);

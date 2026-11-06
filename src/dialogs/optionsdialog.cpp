@@ -40,9 +40,9 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QIntValidator>
-#include <QLabel>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
@@ -58,8 +58,7 @@
 class KeyCaptureDialog : public QDialog
 {
 public:
-    explicit KeyCaptureDialog(QWidget* parent, const QString& label, const QKeySequence& current)
-        : QDialog(parent)
+    explicit KeyCaptureDialog(QWidget* parent, const QString& label, const QKeySequence& current) : QDialog(parent)
     {
         setWindowTitle(tr("Set Keyboard Shortcut"));
         setModal(true);
@@ -90,7 +89,10 @@ public:
         m_captured = false;
     }
 
-    QKeySequence capturedSequence() const { return m_sequence; }
+    QKeySequence capturedSequence() const
+    {
+        return m_sequence;
+    }
 
 protected:
     void keyPressEvent(QKeyEvent* event) override
@@ -586,9 +588,9 @@ void OptionsDialog::setupKeyboardTab()
     QWidget* content = new QWidget();
     QVBoxLayout* mainLayout = new QVBoxLayout(content);
 
-    QLabel* hint = new QLabel(
-        tr("Select an action and press a key combination to assign a new shortcut. "
-           "Press Escape to cancel."), content);
+    QLabel* hint = new QLabel(tr("Select an action and press a key combination to assign a new shortcut. "
+                                 "Press Escape to cancel."),
+                              content);
     hint->setWordWrap(true);
     hint->setStyleSheet("QLabel { color: palette(text); }");
     mainLayout->addWidget(hint);
@@ -614,10 +616,9 @@ void OptionsDialog::setupKeyboardTab()
     connect(resetAllShortcutsButton, &QPushButton::clicked, this,
             [this]()
             {
-                auto result = QMessageBox::question(
-                    this, tr("Reset All Shortcuts"),
-                    tr("Reset all keyboard shortcuts to their defaults?\n\nThis cannot be undone."),
-                    QMessageBox::Yes | QMessageBox::No);
+                auto result = QMessageBox::question(this, tr("Reset All Shortcuts"),
+                                                    tr("Reset all keyboard shortcuts to their defaults?\n\nThis cannot be undone."),
+                                                    QMessageBox::Yes | QMessageBox::No);
                 if (result != QMessageBox::Yes)
                     return;
                 auto* am = actionManager();
@@ -680,8 +681,7 @@ void OptionsDialog::loadKeyboardShortcuts()
         // Set button
         QPushButton* setBtn = new QPushButton(tr("Set..."), shortcutsTable);
         setBtn->setProperty("actionId", actionId);
-        connect(setBtn, &QPushButton::clicked, this,
-                [this, actionId]() { changeShortcutById(actionId); });
+        connect(setBtn, &QPushButton::clicked, this, [this, actionId]() { changeShortcutById(actionId); });
         shortcutsTable->setCellWidget(row, 2, setBtn);
     }
 }
@@ -1106,18 +1106,16 @@ void OptionsDialog::reject()
 
 void OptionsDialog::resetSettings()
 {
-    auto result = QMessageBox::question(
-        this, tr("Reset All Settings"),
-        tr("This will reset every Devpad setting to its built-in default.\n\n"
-           "This cannot be undone. Continue?"),
-        QMessageBox::Yes | QMessageBox::No);
+    auto result = QMessageBox::question(this, tr("Reset All Settings"),
+                                        tr("This will reset every Devpad setting to its built-in default.\n\n"
+                                           "This cannot be undone. Continue?"),
+                                        QMessageBox::Yes | QMessageBox::No);
     if (result != QMessageBox::Yes)
         return;
 
     SettingsManager::instance().resetToDefaults();
     loadSettings();
-    QMessageBox::information(
-        this, tr("Settings Reset"),
-        tr("All settings have been reset to their defaults. Restart Devpad "
-           "for all changes to take full effect."));
+    QMessageBox::information(this, tr("Settings Reset"),
+                             tr("All settings have been reset to their defaults. Restart Devpad "
+                                "for all changes to take full effect."));
 }
