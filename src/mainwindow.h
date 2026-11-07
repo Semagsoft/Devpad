@@ -27,6 +27,7 @@
 
 class ActionManager;
 class CodeEditor;
+class DialogCoordinator;
 class ErrorListPanel;
 class FindSymbolsDialog;
 class EditorController;
@@ -34,7 +35,6 @@ class EncodingManager;
 class ExternalToolManager;
 class FileManager;
 class FileWatcherManager;
-class FindInFilesDialog;
 class QMenuBar;
 class PrintManager;
 class ProjectPanel;
@@ -196,9 +196,6 @@ private:
     FileWatcherManager* m_fileWatcherManager = nullptr;
     QTimer* m_autoSaveTimer = nullptr;
 
-    // QPointer: auto-nulls when dialog is destroyed externally
-    QPointer<FindInFilesDialog> m_findInFilesDialog;
-
     // Owned: QObject children (parent=this), destroyed automatically
     ExternalToolManager* m_externalToolManager = nullptr;
     RemoteFileService* m_remoteFileService = nullptr;
@@ -207,7 +204,9 @@ private:
     lsp::LspServerManager* m_lspServerManager = nullptr;
     PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
-    QPointer<FindSymbolsDialog> m_findSymbolsDialog;
+
+    // Owns the find-in-files / find-symbols dialogs
+    DialogCoordinator* m_dialogCoordinator = nullptr;
 
     QLocalServer* m_localServer = nullptr;
     TitleBar* m_titleBar = nullptr;

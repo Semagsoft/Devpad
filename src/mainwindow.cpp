@@ -22,6 +22,7 @@
 #include "actionmanager.h"
 #include "backupmanager.h"
 #include "codeeditor.h"
+#include "dialogs/dialogcoordinator.h"
 #include "editorcontroller.h"
 #include "encodingmanager.h"
 #include "encodingutils.h"
@@ -30,8 +31,6 @@
 #include "externaltoolsdialog.h"
 #include "filemanager.h"
 #include "filewatchermanager.h"
-#include "findinfilesdialog.h"
-#include "findsymbolsdialog.h"
 #include "logger.h"
 #include "lsp/lspclient.h"
 #include "lsp/lspconnectionhelper.h"
@@ -290,6 +289,9 @@ void MainWindow::createManagers()
     addDockWidget(Qt::BottomDockWidgetArea, m_errorListPanel);
     bool showErrorList = SettingsManager::instance().lspShowErrorList();
     m_errorListPanel->setVisible(showErrorList);
+
+    m_dialogCoordinator = new DialogCoordinator(m_tabManager, m_projectPanel, this);
+    connect(m_dialogCoordinator, &DialogCoordinator::navigateToResult, this, &MainWindow::onNavigateToLocation);
 
     connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
 }
@@ -967,64 +969,7 @@ void MainWindow::findPrevious()
 
 void MainWindow::findInFiles()
 {
-    if (!m_findInFilesDialog)
-    {
-        QString defaultDir;
-        if (m_projectPanel->isVisible())
-            defaultDir = m_projectPanel->rootPath();
-        else
-            defaultDir = QDir::homePath();
-
-        m_findInFilesDialog = new FindInFilesDialog(defaultDir, this);
-        connect(m_findInFilesDialog, &FindInFilesDialog::navigateToResult, this,
-                [this](const QString& filePath, int lineNumber)
-                {
-                    CodeEditor* existing = m_tabManager->findEditorByFileName(filePath);
-                    if (existing)
-                    {
-                        if (auto* container = m_tabManager->containerFor(existing))
-                        {
-                            for (QTabWidget* pane : m_tabManager->panes())
-                            {
-                                int idx = pane->indexOf(container);
-                                if (idx >= 0)
-                                {
-                                    pane->setCurrentIndex(idx);
-                                    m_tabManager->setActivePane(pane);
-                                    break;
-                                }
-                            }
-                        }
-                        existing->setCursorPosition(lineNumber - 1, 0);
-                        existing->setFocus();
-                        return;
-                    }
-
-                    loadFile(filePath);
-                    CodeEditor* editor = m_tabManager->currentEditor();
-                    if (editor)
-                    {
-                        editor->setCursorPosition(lineNumber - 1, 0);
-                    }
-                });
-        connect(m_findInFilesDialog, &QDialog::finished, this,
-                [this]()
-                {
-                    m_findInFilesDialog->deleteLater();
-                    m_findInFilesDialog = nullptr;
-                });
-    }
-
-    if (auto* editor = m_tabManager->currentEditor())
-    {
-        QString selected = editor->selectedText();
-        if (!selected.isEmpty())
-            m_findInFilesDialog->startSearch(selected, m_projectPanel->isVisible() ? m_projectPanel->rootPath() : QDir::homePath());
-    }
-
-    m_findInFilesDialog->show();
-    m_findInFilesDialog->raise();
-    m_findInFilesDialog->activateWindow();
+    m_dialogCoordinator->findInFiles();
 }
 
 void MainWindow::showOptions()
@@ -1366,21 +1311,7 @@ void MainWindow::toggleErrorListPanel()
 
 void MainWindow::findSymbols()
 {
-    if (!m_findSymbolsDialog)
-    {
-        m_findSymbolsDialog = new FindSymbolsDialog(m_lspServerManager, this);
-        connect(m_findSymbolsDialog, &FindSymbolsDialog::navigateToSymbol, this, &MainWindow::onNavigateToLocation);
-        connect(m_findSymbolsDialog, &QDialog::finished, this,
-                [this]()
-                {
-                    m_findSymbolsDialog->deleteLater();
-                    m_findSymbolsDialog = nullptr;
-                });
-    }
-    m_findSymbolsDialog->show();
-    m_findSymbolsDialog->raise();
-    m_findSymbolsDialog->activateWindow();
-    m_findSymbolsDialog->setFocus();
+    m_dialogCoordinator->findSymbols(m_lspServerManager);
 }
 
 void MainWindow::expandSelection()
