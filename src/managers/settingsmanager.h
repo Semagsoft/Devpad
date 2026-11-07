@@ -279,6 +279,12 @@ public:
     ShellOpenMode shellOpenModeFolders() const;
     void setShellOpenModeFolders(ShellOpenMode mode);
 
+    /// Flush pending QSettings changes to disk immediately. Call this after a
+    /// batch of setters (e.g. from OptionsDialog::saveSettings()) so the values
+    /// are visible to newly launched Devpad instances without waiting for the
+    /// settings object to be destroyed.
+    void sync();
+
     // ── Terminal settings ──────────────────────────────────────
     TerminalSettings terminalSettings() const;
     TerminalPanelPosition terminalPanelPosition() const;

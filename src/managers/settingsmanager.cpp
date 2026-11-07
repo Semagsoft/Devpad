@@ -684,6 +684,11 @@ void SettingsManager::setShellOpenModeFolders(ShellOpenMode mode)
 {
     writeCached("Options_ShellOpenModeFolders", m_cache.ui.shellOpenModeFolders, mode);
 }
+
+void SettingsManager::sync()
+{
+    m_settings.sync();
+}
 void SettingsManager::setTerminalPanelPosition(TerminalPanelPosition position)
 {
     writeCached("Options_TerminalPanelPosition", m_cache.terminal.terminalPanelPosition, position);

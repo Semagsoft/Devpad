@@ -1089,6 +1089,10 @@ void OptionsDialog::saveSettings()
             SettingsManager::instance().setLspServerArgs(lang, args);
         }
     }
+
+    // Persist immediately so newly launched Devpad instances pick up the
+    // changed values without waiting for the settings object to be destroyed.
+    SettingsManager::instance().sync();
 }
 
 void OptionsDialog::accept()

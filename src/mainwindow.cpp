@@ -1491,6 +1491,32 @@ void MainWindow::handleQuitRequest()
                     return;
 
                 QString command = QString::fromUtf8(client->readLine()).trimmed();
+                if (command == QStringLiteral("open_files"))
+                {
+                    QStringList paths;
+                    while (client->canReadLine())
+                    {
+                        const QString line = QString::fromUtf8(client->readLine()).trimmed();
+                        if (line == QStringLiteral("end"))
+                            break;
+                        if (!line.isEmpty())
+                            paths.append(line);
+                    }
+                    for (const QString& path : paths)
+                    {
+                        const QFileInfo info(path);
+                        if (info.isDir())
+                            openFolderFromPath(path);
+                        else
+                            openFileFromPath(path);
+                    }
+                    raise();
+                    activateWindow();
+                    client->write("ok\n");
+                    client->flush();
+                    client->disconnectFromServer();
+                    return;
+                }
                 if (command != QStringLiteral("save_and_quit"))
                     return;
 
