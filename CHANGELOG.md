@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+- Added test suite for the snippet engine (`SnippetEngine`): insertion, tab-stop navigation, mirrors, Esc/Tab key handling, and signal emission.
+- Added local `check-tidy` CMake target and `scripts/run-clang-tidy.py`, mirroring the CI clang-tidy job.
+
 ## [1.08] - 2026-11-06
 
 What's new in Devpad 1.08:

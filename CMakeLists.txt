@@ -415,6 +415,22 @@ if(CLANG_FORMAT)
     )
 endif()
 
+# ── Clang-tidy ────────────────────────────────────────────────
+find_program(CLANG_TIDY NAMES clang-tidy clang-tidy-18 clang-tidy-17)
+find_package(Python3 COMPONENTS Interpreter)
+if(CLANG_TIDY AND Python3_Interpreter_FOUND)
+    # Mirrors the CI "Clang-tidy" job: lint only files with a compile_commands.json
+    # entry, so OFF-by-default options (BUILD_TUI, BUILD_NEXTGEN) are skipped.
+    # Requires a configured build dir exporting the DB (default: build/).
+    add_custom_target(check-tidy
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/run-clang-tidy.py
+                --build-dir $<IF:$<BOOL:${CMAKE_EXPORT_COMPILE_COMMANDS}>,${CMAKE_BINARY_DIR},${CMAKE_SOURCE_DIR}/build>
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Checking sources with clang-tidy"
+        VERBATIM
+    )
+endif()
+
 if(BUILD_TESTS)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     include(FetchContent)
@@ -456,6 +472,7 @@ if(BUILD_TESTS)
         tests/test_sessionmanager.cpp
         tests/test_snippet.cpp
         tests/test_snippetmanager.cpp
+        tests/test_snippetengine.cpp
         tests/test_editorcontainer.cpp
         tests/test_encodingmenuhelper.cpp
         tests/test_externaltoolmanager.cpp
