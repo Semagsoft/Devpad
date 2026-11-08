@@ -1,9 +1,13 @@
 # Changelog
 
-## [Unreleased]
+## [1.09] - 2026-11-07
+
+Quality and architecture improvements for the snippet engine and CI:
 
 - Added test suite for the snippet engine (`SnippetEngine`): insertion, tab-stop navigation, mirrors, Esc/Tab key handling, and signal emission.
 - Added local `check-tidy` CMake target and `scripts/run-clang-tidy.py`, mirroring the CI clang-tidy job.
+- Pinned CI clang-tidy to version 18 to match clang-format-18 and avoid silent lint drift.
+- Internal refactors (no behavior change): extracted `DialogCoordinator` and `ExternalChangeCoordinator` from `MainWindow`, moved tab/pane activation into `TabManager::focusEditorPane`.
 
 ## [1.08] - 2026-11-06
 
