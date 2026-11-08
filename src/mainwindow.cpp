@@ -842,20 +842,8 @@ void MainWindow::openRemoteFileActivated(const QString& urlStr)
     // Reuse the already-open tab for this remote file instead of re-downloading.
     if (CodeEditor* existing = m_tabManager->findEditorByFileName(urlStr))
     {
-        if (auto* container = m_tabManager->containerFor(existing))
-        {
-            for (QTabWidget* pane : m_tabManager->panes())
-            {
-                int index = pane->indexOf(container);
-                if (index >= 0)
-                {
-                    pane->setCurrentIndex(index);
-                    existing->setFocus();
-                    m_tabManager->setActivePane(pane);
-                    return;
-                }
-            }
-        }
+        m_tabManager->focusEditorPane(existing);
+        existing->setFocus();
         return;
     }
 
@@ -878,20 +866,11 @@ void MainWindow::loadFile(const QString& fileName, const QString& encoding, bool
         CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName);
         if (existingEditor)
         {
-            auto* container = m_tabManager->containerFor(existingEditor);
-            if (container)
+            if (auto* container = m_tabManager->containerFor(existingEditor))
             {
-                for (QTabWidget* pane : m_tabManager->panes())
-                {
-                    int index = pane->indexOf(container);
-                    if (index >= 0)
-                    {
-                        pane->setCurrentIndex(index);
-                        existingEditor->setFocus();
-                        m_tabManager->setActivePane(pane);
-                        return;
-                    }
-                }
+                m_tabManager->focusEditorPane(existingEditor);
+                existingEditor->setFocus();
+                return;
             }
             return;
         }
