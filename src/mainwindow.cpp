@@ -1664,19 +1664,7 @@ void MainWindow::onNavigateToLocation(const QString& filePath, int line, int col
     CodeEditor* existing = m_tabManager->findEditorByFileName(filePath);
     if (existing)
     {
-        if (auto* container = m_tabManager->containerFor(existing))
-        {
-            for (QTabWidget* pane : m_tabManager->panes())
-            {
-                int idx = pane->indexOf(container);
-                if (idx >= 0)
-                {
-                    pane->setCurrentIndex(idx);
-                    m_tabManager->setActivePane(pane);
-                    break;
-                }
-            }
-        }
+        m_tabManager->focusEditorPane(existing);
         existing->setCursorPosition(line, column);
         existing->setFocus();
         return;

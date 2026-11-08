@@ -81,6 +81,12 @@ public:
 
     EditorContainer* containerFor(CodeEditor* editor) const;
 
+    /**
+     * @brief Bring an already-open editor to the foreground: activates the pane
+     *        containing it and selects its tab. No-op if the editor is unknown.
+     */
+    void focusEditorPane(CodeEditor* editor);
+
 signals:
     void editorCreated(CodeEditor* editor);
     void editorClosed(CodeEditor* editor);

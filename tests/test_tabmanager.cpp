@@ -112,6 +112,29 @@ TEST_F(TabManagerTest, RemoveEditorDecreasesCount)
     EXPECT_EQ(tabManager->editorAt(0), e1);
 }
 
+TEST_F(TabManagerTest, FocusEditorPaneActivatesTheEditorsTab)
+{
+    if (tabManager->panes().isEmpty())
+    {
+        GTEST_SKIP() << "Split panes not initialized in this environment";
+    }
+    CodeEditor* e1 = addEditor("a.txt");
+    addEditor("b.txt");
+
+    tabManager->focusEditorPane(e1);
+    QTabWidget* pane = tabManager->activePane();
+    ASSERT_NE(pane, nullptr);
+    EXPECT_EQ(pane->currentWidget(), tabManager->containerFor(e1));
+}
+
+TEST_F(TabManagerTest, FocusEditorPaneWithUnknownEditorIsNoop)
+{
+    CodeEditor* stranger = new CodeEditor();
+    tabManager->focusEditorPane(stranger); // must not crash
+    tabManager->focusEditorPane(nullptr);  // must not crash
+    delete stranger;
+}
+
 TEST_F(TabManagerTest, CloseEditorDecreasesCount)
 {
     addEditor("a.txt");

@@ -496,6 +496,25 @@ EditorContainer* TabManager::containerFor(CodeEditor* editor) const
     return nullptr;
 }
 
+void TabManager::focusEditorPane(CodeEditor* editor)
+{
+    if (!editor)
+        return;
+    if (auto* container = containerFor(editor))
+    {
+        for (QTabWidget* pane : m_panes)
+        {
+            int idx = pane->indexOf(container);
+            if (idx >= 0)
+            {
+                pane->setCurrentIndex(idx);
+                setActivePane(pane);
+                break;
+            }
+        }
+    }
+}
+
 void TabManager::updateTabBarVisibility()
 {
     for (QTabWidget* pane : m_panes)
