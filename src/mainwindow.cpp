@@ -27,6 +27,7 @@
 #include "encodingmanager.h"
 #include "encodingutils.h"
 #include "errorlistpanel.h"
+#include "externalchangecoordinator.h"
 #include "externaltoolmanager.h"
 #include "externaltoolsdialog.h"
 #include "filemanager.h"
@@ -292,6 +293,17 @@ void MainWindow::createManagers()
 
     m_dialogCoordinator = new DialogCoordinator(m_tabManager, m_projectPanel, this);
     connect(m_dialogCoordinator, &DialogCoordinator::navigateToResult, this, &MainWindow::onNavigateToLocation);
+
+    m_externalChangeCoordinator = new ExternalChangeCoordinator(m_tabManager, m_fileWatcherManager, this);
+    connect(m_externalChangeCoordinator, &ExternalChangeCoordinator::reloadRequested, this,
+            [this](const QString& filePath, const QString& encoding, const QList<int>& bookmarks)
+            {
+                loadFile(filePath, encoding, true);
+                if (auto* newEditor = m_tabManager->currentEditor())
+                {
+                    newEditor->setBookmarks(bookmarks);
+                }
+            });
 
     connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
 }
@@ -1697,58 +1709,7 @@ QString MainWindow::getSyntaxForFile(const QString& displayName) const
 
 void MainWindow::onFileModifiedExternally(const QString& filePath)
 {
-    // The prompt below is modal, which means a nested event loop keeps delivering queued
-    // watcher signals while it is open. Drop them instead of stacking another dialog.
-    if (m_fileModifiedDialogActive)
-    {
-        Logger::instance().debug(QString("Ignoring external change while prompt is open: %1").arg(filePath));
-        return;
-    }
-
-    m_fileModifiedDialogActive = true;
-    promptExternalChangeReload(filePath);
-    m_fileModifiedDialogActive = false;
-}
-
-void MainWindow::promptExternalChangeReload(const QString& filePath)
-{
-    QPointer<CodeEditor> editor = m_tabManager->findEditorByFileName(filePath);
-    if (!editor)
-        return;
-
-    QString message;
-    if (editor->isModified())
-    {
-        message = tr("The file \"%1\" has been modified outside of Devpad.\n\n"
-                     "Your version has unsaved changes.\n\n"
-                     "Do you want to reload the file? (Unsaved changes will be lost)");
-    }
-    else
-    {
-        message = tr("The file \"%1\" has been modified outside of Devpad.\n\n"
-                     "Do you want to reload the file?");
-    }
-
-    QMessageBox::StandardButton result =
-        QMessageBox::question(this, tr("File Modified"), message.arg(QFileInfo(filePath).fileName()), QMessageBox::Yes | QMessageBox::No);
-
-    if (result == QMessageBox::Yes)
-    {
-        QList<int> bookmarks = editor->bookmarkLines();
-        QString encoding = editor->encoding();
-
-        int idx = m_tabManager->indexOf(editor);
-        if (idx >= 0)
-        {
-            m_tabManager->closeEditor(idx);
-        }
-        m_fileWatcherManager->unwatchFile(filePath);
-        loadFile(filePath, encoding, true);
-        if (auto* newEditor = m_tabManager->currentEditor())
-        {
-            newEditor->setBookmarks(bookmarks);
-        }
-    }
+    m_externalChangeCoordinator->handleFileModifiedExternally(filePath);
 }
 
 void MainWindow::updateSplitViewVisibility()

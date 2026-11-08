@@ -23,15 +23,14 @@
 
 #include <QLocalServer>
 #include <QMainWindow>
-#include <QPointer>
 
 class ActionManager;
 class CodeEditor;
 class DialogCoordinator;
 class ErrorListPanel;
-class FindSymbolsDialog;
 class EditorController;
 class EncodingManager;
+class ExternalChangeCoordinator;
 class ExternalToolManager;
 class FileManager;
 class FileWatcherManager;
@@ -173,7 +172,6 @@ private:
     void updateEncodingSelector();
     void reloadCurrentFileWithEncoding(const QString& encoding);
     void saveCurrentFileWithEncoding(const QString& encoding);
-    void promptExternalChangeReload(const QString& filePath);
 
     // Owned: child widgets (parent=this), destroyed by Qt parent mechanism
     QTabWidget* m_tabWidget = nullptr;
@@ -208,15 +206,15 @@ private:
     // Owns the find-in-files / find-symbols dialogs
     DialogCoordinator* m_dialogCoordinator = nullptr;
 
+    // Handles externally-modified open files (prompt + reload)
+    ExternalChangeCoordinator* m_externalChangeCoordinator = nullptr;
+
     QLocalServer* m_localServer = nullptr;
     TitleBar* m_titleBar = nullptr;
 #ifdef Q_OS_WIN
     WindowsFrameBridge* m_frameBridge = nullptr;
 #endif
     bool m_quitRequested = false;
-    // Guards the modal "File Modified" prompt: QMessageBox spins a nested event loop,
-    // so further watcher signals must not stack extra dialogs on top of it.
-    bool m_fileModifiedDialogActive = false;
 };
 
 #endif // MAINWINDOW_H

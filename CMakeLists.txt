@@ -228,6 +228,7 @@ add_library(Devpad_lib STATIC
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/findsymbolsdialog.cpp
     src/dialogs/dialogcoordinator.cpp
+    src/managers/externalchangecoordinator.cpp
     src/dialogs/aboutdialog.cpp
     src/dialogs/optionsdialog.cpp
     src/dialogs/externaltoolsdialog.cpp
