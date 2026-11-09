@@ -38,6 +38,7 @@ class QMenuBar;
 class PrintManager;
 class ProjectPanel;
 class ReferencesPanel;
+class DebugPanel;
 class RemoteFileService;
 class SearchManager;
 class SessionManager;
@@ -59,6 +60,11 @@ namespace lsp
 {
 class LspServerManager;
 } // namespace lsp
+
+namespace dap
+{
+class DapServerManager;
+} // namespace dap
 
 class MainWindow : public QMainWindow
 {
@@ -93,6 +99,7 @@ public slots:
     void toggleTerminalPanel();
     void toggleErrorListPanel();
     void toggleReferencesPanel();
+    void toggleDebugPanel();
     void findSymbols();
     void expandSelection();
     void shrinkSelection();
@@ -108,6 +115,13 @@ public slots:
     void requestCodeActions();
     void triggerCompletion();
     void renameSymbol();
+    void startDebugging();
+    void stopDebugging();
+    void debugContinue();
+    void debugStepOver();
+    void debugStepInto();
+    void debugStepOut();
+    void debugRestart();
     void printFile();
     void printPreview();
     void pageSetup();
@@ -204,9 +218,13 @@ private:
     UpdateChecker* m_updateChecker = nullptr;
     SnippetManager* m_snippetManager = nullptr;
     lsp::LspServerManager* m_lspServerManager = nullptr;
+    dap::DapServerManager* m_dapServerManager = nullptr;
     PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
     ReferencesPanel* m_referencesPanel = nullptr;
+    DebugPanel* m_debugPanel = nullptr;
+    QString m_debugSessionKey;
+    QMetaObject::Connection m_dapLaunchConn;
 
     // Owns the find-in-files / find-symbols dialogs
     DialogCoordinator* m_dialogCoordinator = nullptr;

@@ -245,6 +245,7 @@ add_library(Devpad_lib STATIC
     src/panels/draggabletabbar.cpp
     src/panels/errorlistpanel.cpp
     src/panels/referencespanel.cpp
+    src/panels/debugpanel.cpp
     src/widgets/brackethelper.cpp
     src/widgets/themepreviewwidget.cpp
     src/widgets/titlebar.cpp
@@ -261,6 +262,10 @@ add_library(Devpad_lib STATIC
     src/lsp/lspservermanager.cpp
     src/lsp/lsptypes.cpp
     src/lsp/lspeditorintegration.cpp
+    src/dap/dapclient.cpp
+    src/dap/dapservermanager.cpp
+    src/dap/daptypes.cpp
+    src/dap/dapeditorintegration.cpp
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginhost.cpp>
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginmanager.cpp>
 )

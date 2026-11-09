@@ -236,6 +236,23 @@ void SettingsManager::loadCache()
     }
     m_settings.endGroup();
 
+    m_cache.dap.enabled = m_settings.value("DAP/Enabled", false).toBool();
+    m_cache.dap.adapterCommands.clear();
+    m_cache.dap.adapterArgs.clear();
+    m_settings.beginGroup("DAP/Adapter");
+    for (const QString& lang : m_settings.childGroups())
+    {
+        m_settings.beginGroup(lang);
+        QString cmd = m_settings.value("Command").toString();
+        if (!cmd.isEmpty())
+            m_cache.dap.adapterCommands.insert(lang, cmd);
+        QStringList args = m_settings.value("Args").toStringList();
+        if (!args.isEmpty())
+            m_cache.dap.adapterArgs.insert(lang, args);
+        m_settings.endGroup();
+    }
+    m_settings.endGroup();
+
     QVariant accentVar = m_settings.value("Options_AccentColor");
     m_cache.hasAccentColor = accentVar.isValid() && accentVar.value<QColor>().isValid();
     if (m_cache.hasAccentColor)
@@ -931,6 +948,51 @@ void SettingsManager::setLspServerArgs(const QString& language, const QStringLis
 {
     m_cache.lsp.serverArgs[language] = args;
     m_settings.setValue(QString("LSP/Server/%1/Args").arg(language), args);
+    settingsChanged();
+}
+
+SettingsManager::DapSettings SettingsManager::dapSettings() const
+{
+    return m_cache.dap;
+}
+
+bool SettingsManager::dapEnabled() const
+{
+    return m_cache.dap.enabled;
+}
+
+QString SettingsManager::dapAdapterCommand(const QString& language) const
+{
+    auto it = m_cache.dap.adapterCommands.find(language);
+    if (it != m_cache.dap.adapterCommands.end() && !it->isEmpty())
+        return *it;
+    return m_settings.value(QString("DAP/Adapter/%1/Command").arg(language)).toString();
+}
+
+QStringList SettingsManager::dapAdapterArgs(const QString& language) const
+{
+    auto it = m_cache.dap.adapterArgs.find(language);
+    if (it != m_cache.dap.adapterArgs.end())
+        return *it;
+    return m_settings.value(QString("DAP/Adapter/%1/Args").arg(language)).toStringList();
+}
+
+void SettingsManager::setDapEnabled(bool enabled)
+{
+    writeCached("DAP/Enabled", m_cache.dap.enabled, enabled);
+}
+
+void SettingsManager::setDapAdapterCommand(const QString& language, const QString& command)
+{
+    m_cache.dap.adapterCommands[language] = command;
+    m_settings.setValue(QString("DAP/Adapter/%1/Command").arg(language), command);
+    settingsChanged();
+}
+
+void SettingsManager::setDapAdapterArgs(const QString& language, const QStringList& args)
+{
+    m_cache.dap.adapterArgs[language] = args;
+    m_settings.setValue(QString("DAP/Adapter/%1/Args").arg(language), args);
     settingsChanged();
 }
 

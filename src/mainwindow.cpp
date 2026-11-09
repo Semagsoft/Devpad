@@ -28,6 +28,7 @@
 #include "encodingutils.h"
 #include "errorlistpanel.h"
 #include "referencespanel.h"
+#include "debugpanel.h"
 #include "externaltoolmanager.h"
 #include "externaltoolsdialog.h"
 #include "filemanager.h"
@@ -37,6 +38,7 @@
 #include "lsp/lspconnectionhelper.h"
 #include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
+#include "dap/dapservermanager.h"
 #include "managers/externalchangecoordinator.h"
 #include "managers/remoteopencoordinator.h"
 #include "optionsdialog.h"
@@ -284,6 +286,7 @@ void MainWindow::createManagers()
     m_snippetManager = new SnippetManager(this);
 
     m_lspServerManager = new lsp::LspServerManager(this);
+    m_dapServerManager = new dap::DapServerManager(this);
 #ifdef BUILD_PLUGINS
     m_pluginManager = new PluginManager(this);
 #endif
@@ -296,6 +299,67 @@ void MainWindow::createManagers()
     addDockWidget(Qt::BottomDockWidgetArea, m_referencesPanel);
     m_referencesPanel->hide();
     connect(m_referencesPanel, &ReferencesPanel::navigateToLocation, this, &MainWindow::onNavigateToLocation);
+
+    m_debugPanel = new DebugPanel(this);
+    addDockWidget(Qt::BottomDockWidgetArea, m_debugPanel);
+    m_debugPanel->hide();
+    connect(m_debugPanel, &DebugPanel::navigateToLocation, this, &MainWindow::onNavigateToLocation);
+    m_debugPanel->setServerManager(m_dapServerManager);
+
+    // Wire DAP breakpoint results back to editor margins.
+    connect(m_dapServerManager, &dap::DapServerManager::breakpointsSet, this,
+            [this](const QString& sessionKey, const QString& sourcePath,
+                   const QList<dap::Breakpoint>& breakpoints)
+            {
+                Q_UNUSED(sessionKey);
+                if (sourcePath.isEmpty())
+                    return;
+                QList<int> lines;
+                for (const auto& b : breakpoints)
+                    lines.append(b.line);
+                if (CodeEditor* editor = m_tabManager->findEditorByFileName(sourcePath))
+                    editor->setBreakpoints(lines);
+            });
+
+    // When the debug session stops, the debug panel fetches the stack trace and
+    // navigates to the stopped frame. We also highlight the line in the editor
+    // once the stack trace arrives (handled via stackTraceReady below).
+    connect(m_dapServerManager, &dap::DapServerManager::stopped, this,
+            [this](const QString& sessionKey, const dap::StoppedEvent& ev)
+            {
+                Q_UNUSED(sessionKey);
+                Q_UNUSED(ev);
+                m_debugPanel->refreshStack();
+            });
+
+    // Terminated: clear execution pointer.
+    connect(m_dapServerManager, &dap::DapServerManager::terminated, this,
+            [this](const QString&, const dap::TerminatedEvent&)
+            {
+                for (int i = 0; i < m_tabManager->count(); ++i)
+                {
+                    if (CodeEditor* editor = m_tabManager->editorAt(i))
+                        editor->clearCurrentExecutionLine();
+                }
+            });
+
+    // Highlight the stopped frame's location in the owning editor.
+    connect(m_dapServerManager, &dap::DapServerManager::stackTraceReady, this,
+            [this](const QString& sessionKey, const QList<dap::StackFrame>& frames, int /*totalFrames*/)
+            {
+                Q_UNUSED(sessionKey);
+                if (frames.isEmpty())
+                    return;
+                const auto& top = frames.first();
+                if (top.sourcePath.isEmpty())
+                    return;
+                if (CodeEditor* editor = m_tabManager->findEditorByFileName(top.sourcePath))
+                {
+                    editor->setCurrentExecutionLine(top.line - 1); // DAP is 1-based
+                    m_tabManager->focusEditorPane(editor);
+                    editor->setFocus();
+                }
+            });
 
     m_dialogCoordinator = new DialogCoordinator(m_tabManager, m_projectPanel, this);
     connect(m_dialogCoordinator, &DialogCoordinator::navigateToResult, this, &MainWindow::onNavigateToLocation);
@@ -1049,6 +1113,13 @@ void MainWindow::onEditorCreated(CodeEditor* editor)
     m_editorController->updateUndoRedoState();
     updateStatusBarLabelsVisibility();
     m_editorController->updateReadOnlyActionState();
+
+    // Attach the editor to the active debug session (if any).
+    if (m_dapServerManager && !m_debugSessionKey.isEmpty())
+    {
+        editor->setDapServerManager(m_dapServerManager);
+        editor->setDapSessionKey(m_debugSessionKey);
+    }
 }
 
 void MainWindow::updateRecentFileActions()
@@ -1573,6 +1644,118 @@ void MainWindow::requestCodeActions()
 void MainWindow::triggerCompletion()
 {
     invokeOnEditor(&CodeEditor::triggerCompletion);
+}
+
+void MainWindow::startDebugging()
+{
+    CodeEditor* editor = m_tabManager->currentEditor();
+    if (!editor)
+        return;
+    QString filePath = editor->fileName();
+    if (filePath.isEmpty())
+        return;
+
+    // Stop any existing session first.
+    if (m_dapServerManager->currentClient() && m_dapServerManager->currentClient()->isRunning())
+        stopDebugging();
+
+    m_debugSessionKey = lsp::uriFromPath(filePath);
+    for (int i = 0; i < m_tabManager->count(); ++i)
+    {
+        if (CodeEditor* e = m_tabManager->editorAt(i))
+        {
+            e->setDapServerManager(m_dapServerManager);
+            e->setDapSessionKey(m_debugSessionKey);
+        }
+    }
+
+    QString language = editor->syntax();
+    QString command = SettingsManager::instance().dapAdapterCommand(language);
+    QStringList args = SettingsManager::instance().dapAdapterArgs(language);
+
+    m_dapLaunchConn = connect(m_dapServerManager, &dap::DapServerManager::initializeDone, this,
+                              [this, filePath](const QString& /*sessionKey*/, const dap::Capabilities& /*caps*/)
+                              {
+                                  disconnect(m_dapLaunchConn);
+                                  QJsonObject launchArgs;
+                                  launchArgs["program"] = filePath;
+                                  launchArgs["stopOnEntry"] = true;
+                                  launchArgs["cwd"] = QFileInfo(filePath).absolutePath();
+                                  if (auto* client = m_dapServerManager->currentClient())
+                                      client->launch(launchArgs);
+                                  m_debugPanel->setSessionKey(m_debugSessionKey);
+                                  m_debugPanel->show();
+                                  m_debugPanel->raise();
+                                  m_debugPanel->updateState(true, tr("Starting..."));
+                                  m_actionManager->debugPanelAct()->setChecked(true);
+                                  m_actionManager->startDebuggingAct()->setEnabled(false);
+                                  m_actionManager->stopDebuggingAct()->setEnabled(true);
+                              });
+
+    m_dapServerManager->startSession(m_debugSessionKey, language, command, args);
+    m_debugPanel->setSessionKey(m_debugSessionKey);
+    m_debugPanel->show();
+    m_debugPanel->raise();
+    m_debugPanel->updateState(true, tr("Starting..."));
+    m_actionManager->debugPanelAct()->setChecked(true);
+    m_actionManager->startDebuggingAct()->setEnabled(false);
+    m_actionManager->stopDebuggingAct()->setEnabled(true);
+}
+
+void MainWindow::stopDebugging()
+{
+    m_dapServerManager->stopSession(m_debugSessionKey);
+    m_debugSessionKey.clear();
+    for (int i = 0; i < m_tabManager->count(); ++i)
+    {
+        if (CodeEditor* e = m_tabManager->editorAt(i))
+        {
+            e->setDapSessionKey(QString());
+            e->clearCurrentExecutionLine();
+        }
+    }
+    m_debugPanel->setSessionKey(QString());
+    m_debugPanel->updateState(false, tr("Not debugging"));
+    m_actionManager->startDebuggingAct()->setEnabled(true);
+    m_actionManager->stopDebuggingAct()->setEnabled(false);
+    m_actionManager->debugPanelAct()->setChecked(false);
+}
+
+void MainWindow::debugContinue()
+{
+    if (auto* client = m_dapServerManager->clientForSession(m_debugSessionKey))
+        client->continueExecution(0);
+}
+
+void MainWindow::debugStepOver()
+{
+    if (auto* client = m_dapServerManager->clientForSession(m_debugSessionKey))
+        client->stepOver(0);
+}
+
+void MainWindow::debugStepInto()
+{
+    if (auto* client = m_dapServerManager->clientForSession(m_debugSessionKey))
+        client->stepInto(0);
+}
+
+void MainWindow::debugStepOut()
+{
+    if (auto* client = m_dapServerManager->clientForSession(m_debugSessionKey))
+        client->stepOut(0);
+}
+
+void MainWindow::debugRestart()
+{
+    stopDebugging();
+    startDebugging();
+}
+
+void MainWindow::toggleDebugPanel()
+{
+    bool visible = !m_debugPanel->isVisible();
+    m_debugPanel->setVisible(visible);
+    m_actionManager->debugPanelAct()->setChecked(visible);
 }
 
 void MainWindow::onNavigateToLocation(const QString& filePath, int line, int column)

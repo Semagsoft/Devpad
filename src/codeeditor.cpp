@@ -23,6 +23,7 @@
 #include "lsp/lspindicators.h"
 #include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
+#include "dap/dapeditorintegration.h"
 #include "settingsmanager.h"
 #include "snippetmanager.h"
 #include "theme.h"
@@ -65,6 +66,10 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 {
                     toggleBookmark(line);
                 }
+                else if (margin == DEBUG_MARGIN)
+                {
+                    toggleBreakpoint(line);
+                }
             });
 
     // Set up invisible indicator for snippet tab stops
@@ -80,9 +85,20 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
     // Create LSP editor integration (handles timers, requests, responses)
     m_lspIntegration = new lsp::LspEditorIntegration(this, this);
 
+    // Create DAP / debugger editor integration (breakpoints, execution position)
+    m_dapIntegration = new dap::DapEditorIntegration(this, this);
+
     // Forward navigation requests from LSP integration to UI
     connect(m_lspIntegration, &lsp::LspEditorIntegration::navigateToLocation, this, &CodeEditor::navigateToLocation);
     connect(m_lspIntegration, &lsp::LspEditorIntegration::diagnosticsChanged, this, &CodeEditor::diagnosticsChanged);
+
+    // Sync editor breakpoints with the debug adapter when the margin is clicked
+    connect(this, &CodeEditor::breakpointToggled, this,
+            [this](int)
+            {
+                if (m_dapIntegration)
+                    m_dapIntegration->syncBreakpoints();
+            });
 
     // Trigger document highlights when cursor position changes
     connect(this, &QsciScintilla::cursorPositionChanged, this,
@@ -267,6 +283,21 @@ void CodeEditor::setupEditor()
     markerDefine(QsciScintilla::SC_MARK_BOOKMARK, MARKER_BOOKMARK);
     setMarkerForegroundColor(QColor(255, 160, 0), MARKER_BOOKMARK);
     setMarkerBackgroundColor(QColor(255, 200, 100), MARKER_BOOKMARK);
+
+    // Debug breakpoint margin: red dot marker
+    setMarginType(DEBUG_MARGIN, QsciScintilla::SymbolMargin);
+    setMarginWidth(DEBUG_MARGIN, 16);
+    setMarginSensitivity(DEBUG_MARGIN, true);
+    setMarginMarkerMask(DEBUG_MARGIN,
+                        static_cast<int>((1u << static_cast<unsigned int>(MARKER_BREAKPOINT)) |
+                                         (1u << static_cast<unsigned int>(MARKER_CURRENT_LINE))));
+    markerDefine(QsciScintilla::SC_MARK_CIRCLE, MARKER_BREAKPOINT);
+    setMarkerForegroundColor(QColor(255, 0, 0), MARKER_BREAKPOINT);
+    setMarkerBackgroundColor(QColor(255, 0, 0), MARKER_BREAKPOINT);
+    // Execution pointer (current stopped line): arrow marker
+    markerDefine(QsciScintilla::SC_MARK_ARROW, MARKER_CURRENT_LINE);
+    setMarkerForegroundColor(QColor(0, 120, 255), MARKER_CURRENT_LINE);
+    setMarkerBackgroundColor(QColor(0, 120, 255), MARKER_CURRENT_LINE);
 }
 
 void CodeEditor::applyTheme(ThemeId themeId)
@@ -728,6 +759,68 @@ void CodeEditor::setBookmarks(const QList<int>& lines)
     emit bookmarksChanged();
 }
 
+void CodeEditor::toggleBreakpoint()
+{
+    int line, col;
+    getCursorPosition(&line, &col);
+    toggleBreakpoint(line);
+}
+
+void CodeEditor::toggleBreakpoint(int line)
+{
+    if (hasBreakpoint(line))
+        markerDelete(line, MARKER_BREAKPOINT);
+    else
+        markerAdd(line, MARKER_BREAKPOINT);
+    emit breakpointToggled(line);
+}
+
+bool CodeEditor::hasBreakpoint(int line) const
+{
+    return (static_cast<unsigned int>(markersAtLine(line)) & (1u << static_cast<unsigned int>(MARKER_BREAKPOINT))) != 0;
+}
+
+QList<int> CodeEditor::breakpointLines() const
+{
+    QList<int> lines;
+    int lineCount = this->lines();
+    for (int i = 0; i < lineCount; ++i)
+    {
+        if ((static_cast<unsigned int>(markersAtLine(i)) & (1u << static_cast<unsigned int>(MARKER_BREAKPOINT))) != 0)
+        {
+            lines.append(i);
+        }
+    }
+    return lines;
+}
+
+void CodeEditor::setBreakpoints(const QList<int>& lines)
+{
+    markerDeleteAll(MARKER_BREAKPOINT);
+    for (int line : lines)
+    {
+        if (line >= 0 && line < this->lines())
+            markerAdd(line, MARKER_BREAKPOINT);
+    }
+}
+
+void CodeEditor::clearBreakpoints()
+{
+    markerDeleteAll(MARKER_BREAKPOINT);
+}
+
+void CodeEditor::setCurrentExecutionLine(int line)
+{
+    clearCurrentExecutionLine();
+    if (line >= 0 && line < this->lines())
+        markerAdd(line, MARKER_CURRENT_LINE);
+}
+
+void CodeEditor::clearCurrentExecutionLine()
+{
+    markerDeleteAll(MARKER_CURRENT_LINE);
+}
+
 void CodeEditor::toggleComment()
 {
     const auto* cs = commentSyntaxForLanguage(m_syntax);
@@ -1034,6 +1127,18 @@ void CodeEditor::setLspServerManager(lsp::LspServerManager* manager)
 void CodeEditor::setLspLanguage(const QString& language)
 {
     m_lspIntegration->setLanguage(language);
+}
+
+void CodeEditor::setDapServerManager(dap::DapServerManager* manager)
+{
+    if (m_dapIntegration)
+        m_dapIntegration->setServerManager(manager);
+}
+
+void CodeEditor::setDapSessionKey(const QString& sessionKey)
+{
+    if (m_dapIntegration)
+        m_dapIntegration->setSessionKey(sessionKey);
 }
 
 lsp::LspServerManager* CodeEditor::lspServerManager() const

@@ -55,6 +55,7 @@ void ActionManager::createActions()
     createEditActions();
     createBookmarkActions();
     createLspActions();
+    createDebugActions();
     createViewActions();
     createHelpActions();
 
@@ -451,6 +452,66 @@ void ActionManager::createLspActions()
     connect(m_shrinkSelectionAct, &QAction::triggered, this, [this]() { emit shrinkSelectionTriggered(); });
 }
 
+void ActionManager::createDebugActions()
+{
+    m_startDebuggingAct = createIconAction(
+        ":/icons/Debug/start.svg", tr("Start Debugging"), QKeySequence("F5"),
+        [this]()
+        {
+            emit startDebuggingTriggered();
+            emit debugActionTriggered(DebugAction::StartDebugging);
+        },
+        "Debug.Start");
+    m_stopDebuggingAct = createIconAction(
+        ":/icons/Debug/stop.svg", tr("Stop Debugging"), QKeySequence("Shift+F5"),
+        [this]()
+        {
+            emit stopDebuggingTriggered();
+            emit debugActionTriggered(DebugAction::StopDebugging);
+        },
+        "Debug.Stop");
+    m_continueAct = createIconAction(
+        ":/icons/Debug/continue.svg", tr("Continue"), QKeySequence("F5"),
+        [this]()
+        {
+            emit continueTriggered();
+            emit debugActionTriggered(DebugAction::Continue);
+        },
+        "Debug.Continue");
+    m_stepOverAct = createIconAction(
+        ":/icons/Debug/stepover.svg", tr("Step Over"), QKeySequence("F10"),
+        [this]()
+        {
+            emit stepOverTriggered();
+            emit debugActionTriggered(DebugAction::StepOver);
+        },
+        "Debug.StepOver");
+    m_stepIntoAct = createIconAction(
+        ":/icons/Debug/stepinto.svg", tr("Step Into"), QKeySequence("F11"),
+        [this]()
+        {
+            emit stepIntoTriggered();
+            emit debugActionTriggered(DebugAction::StepInto);
+        },
+        "Debug.StepInto");
+    m_stepOutAct = createIconAction(
+        ":/icons/Debug/stepout.svg", tr("Step Out"), QKeySequence("Shift+F11"),
+        [this]()
+        {
+            emit stepOutTriggered();
+            emit debugActionTriggered(DebugAction::StepOut);
+        },
+        "Debug.StepOut");
+    m_restartAct = createIconAction(
+        ":/icons/Debug/restart.svg", tr("Restart"), QKeySequence("Ctrl+Shift+F5"),
+        [this]()
+        {
+            emit restartTriggered();
+            emit debugActionTriggered(DebugAction::Restart);
+        },
+        "Debug.Restart");
+}
+
 void ActionManager::createViewActions()
 {
     m_zoomInAct = createIconAction(
@@ -525,6 +586,12 @@ void ActionManager::createViewActions()
     m_referencesPanelAct->setChecked(false);
     registerAction(m_referencesPanelAct, "View.References");
     connect(m_referencesPanelAct, &QAction::triggered, this, [this]() { emit toggleReferencesPanelTriggered(); });
+
+    m_debugPanelAct = new QAction(QIcon(":/icons/Debug/start.svg"), tr("Debug Panel"), this);
+    m_debugPanelAct->setCheckable(true);
+    m_debugPanelAct->setChecked(false);
+    registerAction(m_debugPanelAct, "View.DebugPanel");
+    connect(m_debugPanelAct, &QAction::triggered, this, [this]() { emit toggleDebugPanelTriggered(); });
 
     m_menuBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Menu Bar\tCtrl+Alt+M"), this);
     m_menuBarAct->setCheckable(true);
@@ -795,6 +862,18 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     lspMenu->addAction(m_shrinkSelectionAct);
     lspMenu->addSeparator();
     lspMenu->addAction(m_formatSelectionAct);
+
+    QMenu* debugMenu = editMenu->addMenu(tr("Debug"));
+    debugMenu->setIcon(QIcon(":/icons/Debug/start.svg"));
+    debugMenu->addAction(m_startDebuggingAct);
+    debugMenu->addAction(m_stopDebuggingAct);
+    debugMenu->addSeparator();
+    debugMenu->addAction(m_continueAct);
+    debugMenu->addAction(m_stepOverAct);
+    debugMenu->addAction(m_stepIntoAct);
+    debugMenu->addAction(m_stepOutAct);
+    debugMenu->addSeparator();
+    debugMenu->addAction(m_restartAct);
 }
 
 void ActionManager::buildViewMenu(QMenu* viewMenu)
@@ -807,6 +886,7 @@ void ActionManager::buildViewMenu(QMenu* viewMenu)
     viewMenu->addAction(m_terminalPanelAct);
     viewMenu->addAction(m_errorListPanelAct);
     viewMenu->addAction(m_referencesPanelAct);
+    viewMenu->addAction(m_debugPanelAct);
     viewMenu->addSeparator();
     viewMenu->addAction(m_menuBarAct);
     viewMenu->addAction(m_toolBarAct);
@@ -916,6 +996,7 @@ void ActionManager::wireConnections(const ActionTargets& t)
     wireViewConnections(t);
     wireDocumentConnections(t);
     wireLspConnections(t);
+    wireDebugConnections(t);
     wireHelpConnections(t);
     wireMiscConnections(t);
 }
@@ -975,6 +1056,7 @@ void ActionManager::wireViewConnections(const ActionTargets& t)
     connect(this, &ActionManager::toggleProjectPanelTriggered, mw, &MainWindow::toggleProjectPanel);
     connect(this, &ActionManager::toggleTerminalPanelTriggered, mw, &MainWindow::toggleTerminalPanel);
     connect(this, &ActionManager::toggleErrorListPanelTriggered, mw, &MainWindow::toggleErrorListPanel);
+    connect(this, &ActionManager::toggleDebugPanelTriggered, mw, &MainWindow::toggleDebugPanel);
     connect(this, &ActionManager::toggleReadOnlyTriggered, ec, &EditorController::toggleReadOnly);
     connect(this, &ActionManager::toggleWordWrapTriggered, ec, &EditorController::toggleWordWrap);
 
@@ -1049,6 +1131,19 @@ void ActionManager::wireLspConnections(const ActionTargets& t)
     connect(this, &ActionManager::shrinkSelectionTriggered, mw, &MainWindow::shrinkSelection);
     connect(this, &ActionManager::codeActionTriggered, mw, &MainWindow::requestCodeActions);
     connect(this, &ActionManager::toggleReferencesPanelTriggered, mw, &MainWindow::toggleReferencesPanel);
+}
+
+void ActionManager::wireDebugConnections(const ActionTargets& t)
+{
+    auto* mw = t.mainWindow;
+
+    connect(this, &ActionManager::startDebuggingTriggered, mw, &MainWindow::startDebugging);
+    connect(this, &ActionManager::stopDebuggingTriggered, mw, &MainWindow::stopDebugging);
+    connect(this, &ActionManager::continueTriggered, mw, &MainWindow::debugContinue);
+    connect(this, &ActionManager::stepOverTriggered, mw, &MainWindow::debugStepOver);
+    connect(this, &ActionManager::stepIntoTriggered, mw, &MainWindow::debugStepInto);
+    connect(this, &ActionManager::stepOutTriggered, mw, &MainWindow::debugStepOut);
+    connect(this, &ActionManager::restartTriggered, mw, &MainWindow::debugRestart);
 }
 
 void ActionManager::wireHelpConnections(const ActionTargets& t)

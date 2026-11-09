@@ -35,16 +35,26 @@
 #include <Qsci/qscilexer.h>
 #include <Qsci/qsciscintilla.h>
 
+namespace dap
+{
+class DapEditorIntegration;
+class DapServerManager;
+} // namespace dap
+
 class CodeEditor : public QsciScintilla
 {
     Q_OBJECT
-
 public:
     explicit CodeEditor(QWidget* parent = nullptr);
     ~CodeEditor() override;
 
     static const int BOOKMARK_MARGIN = 1;
     static const int MARKER_BOOKMARK = 0;
+
+    // Debug / breakpoint margin
+    static const int DEBUG_MARGIN = 3;
+    static const int MARKER_BREAKPOINT = 1;
+    static const int MARKER_CURRENT_LINE = 2;
 
     const QString& fileName() const
     {
@@ -119,6 +129,18 @@ public:
     QList<int> bookmarkLines() const;
     void setBookmarks(const QList<int>& lines);
 
+    // Breakpoint support (DAP)
+    void toggleBreakpoint();
+    void toggleBreakpoint(int line);
+    bool hasBreakpoint(int line) const;
+    QList<int> breakpointLines() const;
+    void setBreakpoints(const QList<int>& lines);
+    void clearBreakpoints();
+
+    // Current execution line (debugger stopped here)
+    void setCurrentExecutionLine(int line);
+    void clearCurrentExecutionLine();
+
     // Snippet support
     void insertSnippet(const Snippet& snippet);
     bool isSnippetMode() const;
@@ -161,6 +183,13 @@ public:
         return m_lspIntegration;
     }
 
+    dap::DapEditorIntegration* dapIntegration() const
+    {
+        return m_dapIntegration;
+    }
+    void setDapServerManager(dap::DapServerManager* manager);
+    void setDapSessionKey(const QString& sessionKey);
+
     ThemeId themeId() const
     {
         return m_themeId;
@@ -189,6 +218,7 @@ signals:
     void navigateToLocation(const QString& filePath, int line, int column);
     void diagnosticsChanged(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
     void minimapVisibleChanged(bool visible);
+    void breakpointToggled(int line);
 
 public slots:
     void forceModified();
@@ -229,6 +259,9 @@ private:
 
     // LSP integration
     lsp::LspEditorIntegration* m_lspIntegration = nullptr;
+
+    // DAP / debugger integration
+    dap::DapEditorIntegration* m_dapIntegration = nullptr;
 };
 
 #endif // CODEEDITOR_H
