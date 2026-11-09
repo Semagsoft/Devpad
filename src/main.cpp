@@ -29,11 +29,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QList>
 #include <QLocalSocket>
 #include <QLoggingCategory>
 #include <QProcess>
 #include <QTextStream>
-#include <QList>
 #include <array>
 #include <cstdlib>
 #include <iostream>
@@ -158,7 +158,10 @@ static bool handOffToRunningInstance(const QStringList& paths)
     return false;
 }
 #else
-static bool handOffToRunningInstance(const QStringList&) { return false; }
+static bool handOffToRunningInstance(const QStringList&)
+{
+    return false;
+}
 #endif
 
 int main(int argc, char* argv[])
