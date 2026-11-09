@@ -13,7 +13,6 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QInputDialog>
-#include <array>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -24,6 +23,7 @@
 #include <QScrollArea>
 #include <QStandardPaths>
 #include <QVBoxLayout>
+#include <array>
 
 namespace
 {
