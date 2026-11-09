@@ -495,9 +495,11 @@ void DapClient::onReadyReadStderr()
     {
         QString msg = QString::fromUtf8(data).trimmed();
         if (!msg.isEmpty())
+        {
 #ifdef QT_DEBUG
             qDebug().noquote() << QString("[DAP %1] %2").arg(m_command, msg);
 #endif
+        }
     }
 }
 
