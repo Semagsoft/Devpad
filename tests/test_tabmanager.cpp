@@ -3,6 +3,7 @@
 #include "tabmanager.h"
 
 #include <QApplication>
+#include <QTabBar>
 #include <QTabWidget>
 
 #include <gtest/gtest.h>
@@ -263,4 +264,31 @@ TEST_F(TabManagerTest, EditorAtWorksAcrossPanes)
 
     tabManager->removePane(secondPane);
     delete secondPane;
+}
+
+TEST_F(TabManagerTest, ApplyTabBarPositionPositionsAllPanes)
+{
+    addEditor("a.txt");
+    tabManager->applyTabBarPosition(TabBarPosition::Bottom);
+    for (QTabWidget* pane : tabManager->panes())
+    {
+        EXPECT_EQ(pane->tabPosition(), QTabWidget::South);
+    }
+
+    tabManager->applyTabBarPosition(TabBarPosition::Top);
+    for (QTabWidget* pane : tabManager->panes())
+    {
+        EXPECT_EQ(pane->tabPosition(), QTabWidget::North);
+    }
+}
+
+TEST_F(TabManagerTest, ApplyCloseButtonPositionRestylesAllPanes)
+{
+    addEditor("a.txt");
+    tabManager->applyCloseButtonPosition(CloseButtonMode::Left);
+    for (QTabWidget* pane : tabManager->panes())
+    {
+        EXPECT_FALSE(pane->tabBar()->tabsClosable());
+        EXPECT_TRUE(pane->styleSheet().isEmpty());
+    }
 }

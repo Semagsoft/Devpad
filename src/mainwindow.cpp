@@ -679,26 +679,12 @@ void MainWindow::setupLspConnections()
 
 void MainWindow::applyCloseButtonPosition()
 {
-    m_tabManager->updateAllCloseButtons(SettingsManager::instance().closeButtonMode());
-    for (QTabWidget* pane : m_splitView->findChildren<QTabWidget*>())
-    {
-        QTabBar* tabBar = pane->tabBar();
-        if (tabBar)
-        {
-            tabBar->setTabsClosable(false);
-        }
-        pane->setStyleSheet("");
-    }
+    m_tabManager->applyCloseButtonPosition(SettingsManager::instance().closeButtonMode());
 }
 
 void MainWindow::applyTabBarPosition()
 {
-    TabBarPosition position = SettingsManager::instance().tabBarPosition();
-    QTabWidget::TabPosition tp = position == TabBarPosition::Top ? QTabWidget::North : QTabWidget::South;
-    for (QTabWidget* pane : m_tabManager->panes())
-    {
-        pane->setTabPosition(tp);
-    }
+    m_tabManager->applyTabBarPosition(SettingsManager::instance().tabBarPosition());
 }
 
 void MainWindow::applyTerminalPanelPosition()

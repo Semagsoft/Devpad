@@ -538,3 +538,25 @@ void TabManager::updateTabBarVisibility()
         }
     }
 }
+
+void TabManager::applyTabBarPosition(TabBarPosition position)
+{
+    const QTabWidget::TabPosition tp = position == TabBarPosition::Top ? QTabWidget::North : QTabWidget::South;
+    for (QTabWidget* pane : m_panes)
+    {
+        pane->setTabPosition(tp);
+    }
+}
+
+void TabManager::applyCloseButtonPosition(CloseButtonMode closeButtonMode)
+{
+    updateAllCloseButtons(closeButtonMode);
+    for (QTabWidget* pane : m_panes)
+    {
+        if (QTabBar* tabBar = pane->tabBar())
+        {
+            tabBar->setTabsClosable(false);
+        }
+        pane->setStyleSheet(QString());
+    }
+}
