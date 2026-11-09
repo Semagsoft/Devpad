@@ -231,6 +231,7 @@ add_library(Devpad_lib STATIC
     src/managers/externalchangecoordinator.cpp
     src/managers/remoteopencoordinator.cpp
     src/dialogs/aboutdialog.cpp
+    src/dialogs/customthemedialog.cpp
     src/dialogs/optionsdialog.cpp
     src/dialogs/externaltoolsdialog.cpp
     src/dialogs/updatedialog.cpp
