@@ -6,8 +6,8 @@
 
 #include <QCheckBox>
 #include <QColorDialog>
-#include <QDir>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QFile>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -29,11 +29,8 @@ namespace
 // Core (editable) color keys, matching parseThemeJson() in theme.cpp.
 constexpr int NumCoreColors = 19;
 const char* CoreColorKeys[NumCoreColors] = {
-    "background", "foreground", "surfaceBg", "surfaceFg", "accent",
-    "border", "caret", "lineHighlight",
-    "marginBg", "marginFg", "foldMarginBg", "foldMarginBgAlt",
-    "comment", "keyword", "string", "number", "operator",
-    "function", "preprocessor",
+    "background",   "foreground",      "surfaceBg", "surfaceFg", "accent", "border", "caret",    "lineHighlight", "marginBg",     "marginFg",
+    "foldMarginBg", "foldMarginBgAlt", "comment",   "keyword",   "string", "number", "operator", "function",      "preprocessor",
 };
 
 QString colorToJson(const QColor& c)
@@ -119,8 +116,7 @@ void CustomThemeDialog::setupUi()
         colorsLayout->addRow(tr(label.toUtf8().constData()), swatch);
         m_colorSwatches.insert(key, swatch);
 
-        connect(swatch, &QPushButton::clicked, this,
-                [this, swatch]() { pickColor(swatch); });
+        connect(swatch, &QPushButton::clicked, this, [this, swatch]() { pickColor(swatch); });
     }
 
     scroll->setWidget(colorsContainer);
@@ -158,19 +154,20 @@ void CustomThemeDialog::setupUi()
                 }
                 m_deleteBtn->setEnabled(current != nullptr);
             });
-    connect(m_nameEdit, &QLineEdit::textEdited, this,
-            [this]() { m_saveApplyBtn->setEnabled(!m_nameEdit->text().trimmed().isEmpty()); });
+    connect(m_nameEdit, &QLineEdit::textEdited, this, [this]() { m_saveApplyBtn->setEnabled(!m_nameEdit->text().trimmed().isEmpty()); });
     connect(m_isDarkCheck, &QCheckBox::toggled, this, &CustomThemeDialog::updatePreview);
 
     connect(m_newBtn, &QPushButton::clicked, this, &CustomThemeDialog::newTheme);
     connect(m_deleteBtn, &QPushButton::clicked, this, &CustomThemeDialog::deleteTheme);
-    connect(m_saveBtn, &QPushButton::clicked, this,
-            [this]() { (void)saveTheme(false); });
-    connect(m_saveApplyBtn, &QPushButton::clicked, this,
-            [this]() { (void)saveTheme(true); });
+    connect(m_saveBtn, &QPushButton::clicked, this, [this]() { (void)saveTheme(false); });
+    connect(m_saveApplyBtn, &QPushButton::clicked, this, [this]() { (void)saveTheme(true); });
     connect(m_buttonBox, &QDialogButtonBox::rejected, this, &CustomThemeDialog::reject);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this,
-            [this]() { (void)saveTheme(false); accept(); });
+            [this]()
+            {
+                (void)saveTheme(false);
+                accept();
+            });
 }
 
 void CustomThemeDialog::refreshThemeList()
@@ -230,10 +227,9 @@ void CustomThemeDialog::applyColorsToForm(const ThemeColors& colors)
         if (QPushButton* swatch = m_colorSwatches.value(it.key()))
         {
             QString bg = it.value().name();
-            swatch->setStyleSheet(
-                QString("background-color: %1; border: 1px solid %2; border-radius: 3px;")
-                    .arg(bg)
-                    .arg(it.value().lightness() < 128 ? QStringLiteral("gray") : QStringLiteral("darkgray")));
+            swatch->setStyleSheet(QString("background-color: %1; border: 1px solid %2; border-radius: 3px;")
+                                      .arg(bg)
+                                      .arg(it.value().lightness() < 128 ? QStringLiteral("gray") : QStringLiteral("darkgray")));
         }
     }
 
@@ -334,10 +330,9 @@ void CustomThemeDialog::pickColor(QPushButton* swatch)
         return;
 
     QString bg = chosen.name();
-    swatch->setStyleSheet(
-        QString("background-color: %1; border: 1px solid %2; border-radius: 3px;")
-            .arg(bg)
-            .arg(chosen.lightness() < 128 ? QStringLiteral("gray") : QStringLiteral("darkgray")));
+    swatch->setStyleSheet(QString("background-color: %1; border: 1px solid %2; border-radius: 3px;")
+                              .arg(bg)
+                              .arg(chosen.lightness() < 128 ? QStringLiteral("gray") : QStringLiteral("darkgray")));
     updatePreview();
 }
 
@@ -355,8 +350,7 @@ void CustomThemeDialog::newTheme()
     for (auto it = m_colorSwatches.begin(); it != m_colorSwatches.end(); ++it)
     {
         QPushButton* swatch = it.value();
-        swatch->setStyleSheet(
-            QString("background-color: #2d2d2d; border: 1px solid gray; border-radius: 3px;"));
+        swatch->setStyleSheet(QString("background-color: #2d2d2d; border: 1px solid gray; border-radius: 3px;"));
     }
     updatePreview();
     m_saveApplyBtn->setEnabled(true);
@@ -369,10 +363,8 @@ void CustomThemeDialog::deleteTheme()
         return;
     QString name = item->text();
 
-    int ret = QMessageBox::question(
-        this, tr("Delete Theme"),
-        tr("Delete the custom theme “%1”? This cannot be undone.").arg(name),
-        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    int ret = QMessageBox::question(this, tr("Delete Theme"), tr("Delete the custom theme “%1”? This cannot be undone.").arg(name),
+                                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
     if (ret != QMessageBox::Yes)
         return;
 
@@ -483,8 +475,7 @@ bool CustomThemeDialog::saveTheme(bool applyAfter)
     m_editingName = colors.name;
     m_saveApplyBtn->setEnabled(true);
 
-    if (!previousName.isEmpty() && previousName != colors.name &&
-        SettingsManager::instance().customTheme() == previousName)
+    if (!previousName.isEmpty() && previousName != colors.name && SettingsManager::instance().customTheme() == previousName)
     {
         SettingsManager::instance().setCustomTheme(colors.name);
     }

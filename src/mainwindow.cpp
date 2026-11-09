@@ -22,13 +22,13 @@
 #include "actionmanager.h"
 #include "backupmanager.h"
 #include "codeeditor.h"
+#include "dap/dapservermanager.h"
+#include "debugpanel.h"
 #include "dialogs/dialogcoordinator.h"
 #include "editorcontroller.h"
 #include "encodingmanager.h"
 #include "encodingutils.h"
 #include "errorlistpanel.h"
-#include "referencespanel.h"
-#include "debugpanel.h"
 #include "externaltoolmanager.h"
 #include "externaltoolsdialog.h"
 #include "filemanager.h"
@@ -38,12 +38,12 @@
 #include "lsp/lspconnectionhelper.h"
 #include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
-#include "dap/dapservermanager.h"
 #include "managers/externalchangecoordinator.h"
 #include "managers/remoteopencoordinator.h"
 #include "optionsdialog.h"
 #include "printmanager.h"
 #include "projectpanel.h"
+#include "referencespanel.h"
 #include "remotefileservice.h"
 #include "remotefsentry.h"
 #include "searchmanager.h"
@@ -308,8 +308,7 @@ void MainWindow::createManagers()
 
     // Wire DAP breakpoint results back to editor margins.
     connect(m_dapServerManager, &dap::DapServerManager::breakpointsSet, this,
-            [this](const QString& sessionKey, const QString& sourcePath,
-                   const QList<dap::Breakpoint>& breakpoints)
+            [this](const QString& sessionKey, const QString& sourcePath, const QList<dap::Breakpoint>& breakpoints)
             {
                 Q_UNUSED(sessionKey);
                 if (sourcePath.isEmpty())

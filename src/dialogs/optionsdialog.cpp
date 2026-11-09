@@ -18,8 +18,8 @@
  */
 #include "optionsdialog.h"
 
-#include "defaultsyntax.h"
 #include "customthemedialog.h"
+#include "defaultsyntax.h"
 #include "encodingutils.h"
 #include "lsp/lspservermanager.h"
 #include "mainwindow.h"

@@ -12,8 +12,7 @@
 namespace dap
 {
 
-DapEditorIntegration::DapEditorIntegration(CodeEditor* editor, QObject* parent)
-    : QObject(parent), m_editor(editor)
+DapEditorIntegration::DapEditorIntegration(CodeEditor* editor, QObject* parent) : QObject(parent), m_editor(editor)
 {
 }
 

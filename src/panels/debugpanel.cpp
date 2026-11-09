@@ -33,16 +33,14 @@ void DebugPanel::setupUi()
     m_toolBar->setMovable(false);
     m_toolBar->setIconSize(QSize(16, 16));
 
-    m_btnContinue = m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-playback-start")),
-                                         tr("Continue"), this, &DebugPanel::onContinueClicked);
-    m_btnStepOver = m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-skip-forward")),
-                                         tr("Step Over"), this, &DebugPanel::onStepOverClicked);
-    m_btnStepInto = m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-seek-forward")),
-                                         tr("Step Into"), this, &DebugPanel::onStepIntoClicked);
-    m_btnStepOut = m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-skip-backward")),
-                                        tr("Step Out"), this, &DebugPanel::onStepOutClicked);
-    m_btnStop = m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-playback-stop")),
-                                     tr("Stop"), this, &DebugPanel::onStopClicked);
+    m_btnContinue =
+        m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-playback-start")), tr("Continue"), this, &DebugPanel::onContinueClicked);
+    m_btnStepOver =
+        m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-skip-forward")), tr("Step Over"), this, &DebugPanel::onStepOverClicked);
+    m_btnStepInto =
+        m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-seek-forward")), tr("Step Into"), this, &DebugPanel::onStepIntoClicked);
+    m_btnStepOut = m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-skip-backward")), tr("Step Out"), this, &DebugPanel::onStepOutClicked);
+    m_btnStop = m_toolBar->addAction(QIcon::fromTheme(QStringLiteral("media-playback-stop")), tr("Stop"), this, &DebugPanel::onStopClicked);
 
     m_stateLabel = new QLabel(tr("Not debugging"), this);
     m_stateLabel->setStyleSheet(QStringLiteral("QLabel { color: palette(text); }"));
@@ -88,8 +86,7 @@ void DebugPanel::setupUi()
     setWidget(content);
 
     // Connections
-    connect(m_stackView->selectionModel(), &QItemSelectionModel::currentChanged, this,
-            &DebugPanel::onFrameSelected);
+    connect(m_stackView->selectionModel(), &QItemSelectionModel::currentChanged, this, &DebugPanel::onFrameSelected);
 }
 
 void DebugPanel::setServerManager(dap::DapServerManager* manager)

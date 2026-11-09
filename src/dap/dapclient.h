@@ -1,9 +1,8 @@
 #ifndef DAPCLIENT_H
 #define DAPCLIENT_H
 
-#include "daptypes.h"
-
 #include "../lsp/lspjsonrpc.h"
+#include "daptypes.h"
 
 #include <QObject>
 #include <QProcess>
@@ -36,8 +35,7 @@ public:
     bool isRunning() const;
 
     // ── Handshake ───────────────────────────────────────────────
-    void sendInitialize(const QString& clientName = QStringLiteral("Devpad"),
-                        const QString& adapterID = QString(),
+    void sendInitialize(const QString& clientName = QStringLiteral("Devpad"), const QString& adapterID = QString(),
                         const QJsonObject& pathFormat = QJsonObject());
 
     // ── Session control ─────────────────────────────────────────
@@ -50,10 +48,8 @@ public:
 
     // ── Breakpoints ─────────────────────────────────────────────
     // sourcePath: file path on disk. lines: 0-based breakpoint lines.
-    void setSourceBreakpoints(const QString& sourcePath, const QList<int>& lines,
-                              const QJsonObject& sourceParams = QJsonObject());
-    void setExceptionBreakpoints(const QStringList& filters,
-                                 const QJsonObject& filterOptions = QJsonObject());
+    void setSourceBreakpoints(const QString& sourcePath, const QList<int>& lines, const QJsonObject& sourceParams = QJsonObject());
+    void setExceptionBreakpoints(const QStringList& filters, const QJsonObject& filterOptions = QJsonObject());
 
     // ── Execution control ───────────────────────────────────────
     void configurationDone();
@@ -111,8 +107,7 @@ private slots:
 private:
     void sendInitializeHandshake();
     void sendTerminateIfStopping();
-    int sendRequest(const QString& method, const QJsonObject& params,
-                    lsp::LspJsonRpc::ResponseCallback callback);
+    int sendRequest(const QString& method, const QJsonObject& params, lsp::LspJsonRpc::ResponseCallback callback);
 
     void handleNotification(const QString& method, const QJsonObject& params);
     void handleResponse(const QVariant& id, const QJsonValue& result, const QJsonObject& error);

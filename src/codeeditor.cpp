@@ -18,12 +18,12 @@
  */
 #include "codeeditor.h"
 
+#include "dap/dapeditorintegration.h"
 #include "languageinfo.h"
 #include "lsp/lspclient.h"
 #include "lsp/lspindicators.h"
 #include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
-#include "dap/dapeditorintegration.h"
 #include "settingsmanager.h"
 #include "snippetmanager.h"
 #include "theme.h"
@@ -288,9 +288,8 @@ void CodeEditor::setupEditor()
     setMarginType(DEBUG_MARGIN, QsciScintilla::SymbolMargin);
     setMarginWidth(DEBUG_MARGIN, 16);
     setMarginSensitivity(DEBUG_MARGIN, true);
-    setMarginMarkerMask(DEBUG_MARGIN,
-                        static_cast<int>((1u << static_cast<unsigned int>(MARKER_BREAKPOINT)) |
-                                         (1u << static_cast<unsigned int>(MARKER_CURRENT_LINE))));
+    setMarginMarkerMask(DEBUG_MARGIN, static_cast<int>((1u << static_cast<unsigned int>(MARKER_BREAKPOINT)) |
+                                                       (1u << static_cast<unsigned int>(MARKER_CURRENT_LINE))));
     markerDefine(QsciScintilla::SC_MARK_CIRCLE, MARKER_BREAKPOINT);
     setMarkerForegroundColor(QColor(255, 0, 0), MARKER_BREAKPOINT);
     setMarkerBackgroundColor(QColor(255, 0, 0), MARKER_BREAKPOINT);

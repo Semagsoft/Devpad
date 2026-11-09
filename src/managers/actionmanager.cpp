@@ -428,12 +428,7 @@ void ActionManager::createLspActions()
         },
         "LSP.RenameSymbol");
     m_codeActionAct = createIconAction(
-        ":/icons/Edit/find.svg", tr("Code Action"), QKeySequence("Alt+Enter"),
-        [this]()
-        {
-            emit codeActionTriggered();
-        },
-        "LSP.CodeAction");
+        ":/icons/Edit/find.svg", tr("Code Action"), QKeySequence("Alt+Enter"), [this]() { emit codeActionTriggered(); }, "LSP.CodeAction");
 
     m_findSymbolsAct = new QAction(tr("Find Symbol..."), this);
     connect(m_findSymbolsAct, &QAction::triggered, this, [this]() { emit findSymbolsTriggered(); });

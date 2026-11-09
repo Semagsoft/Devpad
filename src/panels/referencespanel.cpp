@@ -94,10 +94,10 @@ void ReferencesPanel::setReferences(const QList<lsp::Location>& locations)
 
     m_summaryLabel->setText(total == 0 ? tr("No references found")
                                        : tr("%1 reference%2 in %3 file%4")
-                                           .arg(total)
-                                           .arg(total == 1 ? QString() : QStringLiteral("s"))
-                                           .arg(byFile.size())
-                                           .arg(byFile.size() == 1 ? QString() : QStringLiteral("s")));
+                                             .arg(total)
+                                             .arg(total == 1 ? QString() : QStringLiteral("s"))
+                                             .arg(byFile.size())
+                                             .arg(byFile.size() == 1 ? QString() : QStringLiteral("s")));
 }
 
 void ReferencesPanel::clear()

@@ -31,8 +31,7 @@ DapClient* DapServerManager::currentClient() const
     return m_clients.begin().value();
 }
 
-void DapServerManager::startSession(const QString& sessionKey, const QString& language,
-                                    const QString& command, const QStringList& args)
+void DapServerManager::startSession(const QString& sessionKey, const QString& language, const QString& command, const QStringList& args)
 {
     if (m_clients.contains(sessionKey))
     {
@@ -71,8 +70,7 @@ void DapServerManager::startSession(const QString& sessionKey, const QString& la
         m_sessionLanguage.insert(sessionKey, language);
 
     // Forward client signals, tagging them with the session key.
-    connect(client, &DapClient::serverStarted, this,
-            [this, sessionKey]() { emit clientStarted(sessionKey); });
+    connect(client, &DapClient::serverStarted, this, [this, sessionKey]() { emit clientStarted(sessionKey); });
     connect(client, &DapClient::serverStopped, this,
             [this, sessionKey]()
             {
@@ -80,43 +78,27 @@ void DapServerManager::startSession(const QString& sessionKey, const QString& la
                 m_sessionLanguage.remove(sessionKey);
                 emit clientStopped(sessionKey);
             });
-    connect(client, &DapClient::serverError, this,
-            [this, sessionKey](const QString& error) { emit clientError(sessionKey, error); });
-    connect(client, &DapClient::initializeDone, this,
-            [this, sessionKey](const Capabilities& caps) { emit initializeDone(sessionKey, caps); });
+    connect(client, &DapClient::serverError, this, [this, sessionKey](const QString& error) { emit clientError(sessionKey, error); });
+    connect(client, &DapClient::initializeDone, this, [this, sessionKey](const Capabilities& caps) { emit initializeDone(sessionKey, caps); });
     connect(client, &DapClient::launchDone, this, [this, sessionKey]() { emit launchDone(sessionKey); });
     connect(client, &DapClient::attachDone, this, [this, sessionKey]() { emit attachDone(sessionKey); });
     connect(client, &DapClient::breakpointsSet, this,
-            [this, sessionKey](const QString& path, const QList<Breakpoint>& bps)
-            {
-                emit breakpointsSet(sessionKey, path, bps);
-            });
-    connect(client, &DapClient::exceptionBreakpointsSet, this,
-            [this, sessionKey]() { emit exceptionBreakpointsSet(sessionKey); });
-    connect(client, &DapClient::stopped, this,
-            [this, sessionKey](const StoppedEvent& ev) { emit stopped(sessionKey, ev); });
-    connect(client, &DapClient::terminated, this,
-            [this, sessionKey](const TerminatedEvent& ev) { emit terminated(sessionKey, ev); });
-    connect(client, &DapClient::threadEvent, this,
-            [this, sessionKey](const ThreadEvent& ev) { emit threadEvent(sessionKey, ev); });
-    connect(client, &DapClient::breakpointEvent, this,
-            [this, sessionKey](const BreakpointEvent& ev) { emit breakpointEvent(sessionKey, ev); });
-    connect(client, &DapClient::output, this,
-            [this, sessionKey](const OutputEvent& ev) { emit output(sessionKey, ev); });
-    connect(client, &DapClient::capabilitiesEvent, this,
-            [this, sessionKey](const QJsonObject& caps) { emit capabilitiesEvent(sessionKey, caps); });
-    connect(client, &DapClient::threadsReady, this,
-            [this, sessionKey](const QList<Thread>& threads) { emit threadsReady(sessionKey, threads); });
+            [this, sessionKey](const QString& path, const QList<Breakpoint>& bps) { emit breakpointsSet(sessionKey, path, bps); });
+    connect(client, &DapClient::exceptionBreakpointsSet, this, [this, sessionKey]() { emit exceptionBreakpointsSet(sessionKey); });
+    connect(client, &DapClient::stopped, this, [this, sessionKey](const StoppedEvent& ev) { emit stopped(sessionKey, ev); });
+    connect(client, &DapClient::terminated, this, [this, sessionKey](const TerminatedEvent& ev) { emit terminated(sessionKey, ev); });
+    connect(client, &DapClient::threadEvent, this, [this, sessionKey](const ThreadEvent& ev) { emit threadEvent(sessionKey, ev); });
+    connect(client, &DapClient::breakpointEvent, this, [this, sessionKey](const BreakpointEvent& ev) { emit breakpointEvent(sessionKey, ev); });
+    connect(client, &DapClient::output, this, [this, sessionKey](const OutputEvent& ev) { emit output(sessionKey, ev); });
+    connect(client, &DapClient::capabilitiesEvent, this, [this, sessionKey](const QJsonObject& caps) { emit capabilitiesEvent(sessionKey, caps); });
+    connect(client, &DapClient::threadsReady, this, [this, sessionKey](const QList<Thread>& threads) { emit threadsReady(sessionKey, threads); });
     connect(client, &DapClient::stackTraceReady, this,
-            [this, sessionKey](const QList<StackFrame>& frames, int total)
-            { emit stackTraceReady(sessionKey, frames, total); });
-    connect(client, &DapClient::scopesReady, this,
-            [this, sessionKey](const QList<Scope>& scopes) { emit scopesReady(sessionKey, scopes); });
+            [this, sessionKey](const QList<StackFrame>& frames, int total) { emit stackTraceReady(sessionKey, frames, total); });
+    connect(client, &DapClient::scopesReady, this, [this, sessionKey](const QList<Scope>& scopes) { emit scopesReady(sessionKey, scopes); });
     connect(client, &DapClient::variablesReady, this,
             [this, sessionKey](const QList<Variable>& variables) { emit variablesReady(sessionKey, variables); });
     connect(client, &DapClient::continueDone, this,
-            [this, sessionKey](int threadId, bool allThreads)
-            { emit continueDone(sessionKey, threadId, allThreads); });
+            [this, sessionKey](int threadId, bool allThreads) { emit continueDone(sessionKey, threadId, allThreads); });
 
     client->startServer(resolvedCommand, resolvedArgs);
 }
@@ -146,8 +128,7 @@ bool DapServerManager::isDebugging(const QString& sessionKey) const
     return false;
 }
 
-void DapServerManager::registerAdapter(const QString& language, const QString& command,
-                                       const QStringList& args)
+void DapServerManager::registerAdapter(const QString& language, const QString& command, const QStringList& args)
 {
     if (language.isEmpty() || command.isEmpty())
         return;

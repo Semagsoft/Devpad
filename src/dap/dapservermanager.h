@@ -29,8 +29,7 @@ public:
 
     // Starts (or reuses) a DAP client for the given session key and language,
     // then performs the initialize handshake.
-    void startSession(const QString& sessionKey, const QString& language,
-                      const QString& command, const QStringList& args);
+    void startSession(const QString& sessionKey, const QString& language, const QString& command, const QStringList& args);
 
     void stopSession(const QString& sessionKey);
     void stopAllSessions();
@@ -58,8 +57,7 @@ signals:
     void initializeDone(const QString& sessionKey, const Capabilities& capabilities);
     void launchDone(const QString& sessionKey);
     void attachDone(const QString& sessionKey);
-    void breakpointsSet(const QString& sessionKey, const QString& sourcePath,
-                        const QList<Breakpoint>& breakpoints);
+    void breakpointsSet(const QString& sessionKey, const QString& sourcePath, const QList<Breakpoint>& breakpoints);
     void exceptionBreakpointsSet(const QString& sessionKey);
     void stopped(const QString& sessionKey, const StoppedEvent& ev);
     void terminated(const QString& sessionKey, const TerminatedEvent& ev);
@@ -75,10 +73,10 @@ signals:
     void continueDone(const QString& sessionKey, int threadId, bool allThreadsContinued);
 
 private:
-    QHash<QString, DapClient*> m_clients;             // sessionKey -> client
-    QHash<QString, QString> m_sessionLanguage;        // sessionKey -> language
-    QHash<QString, QString> m_adapterCommands;        // language -> command
-    QHash<QString, QStringList> m_adapterArgs;        // language -> args
+    QHash<QString, DapClient*> m_clients;      // sessionKey -> client
+    QHash<QString, QString> m_sessionLanguage; // sessionKey -> language
+    QHash<QString, QString> m_adapterCommands; // language -> command
+    QHash<QString, QStringList> m_adapterArgs; // language -> args
 };
 
 } // namespace dap

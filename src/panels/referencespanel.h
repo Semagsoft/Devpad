@@ -3,8 +3,8 @@
 
 #include "lsp/lsptypes.h"
 
-#include <QLabel>
 #include <QDockWidget>
+#include <QLabel>
 #include <QStandardItemModel>
 #include <QTreeView>
 

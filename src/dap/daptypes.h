@@ -65,8 +65,8 @@ public:
     QString name;
     int line = 0;
     int column = 0;
-    QString sourcePath;   // file path on disk
-    QString sourceName;   // display name
+    QString sourcePath; // file path on disk
+    QString sourceName; // display name
 
     static StackFrame fromJson(const QJsonObject& obj);
 };
@@ -150,7 +150,7 @@ struct Capabilities
 
 struct StoppedEvent
 {
-    QString reason;      // "step", "breakpoint", "exception", "pause", "entry"
+    QString reason; // "step", "breakpoint", "exception", "pause", "entry"
     bool allThreadsStopped = false;
     int threadId = 0;
     bool preserveFocusHint = false;
@@ -184,8 +184,8 @@ struct BreakpointEvent
 
 struct OutputEvent
 {
-    int source = 0;        // 0=console, 1=stdout, 2=stderr, 3=telemetry
-    QString category;      // "console", "stdout", "stderr", "telemetry"
+    int source = 0;   // 0=console, 1=stdout, 2=stderr, 3=telemetry
+    QString category; // "console", "stdout", "stderr", "telemetry"
     QString output;
     QString threadId;
     bool handlesGrouped = false;

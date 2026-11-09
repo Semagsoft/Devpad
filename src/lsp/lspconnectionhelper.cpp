@@ -16,7 +16,6 @@
 #include <QMenu>
 #include <QPointer>
 #include <QToolButton>
-
 #include <algorithm>
 
 namespace lsp
@@ -75,17 +74,15 @@ void applyWorkspaceEdit(const QJsonObject& workspaceEdit, TabManager* tabManager
         QList<QJsonObject> edits = it.value();
         // Descending position order: applying the last (bottom-most) edit first
         // keeps the ranges of earlier edits valid.
-        std::sort(edits.begin(), edits.end(),
-                  [&](const QJsonObject& a, const QJsonObject& b) { return rangeKey(a) > rangeKey(b); });
+        std::sort(edits.begin(), edits.end(), [&](const QJsonObject& a, const QJsonObject& b) { return rangeKey(a) > rangeKey(b); });
 
         editor->applyTextEdits(edits);
     }
 }
 } // namespace
 
-void setupLspConnections(LspServerManager* manager, TabManager* tabManager, ErrorListPanel* errorPanel,
-                         ReferencesPanel* referencesPanel, ActionManager* actionManager,
-                         std::function<void(const QString& filePath, int line, int column)> navigateToLocation)
+void setupLspConnections(LspServerManager* manager, TabManager* tabManager, ErrorListPanel* errorPanel, ReferencesPanel* referencesPanel,
+                         ActionManager* actionManager, std::function<void(const QString& filePath, int line, int column)> navigateToLocation)
 {
     QPointer<TabManager> tabGuard(tabManager);
     QPointer<ErrorListPanel> panelGuard(errorPanel);
