@@ -27,7 +27,6 @@
 #include "encodingmanager.h"
 #include "encodingutils.h"
 #include "errorlistpanel.h"
-#include "externalchangecoordinator.h"
 #include "externaltoolmanager.h"
 #include "externaltoolsdialog.h"
 #include "filemanager.h"
@@ -37,6 +36,8 @@
 #include "lsp/lspconnectionhelper.h"
 #include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
+#include "managers/externalchangecoordinator.h"
+#include "managers/remoteopencoordinator.h"
 #include "optionsdialog.h"
 #include "printmanager.h"
 #include "projectpanel.h"
@@ -89,7 +90,6 @@
 #include <QRegularExpression>
 #include <QShortcut>
 #include <QStatusBar>
-#include <QStringConverter>
 #include <QTabBar>
 #include <QTextDocument>
 #include <QToolBar>
@@ -304,6 +304,9 @@ void MainWindow::createManagers()
                     newEditor->setBookmarks(bookmarks);
                 }
             });
+
+    m_remoteOpenCoordinator = new RemoteOpenCoordinator(m_remoteFileService, m_projectPanel, m_tabManager, m_editorController, this);
+    connect(m_remoteOpenCoordinator, &RemoteOpenCoordinator::fileTypeLabelDirty, this, &MainWindow::updateFileTypeLabel);
 
     connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
 }
@@ -717,92 +720,17 @@ void MainWindow::openFile()
 
 void MainWindow::openRemoteFileFromData(const QString& urlStr, const QString& fileName, const QByteArray& data)
 {
-    QString detectedEnc = FileManager::detectEncoding(data);
-    auto encOpt = QStringConverter::encodingForName(detectedEnc.toUtf8());
-    QStringDecoder decoder(encOpt.value_or(QStringConverter::Utf8));
-    QString content = decoder(data);
-    statusBar()->clearMessage();
-
-    QString displayName = fileName.isEmpty() ? QUrl(urlStr).fileName() : fileName;
-    if (displayName.isEmpty())
-    {
-        displayName = tr("Remote");
-    }
-
-    CodeEditor* editor = m_tabManager->createEditor();
-    editor->setFileName(urlStr);
-    editor->setText(content);
-    editor->setModified(false);
-
-    m_editorController->connectEditorSignals(editor);
-
-    SettingsManager::instance().applyToEditor(editor);
-
-    QString syntax = getSyntaxForFile(displayName);
-    if (!syntax.isEmpty())
-    {
-        editor->setSyntax(syntax);
-    }
-
-    m_tabManager->addEditor(editor, displayName);
-    m_editorController->updateUndoRedoState();
-    updateFileTypeLabel();
-
-    Logger::instance().info(QString("Opened remote file: %1").arg(urlStr));
+    m_remoteOpenCoordinator->openRemoteFileFromData(urlStr, fileName, data);
 }
 
 void MainWindow::openRemote()
 {
-    bool ok;
-    QString urlStr =
-        QInputDialog::getText(this, tr("Open Remote File"), tr("Enter remote file URL\n(HTTP/HTTPS or SSH):"), QLineEdit::Normal, "https://", &ok);
-    if (!ok || urlStr.trimmed().isEmpty())
-        return;
-
-    urlStr = urlStr.trimmed();
-
-    bool isSsh = urlStr.startsWith("ssh://", Qt::CaseInsensitive);
-
-    if (!isSsh && !urlStr.startsWith("http://", Qt::CaseInsensitive) && !urlStr.startsWith("https://", Qt::CaseInsensitive))
-    {
-        urlStr = "https://" + urlStr;
-    }
-
-    QUrl url(urlStr);
-    if (!url.isValid())
-    {
-        QMessageBox::warning(this, tr("Invalid URL"), tr("The URL \"%1\" is not valid.").arg(urlStr));
-        return;
-    }
-
-    m_remoteFileService->openRemote(urlStr);
+    m_remoteOpenCoordinator->openRemote();
 }
 
 void MainWindow::openRemoteFolder()
 {
-    bool ok;
-    QString urlStr =
-        QInputDialog::getText(this, tr("Open Remote Folder"), tr("Enter remote folder URL\n(SSH only, e.g. ssh://user@host/path/to/folder):"),
-                              QLineEdit::Normal, "ssh://", &ok);
-    if (!ok || urlStr.trimmed().isEmpty())
-        return;
-
-    urlStr = urlStr.trimmed();
-
-    if (!urlStr.startsWith("ssh://", Qt::CaseInsensitive))
-    {
-        QMessageBox::warning(this, tr("Invalid URL"), tr("Remote folders require an SSH URL (ssh://user@host/path)."));
-        return;
-    }
-
-    QUrl url(urlStr);
-    if (!url.isValid())
-    {
-        QMessageBox::warning(this, tr("Invalid URL"), tr("The URL \"%1\" is not valid.").arg(urlStr));
-        return;
-    }
-
-    m_remoteFileService->openRemoteFolder(urlStr);
+    m_remoteOpenCoordinator->openRemoteFolder();
 }
 
 void MainWindow::openFileFromPath(const QString& filePath)
@@ -839,15 +767,7 @@ void MainWindow::openFileFromProject(const QString& filePath)
 
 void MainWindow::openRemoteFileActivated(const QString& urlStr)
 {
-    // Reuse the already-open tab for this remote file instead of re-downloading.
-    if (CodeEditor* existing = m_tabManager->findEditorByFileName(urlStr))
-    {
-        m_tabManager->focusEditorPane(existing);
-        existing->setFocus();
-        return;
-    }
-
-    m_remoteFileService->openRemote(urlStr);
+    m_remoteOpenCoordinator->openRemoteFileActivated(urlStr);
 }
 
 void MainWindow::openFolderFromPath(const QString& folderPath)

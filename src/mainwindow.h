@@ -42,6 +42,7 @@ class SearchManager;
 class SessionManager;
 class SnippetManager;
 class PluginManager;
+class RemoteOpenCoordinator;
 class SplitView;
 class TabManager;
 class TerminalPanel;
@@ -208,6 +209,9 @@ private:
 
     // Handles externally-modified open files (prompt + reload)
     ExternalChangeCoordinator* m_externalChangeCoordinator = nullptr;
+
+    // Handles remote file/folder opening and URL prompts
+    RemoteOpenCoordinator* m_remoteOpenCoordinator = nullptr;
 
     QLocalServer* m_localServer = nullptr;
     TitleBar* m_titleBar = nullptr;
