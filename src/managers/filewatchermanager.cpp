@@ -138,7 +138,7 @@ void FileWatcherManager::pollModifications()
                 it = m_modificationTimes.erase(it);
                 Logger::instance().info(QString("File deleted externally: %1").arg(filePath));
                 emit fileModifiedExternally(filePath);
-                continue;  // erase() already advanced the iterator
+                continue; // erase() already advanced the iterator
             }
             // Still tracked and already reported deleted: advance past it.
             ++it;

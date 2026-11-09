@@ -60,11 +60,8 @@ TEST(FindInFilesWorker, ExcludesBareDirNames)
     ASSERT_TRUE(writeFile(root + "/my_node_modules/keep.js", "hello\n"));
 
     int totalMatches = -1;
-    FindInFilesWorker worker("hello", root, "*",
-                             QStringList{"node_modules", "__pycache__"},
-                             false, false, false);
-    QObject::connect(&worker, &FindInFilesWorker::searchFinished,
-                     [&totalMatches](int n) { totalMatches = n; });
+    FindInFilesWorker worker("hello", root, "*", QStringList{"node_modules", "__pycache__"}, false, false, false);
+    QObject::connect(&worker, &FindInFilesWorker::searchFinished, [&totalMatches](int n) { totalMatches = n; });
 
     worker.run();
 
@@ -88,11 +85,8 @@ TEST(FindInFilesWorker, DoesNotExcludeSimilarlyNamedDirectory)
     ASSERT_TRUE(writeFile(root + "/my_node_modules/pkg.js", "hello\n"));
 
     int totalMatches = -1;
-    FindInFilesWorker worker("hello", root, "*",
-                             QStringList{"node_modules"},
-                             false, false, false);
-    QObject::connect(&worker, &FindInFilesWorker::searchFinished,
-                     [&totalMatches](int n) { totalMatches = n; });
+    FindInFilesWorker worker("hello", root, "*", QStringList{"node_modules"}, false, false, false);
+    QObject::connect(&worker, &FindInFilesWorker::searchFinished, [&totalMatches](int n) { totalMatches = n; });
 
     worker.run();
 
