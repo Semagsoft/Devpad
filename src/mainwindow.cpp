@@ -772,7 +772,7 @@ void MainWindow::loadFile(const QString& fileName, const QString& encoding, bool
         CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName);
         if (existingEditor)
         {
-            if (auto* container = m_tabManager->containerFor(existingEditor))
+            if (m_tabManager->containerFor(existingEditor))
             {
                 m_tabManager->focusEditorPane(existingEditor);
                 existingEditor->setFocus();
