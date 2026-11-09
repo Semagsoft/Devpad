@@ -13,6 +13,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <array>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -28,7 +29,7 @@ namespace
 {
 // Core (editable) color keys, matching parseThemeJson() in theme.cpp.
 constexpr int NumCoreColors = 19;
-const char* CoreColorKeys[NumCoreColors] = {
+std::array<const char*, NumCoreColors> CoreColorKeys = {
     "background",   "foreground",      "surfaceBg", "surfaceFg", "accent", "border", "caret",    "lineHighlight", "marginBg",     "marginFg",
     "foldMarginBg", "foldMarginBgAlt", "comment",   "keyword",   "string", "number", "operator", "function",      "preprocessor",
 };
