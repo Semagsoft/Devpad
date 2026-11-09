@@ -231,7 +231,7 @@ void DapClient::disconnectDebug(bool terminateDebuggee)
         return;
     QJsonObject params{{"terminateDebuggee", terminateDebuggee}};
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 2000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 2000);
     m_process->write(m_jsonRpc->createRequest(id, "disconnect", params));
 }
 
@@ -241,7 +241,7 @@ void DapClient::terminate()
         return;
     QJsonObject params{{"terminateDebuggee", true}};
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 2000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 2000);
     m_process->write(m_jsonRpc->createRequest(id, "terminate", params));
 }
 
@@ -304,7 +304,7 @@ void DapClient::configurationDone()
     if (!isRunning() || !m_initialized)
         return;
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
     m_process->write(m_jsonRpc->createRequest(id, "configurationDone", QJsonObject()));
 }
 
@@ -411,7 +411,7 @@ void DapClient::pause(int threadId)
         return;
     QJsonObject params{{"threadId", threadId}};
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
     m_process->write(m_jsonRpc->createRequest(id, "pause", params));
 }
 
@@ -421,7 +421,7 @@ void DapClient::stepOver(int threadId)
         return;
     QJsonObject params{{"threadId", threadId}};
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
     m_process->write(m_jsonRpc->createRequest(id, "next", params));
 }
 
@@ -433,7 +433,7 @@ void DapClient::stepInto(int threadId, int targetId)
     if (targetId > 0)
         params["targetId"] = targetId;
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
     m_process->write(m_jsonRpc->createRequest(id, "stepIn", params));
 }
 
@@ -445,7 +445,7 @@ void DapClient::stepOut(int threadId, int targetId)
     if (targetId > 0)
         params["targetId"] = targetId;
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
     m_process->write(m_jsonRpc->createRequest(id, "stepOut", params));
 }
 
@@ -455,7 +455,7 @@ void DapClient::stepBack(int threadId)
         return;
     QJsonObject params{{"threadId", threadId}};
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
     m_process->write(m_jsonRpc->createRequest(id, "stepBack", params));
 }
 
@@ -465,7 +465,7 @@ void DapClient::reverseContinue(int threadId)
         return;
     QJsonObject params{{"threadId", threadId}};
     int id = m_jsonRpc->nextRequestId();
-    m_jsonRpc->registerPendingRequest(id, [this](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
+    m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
     m_process->write(m_jsonRpc->createRequest(id, "reverseContinue", params));
 }
 
