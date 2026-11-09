@@ -88,7 +88,13 @@ void FindInFilesWorker::run()
             // Match whole path segments only: bare names like ".git" / "node_modules"
             // so a file named ".gitignore" or a dir named "my_node_modules" is not
             // accidentally excluded, and slash-wrapped patterns never match real paths.
-            const QStringList segments = filePath.split(QDir::separator(), Qt::SkipEmptyParts);
+            //
+            // QDirIterator yields forward-slash paths on every platform, while
+            // QDir::separator() is '\\' on Windows. Normalize separators first so
+            // whole-segment matching works on Windows too.
+            QString normalized = filePath;
+            normalized.replace(QLatin1Char('\\'), QLatin1Char('/'));
+            const QStringList segments = normalized.split(QLatin1Char('/'), Qt::SkipEmptyParts);
             if (segments.contains(exDir))
             {
                 excluded = true;
