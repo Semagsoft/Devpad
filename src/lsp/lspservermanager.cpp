@@ -22,6 +22,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonValue>
 #include <QStandardPaths>
 
 namespace lsp
@@ -113,6 +114,7 @@ LspClient* LspServerManager::clientForLanguage(const QString& language)
     connect(client, &LspClient::referencesReady, this, &LspServerManager::referencesReady);
     connect(client, &LspClient::hoverReady, this, &LspServerManager::hoverReady);
     connect(client, &LspClient::codeActionReady, this, &LspServerManager::codeActionReady);
+    connect(client, &LspClient::executeCommandReady, this, &LspServerManager::executeCommandReady);
     connect(client, &LspClient::diagnosticsReady, this, &LspServerManager::diagnosticsReady);
     connect(client, &LspClient::documentSymbolsReady, this, &LspServerManager::documentSymbolsReady);
     connect(client, &LspClient::formattingReady, this, &LspServerManager::formattingReady);
@@ -166,6 +168,11 @@ void LspServerManager::openDocument(const QString& language, const QString& uri,
     m_documentLanguages[uri] = language;
     m_documentVersions[uri] = version;
     client->openDocument(uri, text, version);
+}
+
+QStringList LspServerManager::documentUris() const
+{
+    return m_documentLanguages.keys();
 }
 
 void LspServerManager::changeDocument(const QString& uri, const QString& text)

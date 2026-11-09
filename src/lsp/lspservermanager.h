@@ -40,6 +40,10 @@ public:
     LspClient* clientForLanguage(const QString& language);
     LspClient* clientForUri(const QString& uri);
 
+    // Returns the URIs of all currently open documents, useful for project-wide
+    // operations such as aggregating references across open files.
+    QStringList documentUris() const;
+
     void openDocument(const QString& language, const QString& uri, const QString& text);
     void changeDocument(const QString& uri, const QString& text);
     void closeDocument(const QString& uri);
@@ -68,6 +72,7 @@ signals:
     void referencesReady(const QString& uri, const QList<Location>& locations);
     void hoverReady(const QString& uri, const QString& contents);
     void codeActionReady(const QString& uri, const QList<QJsonObject>& actions);
+    void executeCommandReady(const QJsonValue& result);
     void documentSymbolsReady(const QString& uri, const QJsonArray& symbols);
     void formattingReady(const QString& uri, const QList<QJsonObject>& edits);
     void rangeFormattingReady(const QString& uri, const QList<QJsonObject>& edits);

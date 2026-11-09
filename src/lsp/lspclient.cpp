@@ -414,6 +414,19 @@ void LspClient::requestCodeAction(const QString& uri, const Range& range, const 
                 });
 }
 
+void LspClient::requestExecuteCommand(const QString& command, const QJsonArray& arguments)
+{
+    if (!isRunning() || !m_initialized)
+        return;
+
+    QJsonObject params{{"command", command}};
+    if (!arguments.isEmpty())
+        params["arguments"] = arguments;
+
+    sendRequest("workspace/executeCommand", params,
+                [this](const QJsonValue& result, const QJsonObject& /*error*/) { emit executeCommandReady(result); });
+}
+
 void LspClient::requestWorkspaceSymbols(const QString& query)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.workspaceSymbolProvider)

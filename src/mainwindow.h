@@ -37,6 +37,7 @@ class FileWatcherManager;
 class QMenuBar;
 class PrintManager;
 class ProjectPanel;
+class ReferencesPanel;
 class RemoteFileService;
 class SearchManager;
 class SessionManager;
@@ -91,6 +92,7 @@ public slots:
     void toggleProjectPanel();
     void toggleTerminalPanel();
     void toggleErrorListPanel();
+    void toggleReferencesPanel();
     void findSymbols();
     void expandSelection();
     void shrinkSelection();
@@ -103,6 +105,7 @@ public slots:
     void goToDeclaration();
     void formatSelection();
     void findReferences();
+    void requestCodeActions();
     void triggerCompletion();
     void renameSymbol();
     void printFile();
@@ -203,6 +206,7 @@ private:
     lsp::LspServerManager* m_lspServerManager = nullptr;
     PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
+    ReferencesPanel* m_referencesPanel = nullptr;
 
     // Owns the find-in-files / find-symbols dialogs
     DialogCoordinator* m_dialogCoordinator = nullptr;

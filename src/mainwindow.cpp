@@ -27,6 +27,7 @@
 #include "encodingmanager.h"
 #include "encodingutils.h"
 #include "errorlistpanel.h"
+#include "referencespanel.h"
 #include "externaltoolmanager.h"
 #include "externaltoolsdialog.h"
 #include "filemanager.h"
@@ -290,6 +291,11 @@ void MainWindow::createManagers()
     addDockWidget(Qt::BottomDockWidgetArea, m_errorListPanel);
     bool showErrorList = SettingsManager::instance().lspShowErrorList();
     m_errorListPanel->setVisible(showErrorList);
+
+    m_referencesPanel = new ReferencesPanel(this);
+    addDockWidget(Qt::BottomDockWidgetArea, m_referencesPanel);
+    m_referencesPanel->hide();
+    connect(m_referencesPanel, &ReferencesPanel::navigateToLocation, this, &MainWindow::onNavigateToLocation);
 
     m_dialogCoordinator = new DialogCoordinator(m_tabManager, m_projectPanel, this);
     connect(m_dialogCoordinator, &DialogCoordinator::navigateToResult, this, &MainWindow::onNavigateToLocation);
@@ -673,7 +679,7 @@ void MainWindow::setupEditorConnections()
 
 void MainWindow::setupLspConnections()
 {
-    lsp::setupLspConnections(m_lspServerManager, m_tabManager, m_errorListPanel, m_actionManager,
+    lsp::setupLspConnections(m_lspServerManager, m_tabManager, m_errorListPanel, m_referencesPanel, m_actionManager,
                              [this](const QString& filePath, int line, int column) { onNavigateToLocation(filePath, line, column); });
 }
 
@@ -1206,6 +1212,13 @@ void MainWindow::toggleErrorListPanel()
     SettingsManager::instance().setLspShowErrorList(visible);
 }
 
+void MainWindow::toggleReferencesPanel()
+{
+    bool visible = !m_referencesPanel->isVisible();
+    m_referencesPanel->setVisible(visible);
+    m_actionManager->referencesPanelAct()->setChecked(visible);
+}
+
 void MainWindow::findSymbols()
 {
     m_dialogCoordinator->findSymbols(m_lspServerManager);
@@ -1545,7 +1558,16 @@ void MainWindow::renameSymbol()
 
 void MainWindow::findReferences()
 {
+    m_referencesPanel->clear();
+    m_referencesPanel->show();
+    m_referencesPanel->raise();
+    m_referencesPanel->setFocus();
     invokeOnEditor(&CodeEditor::findReferences);
+}
+
+void MainWindow::requestCodeActions()
+{
+    invokeOnEditor(&CodeEditor::requestCodeActions);
 }
 
 void MainWindow::triggerCompletion()

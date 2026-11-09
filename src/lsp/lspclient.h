@@ -75,6 +75,7 @@ public:
     Q_INVOKABLE void requestRangeFormatting(const QString& uri, const Range& range, int tabSize, bool insertSpaces);
     Q_INVOKABLE void requestRename(const QString& uri, const Position& pos, const QString& newName);
     Q_INVOKABLE void requestCodeAction(const QString& uri, const Range& range, const QList<Diagnostic>& diagnostics);
+    Q_INVOKABLE void requestExecuteCommand(const QString& command, const QJsonArray& arguments = {});
     Q_INVOKABLE void requestDiagnostics(const QString& uri);
 
     // ── QML-friendly convenience overloads ──
@@ -115,6 +116,7 @@ signals:
     void typeDefinitionReady(const QString& uri, const Location& location);
     void declarationReady(const QString& uri, const Location& location);
     void codeActionReady(const QString& uri, const QList<QJsonObject>& actions);
+    void executeCommandReady(const QJsonValue& result);
     void workspaceSymbolsReady(const QString& query, const QJsonArray& symbols);
     void selectionRangesReady(const QString& uri, const QJsonArray& ranges);
     void linkedEditingRangeReady(const QString& uri, const QJsonObject& result);

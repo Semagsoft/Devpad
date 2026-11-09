@@ -171,6 +171,7 @@ public:
     int cursorPosition() const;
     void showToolTip(int pos, const QString& text);
     void applyFormattingEdits(const QList<QJsonObject>& edits);
+    void applyTextEdits(const QList<QJsonObject>& edits);
     void showSignatureHelp(const QJsonObject& info);
     void setLinkedEditingRanges(const QJsonObject& result);
     void clearLinkedRanges();

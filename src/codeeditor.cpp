@@ -1394,9 +1394,19 @@ void CodeEditor::showToolTip(int pos, const QString& text)
 
 void CodeEditor::applyFormattingEdits(const QList<QJsonObject>& edits)
 {
+    applyTextEdits(edits);
+}
+
+void CodeEditor::applyTextEdits(const QList<QJsonObject>& edits)
+{
+    if (edits.isEmpty())
+        return;
     beginUndoAction();
-    for (const auto& edit : edits)
+    // Apply edits in reverse order so that earlier edits do not invalidate the
+    // positions of later ones (LSP ranges refer to the original document).
+    for (int i = edits.size() - 1; i >= 0; --i)
     {
+        const auto& edit = edits[i];
         auto range = lsp::Range::fromJson(edit["range"].toObject());
         QString newText = edit["newText"].toString();
 

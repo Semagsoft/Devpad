@@ -315,6 +315,10 @@ public:
     {
         return m_renameSymbolAct;
     }
+    QAction* codeActionAct() const
+    {
+        return m_codeActionAct;
+    }
     QAction* findSymbolsAct() const
     {
         return m_findSymbolsAct;
@@ -396,6 +400,10 @@ public:
     QAction* errorListPanelAct() const
     {
         return m_errorListPanelAct;
+    }
+    QAction* referencesPanelAct() const
+    {
+        return m_referencesPanelAct;
     }
     QToolButton* projectPanelButton() const
     {
@@ -480,6 +488,7 @@ signals:
     void toggleProjectPanelTriggered();
     void toggleTerminalPanelTriggered();
     void toggleErrorListPanelTriggered();
+    void toggleReferencesPanelTriggered();
     void toggleToolBarTriggered();
     void toggleStatusBarTriggered();
     void toggleMenuBarTriggered();
@@ -504,6 +513,7 @@ signals:
     void findReferencesTriggered();
     void triggerCompletionTriggered();
     void renameSymbolTriggered();
+    void codeActionTriggered();
     void expandSelectionTriggered();
     void shrinkSelectionTriggered();
     void findSymbolsTriggered();
@@ -606,6 +616,8 @@ private:
     QAction* m_projectPanelAct = nullptr;
     QAction* m_terminalPanelAct = nullptr;
     QAction* m_errorListPanelAct = nullptr;
+    QAction* m_referencesPanelAct = nullptr;
+    QToolButton* m_referencesPanelButton = nullptr;
     QAction* m_toolBarAct = nullptr;
     QAction* m_statusBarAct = nullptr;
 #ifdef Q_OS_WIN
@@ -629,6 +641,7 @@ private:
     QAction* m_findReferencesAct = nullptr;
     QAction* m_triggerCompletionAct = nullptr;
     QAction* m_renameSymbolAct = nullptr;
+    QAction* m_codeActionAct = nullptr;
     QAction* m_findSymbolsAct = nullptr;
     QAction* m_expandSelectionAct = nullptr;
     QAction* m_shrinkSelectionAct = nullptr;

@@ -426,6 +426,13 @@ void ActionManager::createLspActions()
             emit lspActionTriggered(LspAction::RenameSymbol);
         },
         "LSP.RenameSymbol");
+    m_codeActionAct = createIconAction(
+        ":/icons/Edit/find.svg", tr("Code Action"), QKeySequence("Alt+Enter"),
+        [this]()
+        {
+            emit codeActionTriggered();
+        },
+        "LSP.CodeAction");
 
     m_findSymbolsAct = new QAction(tr("Find Symbol..."), this);
     connect(m_findSymbolsAct, &QAction::triggered, this, [this]() { emit findSymbolsTriggered(); });
@@ -512,6 +519,12 @@ void ActionManager::createViewActions()
     m_errorListPanelAct->setChecked(false);
     registerAction(m_errorListPanelAct, "View.ErrorList");
     connect(m_errorListPanelAct, &QAction::triggered, this, [this]() { emit toggleErrorListPanelTriggered(); });
+
+    m_referencesPanelAct = new QAction(QIcon(":/icons/Edit/find.svg"), tr("References"), this);
+    m_referencesPanelAct->setCheckable(true);
+    m_referencesPanelAct->setChecked(false);
+    registerAction(m_referencesPanelAct, "View.References");
+    connect(m_referencesPanelAct, &QAction::triggered, this, [this]() { emit toggleReferencesPanelTriggered(); });
 
     m_menuBarAct = new QAction(QIcon(":/icons/View/ui.svg"), tr("Menu Bar\tCtrl+Alt+M"), this);
     m_menuBarAct->setCheckable(true);
@@ -776,6 +789,7 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     lspMenu->addAction(m_findReferencesAct);
     lspMenu->addAction(m_triggerCompletionAct);
     lspMenu->addAction(m_renameSymbolAct);
+    lspMenu->addAction(m_codeActionAct);
     lspMenu->addAction(m_findSymbolsAct);
     lspMenu->addAction(m_expandSelectionAct);
     lspMenu->addAction(m_shrinkSelectionAct);
@@ -792,6 +806,7 @@ void ActionManager::buildViewMenu(QMenu* viewMenu)
     viewMenu->addAction(m_projectPanelAct);
     viewMenu->addAction(m_terminalPanelAct);
     viewMenu->addAction(m_errorListPanelAct);
+    viewMenu->addAction(m_referencesPanelAct);
     viewMenu->addSeparator();
     viewMenu->addAction(m_menuBarAct);
     viewMenu->addAction(m_toolBarAct);
@@ -1032,6 +1047,8 @@ void ActionManager::wireLspConnections(const ActionTargets& t)
     connect(this, &ActionManager::findSymbolsTriggered, mw, &MainWindow::findSymbols);
     connect(this, &ActionManager::expandSelectionTriggered, mw, &MainWindow::expandSelection);
     connect(this, &ActionManager::shrinkSelectionTriggered, mw, &MainWindow::shrinkSelection);
+    connect(this, &ActionManager::codeActionTriggered, mw, &MainWindow::requestCodeActions);
+    connect(this, &ActionManager::toggleReferencesPanelTriggered, mw, &MainWindow::toggleReferencesPanel);
 }
 
 void ActionManager::wireHelpConnections(const ActionTargets& t)
@@ -1136,4 +1153,13 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_errorListPanelButton, &QToolButton::clicked, this, [this]() { emit toggleErrorListPanelTriggered(); });
     statusBar->addWidget(m_errorListPanelButton);
+
+    m_referencesPanelButton = new QToolButton(statusBar);
+    m_referencesPanelButton->setIcon(QIcon(":/icons/Edit/find.svg"));
+    m_referencesPanelButton->setCheckable(true);
+    m_referencesPanelButton->setCursor(Qt::PointingHandCursor);
+    m_referencesPanelButton->setStyleSheet(
+        "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
+    connect(m_referencesPanelButton, &QToolButton::clicked, this, [this]() { emit toggleReferencesPanelTriggered(); });
+    statusBar->addWidget(m_referencesPanelButton);
 }

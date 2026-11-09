@@ -243,6 +243,7 @@ add_library(Devpad_lib STATIC
     $<$<BOOL:${TERMINAL_HAS_KODOTERM}>:src/panels/terminalbackend_kodoterm.cpp>
     src/panels/draggabletabbar.cpp
     src/panels/errorlistpanel.cpp
+    src/panels/referencespanel.cpp
     src/widgets/brackethelper.cpp
     src/widgets/themepreviewwidget.cpp
     src/widgets/titlebar.cpp
