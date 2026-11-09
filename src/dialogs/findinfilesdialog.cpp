@@ -85,7 +85,11 @@ void FindInFilesWorker::run()
         bool excluded = false;
         for (const QString& exDir : m_excludeDirs)
         {
-            if (filePath.startsWith(exDir + '/') || filePath.contains('/' + exDir + '/') || filePath.endsWith('/' + exDir) || filePath == exDir)
+            // Match whole path segments only: bare names like ".git" / "node_modules"
+            // so a file named ".gitignore" or a dir named "my_node_modules" is not
+            // accidentally excluded, and slash-wrapped patterns never match real paths.
+            const QStringList segments = filePath.split(QDir::separator(), Qt::SkipEmptyParts);
+            if (segments.contains(exDir))
             {
                 excluded = true;
                 break;
@@ -343,7 +347,7 @@ void FindInFilesDialog::onSearch()
         return;
     }
 
-    QStringList excludeDirs = {"/.git/", "/node_modules/", "/.svn/", "/__pycache__/", "/.hg/"};
+    QStringList excludeDirs = {".git", "node_modules", ".svn", "__pycache__", ".hg"};
     QString filter = filterLineEdit->text().trimmed();
 
     m_worker = new FindInFilesWorker(searchText, rootDir, filter, excludeDirs, matchCaseCheckBox->isChecked(), matchWholeWordCheckBox->isChecked(),

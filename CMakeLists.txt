@@ -486,6 +486,7 @@ if(BUILD_TESTS)
         tests/test_editorcontainer.cpp
         tests/test_encodingmenuhelper.cpp
         tests/test_externaltoolmanager.cpp
+        tests/test_findinfilesworker.cpp
         tests/test_filewatchermanager.cpp
         tests/test_gitignore.cpp
         tests/test_inlinefindbar.cpp
