@@ -18,6 +18,7 @@
  */
 #include "optionsdialog.h"
 
+#include "customthemedialog.h"
 #include "defaultsyntax.h"
 #include "encodingutils.h"
 #include "lsp/lspservermanager.h"
@@ -317,6 +318,11 @@ void OptionsDialog::setupAppearanceTab()
         }
     }
     themeLayout->addRow(tr("Theme:"), themeComboBox);
+
+    auto* customThemeBtn = new QPushButton(tr("Custom Theme Editor..."), themeGroup);
+    customThemeBtn->setToolTip(tr("Create or edit custom user themes (themes/*.json)"));
+    connect(customThemeBtn, &QPushButton::clicked, this, &OptionsDialog::openCustomThemeEditor);
+    themeLayout->addRow(customThemeBtn);
 
     connect(themeFilterEdit, &QLineEdit::textChanged, this, &OptionsDialog::filterThemes);
 
@@ -892,6 +898,65 @@ void OptionsDialog::filterThemes(const QString& text)
     updateThemePreview();
 }
 
+void OptionsDialog::openCustomThemeEditor()
+{
+    CustomThemeDialog dlg(this);
+    dlg.exec();
+
+    // The editor dialog (re)loads the custom theme cache on every save/delete,
+    // so sync the combo box with the current set of custom themes and re-apply
+    // if the active custom theme changed.
+    QStringList names = customThemeNames();
+
+    // Remove custom entries that no longer exist.
+    for (int i = themeComboBox->count() - 1; i >= 0; --i)
+    {
+        if (themeComboBox->itemData(i).toInt() == -1)
+        {
+            QString itemName = themeComboBox->itemText(i);
+            if (!names.contains(itemName))
+                themeComboBox->removeItem(i);
+        }
+    }
+
+    // Add any custom themes not yet listed.
+    for (const QString& name : names)
+    {
+        bool present = false;
+        for (int i = 0; i < themeComboBox->count(); ++i)
+        {
+            if (themeComboBox->itemData(i).toInt() == -1 && themeComboBox->itemText(i) == name)
+            {
+                present = true;
+                break;
+            }
+        }
+        if (!present)
+            themeComboBox->addItem(name, -1);
+    }
+
+    // Re-select the active custom theme (or fall back to first item).
+    const auto& s = SettingsManager::instance();
+    bool restored = false;
+    if (!s.customTheme().isEmpty())
+    {
+        for (int i = 0; i < themeComboBox->count(); ++i)
+        {
+            if (themeComboBox->itemText(i) == s.customTheme())
+            {
+                themeComboBox->setCurrentIndex(i);
+                restored = true;
+                break;
+            }
+        }
+    }
+    if (!restored && themeComboBox->count() > 0)
+        themeComboBox->setCurrentIndex(0);
+
+    updateThemePreview();
+    emit themeChanged();
+}
+
 void OptionsDialog::loadSettings()
 {
     const auto& s = SettingsManager::instance();
@@ -1089,6 +1154,10 @@ void OptionsDialog::saveSettings()
             SettingsManager::instance().setLspServerArgs(lang, args);
         }
     }
+
+    // Persist immediately so newly launched Devpad instances pick up the
+    // changed values without waiting for the settings object to be destroyed.
+    SettingsManager::instance().sync();
 }
 
 void OptionsDialog::accept()

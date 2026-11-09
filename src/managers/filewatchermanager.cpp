@@ -119,7 +119,11 @@ void FileWatcherManager::pollModifications()
     // delivering fileChanged for a path after the first notification and does not
     // reliably re-notify after removePath()/addPath(), so we periodically re-stat
     // watched files to make sure no modification goes unreported.
-    for (auto it = m_modificationTimes.begin(); it != m_modificationTimes.end(); ++it)
+    // QHash::erase() returns the iterator following the erased element, so we use
+    // a while loop: erasing during iteration invalidates the old iterator, and
+    // erase() keeps us positioned on a valid element.
+    auto it = m_modificationTimes.begin();
+    while (it != m_modificationTimes.end())
     {
         const QString& filePath = it.key();
         QFileInfo info(filePath);
@@ -131,10 +135,13 @@ void FileWatcherManager::pollModifications()
             if (!m_deletedPaths.contains(filePath))
             {
                 m_deletedPaths.insert(filePath);
-                m_modificationTimes.remove(filePath);
+                it = m_modificationTimes.erase(it);
                 Logger::instance().info(QString("File deleted externally: %1").arg(filePath));
                 emit fileModifiedExternally(filePath);
+                continue; // erase() already advanced the iterator
             }
+            // Still tracked and already reported deleted: advance past it.
+            ++it;
             continue;
         }
 
@@ -142,6 +149,7 @@ void FileWatcherManager::pollModifications()
         QDateTime knownMod = it.value();
         if (!knownMod.isValid() || currentMod <= knownMod)
         {
+            ++it;
             continue;
         }
 
@@ -150,6 +158,7 @@ void FileWatcherManager::pollModifications()
         // re-reported (external editors save via delete + rename).
         if (isWithinCoalesceWindow(filePath) && !m_deletedPaths.contains(filePath))
         {
+            ++it;
             continue;
         }
 
@@ -158,6 +167,7 @@ void FileWatcherManager::pollModifications()
         m_lastReported[filePath] = QDateTime::currentDateTime();
         Logger::instance().info(QString("File modified externally: %1").arg(filePath));
         emit fileModifiedExternally(filePath);
+        ++it;
     }
 }
 

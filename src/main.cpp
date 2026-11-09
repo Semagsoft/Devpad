@@ -29,6 +29,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QList>
+#include <QLocalSocket>
 #include <QLoggingCategory>
 #include <QProcess>
 #include <QTextStream>
@@ -99,6 +101,66 @@ static void crashHandler(int sig, siginfo_t* info, void* userData)
     }
 
     _Exit(EXIT_FAILURE);
+}
+#endif
+
+#ifdef Q_OS_LINUX
+// Try to hand off shell-passed files/folders to an already running Devpad
+// instance so they open in that instance's current window instead of spawning
+// a brand-new window. Returns true if the handoff succeeded and this instance
+// should exit without opening anything locally.
+static bool handOffToRunningInstance(const QStringList& paths)
+{
+    if (paths.isEmpty())
+        return false;
+
+    QProcess pgrep;
+    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("Devpad"));
+    if (!pgrep.waitForFinished(2000))
+        return false;
+
+    QList<qint64> pids;
+    for (const QString& line : QString::fromUtf8(pgrep.readAllStandardOutput()).split(QLatin1Char('\n'), Qt::SkipEmptyParts))
+    {
+        qint64 pid = line.trimmed().toLongLong();
+        if (pid > 0 && pid != QCoreApplication::applicationPid())
+            pids.append(pid);
+    }
+
+    for (qint64 pid : pids)
+    {
+        QLocalSocket socket;
+        socket.connectToServer(QStringLiteral("devpad-%1").arg(pid));
+        if (!socket.waitForConnected(1000))
+            continue;
+
+        QTextStream stream(&socket);
+        stream << QStringLiteral("open_files\n");
+        for (const QString& path : paths)
+            stream << path << '\n';
+        stream << QStringLiteral("end\n");
+        stream.flush();
+
+        if (socket.waitForReadyRead(2000))
+        {
+            while (socket.canReadLine())
+            {
+                const QString line = QString::fromUtf8(socket.readLine()).trimmed();
+                if (line == QStringLiteral("ok"))
+                {
+                    socket.disconnectFromServer();
+                    return true;
+                }
+            }
+        }
+        socket.disconnectFromServer();
+    }
+    return false;
+}
+#else
+static bool handOffToRunningInstance(const QStringList&)
+{
+    return false;
 }
 #endif
 
@@ -267,6 +329,55 @@ int main(int argc, char* argv[])
 
     MainWindow mainWindow;
 
+    // Collect shell-passed files/folders. When "Current window" mode is set
+    // and another Devpad instance is already running, hand them off to that
+    // instance so they open in its current window instead of spawning a new
+    // one. Otherwise they open in this window below.
+    QStringList shellFiles;
+    QStringList shellFolders;
+
+    const auto collectShellPath = [&](const QString& arg)
+    {
+        QString filePath = arg;
+        if (!QFileInfo(filePath).isAbsolute())
+            filePath = QDir::current().absoluteFilePath(filePath);
+        QFileInfo fileInfo(filePath);
+        if (fileInfo.isFile())
+            shellFiles.append(filePath);
+        else if (fileInfo.isDir())
+            shellFolders.append(filePath);
+    };
+
+    if (parser.isSet(transferOpt))
+    {
+        const QString transferPath = parser.value(transferOpt);
+        if (!transferPath.isEmpty())
+            shellFiles.append(transferPath);
+    }
+
+    // Legacy --transfer positional handling for drag-detached tabs
+    QStringList positional = parser.positionalArguments();
+    for (int i = 0; i < positional.size(); ++i)
+    {
+        const QString arg = positional.at(i);
+        if (arg == QStringLiteral("--transfer") && i + 1 < positional.size())
+        {
+            shellFiles.append(positional.at(++i));
+            continue;
+        }
+        collectShellPath(arg);
+    }
+
+    const bool handoffFiles = SettingsManager::instance().shellOpenModeFiles() == ShellOpenMode::CurrentWindow;
+    const bool handoffFolders = SettingsManager::instance().shellOpenModeFolders() == ShellOpenMode::CurrentWindow;
+    QStringList handOffPaths;
+    if (handoffFiles)
+        handOffPaths += shellFiles;
+    if (handoffFolders)
+        handOffPaths += shellFolders;
+    if (!handOffPaths.isEmpty() && handOffToRunningInstance(handOffPaths))
+        return 0;
+
     // Helpers to honor the shell open mode settings when files/folders are
     // passed on the command line. NewWindow launches a detached Devpad window;
     // CurrentWindow opens in the existing window.
@@ -301,33 +412,10 @@ int main(int argc, char* argv[])
         }
     };
 
-    if (parser.isSet(transferOpt))
-    {
-        const QString transferPath = parser.value(transferOpt);
-        if (!transferPath.isEmpty())
-            openFileFromShell(transferPath);
-    }
-
-    // Legacy --transfer positional handling for drag-detached tabs
-    QStringList positional = parser.positionalArguments();
-    for (int i = 0; i < positional.size(); ++i)
-    {
-        QString arg = positional.at(i);
-        if (arg == QStringLiteral("--transfer") && i + 1 < positional.size())
-        {
-            openFileFromShell(positional.at(++i));
-            continue;
-        }
-        QString filePath = arg;
-        if (!QFileInfo(filePath).isAbsolute())
-            filePath = QDir::current().absoluteFilePath(filePath);
-
-        QFileInfo fileInfo(filePath);
-        if (fileInfo.isFile())
-            openFileFromShell(filePath);
-        else if (fileInfo.isDir())
-            openFolderFromShell(filePath);
-    }
+    for (const QString& path : shellFiles)
+        openFileFromShell(path);
+    for (const QString& path : shellFolders)
+        openFolderFromShell(path);
 
     // Clean up auto-save backups that will never be prompted for again:
     // originals deleted on disk, or backups older than the retention window.

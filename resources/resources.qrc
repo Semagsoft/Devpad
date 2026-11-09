@@ -42,6 +42,13 @@
         <file>icons/Edit/selectall.svg</file>
         <file>icons/Edit/undo.svg</file>
         <file>icons/Edit/togglecomment.svg</file>
+        <file>icons/Debug/start.svg</file>
+        <file>icons/Debug/stop.svg</file>
+        <file>icons/Debug/continue.svg</file>
+        <file>icons/Debug/stepover.svg</file>
+        <file>icons/Debug/stepinto.svg</file>
+        <file>icons/Debug/stepout.svg</file>
+        <file>icons/Debug/restart.svg</file>
         <file>icons/Common/filetypes/archive.svg</file>
         <file>icons/File/close.svg</file>
         <file>icons/File/closeall.svg</file>

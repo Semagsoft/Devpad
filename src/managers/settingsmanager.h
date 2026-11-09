@@ -188,6 +188,22 @@ public:
     void setLspServerCommand(const QString& language, const QString& command);
     void setLspServerArgs(const QString& language, const QStringList& args);
 
+    // ── DAP (debugger) settings ──────────────────────────────────
+    struct DapSettings
+    {
+        bool enabled = false;
+        QHash<QString, QString> adapterCommands;
+        QHash<QString, QStringList> adapterArgs;
+    };
+
+    DapSettings dapSettings() const;
+    bool dapEnabled() const;
+    QString dapAdapterCommand(const QString& language) const;
+    QStringList dapAdapterArgs(const QString& language) const;
+    void setDapEnabled(bool enabled);
+    void setDapAdapterCommand(const QString& language, const QString& command);
+    void setDapAdapterArgs(const QString& language, const QStringList& args);
+
     // ── Editor settings ────────────────────────────────────────
     EditorSettings editorSettings() const;
     QString defaultFontFamily() const;
@@ -278,6 +294,12 @@ public:
     void setShellOpenModeFiles(ShellOpenMode mode);
     ShellOpenMode shellOpenModeFolders() const;
     void setShellOpenModeFolders(ShellOpenMode mode);
+
+    /// Flush pending QSettings changes to disk immediately. Call this after a
+    /// batch of setters (e.g. from OptionsDialog::saveSettings()) so the values
+    /// are visible to newly launched Devpad instances without waiting for the
+    /// settings object to be destroyed.
+    void sync();
 
     // ── Terminal settings ──────────────────────────────────────
     TerminalSettings terminalSettings() const;
@@ -394,6 +416,7 @@ private:
         AutoSaveSettings autoSave;
         ProjectSettings project;
         LspSettings lsp;
+        DapSettings dap;
         QColor accentColor;
         bool hasAccentColor = false;
     };

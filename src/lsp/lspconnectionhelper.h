@@ -7,6 +7,7 @@
 
 class ActionManager;
 class ErrorListPanel;
+class ReferencesPanel;
 class TabManager;
 
 namespace lsp
@@ -16,8 +17,8 @@ class LspServerManager;
 struct Diagnostic;
 struct Location;
 
-void setupLspConnections(LspServerManager* manager, TabManager* tabManager, ErrorListPanel* errorPanel, ActionManager* actionManager,
-                         std::function<void(const QString& filePath, int line, int column)> navigateToLocation);
+void setupLspConnections(LspServerManager* manager, TabManager* tabManager, ErrorListPanel* errorPanel, ReferencesPanel* referencesPanel,
+                         ActionManager* actionManager, std::function<void(const QString& filePath, int line, int column)> navigateToLocation);
 
 } // namespace lsp
 

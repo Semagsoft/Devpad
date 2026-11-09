@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.23)
-project(Devpad VERSION 1.08 LANGUAGES CXX)
+project(Devpad VERSION 1.09 LANGUAGES CXX)
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
@@ -227,7 +227,11 @@ add_library(Devpad_lib STATIC
     src/snippetengine.cpp
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/findsymbolsdialog.cpp
+    src/dialogs/dialogcoordinator.cpp
+    src/managers/externalchangecoordinator.cpp
+    src/managers/remoteopencoordinator.cpp
     src/dialogs/aboutdialog.cpp
+    src/dialogs/customthemedialog.cpp
     src/dialogs/optionsdialog.cpp
     src/dialogs/externaltoolsdialog.cpp
     src/dialogs/updatedialog.cpp
@@ -240,6 +244,8 @@ add_library(Devpad_lib STATIC
     $<$<BOOL:${TERMINAL_HAS_KODOTERM}>:src/panels/terminalbackend_kodoterm.cpp>
     src/panels/draggabletabbar.cpp
     src/panels/errorlistpanel.cpp
+    src/panels/referencespanel.cpp
+    src/panels/debugpanel.cpp
     src/widgets/brackethelper.cpp
     src/widgets/themepreviewwidget.cpp
     src/widgets/titlebar.cpp
@@ -256,6 +262,10 @@ add_library(Devpad_lib STATIC
     src/lsp/lspservermanager.cpp
     src/lsp/lsptypes.cpp
     src/lsp/lspeditorintegration.cpp
+    src/dap/dapclient.cpp
+    src/dap/dapservermanager.cpp
+    src/dap/daptypes.cpp
+    src/dap/dapeditorintegration.cpp
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginhost.cpp>
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginmanager.cpp>
 )
@@ -415,6 +425,22 @@ if(CLANG_FORMAT)
     )
 endif()
 
+# ── Clang-tidy ────────────────────────────────────────────────
+find_program(CLANG_TIDY NAMES clang-tidy clang-tidy-18 clang-tidy-17)
+find_package(Python3 COMPONENTS Interpreter)
+if(CLANG_TIDY AND Python3_Interpreter_FOUND)
+    # Mirrors the CI "Clang-tidy" job: lint only files with a compile_commands.json
+    # entry, so OFF-by-default options (BUILD_TUI, BUILD_NEXTGEN) are skipped.
+    # Requires a configured build dir exporting the DB (default: build/).
+    add_custom_target(check-tidy
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/run-clang-tidy.py
+                --build-dir $<IF:$<BOOL:${CMAKE_EXPORT_COMPILE_COMMANDS}>,${CMAKE_BINARY_DIR},${CMAKE_SOURCE_DIR}/build>
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Checking sources with clang-tidy"
+        VERBATIM
+    )
+endif()
+
 if(BUILD_TESTS)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     include(FetchContent)
@@ -456,9 +482,11 @@ if(BUILD_TESTS)
         tests/test_sessionmanager.cpp
         tests/test_snippet.cpp
         tests/test_snippetmanager.cpp
+        tests/test_snippetengine.cpp
         tests/test_editorcontainer.cpp
         tests/test_encodingmenuhelper.cpp
         tests/test_externaltoolmanager.cpp
+        tests/test_findinfilesworker.cpp
         tests/test_filewatchermanager.cpp
         tests/test_gitignore.cpp
         tests/test_inlinefindbar.cpp

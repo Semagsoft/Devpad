@@ -496,6 +496,25 @@ EditorContainer* TabManager::containerFor(CodeEditor* editor) const
     return nullptr;
 }
 
+void TabManager::focusEditorPane(CodeEditor* editor)
+{
+    if (!editor)
+        return;
+    if (auto* container = containerFor(editor))
+    {
+        for (QTabWidget* pane : m_panes)
+        {
+            int idx = pane->indexOf(container);
+            if (idx >= 0)
+            {
+                pane->setCurrentIndex(idx);
+                setActivePane(pane);
+                break;
+            }
+        }
+    }
+}
+
 void TabManager::updateTabBarVisibility()
 {
     for (QTabWidget* pane : m_panes)
@@ -517,5 +536,27 @@ void TabManager::updateTabBarVisibility()
             tabBar->setVisible(false);
             break;
         }
+    }
+}
+
+void TabManager::applyTabBarPosition(TabBarPosition position)
+{
+    const QTabWidget::TabPosition tp = position == TabBarPosition::Top ? QTabWidget::North : QTabWidget::South;
+    for (QTabWidget* pane : m_panes)
+    {
+        pane->setTabPosition(tp);
+    }
+}
+
+void TabManager::applyCloseButtonPosition(CloseButtonMode closeButtonMode)
+{
+    updateAllCloseButtons(closeButtonMode);
+    for (QTabWidget* pane : m_panes)
+    {
+        if (QTabBar* tabBar = pane->tabBar())
+        {
+            tabBar->setTabsClosable(false);
+        }
+        pane->setStyleSheet(QString());
     }
 }

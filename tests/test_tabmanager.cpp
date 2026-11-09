@@ -3,6 +3,7 @@
 #include "tabmanager.h"
 
 #include <QApplication>
+#include <QTabBar>
 #include <QTabWidget>
 
 #include <gtest/gtest.h>
@@ -110,6 +111,29 @@ TEST_F(TabManagerTest, RemoveEditorDecreasesCount)
     tabManager->closeEditor(1);
     EXPECT_EQ(tabManager->count(), 1);
     EXPECT_EQ(tabManager->editorAt(0), e1);
+}
+
+TEST_F(TabManagerTest, FocusEditorPaneActivatesTheEditorsTab)
+{
+    if (tabManager->panes().isEmpty())
+    {
+        GTEST_SKIP() << "Split panes not initialized in this environment";
+    }
+    CodeEditor* e1 = addEditor("a.txt");
+    addEditor("b.txt");
+
+    tabManager->focusEditorPane(e1);
+    QTabWidget* pane = tabManager->activePane();
+    ASSERT_NE(pane, nullptr);
+    EXPECT_EQ(pane->currentWidget(), tabManager->containerFor(e1));
+}
+
+TEST_F(TabManagerTest, FocusEditorPaneWithUnknownEditorIsNoop)
+{
+    CodeEditor* stranger = new CodeEditor();
+    tabManager->focusEditorPane(stranger); // must not crash
+    tabManager->focusEditorPane(nullptr);  // must not crash
+    delete stranger;
 }
 
 TEST_F(TabManagerTest, CloseEditorDecreasesCount)
@@ -240,4 +264,31 @@ TEST_F(TabManagerTest, EditorAtWorksAcrossPanes)
 
     tabManager->removePane(secondPane);
     delete secondPane;
+}
+
+TEST_F(TabManagerTest, ApplyTabBarPositionPositionsAllPanes)
+{
+    addEditor("a.txt");
+    tabManager->applyTabBarPosition(TabBarPosition::Bottom);
+    for (QTabWidget* pane : tabManager->panes())
+    {
+        EXPECT_EQ(pane->tabPosition(), QTabWidget::South);
+    }
+
+    tabManager->applyTabBarPosition(TabBarPosition::Top);
+    for (QTabWidget* pane : tabManager->panes())
+    {
+        EXPECT_EQ(pane->tabPosition(), QTabWidget::North);
+    }
+}
+
+TEST_F(TabManagerTest, ApplyCloseButtonPositionRestylesAllPanes)
+{
+    addEditor("a.txt");
+    tabManager->applyCloseButtonPosition(CloseButtonMode::Left);
+    for (QTabWidget* pane : tabManager->panes())
+    {
+        EXPECT_FALSE(pane->tabBar()->tabsClosable());
+        EXPECT_TRUE(pane->styleSheet().isEmpty());
+    }
 }

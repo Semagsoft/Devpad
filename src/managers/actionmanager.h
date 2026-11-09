@@ -134,6 +134,16 @@ public:
         TriggerCompletion,
         RenameSymbol
     };
+    enum class DebugAction
+    {
+        StartDebugging,
+        StopDebugging,
+        Continue,
+        StepOver,
+        StepInto,
+        StepOut,
+        Restart
+    };
     enum class HelpAction
     {
         Options,
@@ -315,6 +325,10 @@ public:
     {
         return m_renameSymbolAct;
     }
+    QAction* codeActionAct() const
+    {
+        return m_codeActionAct;
+    }
     QAction* findSymbolsAct() const
     {
         return m_findSymbolsAct;
@@ -396,6 +410,42 @@ public:
     QAction* errorListPanelAct() const
     {
         return m_errorListPanelAct;
+    }
+    QAction* referencesPanelAct() const
+    {
+        return m_referencesPanelAct;
+    }
+    QAction* debugPanelAct() const
+    {
+        return m_debugPanelAct;
+    }
+    QAction* startDebuggingAct() const
+    {
+        return m_startDebuggingAct;
+    }
+    QAction* stopDebuggingAct() const
+    {
+        return m_stopDebuggingAct;
+    }
+    QAction* continueAct() const
+    {
+        return m_continueAct;
+    }
+    QAction* stepOverAct() const
+    {
+        return m_stepOverAct;
+    }
+    QAction* stepIntoAct() const
+    {
+        return m_stepIntoAct;
+    }
+    QAction* stepOutAct() const
+    {
+        return m_stepOutAct;
+    }
+    QAction* restartAct() const
+    {
+        return m_restartAct;
     }
     QToolButton* projectPanelButton() const
     {
@@ -480,6 +530,8 @@ signals:
     void toggleProjectPanelTriggered();
     void toggleTerminalPanelTriggered();
     void toggleErrorListPanelTriggered();
+    void toggleReferencesPanelTriggered();
+    void toggleDebugPanelTriggered();
     void toggleToolBarTriggered();
     void toggleStatusBarTriggered();
     void toggleMenuBarTriggered();
@@ -504,9 +556,17 @@ signals:
     void findReferencesTriggered();
     void triggerCompletionTriggered();
     void renameSymbolTriggered();
+    void codeActionTriggered();
     void expandSelectionTriggered();
     void shrinkSelectionTriggered();
     void findSymbolsTriggered();
+    void startDebuggingTriggered();
+    void stopDebuggingTriggered();
+    void continueTriggered();
+    void stepOverTriggered();
+    void stepIntoTriggered();
+    void stepOutTriggered();
+    void restartTriggered();
     void optionsTriggered();
     void configureExternalToolsTriggered();
     void aboutTriggered();
@@ -526,6 +586,7 @@ signals:
     void viewActionTriggered(ViewAction action);
     void documentActionTriggered(DocumentAction action);
     void lspActionTriggered(LspAction action);
+    void debugActionTriggered(DebugAction action);
     void helpActionTriggered(HelpAction action);
 
 private:
@@ -558,6 +619,7 @@ private:
     void createEditActions();
     void createBookmarkActions();
     void createLspActions();
+    void createDebugActions();
     void createViewActions();
     void createHelpActions();
 
@@ -567,6 +629,7 @@ private:
     void wireViewConnections(const ActionTargets& t);
     void wireDocumentConnections(const ActionTargets& t);
     void wireLspConnections(const ActionTargets& t);
+    void wireDebugConnections(const ActionTargets& t);
     void wireHelpConnections(const ActionTargets& t);
     void wireMiscConnections(const ActionTargets& t);
 
@@ -606,6 +669,16 @@ private:
     QAction* m_projectPanelAct = nullptr;
     QAction* m_terminalPanelAct = nullptr;
     QAction* m_errorListPanelAct = nullptr;
+    QAction* m_referencesPanelAct = nullptr;
+    QToolButton* m_referencesPanelButton = nullptr;
+    QAction* m_debugPanelAct = nullptr;
+    QAction* m_startDebuggingAct = nullptr;
+    QAction* m_stopDebuggingAct = nullptr;
+    QAction* m_continueAct = nullptr;
+    QAction* m_stepOverAct = nullptr;
+    QAction* m_stepIntoAct = nullptr;
+    QAction* m_stepOutAct = nullptr;
+    QAction* m_restartAct = nullptr;
     QAction* m_toolBarAct = nullptr;
     QAction* m_statusBarAct = nullptr;
 #ifdef Q_OS_WIN
@@ -629,6 +702,7 @@ private:
     QAction* m_findReferencesAct = nullptr;
     QAction* m_triggerCompletionAct = nullptr;
     QAction* m_renameSymbolAct = nullptr;
+    QAction* m_codeActionAct = nullptr;
     QAction* m_findSymbolsAct = nullptr;
     QAction* m_expandSelectionAct = nullptr;
     QAction* m_shrinkSelectionAct = nullptr;

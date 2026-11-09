@@ -74,12 +74,27 @@ public:
 
     void applySettingsToAll(const SettingsManager::EditorSettings& settings);
 
+    /** @brief Apply the configured tab-bar position to every pane. */
+    void applyTabBarPosition(TabBarPosition position);
+
+    /**
+     * @brief (Re)configure close buttons on every pane for the current mode,
+     *        including resetting tab-bar styling that depends on them.
+     */
+    void applyCloseButtonPosition(CloseButtonMode mode);
+
     void setTabPinned(CodeEditor* editor, bool pinned);
     bool isTabPinned(CodeEditor* editor) const;
     QStringList pinnedFiles() const;
     void setPinnedFiles(const QStringList& files);
 
     EditorContainer* containerFor(CodeEditor* editor) const;
+
+    /**
+     * @brief Bring an already-open editor to the foreground: activates the pane
+     *        containing it and selects its tab. No-op if the editor is unknown.
+     */
+    void focusEditorPane(CodeEditor* editor);
 
 signals:
     void editorCreated(CodeEditor* editor);

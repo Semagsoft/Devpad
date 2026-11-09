@@ -23,26 +23,28 @@
 
 #include <QLocalServer>
 #include <QMainWindow>
-#include <QPointer>
 
 class ActionManager;
 class CodeEditor;
+class DialogCoordinator;
 class ErrorListPanel;
-class FindSymbolsDialog;
 class EditorController;
 class EncodingManager;
+class ExternalChangeCoordinator;
 class ExternalToolManager;
 class FileManager;
 class FileWatcherManager;
-class FindInFilesDialog;
 class QMenuBar;
 class PrintManager;
 class ProjectPanel;
+class ReferencesPanel;
+class DebugPanel;
 class RemoteFileService;
 class SearchManager;
 class SessionManager;
 class SnippetManager;
 class PluginManager;
+class RemoteOpenCoordinator;
 class SplitView;
 class TabManager;
 class TerminalPanel;
@@ -58,6 +60,11 @@ namespace lsp
 {
 class LspServerManager;
 } // namespace lsp
+
+namespace dap
+{
+class DapServerManager;
+} // namespace dap
 
 class MainWindow : public QMainWindow
 {
@@ -91,6 +98,8 @@ public slots:
     void toggleProjectPanel();
     void toggleTerminalPanel();
     void toggleErrorListPanel();
+    void toggleReferencesPanel();
+    void toggleDebugPanel();
     void findSymbols();
     void expandSelection();
     void shrinkSelection();
@@ -103,8 +112,16 @@ public slots:
     void goToDeclaration();
     void formatSelection();
     void findReferences();
+    void requestCodeActions();
     void triggerCompletion();
     void renameSymbol();
+    void startDebugging();
+    void stopDebugging();
+    void debugContinue();
+    void debugStepOver();
+    void debugStepInto();
+    void debugStepOut();
+    void debugRestart();
     void printFile();
     void printPreview();
     void pageSetup();
@@ -173,7 +190,6 @@ private:
     void updateEncodingSelector();
     void reloadCurrentFileWithEncoding(const QString& encoding);
     void saveCurrentFileWithEncoding(const QString& encoding);
-    void promptExternalChangeReload(const QString& filePath);
 
     // Owned: child widgets (parent=this), destroyed by Qt parent mechanism
     QTabWidget* m_tabWidget = nullptr;
@@ -196,18 +212,28 @@ private:
     FileWatcherManager* m_fileWatcherManager = nullptr;
     QTimer* m_autoSaveTimer = nullptr;
 
-    // QPointer: auto-nulls when dialog is destroyed externally
-    QPointer<FindInFilesDialog> m_findInFilesDialog;
-
     // Owned: QObject children (parent=this), destroyed automatically
     ExternalToolManager* m_externalToolManager = nullptr;
     RemoteFileService* m_remoteFileService = nullptr;
     UpdateChecker* m_updateChecker = nullptr;
     SnippetManager* m_snippetManager = nullptr;
     lsp::LspServerManager* m_lspServerManager = nullptr;
+    dap::DapServerManager* m_dapServerManager = nullptr;
     PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
-    QPointer<FindSymbolsDialog> m_findSymbolsDialog;
+    ReferencesPanel* m_referencesPanel = nullptr;
+    DebugPanel* m_debugPanel = nullptr;
+    QString m_debugSessionKey;
+    QMetaObject::Connection m_dapLaunchConn;
+
+    // Owns the find-in-files / find-symbols dialogs
+    DialogCoordinator* m_dialogCoordinator = nullptr;
+
+    // Handles externally-modified open files (prompt + reload)
+    ExternalChangeCoordinator* m_externalChangeCoordinator = nullptr;
+
+    // Handles remote file/folder opening and URL prompts
+    RemoteOpenCoordinator* m_remoteOpenCoordinator = nullptr;
 
     QLocalServer* m_localServer = nullptr;
     TitleBar* m_titleBar = nullptr;
@@ -215,9 +241,6 @@ private:
     WindowsFrameBridge* m_frameBridge = nullptr;
 #endif
     bool m_quitRequested = false;
-    // Guards the modal "File Modified" prompt: QMessageBox spins a nested event loop,
-    // so further watcher signals must not stack extra dialogs on top of it.
-    bool m_fileModifiedDialogActive = false;
 };
 
 #endif // MAINWINDOW_H

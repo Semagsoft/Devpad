@@ -111,6 +111,7 @@ ThemeColors getThemeColors(ThemeId themeId);
 QPalette getThemePalette(const ThemeColors& colors);
 QString themeDisplayName(ThemeId themeId);
 bool isThemeDark(ThemeId themeId);
+bool isSystemTheme(ThemeId themeId);
 bool prefersNativeStyling(ThemeId themeId);
 int builtInThemeCount();
 QList<ThemeId> allBuiltInThemes();

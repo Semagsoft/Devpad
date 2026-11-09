@@ -32,6 +32,7 @@ class QTabWidget;
 class QTableWidget;
 
 class ActionManager;
+class CustomThemeDialog;
 class ThemePreviewWidget;
 
 class OptionsDialog : public QDialog
@@ -64,6 +65,7 @@ private:
     void saveSettings();
     void updateThemePreview();
     void filterThemes(const QString& text);
+    void openCustomThemeEditor();
     void loadKeyboardShortcuts();
     void saveKeyboardShortcuts();
     void changeShortcutById(const QString& actionId);

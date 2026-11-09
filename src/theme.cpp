@@ -1114,6 +1114,11 @@ ThemeColors getThemeColors(ThemeId themeId)
                    {
                        s_cache[static_cast<int>(ThemeId::Light)] = createLightTheme();
                        s_cache[static_cast<int>(ThemeId::Dark)] = createDarkTheme();
+                       // ThemeId::System (index 2) is a runtime placeholder: it is
+                       // resolved to Dark or Light above and never used as a color
+                       // theme index. Initialize its slot defensively so the cache
+                       // array has no uninitialized hole.
+                       s_cache[static_cast<int>(ThemeId::System)] = createLightTheme();
                        s_cache[static_cast<int>(ThemeId::Nord)] = createNordTheme();
                        s_cache[static_cast<int>(ThemeId::SolarizedLight)] = createSolarizedLightTheme();
                        s_cache[static_cast<int>(ThemeId::Monokai)] = createMonokaiTheme();
@@ -1228,7 +1233,7 @@ bool isThemeDark(ThemeId themeId)
     static constexpr std::array<bool, 17> darkMap = {
         false, // Light
         true,  // Dark
-        false, // System (unused, resolved above)
+        false, // System (reserved placeholder, resolved above)
         true,  // Nord
         false, // SolarizedLight
         true,  // Monokai
@@ -1248,6 +1253,11 @@ bool isThemeDark(ThemeId themeId)
     if (idx < 0 || idx >= static_cast<int>(ThemeId::Count))
         return false;
     return darkMap[static_cast<size_t>(idx)];
+}
+
+bool isSystemTheme(ThemeId themeId)
+{
+    return themeId == ThemeId::System;
 }
 
 bool prefersNativeStyling(ThemeId themeId)
