@@ -191,26 +191,209 @@ target_link_libraries(Devpad_core PUBLIC
     Qt6::Core
     Qt6::Network
 )
+# Position-independent code: Devpad_core is linked into plugin modules.
+set_target_properties(Devpad_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(Devpad_core PUBLIC
     src
     src/managers
     ${CMAKE_BINARY_DIR}/generated
 )
 
-# ── Shared static library (avoids double compilation) ─────────
-add_library(Devpad_lib STATIC
+# ── Editor library (QScintilla + Qt Gui/Widgets) ────────────────────────
+# Holds the editing core: QScintilla editor, themes, languages, snippets,
+# and the lightweight editor widgets. SettingsManager lives here because its
+# implementation includes codeeditor.h / QScintilla.
+add_library(Devpad_editor STATIC
     src/codeeditor.cpp
     src/keywords.cpp
     src/languageinfo.cpp
-    src/theme.cpp
     src/palettechangefilter.h
+    src/snippet.cpp
+    src/snippetengine.cpp
+    src/theme.cpp
+    src/managers/settingsmanager.cpp
+    src/widgets/brackethelper.cpp
+    src/widgets/inlinefindbar.cpp
+    src/widgets/minimap.cpp
+    src/widgets/editorcontainer.cpp
+    src/widgets/themepreviewwidget.cpp
+)
+target_compile_options(Devpad_editor PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_editor PUBLIC
+    Devpad_core
+    Qt6::Gui
+    Qt6::Widgets
+    ${QSCINTILLA_TARGET}
+)
+# Position-independent code: Devpad_editor is linked into plugin modules.
+set_target_properties(Devpad_editor PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(TARGET Qt6::DBus)
+    target_link_libraries(Devpad_editor PUBLIC Qt6::DBus)
+    target_compile_definitions(Devpad_editor PUBLIC HAVE_QT_DBUS)
+endif()
+target_include_directories(Devpad_editor PUBLIC
+    src
+    src/managers
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# ── LSP library ──────────────────────────────────────────────────────────
+# JSON-RPC transport, language client, server manager and editor integration.
+add_library(Devpad_lsp STATIC
+    src/lsp/lspjsonrpc.cpp
+    src/lsp/lsptypes.cpp
+    src/lsp/lspclient.cpp
+    src/lsp/lspservermanager.cpp
+    src/lsp/lspeditorintegration.cpp
+    src/lsp/lspindicators.h
+)
+target_compile_options(Devpad_lsp PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_lsp PUBLIC
+    Devpad_editor
+    Qt6::Core
+)
+target_link_libraries(Devpad_lsp PRIVATE
+    Qt6::Gui
+    Qt6::Widgets
+)
+# Position-independent code: Devpad_lsp is linked into plugin modules.
+set_target_properties(Devpad_lsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(Devpad_lsp PUBLIC
+    src
+    src/managers
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# ── DAP library ──────────────────────────────────────────────────────────
+# Debug Adapter Protocol client, server manager and editor integration.
+add_library(Devpad_dap STATIC
+    src/dap/dapclient.cpp
+    src/dap/dapservermanager.cpp
+    src/dap/daptypes.cpp
+    src/dap/dapeditorintegration.cpp
+)
+target_compile_options(Devpad_dap PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_dap PUBLIC
+    Devpad_editor
+    Devpad_lsp
+    Qt6::Core
+)
+target_include_directories(Devpad_dap PUBLIC
+    src
+    src/managers
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# TERMINAL_HAS_KODOTERM is only set in the Windows branch above; default it
+# everywhere else so the $<BOOL:...> generator expressions below evaluate.
+if(NOT DEFINED TERMINAL_HAS_KODOTERM)
+    set(TERMINAL_HAS_KODOTERM FALSE)
+endif()
+
+# ── Terminal library ─────────────────────────────────────────────────────
+# Isolates the heavyweight terminal widget (qtermwidget or KodoTerm) to a
+# single target so it can later become a first-party plugin.
+if(TERMINAL_HAS_KODOTERM)
+    set(DEVPAD_TERMINAL_SOURCES
+        src/panels/terminalpanel.cpp
+        src/panels/terminalbackend.cpp
+        src/panels/terminalbackend_kodoterm.cpp)
+else()
+    set(DEVPAD_TERMINAL_SOURCES
+        src/panels/terminalpanel.cpp
+        src/panels/terminalbackend.cpp
+        src/panels/terminalbackend_qtermwidget.cpp)
+endif()
+add_library(Devpad_terminal STATIC ${DEVPAD_TERMINAL_SOURCES})
+target_compile_options(Devpad_terminal PRIVATE -Wall -Wextra -Wpedantic)
+# Position-independent code: Devpad_terminal is linked into both the main
+# executable and the terminalplugin MODULE (shared object).
+set_target_properties(Devpad_terminal PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(Devpad_terminal
+    PUBLIC  Devpad_editor Qt6::Widgets
+    PRIVATE ${TERMINAL_TARGET}
+)
+target_include_directories(Devpad_terminal PUBLIC
+    src
+    src/managers
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# ── Panels library ───────────────────────────────────────────────────────
+# Dockable panels: project tree, split view, tab bar, error list, references,
+# debugger panel, plus chrome widgets (title bar, window frame bridge).
+add_library(Devpad_panels STATIC
+    src/panels/projectpanel.cpp
+    src/panels/splitview.cpp
+    src/panels/draggabletabbar.cpp
+    src/panels/dropzoneoverlay.cpp
+    src/panels/errorlistpanel.cpp
+    src/panels/referencespanel.cpp
+    src/panels/debugpanel.cpp
+    src/widgets/titlebar.cpp
+    src/widgets/windowsframebridge.cpp
+)
+target_compile_options(Devpad_panels PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_panels PUBLIC
+    Devpad_editor
+    Devpad_terminal
+    Devpad_lsp
+    Devpad_dap
+    Qt6::Widgets
+)
+target_include_directories(Devpad_panels PUBLIC
+    src
+    src/managers
+    src/panels
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# ── Terminal plugin ──────────────────────────────────────────────────────
+# First-party plugin: adopts the TerminalPanel created by MainWindow and owns
+# its dock lifecycle. Built as a MODULE library so it can be loaded at runtime
+# via QLibrary from the user plugins directory.
+if(BUILD_PLUGINS)
+    add_library(terminalplugin MODULE src/plugins/terminalplugin/terminalplugin.cpp)
+    target_compile_options(terminalplugin PRIVATE -Wall -Wextra -Wpedantic)
+    target_include_directories(terminalplugin PRIVATE
+        src
+        src/managers
+        src/panels
+    )
+    target_link_libraries(terminalplugin PRIVATE
+        # --whole-archive forces all of these static libraries' object files
+        # (including MOC output for QObject subclasses) to be linked. This
+        # resolves static-library ordering issues where editor/panel code
+        # references Qt signals/meta-objects defined in MOC-generated output.
+        "-Wl,--whole-archive" Devpad_editor Devpad_terminal Devpad_lsp "-Wl,--no-whole-archive"
+        Qt6::Core
+        Qt6::Widgets
+    )
+    set_target_properties(terminalplugin PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX "lib"
+        SUFFIX ".so"
+        OUTPUT_NAME terminalplugin
+    )
+    # Copy the plugin manifest next to the shared library.
+    configure_file(
+        src/plugins/terminalplugin/terminalplugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
+        COPYONLY
+    )
+endif()
+
+# ── App / coordinator static library (slimmed Devpad_lib) ────────────────
+# Holds MainWindow, EditorController, the remaining managers/dialogs/TUI and
+# the plugin host. Keeps the historic Devpad_lib name so the Devpad executable
+# and Devpad_tests need no link/include changes.
+add_library(Devpad_lib STATIC
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp
     src/managers/backupmanager.cpp
     src/managers/externaltoolmanager.cpp
     src/managers/filemanager.cpp
-    src/managers/settingsmanager.cpp
     src/managers/remotefileservice.cpp
     src/managers/tabmanager.cpp
     src/managers/searchmanager.cpp
@@ -223,49 +406,20 @@ add_library(Devpad_lib STATIC
     src/managers/printmanager.cpp
     src/managers/filewatchermanager.cpp
     src/managers/updatechecker.cpp
-    src/snippet.cpp
-    src/snippetengine.cpp
+    src/managers/externalchangecoordinator.cpp
+    src/managers/remoteopencoordinator.cpp
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/findsymbolsdialog.cpp
     src/dialogs/dialogcoordinator.cpp
-    src/managers/externalchangecoordinator.cpp
-    src/managers/remoteopencoordinator.cpp
     src/dialogs/aboutdialog.cpp
     src/dialogs/customthemedialog.cpp
     src/dialogs/optionsdialog.cpp
     src/dialogs/externaltoolsdialog.cpp
     src/dialogs/updatedialog.cpp
-    src/panels/projectpanel.cpp
-    src/panels/terminalpanel.cpp
-    src/panels/terminalbackend.cpp
-    src/panels/splitview.cpp
-    src/panels/dropzoneoverlay.cpp
-    $<$<NOT:$<BOOL:${TERMINAL_HAS_KODOTERM}>>:src/panels/terminalbackend_qtermwidget.cpp>
-    $<$<BOOL:${TERMINAL_HAS_KODOTERM}>:src/panels/terminalbackend_kodoterm.cpp>
-    src/panels/draggabletabbar.cpp
-    src/panels/errorlistpanel.cpp
-    src/panels/referencespanel.cpp
-    src/panels/debugpanel.cpp
-    src/widgets/brackethelper.cpp
-    src/widgets/themepreviewwidget.cpp
-    src/widgets/titlebar.cpp
-    src/widgets/windowsframebridge.cpp
-    src/widgets/inlinefindbar.cpp
-    src/widgets/editorcontainer.cpp
-    src/widgets/minimap.cpp
+    src/lsp/lspconnectionhelper.cpp
     src/tui/tuisession.cpp
     src/tui/tuicommand.cpp
     src/tui/tuiinput.cpp
-    src/lsp/lspjsonrpc.cpp
-    src/lsp/lspclient.cpp
-    src/lsp/lspconnectionhelper.cpp
-    src/lsp/lspservermanager.cpp
-    src/lsp/lsptypes.cpp
-    src/lsp/lspeditorintegration.cpp
-    src/dap/dapclient.cpp
-    src/dap/dapservermanager.cpp
-    src/dap/daptypes.cpp
-    src/dap/dapeditorintegration.cpp
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginhost.cpp>
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginmanager.cpp>
 )
@@ -273,12 +427,14 @@ target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad_lib PUBLIC
     Devpad_core
-    Qt6::Gui
-    Qt6::Widgets
+    Devpad_editor
+    Devpad_lsp
+    Devpad_dap
+    Devpad_terminal
+    Devpad_panels
     Qt6::PrintSupport
     Qt6::Multimedia
     Qt6::Svg
-    ${TERMINAL_TARGET}
 )
 if(TARGET Qt6::DBus)
     target_link_libraries(Devpad_lib PUBLIC Qt6::DBus)

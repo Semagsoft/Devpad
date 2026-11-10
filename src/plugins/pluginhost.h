@@ -87,6 +87,10 @@ public:
 
     bool isWidgetFrontend() const override;
 
+    // ── Panels ───────────────────────────────────────────────────
+    void registerPanel(const QString& id, QWidget* widget) override;
+    QWidget* panel(const QString& id) const override;
+
     // ── Internal helpers ─────────────────────────────────────────
     MainWindow* mainWindowRaw() const
     {
@@ -135,6 +139,9 @@ private:
     };
     QHash<QString, DockEntry> m_pluginDocks;
     int m_dockCounter = 0;
+
+    // Panels keyed by id (registered via registerPanel()).
+    QHash<QString, QWidget*> m_pluginPanels;
 };
 
 #endif // PLUGINHOST_H

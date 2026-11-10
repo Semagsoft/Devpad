@@ -63,6 +63,7 @@
 #include "updatedialog.h"
 #ifdef BUILD_PLUGINS
 #include "plugins/pluginmanager.h"
+#include "plugins/pluginhost.h"
 #endif
 
 #include <QAction>
@@ -198,6 +199,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     createManagers();
     connectRemoteService();
     connectUpdateService();
+
+#ifdef BUILD_PLUGINS
+    // Expose the built-in TerminalPanel so the Terminal plugin can adopt it
+    // and own its dock lifecycle.
+    if (m_pluginManager)
+        m_pluginManager->host()->registerPanel(QStringLiteral("terminal"), m_terminalPanel);
+#endif
 
     setupUI();
     wireActions();

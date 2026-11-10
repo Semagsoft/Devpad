@@ -98,6 +98,13 @@ public:
 
     // ── Frontend ─────────────────────────────────────────────────
     virtual bool isWidgetFrontend() const = 0;
+
+    // ── Panels contributed by plugins / host ─────────────────────
+    // Registers a widget (e.g. a dock panel) keyed by id so it can be looked
+    // up later by id. Used by the host to expose built-in panels to plugins,
+    // and by plugins to expose their own panels to the host.
+    virtual void registerPanel(const QString& id, QWidget* widget) = 0;
+    virtual QWidget* panel(const QString& id) const = 0;
 };
 
 /**

@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.terminal",
+    "name": "Terminal",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Embedded terminal panel.",
+    "apiVersion": 1,
+    "library": "libterminalplugin.so",
+    "enabled": true,
+    "depends": []
+}

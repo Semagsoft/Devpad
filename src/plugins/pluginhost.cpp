@@ -264,9 +264,24 @@ QString PluginHost::addDockWidget(QWidget* widget, Qt::DockWidgetArea area)
     if (!m_mainWindow || !widget || !isWidgetFrontend())
         return QString();
 
-    auto* dock = new QDockWidget(m_mainWindow);
-    dock->setWidget(widget);
-    dock->setObjectName(QStringLiteral("plugin-dock-%1").arg(++m_dockCounter));
+    QDockWidget* dock = nullptr;
+
+    // If the widget is already a QDockWidget, add it directly instead of
+    // wrapping it in another QDockWidget. This lets plugins contribute
+    // QDockWidget-based panels (e.g. TerminalPanel) without nesting.
+    if (auto* existing = qobject_cast<QDockWidget*>(widget))
+    {
+        dock = existing;
+    }
+    else
+    {
+        dock = new QDockWidget(m_mainWindow);
+        dock->setWidget(widget);
+    }
+
+    dock->setObjectName(dock->objectName().isEmpty()
+        ? QStringLiteral("plugin-dock-%1").arg(++m_dockCounter)
+        : dock->objectName());
     m_mainWindow->addDockWidget(area, dock);
 
     QString dockId = dock->objectName();
@@ -280,6 +295,18 @@ QString PluginHost::addDockWidget(QWidget* widget, Qt::DockWidgetArea area)
     connect(dock, &QDockWidget::visibilityChanged, dock, [dock](bool visible) { dock->setVisible(visible); });
 
     return dockId;
+}
+
+void PluginHost::registerPanel(const QString& id, QWidget* widget)
+{
+    if (id.isEmpty() || !widget)
+        return;
+    m_pluginPanels.insert(id, widget);
+}
+
+QWidget* PluginHost::panel(const QString& id) const
+{
+    return m_pluginPanels.value(id, nullptr);
 }
 
 bool PluginHost::removeDockWidget(const QString& dockId)
