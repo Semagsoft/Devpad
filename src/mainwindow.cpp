@@ -220,7 +220,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     {
         auto* panel = m_pluginManager->host()->panel(QStringLiteral("terminal"));
         if (panel && panel->inherits("TerminalPanel"))
+        {
             m_terminalPanelDock = qobject_cast<QDockWidget*>(panel);
+            // The Terminal panel exists — show the View menu action and status bar button.
+            m_actionManager->terminalPanelAct()->setVisible(true);
+        }
     }
 
     // Connect terminal lifecycle signals (now that the panel exists).
@@ -489,13 +493,16 @@ void MainWindow::applyInitialSettings()
     m_actionManager->toolBar()->setVisible(SettingsManager::instance().showToolbar());
     statusBar()->setVisible(SettingsManager::instance().showStatusbar());
 
-    m_actionManager->terminalPanelAct()->setChecked(SettingsManager::instance().showTerminalPanel());
-    m_actionManager->terminalPanelButton()->setChecked(SettingsManager::instance().showTerminalPanel());
     m_actionManager->errorListPanelAct()->setChecked(showErrorList);
     m_actionManager->errorListPanelButton()->setChecked(showErrorList);
 
     // Terminal panel settings are applied after the Terminal plugin loads
     // (see applyTerminalPanelSettings()).
+    if (m_actionManager->terminalPanelAct()->isVisible())
+    {
+        m_actionManager->terminalPanelAct()->setChecked(SettingsManager::instance().showTerminalPanel());
+        m_actionManager->terminalPanelButton()->setChecked(SettingsManager::instance().showTerminalPanel());
+    }
 
     applyStartupMode();
     updateRecentFileActions();
@@ -1342,7 +1349,7 @@ void MainWindow::toggleProjectPanel()
 
 void MainWindow::toggleTerminalPanel()
 {
-    if (!m_terminalPanelDock)
+    if (!m_terminalPanelDock || !m_actionManager->terminalPanelAct()->isVisible())
         return;
     QMetaObject::invokeMethod(m_terminalPanelDock, "toggle",
         Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
@@ -1404,7 +1411,8 @@ void MainWindow::quitDevpad()
     if (!saveAllModifiedTabs())
         return;
 
-    SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
+    if (m_actionManager->terminalPanelAct()->isVisible())
+        SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
     QString termDir;
     if (m_terminalPanelDock)
         QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory",
@@ -1528,7 +1536,8 @@ void MainWindow::handleQuitRequest()
                     return;
                 }
 
-                SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
+                if (m_actionManager->terminalPanelAct()->isVisible())
+                    SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
                 QString termDir;
                 if (m_terminalPanelDock)
                     QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory",
@@ -1556,7 +1565,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
             return;
         }
     }
-    SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
+    if (m_actionManager->terminalPanelAct()->isVisible())
+        SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
     QString termDir;
     if (m_terminalPanelDock)
         QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory",

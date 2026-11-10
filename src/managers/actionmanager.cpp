@@ -560,6 +560,7 @@ void ActionManager::createViewActions()
     m_terminalPanelAct = new QAction(QIcon(":/icons/View/terminal.svg"), tr("Terminal Panel"), this);
     m_terminalPanelAct->setCheckable(true);
     m_terminalPanelAct->setChecked(false);
+    m_terminalPanelAct->setVisible(false); // Shown only when Terminal plugin is loaded
     m_terminalPanelAct->setShortcut(QKeySequence("Ctrl+`"));
     m_actionsWithShortcuts.append(m_terminalPanelAct);
     registerAction(m_terminalPanelAct, "View.TerminalPanel");

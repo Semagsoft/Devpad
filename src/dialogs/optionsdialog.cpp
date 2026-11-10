@@ -569,6 +569,15 @@ void OptionsDialog::setupPanelsTab()
     QIntValidator* terminalFontSizeValidator = new QIntValidator(6, 72, terminalFontSizeBox);
     terminalFontSizeBox->setValidator(terminalFontSizeValidator);
     terminalLayout->addRow(tr("Font size:"), terminalFontSizeBox);
+
+#ifdef BUILD_PLUGINS
+    // Hide the Terminal panel group when the Terminal plugin is not loaded.
+    MainWindow* mw = qobject_cast<MainWindow*>(parent());
+    PluginManager* pm = mw ? mw->pluginManager() : nullptr;
+    if (!pm || !pm->isLoaded(QStringLiteral("org.semagsoft.devpad.terminal")))
+        terminalGroup->setVisible(false);
+#endif
+
     mainLayout->addWidget(terminalGroup);
 
     QGroupBox* projectGroup = new QGroupBox(tr("Project"), content);
@@ -1005,13 +1014,16 @@ void OptionsDialog::loadSettings()
     cursorBlinkingCheckBox->setChecked(s.cursorBlinking());
     highlightCurrentLineCheckBox->setChecked(s.highlightCurrentLine());
     tabBarPositionComboBox->setCurrentIndex(static_cast<int>(s.tabBarPosition()));
-    terminalPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.terminalPanelPosition()));
-    terminalPanelMinWidthSpin->setValue(s.terminalPanelMinWidth());
-    QString termFont = s.terminalFontFamily();
-    int termFontIndex = terminalFontFaceComboBox->findText(termFont);
-    if (termFontIndex >= 0)
-        terminalFontFaceComboBox->setCurrentIndex(termFontIndex);
-    terminalFontSizeBox->setText(QString::number(s.terminalFontSize()));
+    if (terminalPanelPositionComboBox->isVisible())
+    {
+        terminalPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.terminalPanelPosition()));
+        terminalPanelMinWidthSpin->setValue(s.terminalPanelMinWidth());
+        QString termFont = s.terminalFontFamily();
+        int termFontIndex = terminalFontFaceComboBox->findText(termFont);
+        if (termFontIndex >= 0)
+            terminalFontFaceComboBox->setCurrentIndex(termFontIndex);
+        terminalFontSizeBox->setText(QString::number(s.terminalFontSize()));
+    }
     projectPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.projectPanelPosition()));
     projectFileOpenComboBox->setCurrentIndex(static_cast<int>(s.fileOpenMode()));
     showHiddenFilesCheckBox->setChecked(s.showHiddenFiles());
@@ -1097,10 +1109,13 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setCursorBlinking(cursorBlinkingCheckBox->isChecked());
     SettingsManager::instance().setHighlightCurrentLine(highlightCurrentLineCheckBox->isChecked());
     SettingsManager::instance().setTabBarPosition(static_cast<TabBarPosition>(tabBarPositionComboBox->currentIndex()));
-    SettingsManager::instance().setTerminalPanelPosition(static_cast<TerminalPanelPosition>(terminalPanelPositionComboBox->currentIndex()));
-    SettingsManager::instance().setTerminalPanelMinWidth(terminalPanelMinWidthSpin->value());
-    SettingsManager::instance().setTerminalFontFamily(terminalFontFaceComboBox->currentText());
-    SettingsManager::instance().setTerminalFontSize(qMax(1, terminalFontSizeBox->text().toInt()));
+    if (terminalPanelPositionComboBox->isVisible())
+    {
+        SettingsManager::instance().setTerminalPanelPosition(static_cast<TerminalPanelPosition>(terminalPanelPositionComboBox->currentIndex()));
+        SettingsManager::instance().setTerminalPanelMinWidth(terminalPanelMinWidthSpin->value());
+        SettingsManager::instance().setTerminalFontFamily(terminalFontFaceComboBox->currentText());
+        SettingsManager::instance().setTerminalFontSize(qMax(1, terminalFontSizeBox->text().toInt()));
+    }
     SettingsManager::instance().setProjectPanelPosition(static_cast<ProjectPanelPosition>(projectPanelPositionComboBox->currentIndex()));
     SettingsManager::instance().setFileOpenMode(static_cast<FileOpenMode>(projectFileOpenComboBox->currentIndex()));
     SettingsManager::instance().setShowHiddenFiles(showHiddenFilesCheckBox->isChecked());
