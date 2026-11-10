@@ -378,6 +378,11 @@ void CodeEditor::setSyntax(const QString& language)
     }
 
     QsciLexer* lexer = lang->factory(this);
+    if (!lexer)
+    {
+        setLexer(nullptr);
+        return;
+    }
     lexer->setFont(m_defaultFont);
     m_lexer.reset(lexer);
 

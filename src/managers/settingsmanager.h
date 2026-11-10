@@ -339,6 +339,16 @@ public:
     QString syntaxForExtension(const QString& ext) const;
     QString syntaxForFile(const QString& filePath) const;
 
+    // ── Plugin file type mapping ───────────────────────────────
+    // Maps a file extension (e.g. "rs") to a language id. Extension is stored
+    // lowercased; leading dot is optional and stripped if present.
+    static bool addExtensionMapping(const QString& extension, const QString& languageId);
+    static bool removeExtensionMapping(const QString& extension);
+    // Maps an exact file name (e.g. "CMakeLists.txt") to a language id.
+    // File name is stored lowercased.
+    static bool addFileNameMapping(const QString& fileName, const QString& languageId);
+    static bool removeFileNameMapping(const QString& fileName);
+
     // ── External tools ─────────────────────────────────────────
     int externalToolCount() const;
     QString externalToolName(int index) const;

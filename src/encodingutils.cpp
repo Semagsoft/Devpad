@@ -18,6 +18,11 @@
  */
 #include "encodingutils.h"
 
+namespace
+{
+QVector<EncodingInfo>& pluginEncodingTable();
+} // namespace
+
 BomResult detectBom(const QByteArray& data)
 {
     if (data.size() >= 3 && data.first(3) == QByteArray("\xEF\xBB\xBF", 3))
@@ -63,6 +68,15 @@ QStringConverter::Encoding encodingFromName(const QString& name)
             return info.encoding;
         }
     }
+    // Check plugin-registered encodings.
+    auto& pluginEncodings = pluginEncodingTable();
+    for (const auto& info : pluginEncodings)
+    {
+        if (info.displayName == name)
+        {
+            return info.encoding;
+        }
+    }
     return QStringConverter::Utf8;
 }
 
@@ -76,4 +90,59 @@ QString encodingToDisplayName(QStringConverter::Encoding enc)
         }
     }
     return "UTF-8";
+}
+
+// ── Plugin encoding registry ──────────────────────────────────
+namespace
+{
+QVector<EncodingInfo>& pluginEncodingTable()
+{
+    static QVector<EncodingInfo> encodings;
+    return encodings;
+}
+} // namespace
+
+bool registerPluginEncoding(const QString& displayName, const QString& encodingName)
+{
+    if (displayName.isEmpty() || encodingName.isEmpty())
+        return false;
+    auto& table = pluginEncodingTable();
+    for (const auto& info : table)
+    {
+        if (info.displayName == displayName)
+            return false;
+    }
+    QStringConverter::Encoding enc = QStringConverter::Utf8;
+    // Try to resolve the encoding name via QStringConverter.
+    // QStringConverter doesn't have a name lookup, so we just store the name
+    // and use the encoding value. For now, map common names; unknown names
+    // default to UTF-8.
+    if (encodingName == QLatin1String("UTF-8"))
+        enc = QStringConverter::Utf8;
+    else if (encodingName == QLatin1String("UTF-16LE"))
+        enc = QStringConverter::Utf16LE;
+    else if (encodingName == QLatin1String("UTF-16BE"))
+        enc = QStringConverter::Utf16BE;
+    else if (encodingName == QLatin1String("UTF-32LE"))
+        enc = QStringConverter::Utf32LE;
+    else if (encodingName == QLatin1String("UTF-32BE"))
+        enc = QStringConverter::Utf32BE;
+    else if (encodingName == QLatin1String("ISO-8859-1") || encodingName == QLatin1String("Latin1"))
+        enc = QStringConverter::Latin1;
+    table.append({displayName, enc});
+    return true;
+}
+
+bool unregisterPluginEncoding(const QString& displayName)
+{
+    auto& table = pluginEncodingTable();
+    for (int i = 0; i < table.size(); ++i)
+    {
+        if (table[i].displayName == displayName)
+        {
+            table.removeAt(i);
+            return true;
+        }
+    }
+    return false;
 }

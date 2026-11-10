@@ -72,4 +72,15 @@ const QHash<QString, ThemeApplicator>& themeApplicatorCache();
 const std::vector<LanguageInfo>& languageTable();
 const LanguageInfo* findLanguage(const QString& name);
 
+// ── Plugin language registration ──────────────────────────────
+// Allows plugins to contribute new languages/lexers. Registered languages are
+// found by findLanguage() alongside the built-in table.
+// factory creates a QsciLexer (passed as QObject* to avoid requiring plugins
+// to link against QScintilla).
+using PluginLexerFactory = std::function<QObject*(QObject* parent)>;
+bool registerPluginLanguage(const QString& languageId, const QString& lexerClassName, PluginLexerFactory factory);
+bool unregisterPluginLanguage(const QString& languageId);
+bool registerPluginLanguageKeywords(const QString& languageId, const QStringList& keywords);
+
+const CommentSyntax* commentSyntaxForLanguage(const QString& language);
 #endif // LANGUAGEINFO_H

@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.tomllanguage",
+    "name": "TOML Language",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Adds TOML language support via plugin participation hooks.",
+    "apiVersion": 1,
+    "library": "libtomllanguage.so",
+    "enabled": true,
+    "depends": []
+}

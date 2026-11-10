@@ -22,6 +22,8 @@
 #include "actionmanager.h"
 #include "codeeditor.h"
 #include "editorcontroller.h"
+#include "encodingutils.h"
+#include "languageinfo.h"
 #include "lsp/lspservermanager.h"
 #include "mainwindow.h"
 #include "managers/settingsmanager.h"
@@ -100,6 +102,22 @@ void PluginHost::beginPluginSession(const QString& pluginId)
 
 void PluginHost::endPluginSession(const QString& pluginId)
 {
+    // Clean up plugin registrations before removing other leftovers.
+    auto regIt = m_pluginRegistrations.find(pluginId);
+    if (regIt != m_pluginRegistrations.end())
+    {
+        const PluginRegistrations& reg = regIt.value();
+        for (const auto& langId : reg.languageIds)
+            unregisterPluginLanguage(langId);
+        for (const auto& encName : reg.encodingNames)
+            unregisterPluginEncoding(encName);
+        for (const auto& ext : reg.extensions)
+            SettingsManager::removeExtensionMapping(ext);
+        for (const auto& fileName : reg.fileNames)
+            SettingsManager::removeFileNameMapping(fileName);
+        m_pluginRegistrations.erase(regIt);
+    }
+
     // Remove everything this plugin registered; must run while the plugin's
     // library is still loaded (deleteLater()ed widgets may belong to it).
     for (auto it = m_pluginActions.begin(); it != m_pluginActions.end();)
@@ -349,6 +367,56 @@ void PluginHost::registerLspServer(const QString& language, const QString& comma
 {
     if (m_lspServerManager)
         m_lspServerManager->registerPluginServer(language, command, args);
+}
+
+bool PluginHost::registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory)
+{
+    if (languageId.isEmpty() || !factory)
+        return false;
+    if (!registerPluginLanguage(languageId, lexerClassName, factory))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].languageIds.append(languageId);
+    return true;
+}
+
+bool PluginHost::registerLanguageKeywords(const QString& languageId, const QStringList& keywords)
+{
+    if (languageId.isEmpty() || keywords.isEmpty())
+        return false;
+    if (!registerPluginLanguageKeywords(languageId, keywords))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].languageIds.append(languageId);
+    return true;
+}
+
+bool PluginHost::registerEncoding(const QString& displayName, const QString& encodingName)
+{
+    if (displayName.isEmpty() || encodingName.isEmpty())
+        return false;
+    if (!registerPluginEncoding(displayName, encodingName))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].encodingNames.append(displayName);
+    return true;
+}
+
+bool PluginHost::registerExtension(const QString& extension, const QString& languageId)
+{
+    if (extension.isEmpty() || languageId.isEmpty())
+        return false;
+    if (!SettingsManager::addExtensionMapping(extension, languageId))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].extensions.append(extension);
+    return true;
+}
+
+bool PluginHost::registerFileNameMapping(const QString& fileName, const QString& languageId)
+{
+    if (fileName.isEmpty() || languageId.isEmpty())
+        return false;
+    if (!SettingsManager::addFileNameMapping(fileName, languageId))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].fileNames.append(fileName);
+    return true;
 }
 
 bool PluginHost::isWidgetFrontend() const

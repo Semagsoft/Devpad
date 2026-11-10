@@ -85,6 +85,17 @@ public:
 
     void registerLspServer(const QString& language, const QString& command, const QStringList& args) override;
 
+    // ── Language / syntax ────────────────────────────────────────
+    bool registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory) override;
+    bool registerLanguageKeywords(const QString& languageId, const QStringList& keywords) override;
+
+    // ── Encoding ─────────────────────────────────────────────────
+    bool registerEncoding(const QString& displayName, const QString& encodingName) override;
+
+    // ── File type mapping ────────────────────────────────────────
+    bool registerExtension(const QString& extension, const QString& languageId) override;
+    bool registerFileNameMapping(const QString& fileName, const QString& languageId) override;
+
     bool isWidgetFrontend() const override;
 
     // ── Panels ───────────────────────────────────────────────────
@@ -142,6 +153,16 @@ private:
 
     // Panels keyed by id (registered via registerPanel()).
     QHash<QString, QWidget*> m_pluginPanels;
+
+    // Per-plugin registration tracking for cleanup on unload.
+    struct PluginRegistrations
+    {
+        QStringList languageIds;
+        QStringList encodingNames;
+        QStringList extensions;
+        QStringList fileNames;
+    };
+    QHash<QString, PluginRegistrations> m_pluginRegistrations;
 };
 
 #endif // PLUGINHOST_H

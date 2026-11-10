@@ -92,6 +92,21 @@ static const QHash<QString, QString>& buildFileNameMap()
     return map;
 }
 
+// ── Plugin file type mapping registry ─────────────────────────
+namespace
+{
+QHash<QString, QString>& pluginExtensionMap()
+{
+    static QHash<QString, QString> map;
+    return map;
+}
+QHash<QString, QString>& pluginFileNameMap()
+{
+    static QHash<QString, QString> map;
+    return map;
+}
+} // namespace
+
 const QHash<QString, QString>& SettingsManager::extensionMap()
 {
     return buildExtensionMap();
@@ -100,6 +115,50 @@ const QHash<QString, QString>& SettingsManager::extensionMap()
 const QHash<QString, QString>& SettingsManager::fileNameMap()
 {
     return buildFileNameMap();
+}
+
+bool SettingsManager::addExtensionMapping(const QString& extension, const QString& languageId)
+{
+    if (extension.isEmpty() || languageId.isEmpty())
+        return false;
+    QString ext = extension.toLower();
+    if (ext.startsWith(QLatin1Char('.')))
+        ext = ext.mid(1);
+    auto& map = pluginExtensionMap();
+    if (map.contains(ext))
+        return false;
+    map.insert(ext, languageId);
+    return true;
+}
+
+bool SettingsManager::removeExtensionMapping(const QString& extension)
+{
+    if (extension.isEmpty())
+        return false;
+    QString ext = extension.toLower();
+    if (ext.startsWith(QLatin1Char('.')))
+        ext = ext.mid(1);
+    return pluginExtensionMap().remove(ext) > 0;
+}
+
+bool SettingsManager::addFileNameMapping(const QString& fileName, const QString& languageId)
+{
+    if (fileName.isEmpty() || languageId.isEmpty())
+        return false;
+    QString name = fileName.toLower();
+    auto& map = pluginFileNameMap();
+    if (map.contains(name))
+        return false;
+    map.insert(name, languageId);
+    return true;
+}
+
+bool SettingsManager::removeFileNameMapping(const QString& fileName)
+{
+    if (fileName.isEmpty())
+        return false;
+    QString name = fileName.toLower();
+    return pluginFileNameMap().remove(name) > 0;
 }
 
 SettingsManager* SettingsManager::s_testInstance = nullptr;
@@ -778,13 +837,23 @@ void SettingsManager::setFileOpenMode(FileOpenMode mode)
 
 QString SettingsManager::syntaxForExtension(const QString& ext) const
 {
-    return extensionMap().value(ext.toLower());
+    QString e = ext.toLower();
+    if (e.startsWith(QLatin1Char('.')))
+        e = e.mid(1);
+    // Check plugin mappings first, then built-in.
+    auto lang = pluginExtensionMap().value(e);
+    if (!lang.isEmpty())
+        return lang;
+    return extensionMap().value(e);
 }
 
 QString SettingsManager::syntaxForFile(const QString& filePath) const
 {
     QString fileName = QFileInfo(filePath).fileName();
-    QString lang = fileNameMap().value(fileName.toLower());
+    QString lang = pluginFileNameMap().value(fileName.toLower());
+    if (!lang.isEmpty())
+        return lang;
+    lang = fileNameMap().value(fileName.toLower());
     if (!lang.isEmpty())
         return lang;
     return syntaxForExtension(QFileInfo(filePath).suffix());

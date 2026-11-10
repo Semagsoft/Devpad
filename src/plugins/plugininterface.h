@@ -22,6 +22,8 @@
 
 #include "plugininfo.h"
 
+#include <QObject>
+
 #include <QString>
 #include <QStringList>
 #include <QVariant>
@@ -95,6 +97,30 @@ public:
     // Registers an external LSP server command for a language. The server is
     // started automatically when a file of that language is opened.
     virtual void registerLspServer(const QString& language, const QString& command, const QStringList& args) = 0;
+
+    // ── Language / syntax ────────────────────────────────────────
+    // Registers a custom language/lexer. factory creates a QsciLexer
+    // (passed as QObject* so plugins don't need QScintilla headers).
+    // Returns false if languageId is already registered.
+    using LexerFactory = std::function<QObject*(QObject* parent)>;
+    virtual bool registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory) = 0;
+    // Registers keyword list for a language (comma-separated keywords are
+    // split automatically, as with built-in languages).
+    virtual bool registerLanguageKeywords(const QString& languageId, const QStringList& keywords) = 0;
+
+    // ── Encoding ─────────────────────────────────────────────────
+    // Registers a custom text encoding. encodingName is passed to
+    // QStringConverter (e.g. "ISO-8859-1", "Windows-1252"). Returns false if
+    // displayName is already registered.
+    virtual bool registerEncoding(const QString& displayName, const QString& encodingName) = 0;
+
+    // ── File type mapping ────────────────────────────────────────
+    // Maps a file extension (e.g. "rs") to a language id. Extension is stored
+    // lowercased; leading dot is optional and stripped if present.
+    virtual bool registerExtension(const QString& extension, const QString& languageId) = 0;
+    // Maps an exact file name (e.g. "CMakeLists.txt") to a language id.
+    // File name is stored lowercased.
+    virtual bool registerFileNameMapping(const QString& fileName, const QString& languageId) = 0;
 
     // ── Frontend ─────────────────────────────────────────────────
     virtual bool isWidgetFrontend() const = 0;

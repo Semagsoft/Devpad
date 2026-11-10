@@ -42,4 +42,10 @@ const QVector<EncodingInfo>& supportedEncodings();
 QStringConverter::Encoding encodingFromName(const QString& name);
 QString encodingToDisplayName(QStringConverter::Encoding enc);
 
+// ── Plugin encoding registration ──────────────────────────────
+// Allows plugins to contribute additional text encodings. encodingName is
+// passed to QStringConverter (e.g. "ISO-8859-1", "Windows-1252", "KOI8-R").
+bool registerPluginEncoding(const QString& displayName, const QString& encodingName);
+bool unregisterPluginEncoding(const QString& displayName);
+
 #endif

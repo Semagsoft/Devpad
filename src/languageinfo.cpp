@@ -21,6 +21,11 @@
 #include "keywords.h"
 #include "theme.h"
 
+namespace
+{
+QHash<QString, LanguageInfo>& pluginLanguageTable();
+} // namespace
+
 #include <Qsci/qscilexerbash.h>
 #include <Qsci/qscilexercmake.h>
 #include <Qsci/qscilexercpp.h>
@@ -528,6 +533,11 @@ const LanguageInfo* findLanguage(const QString& name)
             return &lang;
         }
     }
+    // Check plugin-registered languages.
+    auto& pluginTable = pluginLanguageTable();
+    auto it = pluginTable.constFind(name);
+    if (it != pluginTable.end())
+        return &*it;
     return nullptr;
 }
 
@@ -539,5 +549,64 @@ const CommentSyntax* commentSyntaxForLanguage(const QString& language)
         if (lang.name == language)
             return &lang.commentSyntax;
     }
+    // Check plugin-registered languages.
+    auto& pluginTable = pluginLanguageTable();
+    auto it = pluginTable.constFind(language);
+    if (it != pluginTable.end())
+        return &it->commentSyntax;
     return nullptr;
+}
+
+// ── Plugin language registry ──────────────────────────────────
+// Mutable registry for languages contributed by plugins. Checked by
+// findLanguage() after the built-in table.
+namespace
+{
+QHash<QString, LanguageInfo>& pluginLanguageTable()
+{
+    static QHash<QString, LanguageInfo> table;
+    return table;
+}
+} // namespace
+
+bool registerPluginLanguage(const QString& languageId, const QString& lexerClassName, PluginLexerFactory factory)
+{
+    if (languageId.isEmpty() || !factory)
+        return false;
+    auto& table = pluginLanguageTable();
+    if (table.contains(languageId))
+        return false;
+    LanguageInfo info;
+    info.name = languageId;
+    info.lexerClassName = lexerClassName;
+    info.factory = [factory](QObject* parent) -> QsciLexer*
+    {
+        return static_cast<QsciLexer*>(factory(parent));
+    };
+    info.keywords = []() -> const QStringList& { static const QStringList empty; return empty; };
+    info.themeApplicator = [](QsciLexer*, const ThemeColors&) {};
+    info.commentSyntax = {"", "", ""};
+    table.insert(languageId, info);
+    return true;
+}
+
+bool unregisterPluginLanguage(const QString& languageId)
+{
+    auto& table = pluginLanguageTable();
+    return table.remove(languageId) > 0;
+}
+
+bool registerPluginLanguageKeywords(const QString& languageId, const QStringList& keywords)
+{
+    auto& table = pluginLanguageTable();
+    auto it = table.find(languageId);
+    if (it == table.end())
+        return false;
+    // Store keywords in a stable location so the KeywordProvider reference
+    // remains valid.
+    static QHash<QString, QStringList> keywordStorage;
+    QStringList& storage = keywordStorage[languageId];
+    storage = keywords;
+    it->keywords = [&storage]() -> const QStringList& { return storage; };
+    return true;
 }
