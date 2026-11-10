@@ -423,6 +423,13 @@ void PluginManager::connectHostEventForwarding()
                 for (auto& entry : m_loaded)
                     safePluginCall(entry.info.id, "onFileSaved", [path](IPlugin* p) { p->onFileSaved(path); });
             });
+    connect(m_host.get(), &PluginHost::fileModifiedExternally, this,
+            [this](const QString& path)
+            {
+                for (auto& entry : m_loaded)
+                    safePluginCall(entry.info.id, "onFileModifiedExternally",
+                                   [path](IPlugin* p) { p->onFileModifiedExternally(path); });
+            });
     connect(m_host.get(), &PluginHost::settingsChanged, this,
             [this]()
             {

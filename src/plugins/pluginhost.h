@@ -37,6 +37,7 @@ class QMenuBar;
 class QWidget;
 class SettingsManager;
 class TabManager;
+class FileWatcherManager;
 
 namespace lsp
 {
@@ -96,6 +97,16 @@ public:
     bool registerExtension(const QString& extension, const QString& languageId) override;
     bool registerFileNameMapping(const QString& fileName, const QString& languageId) override;
 
+    // ── Snippets ─────────────────────────────────────────────────
+    bool registerSnippet(const QString& name, const QString& prefix,
+                         const QStringList& body, const QString& description,
+                         const QString& scope) override;
+    bool unregisterSnippet(const QString& name) override;
+
+    // ── Themes ───────────────────────────────────────────────────
+    bool registerTheme(const QString& themeId, const ThemeColors& colors) override;
+    bool unregisterTheme(const QString& themeId) override;
+
     bool isWidgetFrontend() const override;
 
     // ── Panels ───────────────────────────────────────────────────
@@ -121,6 +132,7 @@ signals:
     void currentEditorChanged(CodeEditor* editor);
     void fileOpened(const QString& filePath);
     void fileSaved(const QString& filePath);
+    void fileModifiedExternally(const QString& filePath);
     void settingsChanged();
 
 private:
@@ -132,6 +144,7 @@ private:
     QPointer<EditorController> m_editorController;
     QPointer<TabManager> m_tabManager;
     QPointer<lsp::LspServerManager> m_lspServerManager;
+    QPointer<FileWatcherManager> m_fileWatcherManager;
 
     // Plugin-registered actions keyed by id so they can be removed on unload.
     QHash<QString, QAction*> m_pluginActions;
@@ -161,6 +174,8 @@ private:
         QStringList encodingNames;
         QStringList extensions;
         QStringList fileNames;
+        QStringList snippetNames;
+        QStringList themeIds;
     };
     QHash<QString, PluginRegistrations> m_pluginRegistrations;
 };

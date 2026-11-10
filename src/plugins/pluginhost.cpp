@@ -26,7 +26,9 @@
 #include "languageinfo.h"
 #include "lsp/lspservermanager.h"
 #include "mainwindow.h"
+#include "managers/filewatchermanager.h"
 #include "managers/settingsmanager.h"
+#include "managers/snippetmanager.h"
 #include "managers/tabmanager.h"
 
 #include <QAction>
@@ -42,8 +44,13 @@ PluginHost::PluginHost(MainWindow* mainWindow, QObject* parent) : QObject(parent
         m_editorController = m_mainWindow->findChild<EditorController*>();
         m_tabManager = m_mainWindow->findChild<TabManager*>();
         m_lspServerManager = m_mainWindow->findChild<lsp::LspServerManager*>();
+        m_fileWatcherManager = m_mainWindow->findChild<FileWatcherManager*>();
 
         forwardEditorSignals();
+
+        if (m_fileWatcherManager)
+            connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this,
+                    &PluginHost::fileModifiedExternally);
     }
 }
 
@@ -115,6 +122,10 @@ void PluginHost::endPluginSession(const QString& pluginId)
             SettingsManager::removeExtensionMapping(ext);
         for (const auto& fileName : reg.fileNames)
             SettingsManager::removeFileNameMapping(fileName);
+        for (const auto& snippetName : reg.snippetNames)
+            SnippetManager::instance()->removeSnippet(snippetName);
+        for (const auto& themeId : reg.themeIds)
+            unregisterPluginTheme(themeId);
         m_pluginRegistrations.erase(regIt);
     }
 
@@ -416,6 +427,48 @@ bool PluginHost::registerFileNameMapping(const QString& fileName, const QString&
     if (!SettingsManager::addFileNameMapping(fileName, languageId))
         return false;
     m_pluginRegistrations[m_currentPluginId].fileNames.append(fileName);
+    return true;
+}
+
+bool PluginHost::registerSnippet(const QString& name, const QString& prefix,
+                                 const QStringList& body, const QString& description,
+                                 const QString& scope)
+{
+    if (!SnippetManager::instance())
+        return false;
+    if (!SnippetManager::instance()->addSnippet(name, prefix, body, description, scope))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].snippetNames.append(name);
+    return true;
+}
+
+bool PluginHost::unregisterSnippet(const QString& name)
+{
+    if (!SnippetManager::instance())
+        return false;
+    if (!SnippetManager::instance()->removeSnippet(name))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].snippetNames.removeAll(name);
+    return true;
+}
+
+bool PluginHost::registerTheme(const QString& themeId, const ThemeColors& colors)
+{
+    qDebug("PluginHost::registerTheme: id='%s', calling registerPluginTheme",
+           qPrintable(themeId));
+    bool ok = registerPluginTheme(themeId, colors);
+    qDebug("PluginHost::registerTheme: registerPluginTheme returned %d", ok);
+    if (!ok)
+        return false;
+    m_pluginRegistrations[m_currentPluginId].themeIds.append(themeId);
+    return true;
+}
+
+bool PluginHost::unregisterTheme(const QString& themeId)
+{
+    if (!unregisterPluginTheme(themeId))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].themeIds.removeAll(themeId);
     return true;
 }
 

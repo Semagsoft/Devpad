@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.example",
+    "name": "Example Plugin",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Demonstrates participation hooks: snippets, themes, file change events.",
+    "apiVersion": 1,
+    "library": "libexample_plugin.so",
+    "enabled": true,
+    "depends": []
+}

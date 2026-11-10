@@ -134,4 +134,12 @@ ThemeColors parseThemeJson(const QJsonObject& json);
 QStringList customThemeNames();
 ThemeColors getCustomThemeColors(const QString& name);
 
+// ── Plugin theme registration ─────────────────────────────
+// Register a theme contributed by a plugin. themeId is a plugin-specific
+// string id (e.g. "myplugin.mydark"). Returns false if already registered.
+bool registerPluginTheme(const QString& themeId, const ThemeColors& colors);
+bool unregisterPluginTheme(const QString& themeId);
+QStringList pluginThemeNames();
+ThemeColors getPluginThemeColors(const QString& themeId);
+
 #endif

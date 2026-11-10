@@ -713,6 +713,10 @@ static ThemeColors createAyuDarkTheme()
 static QList<ThemeColors> s_customThemeCache;
 static QStringList s_customThemeNames;
 
+// ── Plugin theme registry ──────────────────────────────────────
+static QHash<QString, ThemeColors> s_pluginThemeMap;
+static QStringList s_pluginThemeNameList;
+
 static QColor jsonColor(const QJsonObject& obj, const QString& key, const QColor& fallback)
 {
     if (obj.contains(key))
@@ -803,6 +807,64 @@ ThemeColors getCustomThemeColors(const QString& name)
             return c;
     }
     return getThemeColors(ThemeId::Light);
+}
+
+bool registerPluginTheme(const QString& themeId, const ThemeColors& colors)
+{
+    FILE* f = fopen("/tmp/devpad_theme_debug.log", "a");
+    if (f) {
+        fprintf(f, "registerPluginTheme CALLED: id='%s', inMap=%d\n",
+                qPrintable(themeId), s_pluginThemeMap.contains(themeId));
+        fclose(f);
+    }
+    if (themeId.isEmpty() || s_pluginThemeMap.contains(themeId)) {
+        if (f) {
+            f = fopen("/tmp/devpad_theme_debug.log", "a");
+            fprintf(f, "registerPluginTheme: returning false (empty or duplicate)\n");
+            fclose(f);
+        }
+        return false;
+    }
+    ThemeColors resolved = colors;
+    if (f) {
+        f = fopen("/tmp/devpad_theme_debug.log", "a");
+        fprintf(f, "registerPluginTheme: calling resolve()\n");
+        fclose(f);
+    }
+    resolved.resolve();
+    if (f) {
+        f = fopen("/tmp/devpad_theme_debug.log", "a");
+        fprintf(f, "registerPluginTheme: resolve() done\n");
+        fclose(f);
+    }
+    s_pluginThemeMap.insert(themeId, resolved);
+    s_pluginThemeNameList.append(resolved.name.isEmpty() ? themeId : resolved.name);
+    return true;
+}
+
+bool unregisterPluginTheme(const QString& themeId)
+{
+    if (themeId.isEmpty() || !s_pluginThemeMap.contains(themeId))
+        return false;
+    s_pluginThemeMap.remove(themeId);
+    // Rebuild name list from remaining entries.
+    s_pluginThemeNameList.clear();
+    for (auto it = s_pluginThemeMap.begin(); it != s_pluginThemeMap.end(); ++it)
+        s_pluginThemeNameList.append(it.value().name.isEmpty() ? it.key() : it.value().name);
+    return true;
+}
+
+QStringList pluginThemeNames()
+{
+    return s_pluginThemeNameList;
+}
+
+ThemeColors getPluginThemeColors(const QString& themeId)
+{
+    auto it = s_pluginThemeMap.find(themeId);
+    if (it != s_pluginThemeMap.end())
+        return it.value();
+    return ThemeColors();
 }
 
 // ── Accent overlay ───────────────────────────────────────────────

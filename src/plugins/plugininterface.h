@@ -29,6 +29,8 @@
 #include <QVariant>
 #include <functional>
 
+#include "theme.h"
+
 class QAction;
 class QKeySequence;
 class QMenu;
@@ -122,6 +124,24 @@ public:
     // File name is stored lowercased.
     virtual bool registerFileNameMapping(const QString& fileName, const QString& languageId) = 0;
 
+    // ── Snippets ─────────────────────────────────────────────────
+    // Register a snippet contributed by a plugin. scope is a comma-separated
+    // list of language ids (e.g. "cpp,python"), or empty for global snippets
+    // available in all languages. Returns false if name is already registered.
+    virtual bool registerSnippet(const QString& name, const QString& prefix,
+                                 const QStringList& body, const QString& description,
+                                 const QString& scope) = 0;
+    // Remove a plugin-contributed snippet by name. Returns false if not found.
+    virtual bool unregisterSnippet(const QString& name) = 0;
+
+    // ── Themes ───────────────────────────────────────────────────
+    // Register a custom theme contributed by a plugin. themeId is a plugin-
+    // specific string id (e.g. "myplugin.mydark"). Returns false if already
+    // registered.
+    virtual bool registerTheme(const QString& themeId, const ThemeColors& colors) = 0;
+    // Unregister a plugin-contributed theme. Returns false if not found.
+    virtual bool unregisterTheme(const QString& themeId) = 0;
+
     // ── Frontend ─────────────────────────────────────────────────
     virtual bool isWidgetFrontend() const = 0;
 
@@ -175,6 +195,10 @@ public:
         Q_UNUSED(filePath);
     }
     virtual void onFileSaved(const QString& filePath)
+    {
+        Q_UNUSED(filePath);
+    }
+    virtual void onFileModifiedExternally(const QString& filePath)
     {
         Q_UNUSED(filePath);
     }

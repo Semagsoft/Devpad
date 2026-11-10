@@ -160,6 +160,69 @@ void SnippetManager::loadBuiltIn()
     }
 }
 
+bool SnippetManager::addSnippet(const QString& name, const QString& prefix,
+                                const QStringList& body, const QString& description,
+                                const QString& scope)
+{
+    if (name.isEmpty() || prefix.isEmpty() || body.isEmpty())
+        return false;
+
+    // Reject duplicates.
+    if (snippetByName(name).name == name)
+        return false;
+
+    Snippet s;
+    s.name = name;
+    s.prefix = prefix;
+    s.body = body;
+    s.description = description;
+    s.scope = parseScope(scope);
+
+    if (s.scope.isEmpty())
+    {
+        m_globalSnippets.append(s);
+    }
+    else
+    {
+        for (const QString& lang : s.scope)
+            m_snippets[lang].append(s);
+    }
+    return true;
+}
+
+bool SnippetManager::removeSnippet(const QString& name)
+{
+    if (name.isEmpty())
+        return false;
+
+    // Remove from global snippets.
+    for (int i = 0; i < m_globalSnippets.size(); ++i)
+    {
+        if (m_globalSnippets[i].name == name)
+        {
+            m_globalSnippets.removeAt(i);
+            return true;
+        }
+    }
+
+    // Remove from per-language snippets.
+    for (auto it = m_snippets.begin(); it != m_snippets.end(); ++it)
+    {
+        auto& list = it.value();
+        for (int i = 0; i < list.size(); ++i)
+        {
+            if (list[i].name == name)
+            {
+                list.removeAt(i);
+                if (list.isEmpty())
+                    m_snippets.erase(it);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void SnippetManager::loadUserSnippets()
 {
     QString configPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
