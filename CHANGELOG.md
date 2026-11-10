@@ -1,13 +1,18 @@
 # Changelog
 
-## [1.09] - 2026-11-07
+## [1.09] - 2026-11-09
 
-Quality and architecture improvements for the snippet engine and CI:
+What's new in Devpad 1.09:
 
-- Added test suite for the snippet engine (`SnippetEngine`): insertion, tab-stop navigation, mirrors, Esc/Tab key handling, and signal emission.
-- Added local `check-tidy` CMake target and `scripts/run-clang-tidy.py`, mirroring the CI clang-tidy job.
-- Pinned CI clang-tidy to version 18 to match clang-format-18 and avoid silent lint drift.
-- Internal refactors (no behavior change): extracted `DialogCoordinator` and `ExternalChangeCoordinator` from `MainWindow`, moved tab/pane activation into `TabManager::focusEditorPane`.
+- New references panel. SHA: 407491d4148e7a9d072dbf07b630f37c6d277ab5
+- Custom theme editor. SHA: 407491d4148e7a9d072dbf07b630f37c6d277ab5
+- DAP Debugger Integration. SHA: 407491d4148e7a9d072dbf07b630f37c6d277ab5
+
+Bug fixes for version 1.09:
+
+- Fix shell-open files ignoring "Current window" mode. SHA: 407491d4148e7a9d072dbf07b630f37c6d277ab5
+- Changed exclude entries from slash-wrapped to bare names. SHA: 407491d4148e7a9d072dbf07b630f37c6d277ab5
+- QHash modified during iteration in pollModifications. SHA: 407491d4148e7a9d072dbf07b630f37c6d277ab5
 
 ## [1.08] - 2026-11-06
 
