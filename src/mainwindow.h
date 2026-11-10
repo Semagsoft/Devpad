@@ -23,6 +23,7 @@
 
 #include <QLocalServer>
 #include <QMainWindow>
+#include <QPointer>
 
 class ActionManager;
 class CodeEditor;
@@ -197,7 +198,7 @@ private:
     QTabWidget* m_tabWidget = nullptr;
     SplitView* m_splitView = nullptr;
     ProjectPanel* m_projectPanel = nullptr;
-    QDockWidget* m_terminalPanelDock = nullptr;
+    QPointer<QDockWidget> m_terminalPanelDock = nullptr;
 
     // Owned: QObject children (parent=this), destroyed automatically
     EditorController* m_editorController = nullptr;

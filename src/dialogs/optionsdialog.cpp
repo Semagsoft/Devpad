@@ -767,6 +767,29 @@ void OptionsDialog::setupPluginsTab()
                     return;
                 QString pluginId = item->data(Qt::UserRole).toString();
                 bool enabled = item->checkState() == Qt::Checked;
+
+                // Confirm before disabling the Terminal plugin: it removes the
+                // dock panel immediately and any unsaved terminal state is lost.
+                if (!enabled && pluginId == QStringLiteral("org.semagsoft.devpad.terminal"))
+                {
+                    int ret = QMessageBox::warning(
+                        this,
+                        tr("Disable Terminal Plugin?"),
+                        tr("Disabling the Terminal plugin will remove the terminal panel "
+                           "from Devpad immediately. Any unsaved terminal state will be lost. "
+                           "Do you want to continue?"),
+                        QMessageBox::Yes | QMessageBox::No,
+                        QMessageBox::No);
+                    if (ret == QMessageBox::No)
+                    {
+                        // Revert the checkbox to checked. The re-fired
+                        // itemChanged() with enabled=true is a no-op since
+                        // the plugin is already enabled.
+                        item->setCheckState(Qt::Checked);
+                        return;
+                    }
+                }
+
                 mw->pluginManager()->setPluginEnabled(pluginId, enabled);
             });
 }
