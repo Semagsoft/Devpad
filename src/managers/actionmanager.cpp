@@ -25,7 +25,6 @@
 #include "mainwindow.h"
 #include "settingsmanager.h"
 #include "splitview.h"
-#include "terminalpanel.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -1016,7 +1015,6 @@ void ActionManager::wireFileConnections(const ActionTargets& t)
     connect(this, &ActionManager::closeAllTabsTriggered, ec, &EditorController::closeAllTabs);
     connect(this, &ActionManager::exitTriggered, mw, &QWidget::close);
     connect(this, &ActionManager::quitDevpadTriggered, mw, &MainWindow::quitDevpad);
-    connect(t.terminalPanel, &TerminalPanel::sessionExited, mw, &QWidget::close);
 }
 
 void ActionManager::wireEditConnections(const ActionTargets& t)

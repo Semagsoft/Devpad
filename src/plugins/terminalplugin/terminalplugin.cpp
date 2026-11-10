@@ -16,8 +16,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
- * The Terminal plugin adopts the TerminalPanel created by MainWindow (exposed
- * via PluginHost::registerPanel()) and owns its dock lifecycle.
+ * The Terminal plugin creates and owns the TerminalPanel. It instantiates
+ * TerminalPanel in initialize(), registers it with PluginHost so MainWindow
+ * can locate it, and docks it as a bottom dock widget. On shutdown() it
+ * removes the dock and releases the panel.
  *
  * Install: the built libterminalplugin.so + terminalplugin.plugin.json go to
  *   ~/.local/share/devpad/plugins/  (Linux/macOS)
@@ -57,22 +59,25 @@ public:
     {
         m_host = host;
 
-        // MainWindow exposes the built-in TerminalPanel via registerPanel().
-        // The panel is already docked by MainWindow; the plugin adopts it and
-        // owns its dock lifecycle (removing the dock on shutdown()).
-        // Note: qobject_cast cannot be used here because TerminalPanel's
-        // staticMetaObject exists in both the main executable and this plugin
-        // module (different addresses). Use inherits() + static_cast instead,
-        // which compares class name strings.
-        auto* panel = host->panel(QStringLiteral("terminal"));
-        if (!panel || !panel->inherits("TerminalPanel"))
-            return false;
-        m_terminalPanel = static_cast<TerminalPanel*>(panel);
-        return true;
+        // Create the terminal panel. MainWindow does not create one; this
+        // plugin is the sole owner of TerminalPanel.
+        m_terminalPanel = new TerminalPanel(nullptr);
+
+        // Register with the host so MainWindow can locate it via panel("terminal").
+        host->registerPanel(QStringLiteral("terminal"), m_terminalPanel);
+
+        // Dock it as a bottom dock widget. addDockWidget() detects that
+        // TerminalPanel is already a QDockWidget and adds it directly.
+        m_dockId = host->addDockWidget(m_terminalPanel, Qt::BottomDockWidgetArea);
+        return !m_dockId.isEmpty();
     }
 
     void shutdown() override
     {
+        if (m_host && !m_dockId.isEmpty())
+            m_host->removeDockWidget(m_dockId);
+        m_dockId.clear();
+        delete m_terminalPanel;
         m_terminalPanel = nullptr;
         m_host = nullptr;
     }
@@ -80,6 +85,7 @@ public:
 private:
     IPluginHost* m_host = nullptr;
     TerminalPanel* m_terminalPanel = nullptr;
+    QString m_dockId;
 };
 
 // Exported C factory function resolved by the host via QLibrary::resolve().

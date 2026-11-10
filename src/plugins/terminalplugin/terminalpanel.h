@@ -1,5 +1,5 @@
 /*
- * Devpad - A C++/Qt6 code editor
+ * Devpad - Terminal panel header
  * Copyright (C) 2026 Semagsoft
  *
  * This program is free software; you can redistribute it and/or
@@ -39,17 +39,17 @@ public:
     explicit TerminalPanel(QWidget* parent = nullptr);
     ~TerminalPanel() override;
 
-    void setWorkingDirectory(const QString& path);
-    QString workingDirectory() const;
+    Q_INVOKABLE void setWorkingDirectory(const QString& path);
+    Q_INVOKABLE QString workingDirectory() const;
 
-    void sendCommand(const QString& command);
-    void refreshTheme();
-    void toggle(QTabWidget* tabWidget, QMainWindow* mainWindow);
-    void applyPosition(TerminalPanelPosition pos, QTabWidget* tabWidget, QMainWindow* mainWindow);
+    Q_INVOKABLE void sendCommand(const QString& command);
+    Q_INVOKABLE void refreshTheme();
+    Q_INVOKABLE void toggle(QTabWidget* tabWidget, QMainWindow* mainWindow);
+    Q_INVOKABLE void applyPosition(int pos, QTabWidget* tabWidget, QMainWindow* mainWindow);
 
-    bool terminalHasFocus() const;
-    void pasteToTerminal();
-    void copyFromTerminal();
+    Q_INVOKABLE bool terminalHasFocus() const;
+    Q_INVOKABLE void pasteToTerminal();
+    Q_INVOKABLE void copyFromTerminal();
 
 signals:
     void terminalStarted();
@@ -80,4 +80,4 @@ private:
     bool m_isRunning;
 };
 
-#endif
+#endif // TERMINALPANEL_H

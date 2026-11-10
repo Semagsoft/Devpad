@@ -147,6 +147,7 @@ private slots:
     void updateFileTypeLabel();
     void onTabChanged(int index);
     void onEditorCreated(CodeEditor* editor);
+    void onTerminalStarted();
     void openFileFromProject(const QString& filePath);
     void onFileModifiedExternally(const QString& filePath);
     void onNavigateToLocation(const QString& filePath, int line, int column);
@@ -173,6 +174,7 @@ private:
     void applyCloseButtonPosition();
     void applyTabBarPosition();
     void applyTerminalPanelPosition();
+    void applyTerminalPanelSettings();
     void handleQuitRequest();
     bool signalOtherInstancesToQuit();
     bool saveAllModifiedTabs();
@@ -195,7 +197,7 @@ private:
     QTabWidget* m_tabWidget = nullptr;
     SplitView* m_splitView = nullptr;
     ProjectPanel* m_projectPanel = nullptr;
-    TerminalPanel* m_terminalPanel = nullptr;
+    QDockWidget* m_terminalPanelDock = nullptr;
 
     // Owned: QObject children (parent=this), destroyed automatically
     EditorController* m_editorController = nullptr;

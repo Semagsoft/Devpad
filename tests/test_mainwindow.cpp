@@ -4,11 +4,11 @@
 #include "mainwindow.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
-#include "terminalpanel.h"
 #include "theme.h"
 
 #include <QAction>
 #include <QApplication>
+#include <QDockWidget>
 #include <QEvent>
 #include <QFile>
 #include <QFileInfo>
@@ -154,14 +154,10 @@ TEST_F(MainWindowTest, TerminalPanelHiddenInTabModeWhenDisabled)
     MainWindow window;
     window.show();
 
-    auto* terminal = window.findChild<TerminalPanel*>();
-    ASSERT_NE(terminal, nullptr);
-    EXPECT_FALSE(terminal->isVisible());
-
-    for (QTabWidget* tw : window.findChildren<QTabWidget*>())
-    {
-        EXPECT_EQ(tw->indexOf(terminal), -1) << "Disabled terminal panel must not be added as a tab";
-    }
+    // Without the Terminal plugin loaded, MainWindow does not create a
+    // TerminalPanel (terminal panel is plugin-owned in this build).
+    auto* terminal = window.findChild<QDockWidget*>("TerminalPanel");
+    ASSERT_EQ(terminal, nullptr);
 }
 
 TEST_F(MainWindowTest, OpenFileFromPathOpensTab)

@@ -373,9 +373,10 @@ void TerminalPanel::contextMenuEvent(QContextMenuEvent* event)
         QDesktopServices::openUrl(QUrl::fromLocalFile(m_workingDirectory));
 }
 
-void TerminalPanel::applyPosition(TerminalPanelPosition pos, QTabWidget* tabWidget, QMainWindow* mainWindow)
+void TerminalPanel::applyPosition(int pos, QTabWidget* tabWidget, QMainWindow* mainWindow)
 {
-    if (pos == TerminalPanelPosition::Tab)
+    TerminalPanelPosition position = static_cast<TerminalPanelPosition>(pos);
+    if (position == TerminalPanelPosition::Tab)
     {
         int tabIndex = tabWidget->indexOf(this);
         if (tabIndex == -1)
@@ -396,7 +397,7 @@ void TerminalPanel::applyPosition(TerminalPanelPosition pos, QTabWidget* tabWidg
         setFeatures(QDockWidget::DockWidgetFeature::DockWidgetMovable | QDockWidget::DockWidgetFeature::DockWidgetFloatable |
                     QDockWidget::DockWidgetFeature::DockWidgetClosable);
         setTitleBarWidget(new QWidget(this));
-        Qt::DockWidgetArea area = (pos == TerminalPanelPosition::Bottom) ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea;
+        Qt::DockWidgetArea area = (static_cast<TerminalPanelPosition>(pos) == TerminalPanelPosition::Bottom) ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea;
         mainWindow->addDockWidget(area, this);
     }
     setMinimumWidth(SettingsManager::instance().terminalPanelMinWidth());

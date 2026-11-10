@@ -290,35 +290,6 @@ if(NOT DEFINED TERMINAL_HAS_KODOTERM)
     set(TERMINAL_HAS_KODOTERM FALSE)
 endif()
 
-# ── Terminal library ─────────────────────────────────────────────────────
-# Isolates the heavyweight terminal widget (qtermwidget or KodoTerm) to a
-# single target so it can later become a first-party plugin.
-if(TERMINAL_HAS_KODOTERM)
-    set(DEVPAD_TERMINAL_SOURCES
-        src/panels/terminalpanel.cpp
-        src/panels/terminalbackend.cpp
-        src/panels/terminalbackend_kodoterm.cpp)
-else()
-    set(DEVPAD_TERMINAL_SOURCES
-        src/panels/terminalpanel.cpp
-        src/panels/terminalbackend.cpp
-        src/panels/terminalbackend_qtermwidget.cpp)
-endif()
-add_library(Devpad_terminal STATIC ${DEVPAD_TERMINAL_SOURCES})
-target_compile_options(Devpad_terminal PRIVATE -Wall -Wextra -Wpedantic)
-# Position-independent code: Devpad_terminal is linked into both the main
-# executable and the terminalplugin MODULE (shared object).
-set_target_properties(Devpad_terminal PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(Devpad_terminal
-    PUBLIC  Devpad_editor Qt6::Widgets
-    PRIVATE ${TERMINAL_TARGET}
-)
-target_include_directories(Devpad_terminal PUBLIC
-    src
-    src/managers
-    ${CMAKE_BINARY_DIR}/generated
-)
-
 # ── Panels library ───────────────────────────────────────────────────────
 # Dockable panels: project tree, split view, tab bar, error list, references,
 # debugger panel, plus chrome widgets (title bar, window frame bridge).
@@ -336,7 +307,6 @@ add_library(Devpad_panels STATIC
 target_compile_options(Devpad_panels PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_panels PUBLIC
     Devpad_editor
-    Devpad_terminal
     Devpad_lsp
     Devpad_dap
     Qt6::Widgets
@@ -348,12 +318,31 @@ target_include_directories(Devpad_panels PUBLIC
     ${CMAKE_BINARY_DIR}/generated
 )
 
+# ── Terminal sources (built only into the terminal plugin) ─────────────────
+# The terminal panel and backends live exclusively in the terminalplugin
+# module so the heavyweight terminal widget (qtermwidget/KodoTerm) can be
+# loaded at runtime and optionally left out of the main executable.
+if(TERMINAL_HAS_KODOTERM)
+    set(DEVPAD_TERMINAL_SOURCES
+        src/plugins/terminalplugin/terminalpanel.cpp
+        src/plugins/terminalplugin/terminalbackend.cpp
+        src/plugins/terminalplugin/terminalbackend_kodoterm.cpp)
+else()
+    set(DEVPAD_TERMINAL_SOURCES
+        src/plugins/terminalplugin/terminalpanel.cpp
+        src/plugins/terminalplugin/terminalbackend.cpp
+        src/plugins/terminalplugin/terminalbackend_qtermwidget.cpp)
+endif()
+
 # ── Terminal plugin ──────────────────────────────────────────────────────
-# First-party plugin: adopts the TerminalPanel created by MainWindow and owns
-# its dock lifecycle. Built as a MODULE library so it can be loaded at runtime
-# via QLibrary from the user plugins directory.
+# First-party plugin: creates and owns the TerminalPanel. Built as a MODULE
+# library so it can be loaded at runtime via QLibrary from the user plugins
+# directory.
 if(BUILD_PLUGINS)
-    add_library(terminalplugin MODULE src/plugins/terminalplugin/terminalplugin.cpp)
+    add_library(terminalplugin MODULE
+        src/plugins/terminalplugin/terminalplugin.cpp
+        ${DEVPAD_TERMINAL_SOURCES}
+    )
     target_compile_options(terminalplugin PRIVATE -Wall -Wextra -Wpedantic)
     target_include_directories(terminalplugin PRIVATE
         src
@@ -365,7 +354,8 @@ if(BUILD_PLUGINS)
         # (including MOC output for QObject subclasses) to be linked. This
         # resolves static-library ordering issues where editor/panel code
         # references Qt signals/meta-objects defined in MOC-generated output.
-        "-Wl,--whole-archive" Devpad_editor Devpad_terminal Devpad_lsp "-Wl,--no-whole-archive"
+        "-Wl,--whole-archive" Devpad_editor Devpad_lsp "-Wl,--no-whole-archive"
+        ${TERMINAL_TARGET}
         Qt6::Core
         Qt6::Widgets
     )
@@ -430,7 +420,6 @@ target_link_libraries(Devpad_lib PUBLIC
     Devpad_editor
     Devpad_lsp
     Devpad_dap
-    Devpad_terminal
     Devpad_panels
     Qt6::PrintSupport
     Qt6::Multimedia

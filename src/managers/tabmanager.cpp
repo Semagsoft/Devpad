@@ -19,7 +19,6 @@
 #include "tabmanager.h"
 
 #include "appstrings.h"
-#include "panels/terminalpanel.h"
 
 #include <QFileInfo>
 #include <QFont>
@@ -340,7 +339,7 @@ void TabManager::updateCloseButton(int tabIndex, QTabWidget* pane, CloseButtonMo
     QTabBar* tabBar = pane->tabBar();
     if (!tabBar)
         return;
-    if (qobject_cast<TerminalPanel*>(pane->widget(tabIndex)))
+    if (pane->widget(tabIndex) && pane->widget(tabIndex)->inherits("TerminalPanel"))
     {
         return;
     }
