@@ -1,7 +1,7 @@
 #include "dapservermanager.h"
 
-#include "logger.h"
-#include "settingsmanager.h"
+#include "../../logger.h"
+#include "../../managers/settingsmanager.h"
 
 #include <QDir>
 #include <QFileInfo>

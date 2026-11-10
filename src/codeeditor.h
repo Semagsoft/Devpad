@@ -35,12 +35,6 @@
 #include <Qsci/qscilexer.h>
 #include <Qsci/qsciscintilla.h>
 
-namespace dap
-{
-class DapEditorIntegration;
-class DapServerManager;
-} // namespace dap
-
 class CodeEditor : public QsciScintilla
 {
     Q_OBJECT
@@ -183,12 +177,11 @@ public:
         return m_lspIntegration;
     }
 
-    dap::DapEditorIntegration* dapIntegration() const
+    QObject* dapIntegration() const
     {
         return m_dapIntegration;
     }
-    void setDapServerManager(dap::DapServerManager* manager);
-    void setDapSessionKey(const QString& sessionKey);
+    void setDapIntegration(QObject* integration);
 
     ThemeId themeId() const
     {
@@ -260,8 +253,9 @@ private:
     // LSP integration
     lsp::LspEditorIntegration* m_lspIntegration = nullptr;
 
-    // DAP / debugger integration
-    dap::DapEditorIntegration* m_dapIntegration = nullptr;
+    // DAP / debugger integration (owned by plugin, stored as QObject* to avoid
+    // compile-time dependency on plugin headers).
+    QObject* m_dapIntegration = nullptr;
 };
 
 #endif // CODEEDITOR_H

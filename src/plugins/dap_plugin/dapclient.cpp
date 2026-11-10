@@ -1,6 +1,6 @@
 #include "dapclient.h"
 
-#include "logger.h"
+#include "../../logger.h"
 
 #include <QCoreApplication>
 #include <QJsonArray>

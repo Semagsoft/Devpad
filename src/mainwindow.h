@@ -39,7 +39,6 @@ class QMenuBar;
 class PrintManager;
 class ProjectPanel;
 class ReferencesPanel;
-class DebugPanel;
 class RemoteFileService;
 class SearchManager;
 class SessionManager;
@@ -221,13 +220,10 @@ private:
     UpdateChecker* m_updateChecker = nullptr;
     SnippetManager* m_snippetManager = nullptr;
     lsp::LspServerManager* m_lspServerManager = nullptr;
-    dap::DapServerManager* m_dapServerManager = nullptr;
     PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
     ReferencesPanel* m_referencesPanel = nullptr;
-    DebugPanel* m_debugPanel = nullptr;
     QString m_debugSessionKey;
-    QMetaObject::Connection m_dapLaunchConn;
 
     // Owns the find-in-files / find-symbols dialogs
     DialogCoordinator* m_dialogCoordinator = nullptr;

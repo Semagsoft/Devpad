@@ -1,7 +1,7 @@
 #ifndef DEBUGPANEL_H
 #define DEBUGPANEL_H
 
-#include "dap/daptypes.h"
+#include "daptypes.h"
 
 #include <QDockWidget>
 #include <QHeaderView>

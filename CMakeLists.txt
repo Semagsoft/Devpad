@@ -264,26 +264,6 @@ target_include_directories(Devpad_lsp PUBLIC
     ${CMAKE_BINARY_DIR}/generated
 )
 
-# ── DAP library ──────────────────────────────────────────────────────────
-# Debug Adapter Protocol client, server manager and editor integration.
-add_library(Devpad_dap STATIC
-    src/dap/dapclient.cpp
-    src/dap/dapservermanager.cpp
-    src/dap/daptypes.cpp
-    src/dap/dapeditorintegration.cpp
-)
-target_compile_options(Devpad_dap PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(Devpad_dap PUBLIC
-    Devpad_editor
-    Devpad_lsp
-    Qt6::Core
-)
-target_include_directories(Devpad_dap PUBLIC
-    src
-    src/managers
-    ${CMAKE_BINARY_DIR}/generated
-)
-
 # TERMINAL_HAS_KODOTERM is only set in the Windows branch above; default it
 # everywhere else so the $<BOOL:...> generator expressions below evaluate.
 if(NOT DEFINED TERMINAL_HAS_KODOTERM)
@@ -300,7 +280,6 @@ add_library(Devpad_panels STATIC
     src/panels/dropzoneoverlay.cpp
     src/panels/errorlistpanel.cpp
     src/panels/referencespanel.cpp
-    src/panels/debugpanel.cpp
     src/widgets/titlebar.cpp
     src/widgets/windowsframebridge.cpp
 )
@@ -308,7 +287,6 @@ target_compile_options(Devpad_panels PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_panels PUBLIC
     Devpad_editor
     Devpad_lsp
-    Devpad_dap
     Qt6::Widgets
 )
 target_include_directories(Devpad_panels PUBLIC
@@ -371,6 +349,46 @@ if(BUILD_PLUGINS)
         ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
         COPYONLY
     )
+
+    # ── DAP debugger plugin ──────────────────────────────────────────
+    # First-party plugin: provides Debug Adapter Protocol debugging support.
+    # Creates DapServerManager, DebugPanel, and per-editor DapEditorIntegration.
+    if(BUILD_PLUGINS)
+        add_library(dap_plugin MODULE
+            src/plugins/dap_plugin/dapplugin.cpp
+            src/plugins/dap_plugin/dapclient.cpp
+            src/plugins/dap_plugin/dapservermanager.cpp
+            src/plugins/dap_plugin/daptypes.cpp
+            src/plugins/dap_plugin/dapeditorintegration.cpp
+            src/plugins/dap_plugin/debugpanel.cpp
+        )
+        target_compile_options(dap_plugin PRIVATE -Wall -Wextra -Wpedantic)
+        target_include_directories(dap_plugin PRIVATE
+            src
+            src/managers
+            src/panels
+            ${CMAKE_BINARY_DIR}/generated
+        )
+        target_link_libraries(dap_plugin PRIVATE
+            # --whole-archive forces all of these static libraries' object files
+            # (including MOC output for QObject subclasses) to be linked.
+            "-Wl,--whole-archive" Devpad_editor Devpad_lsp "-Wl,--no-whole-archive"
+            Qt6::Core
+            Qt6::Widgets
+        )
+        set_target_properties(dap_plugin PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+            PREFIX "lib"
+            SUFFIX ".so"
+            OUTPUT_NAME dap_plugin
+        )
+        # Copy the plugin manifest next to the shared library.
+        configure_file(
+            src/plugins/dap_plugin/dap_plugin.plugin.json
+            ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
+            COPYONLY
+        )
+    endif()
 endif()
 
 # ── App / coordinator static library (slimmed Devpad_lib) ────────────────
@@ -419,7 +437,6 @@ target_link_libraries(Devpad_lib PUBLIC
     Devpad_core
     Devpad_editor
     Devpad_lsp
-    Devpad_dap
     Devpad_panels
     Qt6::PrintSupport
     Qt6::Multimedia

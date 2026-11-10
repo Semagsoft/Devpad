@@ -1,7 +1,7 @@
 #include "debugpanel.h"
 
-#include "dap/dapclient.h"
-#include "dap/dapservermanager.h"
+#include "dapclient.h"
+#include "dapservermanager.h"
 
 #include <QFileInfo>
 #include <QHBoxLayout>

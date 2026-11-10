@@ -1,11 +1,11 @@
 #include "dapeditorintegration.h"
 
-#include "../codeeditor.h"
+#include "../../codeeditor.h"
 #include "dapclient.h"
 #include "dapservermanager.h"
 #include "daptypes.h"
-#include "lsp/lsptypes.h"
-#include "settingsmanager.h"
+#include "../../lsp/lsptypes.h"
+#include "../../managers/settingsmanager.h"
 
 #include <QInputDialog>
 
@@ -21,12 +21,34 @@ DapEditorIntegration::~DapEditorIntegration() = default;
 void DapEditorIntegration::setServerManager(DapServerManager* manager)
 {
     m_dapManager = manager;
+    connectClientSignals();
 }
 
 void DapEditorIntegration::setSessionKey(const QString& sessionKey)
 {
     m_sessionKey = sessionKey;
     m_dapActive = !sessionKey.isEmpty();
+    connectClientSignals();
+}
+
+void DapEditorIntegration::connectClientSignals()
+{
+    if (DapClient* client = clientForSession()) {
+        // Disconnect any existing connections to avoid duplicates.
+        client->disconnect(this);
+        connect(client, &DapClient::breakpointsSet, this,
+                [this](const QString& sourcePath, const QList<dap::Breakpoint>& bps) {
+                    Q_UNUSED(sourcePath);
+                    if (sourcePath.isEmpty() || sourcePath != filePath())
+                        return;
+                    QList<int> lines;
+                    for (const auto& b : bps)
+                        lines.append(b.line);
+                    setBreakpointsFromDap(lines);
+                }, Qt::UniqueConnection);
+        connect(client, &DapClient::stopped, this, &DapEditorIntegration::onStopped, Qt::UniqueConnection);
+        connect(client, &DapClient::terminated, this, &DapEditorIntegration::onTerminated, Qt::UniqueConnection);
+    }
 }
 
 DapClient* DapEditorIntegration::clientForSession() const

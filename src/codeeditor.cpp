@@ -18,7 +18,6 @@
  */
 #include "codeeditor.h"
 
-#include "dap/dapeditorintegration.h"
 #include "languageinfo.h"
 #include "lsp/lspclient.h"
 #include "lsp/lspindicators.h"
@@ -85,19 +84,19 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
     // Create LSP editor integration (handles timers, requests, responses)
     m_lspIntegration = new lsp::LspEditorIntegration(this, this);
 
-    // Create DAP / debugger editor integration (breakpoints, execution position)
-    m_dapIntegration = new dap::DapEditorIntegration(this, this);
-
     // Forward navigation requests from LSP integration to UI
     connect(m_lspIntegration, &lsp::LspEditorIntegration::navigateToLocation, this, &CodeEditor::navigateToLocation);
     connect(m_lspIntegration, &lsp::LspEditorIntegration::diagnosticsChanged, this, &CodeEditor::diagnosticsChanged);
 
-    // Sync editor breakpoints with the debug adapter when the margin is clicked
+    // Sync editor breakpoints with the debug adapter when the margin is clicked.
+    // DapEditorIntegration is created by the DAP plugin; syncBreakpoints() is a
+    // slot invoked via QMetaObject to avoid compile-time dependency on plugin
+    // headers.
     connect(this, &CodeEditor::breakpointToggled, this,
             [this](int)
             {
                 if (m_dapIntegration)
-                    m_dapIntegration->syncBreakpoints();
+                    QMetaObject::invokeMethod(m_dapIntegration, "syncBreakpoints");
             });
 
     // Trigger document highlights when cursor position changes
@@ -1133,16 +1132,9 @@ void CodeEditor::setLspLanguage(const QString& language)
     m_lspIntegration->setLanguage(language);
 }
 
-void CodeEditor::setDapServerManager(dap::DapServerManager* manager)
+void CodeEditor::setDapIntegration(QObject* integration)
 {
-    if (m_dapIntegration)
-        m_dapIntegration->setServerManager(manager);
-}
-
-void CodeEditor::setDapSessionKey(const QString& sessionKey)
-{
-    if (m_dapIntegration)
-        m_dapIntegration->setSessionKey(sessionKey);
+    m_dapIntegration = integration;
 }
 
 lsp::LspServerManager* CodeEditor::lspServerManager() const

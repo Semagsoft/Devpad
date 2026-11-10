@@ -338,6 +338,18 @@ QWidget* PluginHost::panel(const QString& id) const
     return m_pluginPanels.value(id, nullptr);
 }
 
+void PluginHost::registerObject(const QString& id, QObject* object)
+{
+    if (id.isEmpty() || !object)
+        return;
+    m_pluginObjects.insert(id, object);
+}
+
+QObject* PluginHost::object(const QString& id) const
+{
+    return m_pluginObjects.value(id, nullptr);
+}
+
 bool PluginHost::removeDockWidget(const QString& dockId)
 {
     if (!m_mainWindow || dockId.isEmpty())

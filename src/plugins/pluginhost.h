@@ -113,6 +113,10 @@ public:
     void registerPanel(const QString& id, QWidget* widget) override;
     QWidget* panel(const QString& id) const override;
 
+    // ── Generic object registry ──────────────────────────────────
+    void registerObject(const QString& id, QObject* object) override;
+    QObject* object(const QString& id) const override;
+
     // ── Internal helpers ─────────────────────────────────────────
     MainWindow* mainWindowRaw() const
     {
@@ -166,6 +170,9 @@ private:
 
     // Panels keyed by id (registered via registerPanel()).
     QHash<QString, QWidget*> m_pluginPanels;
+
+    // Generic plugin-registered objects keyed by id.
+    QHash<QString, QObject*> m_pluginObjects;
 
     // Per-plugin registration tracking for cleanup on unload.
     struct PluginRegistrations

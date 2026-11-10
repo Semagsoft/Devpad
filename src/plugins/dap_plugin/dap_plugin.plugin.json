@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.dap",
+    "name": "Debug Adapter Protocol (DAP)",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Debug Adapter Protocol support for debugging via debug adapters (e.g. lldb-vscode, codelldb, debugpy).",
+    "apiVersion": 1,
+    "library": "libdap_plugin.so",
+    "enabled": true,
+    "depends": []
+}

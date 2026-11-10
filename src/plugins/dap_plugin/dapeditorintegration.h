@@ -42,6 +42,7 @@ public:
         return m_dapActive;
     }
 
+public slots:
     // Sync the editor's breakpoint margin with the DAP client for this file.
     void syncBreakpoints();
     void setBreakpointsFromDap(const QList<int>& lines);
@@ -72,6 +73,7 @@ private:
     DapClient* clientForSession() const;
     QString filePath() const;
     QString currentUri() const;
+    void connectClientSignals();
 
     CodeEditor* m_editor;
     DapServerManager* m_dapManager = nullptr;
