@@ -125,7 +125,8 @@ private:
     static PluginInfo readPluginManifest(const QString& filePath);
     QString pluginFilePath(const QString& pluginId) const;
     QString findPluginFileInDir(const QString& dirPath, const QString& pluginId) const;
-    void appendDiscoveredFromDir(const QString& dirPath, QList<PluginInfo>& result) const;
+    void appendDiscoveredFromDir(const QString& dirPath,
+                                 QHash<QString, PluginInfo>& byId) const;
     void connectHostEventForwarding();
     // Invoke a plugin entry point with an exception guard so a throwing
     // plugin cannot take the whole application down.

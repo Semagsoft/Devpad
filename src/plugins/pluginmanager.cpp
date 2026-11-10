@@ -83,16 +83,19 @@ QString PluginManager::userPluginsDir() const
 
 QList<PluginInfo> PluginManager::discoveredPlugins() const
 {
-    QList<PluginInfo> result;
+    QHash<QString, PluginInfo> byId;
 
-    // System plugins first, then user plugins (user overrides take priority).
-    appendDiscoveredFromDir(m_systemPluginsDir, result);
-    appendDiscoveredFromDir(m_pluginsDir, result);
+    // System plugins first, then user plugins. User-installed plugins take
+    // priority: if a plugin ID appears in both directories, the user's copy
+    // overrides the system one.
+    appendDiscoveredFromDir(m_systemPluginsDir, byId);
+    appendDiscoveredFromDir(m_pluginsDir, byId);
 
-    return result;
+    return byId.values();
 }
 
-void PluginManager::appendDiscoveredFromDir(const QString& dirPath, QList<PluginInfo>& result) const
+void PluginManager::appendDiscoveredFromDir(const QString& dirPath,
+                                            QHash<QString, PluginInfo>& byId) const
 {
     QDir dir(dirPath);
     if (!dir.exists())
@@ -105,7 +108,10 @@ void PluginManager::appendDiscoveredFromDir(const QString& dirPath, QList<Plugin
 #endif
     dir.setNameFilters(filters);
     for (const QFileInfo& info : dir.entryInfoList(QDir::Files))
-        result.append(readPluginManifest(info.absoluteFilePath()));
+    {
+        PluginInfo pluginInfo = readPluginManifest(info.absoluteFilePath());
+        byId.insert(pluginInfo.id, pluginInfo);
+    }
 }
 
 QString PluginManager::pluginFilePath(const QString& pluginId) const
