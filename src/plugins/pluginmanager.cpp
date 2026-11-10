@@ -45,6 +45,13 @@ PluginManager::PluginManager(MainWindow* mainWindow, QObject* parent) : QObject(
         base = QDir::homePath() + QLatin1String("/.local/share");
     setPluginsDir(base + QLatin1String("/devpad/plugins"));
 
+    // System plugins directory (shipped with the app, read-only).
+#ifdef DEVPAD_SYSTEM_PLUGINS_DIR
+    m_systemPluginsDir = QStringLiteral(DEVPAD_SYSTEM_PLUGINS_DIR);
+#else
+    m_systemPluginsDir = QLatin1String("/usr/local/lib/devpad/plugins");
+#endif
+
     // Forward host editor/file events to every loaded plugin.
     connectHostEventForwarding();
 }
@@ -64,12 +71,32 @@ void PluginManager::setPluginsDir(const QString& dir)
     m_pluginsDir = QDir::cleanPath(dir);
 }
 
+QString PluginManager::systemPluginsDir() const
+{
+    return m_systemPluginsDir;
+}
+
+QString PluginManager::userPluginsDir() const
+{
+    return m_pluginsDir;
+}
+
 QList<PluginInfo> PluginManager::discoveredPlugins() const
 {
     QList<PluginInfo> result;
-    QDir dir(m_pluginsDir);
+
+    // System plugins first, then user plugins (user overrides take priority).
+    appendDiscoveredFromDir(m_systemPluginsDir, result);
+    appendDiscoveredFromDir(m_pluginsDir, result);
+
+    return result;
+}
+
+void PluginManager::appendDiscoveredFromDir(const QString& dirPath, QList<PluginInfo>& result) const
+{
+    QDir dir(dirPath);
     if (!dir.exists())
-        return result;
+        return;
 
 #ifdef Q_OS_WIN
     const QStringList filters = {QStringLiteral("*.dll")};
@@ -79,12 +106,20 @@ QList<PluginInfo> PluginManager::discoveredPlugins() const
     dir.setNameFilters(filters);
     for (const QFileInfo& info : dir.entryInfoList(QDir::Files))
         result.append(readPluginManifest(info.absoluteFilePath()));
-    return result;
 }
 
 QString PluginManager::pluginFilePath(const QString& pluginId) const
 {
-    QDir dir(m_pluginsDir);
+    // User-installed plugins take priority over system plugins.
+    QString path = findPluginFileInDir(m_pluginsDir, pluginId);
+    if (!path.isEmpty())
+        return path;
+    return findPluginFileInDir(m_systemPluginsDir, pluginId);
+}
+
+QString PluginManager::findPluginFileInDir(const QString& dirPath, const QString& pluginId) const
+{
+    QDir dir(dirPath);
     if (!dir.exists())
         return QString();
 
@@ -139,13 +174,18 @@ PluginInfo PluginManager::readPluginManifest(const QString& filePath)
 
 void PluginManager::loadAll()
 {
-    QDir dir(m_pluginsDir);
+    // Scan system plugins directory first (shipped with the app), then the
+    // user plugins directory (user-installed plugins take priority for
+    // plugins with the same id).
+    loadPluginsFromDir(m_systemPluginsDir);
+    loadPluginsFromDir(m_pluginsDir);
+}
+
+void PluginManager::loadPluginsFromDir(const QString& dirPath)
+{
+    QDir dir(dirPath);
     if (!dir.exists())
-    {
-        if (!dir.mkpath("."))
-            qWarning() << "PluginManager: cannot create plugins directory" << m_pluginsDir;
         return;
-    }
 
 #ifdef Q_OS_WIN
     const QStringList filters = {QStringLiteral("*.dll")};

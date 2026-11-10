@@ -430,7 +430,8 @@ if(TARGET Qt6::DBus)
     target_compile_definitions(Devpad_lib PUBLIC HAVE_QT_DBUS)
 endif()
 if(BUILD_PLUGINS)
-    target_compile_definitions(Devpad_lib PUBLIC BUILD_PLUGINS=1)
+    target_compile_definitions(Devpad_lib PUBLIC BUILD_PLUGINS=1
+        "DEVPAD_SYSTEM_PLUGINS_DIR=\"${CMAKE_INSTALL_PREFIX}/lib/devpad/plugins\"")
 endif()
 target_include_directories(Devpad_lib PUBLIC
     src
@@ -525,6 +526,19 @@ install(FILES resources/icons/devpad.svg
 install(FILES LICENSE
     DESTINATION share/licenses/Devpad
 )
+
+# ── Install first-party plugins ───────────────────────────────
+# System plugins are installed to lib/devpad/plugins (read-only,
+# shipped with the app). User-installed plugins live in
+# ~/.local/share/devpad/plugins/ and are scanned in addition.
+if(BUILD_PLUGINS)
+    install(FILES
+        ${CMAKE_BINARY_DIR}/plugins/libterminalplugin.so
+        ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
+        DESTINATION lib/devpad/plugins
+        OPTIONAL
+    )
+endif()
 
 # ── Internationalization ──────────────────────────────────────
 set(TS_FILES

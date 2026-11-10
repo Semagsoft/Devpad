@@ -58,9 +58,15 @@ public:
     explicit PluginManager(MainWindow* mainWindow, QObject* parent = nullptr);
     ~PluginManager() override;
 
-    // The directory plugins are loaded from.
+    // The directory plugins are loaded from (user-installed plugins).
     QString pluginsDir() const;
     void setPluginsDir(const QString& dir);
+
+    // The system plugins directory (shipped with the app, read-only).
+    QString systemPluginsDir() const;
+
+    // The user plugins directory (user-installed plugins).
+    QString userPluginsDir() const;
 
     // API version the host implements. Plugins whose info().apiVersion does
     // not match are rejected.
@@ -70,6 +76,10 @@ public:
     // Scan pluginsDir() and load every valid plugin found. Called once during
     // MainWindow startup (after the UI is built). Only enabled plugins are loaded.
     void loadAll();
+
+    // Load all plugins from a single directory (used by loadAll() for both
+    // the system and user plugins directories).
+    void loadPluginsFromDir(const QString& dirPath);
 
     // Load a single plugin library by path.
     bool load(const QString& libraryPath);
@@ -114,6 +124,8 @@ private:
     static QString pluginIdFromFileName(const QString& fileName);
     static PluginInfo readPluginManifest(const QString& filePath);
     QString pluginFilePath(const QString& pluginId) const;
+    QString findPluginFileInDir(const QString& dirPath, const QString& pluginId) const;
+    void appendDiscoveredFromDir(const QString& dirPath, QList<PluginInfo>& result) const;
     void connectHostEventForwarding();
     // Invoke a plugin entry point with an exception guard so a throwing
     // plugin cannot take the whole application down.
@@ -121,7 +133,8 @@ private:
 
     MainWindow* m_mainWindow = nullptr;
     std::unique_ptr<PluginHost> m_host;
-    QString m_pluginsDir;
+    QString m_pluginsDir;          // user-installed plugins directory
+    QString m_systemPluginsDir;    // system plugins directory (shipped with app)
 
     // Enabled state persisted via SettingsManager under Plugins/<id>/Enabled.
     QHash<QString, bool> m_enabled;
