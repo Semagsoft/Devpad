@@ -33,8 +33,7 @@ public:
     // Register a snippet contributed by a plugin. scope is a comma-separated
     // list of language ids (e.g. "cpp,python"), or empty for global snippets
     // available in all languages. Returns false if name is already registered.
-    bool addSnippet(const QString& name, const QString& prefix, const QStringList& body,
-                    const QString& description, const QString& scope);
+    bool addSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description, const QString& scope);
     // Remove a plugin-contributed snippet by name. Returns false if not found.
     bool removeSnippet(const QString& name);
 

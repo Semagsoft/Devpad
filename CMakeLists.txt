@@ -328,15 +328,15 @@ if(BUILD_PLUGINS)
         src/panels
     )
     target_link_libraries(terminalplugin PRIVATE
-        # --whole-archive forces all of these static libraries' object files
-        # (including MOC output for QObject subclasses) to be linked. This
-        # resolves static-library ordering issues where editor/panel code
-        # references Qt signals/meta-objects defined in MOC-generated output.
-        "-Wl,--whole-archive" Devpad_editor Devpad_lsp "-Wl,--no-whole-archive"
+        # Plugins resolve Devpad's own classes/symbols from the main executable
+        # (which exports them via ENABLE_EXPORTS), so they share the app's
+        # singletons (SettingsManager, Logger, ...) instead of getting a
+        # private static copy.
         ${TERMINAL_TARGET}
         Qt6::Core
         Qt6::Widgets
     )
+    target_link_qscintilla(terminalplugin)
     set_target_properties(terminalplugin PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
         PREFIX "lib"
@@ -370,12 +370,14 @@ if(BUILD_PLUGINS)
             ${CMAKE_BINARY_DIR}/generated
         )
         target_link_libraries(dap_plugin PRIVATE
-            # --whole-archive forces all of these static libraries' object files
-            # (including MOC output for QObject subclasses) to be linked.
-            "-Wl,--whole-archive" Devpad_editor Devpad_lsp "-Wl,--no-whole-archive"
+            # Plugins resolve Devpad's own classes/symbols from the main executable
+            # (which exports them via ENABLE_EXPORTS), so they share the app's
+            # singletons (SettingsManager, Logger, ...) instead of getting a
+            # private static copy.
             Qt6::Core
             Qt6::Widgets
         )
+        target_link_qscintilla(dap_plugin)
         set_target_properties(dap_plugin PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
             PREFIX "lib"

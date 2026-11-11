@@ -39,6 +39,7 @@
 #include "managers/externalchangecoordinator.h"
 #include "managers/remoteopencoordinator.h"
 #include "optionsdialog.h"
+#include "plugins/terminalplugin/terminalpanel.h"
 #include "printmanager.h"
 #include "projectpanel.h"
 #include "referencespanel.h"
@@ -53,15 +54,14 @@
 #include "theme.h"
 #include "themeapplier.h"
 #include "widgets/titlebar.h"
-#include "plugins/terminalplugin/terminalpanel.h"
 #ifdef Q_OS_WIN
 #include "widgets/windowsframebridge.h"
 #endif
 #include "updatechecker.h"
 #include "updatedialog.h"
 #ifdef BUILD_PLUGINS
-#include "plugins/pluginmanager.h"
 #include "plugins/pluginhost.h"
+#include "plugins/pluginmanager.h"
 #endif
 
 #include <QAction>
@@ -82,6 +82,8 @@
 #include <QLocalSocket>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMetaMethod>
+#include <QMetaObject>
 #include <QMimeData>
 #include <QPageSetupDialog>
 #include <QPointer>
@@ -262,15 +264,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     const bool dapEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"));
     m_actionManager->setDebugUiVisible(dapEnabled);
     connect(m_pluginManager, &PluginManager::pluginEnabledChanged, this,
-        [this](const QString& pluginId, bool enabled)
-        {
-            if (pluginId == QStringLiteral("org.semagsoft.devpad.dap"))
+            [this](const QString& pluginId, bool enabled)
             {
-                m_actionManager->setDebugUiVisible(enabled);
-                if (!enabled)
-                    m_debugSessionKey.clear();
-            }
-        });
+                if (pluginId == QStringLiteral("org.semagsoft.devpad.dap"))
+                {
+                    m_actionManager->setDebugUiVisible(enabled);
+                    if (!enabled)
+                        m_debugSessionKey.clear();
+                }
+            });
 #endif
 
     applyAutoSaveSettings();
@@ -340,8 +342,6 @@ void MainWindow::createManagers()
     addDockWidget(Qt::BottomDockWidgetArea, m_referencesPanel);
     m_referencesPanel->hide();
     connect(m_referencesPanel, &ReferencesPanel::navigateToLocation, this, &MainWindow::onNavigateToLocation);
-
-
 
     m_dialogCoordinator = new DialogCoordinator(m_tabManager, m_projectPanel, this);
     connect(m_dialogCoordinator, &DialogCoordinator::navigateToResult, this, &MainWindow::onNavigateToLocation);
@@ -638,7 +638,6 @@ void MainWindow::connectPanelSignals()
     connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelButton(), &QToolButton::setChecked);
 }
 
-
 void MainWindow::setupEditorConnections()
 {
     connect(m_tabManager, &TabManager::currentChanged, this, &MainWindow::onTabChanged);
@@ -734,8 +733,7 @@ void MainWindow::applyTerminalPanelPosition()
     m_actionManager->terminalPanelButton()->setChecked(visible);
 
     int pos = static_cast<int>(SettingsManager::instance().terminalPanelPosition());
-    QMetaObject::invokeMethod(m_terminalPanelDock, "applyPosition",
-        Q_ARG(int, pos), Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
+    QMetaObject::invokeMethod(m_terminalPanelDock, "applyPosition", Q_ARG(int, pos), Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
 }
 
 void MainWindow::applyTerminalPanelSettings()
@@ -745,16 +743,14 @@ void MainWindow::applyTerminalPanelSettings()
 
     if (SettingsManager::instance().showTerminalPanel())
     {
-        QMetaObject::invokeMethod(m_terminalPanelDock, "toggle",
-            Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
+        QMetaObject::invokeMethod(m_terminalPanelDock, "toggle", Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
         m_actionManager->terminalPanelAct()->setChecked(true);
         m_actionManager->terminalPanelButton()->setChecked(true);
     }
     else
     {
         int pos = static_cast<int>(SettingsManager::instance().terminalPanelPosition());
-        QMetaObject::invokeMethod(m_terminalPanelDock, "applyPosition",
-            Q_ARG(int, pos), Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
+        QMetaObject::invokeMethod(m_terminalPanelDock, "applyPosition", Q_ARG(int, pos), Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
     }
 }
 
@@ -812,8 +808,7 @@ void MainWindow::openFolder()
     m_actionManager->projectPanelAct()->setChecked(true);
     m_actionManager->projectPanelButton()->setChecked(true);
     if (m_terminalPanelDock)
-        QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory",
-            Q_ARG(QString, dirPath));
+        QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory", Q_ARG(QString, dirPath));
     Logger::instance().info(QString("Opened folder: %1").arg(dirPath));
 }
 
@@ -842,8 +837,7 @@ void MainWindow::openFolderFromPath(const QString& folderPath)
     m_projectPanel->show();
     m_actionManager->projectPanelAct()->setChecked(true);
     if (m_terminalPanelDock)
-        QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory",
-            Q_ARG(QString, folderPath));
+        QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory", Q_ARG(QString, folderPath));
     Logger::instance().info(QString("Opened folder: %1").arg(folderPath));
 }
 
@@ -1018,12 +1012,10 @@ void MainWindow::runExternalTool(int index)
                 return;
             if (!m_terminalPanelDock->isVisible())
             {
-                QMetaObject::invokeMethod(m_terminalPanelDock, "toggle",
-                    Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
+                QMetaObject::invokeMethod(m_terminalPanelDock, "toggle", Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
                 m_terminalPanelDock->show();
             }
-            QMetaObject::invokeMethod(m_terminalPanelDock, "sendCommand",
-                Q_ARG(QString, cmd));
+            QMetaObject::invokeMethod(m_terminalPanelDock, "sendCommand", Q_ARG(QString, cmd));
         },
         this);
 }
@@ -1067,8 +1059,7 @@ void MainWindow::applyStartupMode()
         if (terminalDir.isEmpty() && !sessionData.files.isEmpty())
             terminalDir = QFileInfo(sessionData.files.first()).absolutePath();
         if (!terminalDir.isEmpty() && m_terminalPanelDock)
-            QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory",
-                Q_ARG(QString, terminalDir));
+            QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory", Q_ARG(QString, terminalDir));
     }
 }
 
@@ -1242,8 +1233,7 @@ void MainWindow::paste()
     if (m_terminalPanelDock)
     {
         bool hasFocus = false;
-        QMetaObject::invokeMethod(m_terminalPanelDock, "terminalHasFocus",
-            Qt::DirectConnection, Q_RETURN_ARG(bool, hasFocus));
+        QMetaObject::invokeMethod(m_terminalPanelDock, "terminalHasFocus", Qt::DirectConnection, Q_RETURN_ARG(bool, hasFocus));
         if (hasFocus)
             QMetaObject::invokeMethod(m_terminalPanelDock, "pasteToTerminal");
         else if (m_editorController)
@@ -1258,8 +1248,7 @@ void MainWindow::copy()
     if (m_terminalPanelDock)
     {
         bool hasFocus = false;
-        QMetaObject::invokeMethod(m_terminalPanelDock, "terminalHasFocus",
-            Qt::DirectConnection, Q_RETURN_ARG(bool, hasFocus));
+        QMetaObject::invokeMethod(m_terminalPanelDock, "terminalHasFocus", Qt::DirectConnection, Q_RETURN_ARG(bool, hasFocus));
         if (hasFocus)
             QMetaObject::invokeMethod(m_terminalPanelDock, "copyFromTerminal");
         else if (m_editorController)
@@ -1299,8 +1288,7 @@ void MainWindow::toggleTerminalPanel()
 {
     if (!m_terminalPanelDock || !m_actionManager->terminalPanelAct()->isVisible())
         return;
-    QMetaObject::invokeMethod(m_terminalPanelDock, "toggle",
-        Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
+    QMetaObject::invokeMethod(m_terminalPanelDock, "toggle", Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
     bool visible = SettingsManager::instance().showTerminalPanel();
     m_actionManager->terminalPanelAct()->setChecked(visible);
     m_actionManager->terminalPanelButton()->setChecked(visible);
@@ -1363,8 +1351,7 @@ void MainWindow::quitDevpad()
         SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
     QString termDir;
     if (m_terminalPanelDock)
-        QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory",
-            Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
+        QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
     m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
     QApplication::quit();
 }
@@ -1488,8 +1475,7 @@ void MainWindow::handleQuitRequest()
                     SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
                 QString termDir;
                 if (m_terminalPanelDock)
-                    QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory",
-                        Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
+                    QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
                 m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
                 client->disconnectFromServer();
                 QApplication::quit();
@@ -1517,8 +1503,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
         SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
     QString termDir;
     if (m_terminalPanelDock)
-        QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory",
-            Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
+        QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
     m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
     event->accept();
 }
@@ -1709,8 +1694,8 @@ void MainWindow::startDebugging()
 
     auto* plugin = m_pluginManager->plugin("org.semagsoft.devpad.dap");
     if (plugin)
-        QMetaObject::invokeMethod(dynamic_cast<QObject*>(plugin), "startDebugging", Qt::DirectConnection, Q_ARG(QString, lsp::uriFromPath(filePath)), Q_ARG(QString, language),
-            Q_ARG(QString, command), Q_ARG(QStringList, args));
+        QMetaObject::invokeMethod(dynamic_cast<QObject*>(plugin), "startDebugging", Qt::DirectConnection, Q_ARG(QString, lsp::uriFromPath(filePath)),
+                                  Q_ARG(QString, language), Q_ARG(QString, command), Q_ARG(QStringList, args));
 }
 
 void MainWindow::stopDebugging()

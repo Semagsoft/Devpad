@@ -1,8 +1,8 @@
 #include "codeeditor.h"
 #include "editorcontroller.h"
 #include "filemanager.h"
-#include "mainwindow.h"
 #include "lsp/lsptypes.h"
+#include "mainwindow.h"
 #include "managers/actionmanager.h"
 #include "plugins/pluginhost.h"
 #include "plugins/pluginmanager.h"
@@ -450,8 +450,9 @@ TEST_F(MainWindowTest, StartDebuggingInvokesDapPluginViaMetaObject)
     window.openFileFromPath(filePath);
     ASSERT_NE(window.findChild<CodeEditor*>(), nullptr);
 
-    bool invoked = QMetaObject::invokeMethod(object, "startDebugging", Qt::DirectConnection, Q_ARG(QString, lsp::uriFromPath(filePath)),
-        Q_ARG(QString, QStringLiteral("unknownlang")), Q_ARG(QString, QString()), Q_ARG(QStringList, QStringList()));
+    bool invoked =
+        QMetaObject::invokeMethod(object, "startDebugging", Qt::DirectConnection, Q_ARG(QString, lsp::uriFromPath(filePath)),
+                                  Q_ARG(QString, QStringLiteral("unknownlang")), Q_ARG(QString, QString()), Q_ARG(QStringList, QStringList()));
     EXPECT_TRUE(invoked);
 
     // The invocation reached the plugin and was forwarded to the server

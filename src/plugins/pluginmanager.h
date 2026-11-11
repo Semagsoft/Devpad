@@ -125,8 +125,7 @@ private:
     static PluginInfo readPluginManifest(const QString& filePath);
     QString pluginFilePath(const QString& pluginId) const;
     QString findPluginFileInDir(const QString& dirPath, const QString& pluginId) const;
-    void appendDiscoveredFromDir(const QString& dirPath,
-                                 QHash<QString, PluginInfo>& byId) const;
+    void appendDiscoveredFromDir(const QString& dirPath, QHash<QString, PluginInfo>& byId) const;
     void connectHostEventForwarding();
     // Invoke a plugin entry point with an exception guard so a throwing
     // plugin cannot take the whole application down.
@@ -134,8 +133,8 @@ private:
 
     MainWindow* m_mainWindow = nullptr;
     std::unique_ptr<PluginHost> m_host;
-    QString m_pluginsDir;          // user-installed plugins directory
-    QString m_systemPluginsDir;    // system plugins directory (shipped with app)
+    QString m_pluginsDir;       // user-installed plugins directory
+    QString m_systemPluginsDir; // system plugins directory (shipped with app)
 
     // Enabled state persisted via SettingsManager under Plugins/<id>/Enabled.
     QHash<QString, bool> m_enabled;

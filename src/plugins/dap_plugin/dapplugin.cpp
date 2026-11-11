@@ -33,18 +33,17 @@
 #include "../../managers/actionmanager.h"
 #include "../../managers/settingsmanager.h"
 #include "../lsp/lsptypes.h"
-
 #include "dapclient.h"
-#include "dapservermanager.h"
 #include "dapeditorintegration.h"
+#include "dapservermanager.h"
 #include "debugpanel.h"
 
+#include <QDebug>
 #include <QDockWidget>
 #include <QFileInfo>
 #include <QJsonObject>
 #include <QMetaObject>
 #include <QTabWidget>
-#include <QDebug>
 
 DapPlugin::DapPlugin(QObject* parent) : QObject(parent)
 {
@@ -91,10 +90,8 @@ bool DapPlugin::initialize(IPluginHost* host)
     m_host->registerPanel("debug", m_debugPanel);
 
     // Connect DAP server manager signals for session lifecycle.
-    connect(m_dapServerManager, &dap::DapServerManager::initializeDone,
-            this, &DapPlugin::onInitializeDone);
-    connect(m_dapServerManager, &dap::DapServerManager::clientStopped,
-            this, &DapPlugin::onClientStopped);
+    connect(m_dapServerManager, &dap::DapServerManager::initializeDone, this, &DapPlugin::onInitializeDone);
+    connect(m_dapServerManager, &dap::DapServerManager::clientStopped, this, &DapPlugin::onClientStopped);
 
     qDebug("DapPlugin: initialized");
     return true;
@@ -126,8 +123,7 @@ void DapPlugin::onEditorCreated(CodeEditor* editor)
     qDebug("DapPlugin: editor created, integration set up");
 }
 
-void DapPlugin::startDebugging(const QString& sessionKey, const QString& language,
-                               const QString& command, const QStringList& args)
+void DapPlugin::startDebugging(const QString& sessionKey, const QString& language, const QString& command, const QStringList& args)
 {
     // Stop any existing session first.
     stopDebugging(m_debugSessionKey);
@@ -166,7 +162,8 @@ void DapPlugin::stopDebugging(const QString& sessionKey)
 
     // Update action states.
     auto* actionManager = qobject_cast<::ActionManager*>(m_host->actionManager());
-    if (actionManager) {
+    if (actionManager)
+    {
         actionManager->debugPanelAct()->setChecked(false);
         actionManager->startDebuggingAct()->setEnabled(true);
         actionManager->stopDebuggingAct()->setEnabled(false);
@@ -214,8 +211,7 @@ void DapPlugin::onInitializeDone(const QString& sessionKey, const dap::Capabilit
         return;
 
     // Launch the debugged program in the current editor.
-    auto* editor = m_editorIntegrations.isEmpty() ? nullptr
-        : m_editorIntegrations.first()->editor();
+    auto* editor = m_editorIntegrations.isEmpty() ? nullptr : m_editorIntegrations.first()->editor();
     if (!editor)
         return;
 
@@ -229,7 +225,8 @@ void DapPlugin::onInitializeDone(const QString& sessionKey, const dap::Capabilit
 
     // Show debug panel.
     auto* debugPanel = qobject_cast<DebugPanel*>(m_host->panel("debug"));
-    if (debugPanel) {
+    if (debugPanel)
+    {
         debugPanel->setSessionKey(m_debugSessionKey);
         debugPanel->show();
         debugPanel->raise();
@@ -238,7 +235,8 @@ void DapPlugin::onInitializeDone(const QString& sessionKey, const dap::Capabilit
 
     // Update action states.
     auto* actionManager = qobject_cast<::ActionManager*>(m_host->actionManager());
-    if (actionManager) {
+    if (actionManager)
+    {
         actionManager->debugPanelAct()->setChecked(true);
         actionManager->startDebuggingAct()->setEnabled(false);
         actionManager->stopDebuggingAct()->setEnabled(true);
@@ -250,11 +248,13 @@ void DapPlugin::onInitializeDone(const QString& sessionKey, const dap::Capabilit
 void DapPlugin::onClientStopped(const QString& sessionKey)
 {
     Q_UNUSED(sessionKey)
-    if (sessionKey == m_debugSessionKey) {
+    if (sessionKey == m_debugSessionKey)
+    {
         m_debugSessionKey.clear();
 
         auto* actionManager = qobject_cast<::ActionManager*>(m_host->actionManager());
-        if (actionManager) {
+        if (actionManager)
+        {
             actionManager->debugPanelAct()->setChecked(false);
             actionManager->startDebuggingAct()->setEnabled(true);
             actionManager->stopDebuggingAct()->setEnabled(false);

@@ -18,7 +18,7 @@ namespace dap
 class DapServerManager;
 class DapEditorIntegration;
 class Capabilities;
-}
+} // namespace dap
 
 class DapPlugin : public QObject, public IPlugin
 {
@@ -33,8 +33,7 @@ public:
     void shutdown() override;
 
     // ── Debug session control (Q_INVOKABLE for MainWindow) ──────────
-    Q_INVOKABLE void startDebugging(const QString& sessionKey, const QString& language,
-                                    const QString& command, const QStringList& args);
+    Q_INVOKABLE void startDebugging(const QString& sessionKey, const QString& language, const QString& command, const QStringList& args);
     Q_INVOKABLE void stopDebugging(const QString& sessionKey);
     Q_INVOKABLE void debugContinue(const QString& sessionKey);
     Q_INVOKABLE void debugStepOver(const QString& sessionKey);

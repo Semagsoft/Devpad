@@ -397,7 +397,8 @@ void TerminalPanel::applyPosition(int pos, QTabWidget* tabWidget, QMainWindow* m
         setFeatures(QDockWidget::DockWidgetFeature::DockWidgetMovable | QDockWidget::DockWidgetFeature::DockWidgetFloatable |
                     QDockWidget::DockWidgetFeature::DockWidgetClosable);
         setTitleBarWidget(new QWidget(this));
-        Qt::DockWidgetArea area = (static_cast<TerminalPanelPosition>(pos) == TerminalPanelPosition::Bottom) ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea;
+        Qt::DockWidgetArea area =
+            (static_cast<TerminalPanelPosition>(pos) == TerminalPanelPosition::Bottom) ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea;
         mainWindow->addDockWidget(area, this);
     }
     setMinimumWidth(SettingsManager::instance().terminalPanelMinWidth());

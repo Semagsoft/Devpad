@@ -812,13 +812,15 @@ ThemeColors getCustomThemeColors(const QString& name)
 bool registerPluginTheme(const QString& themeId, const ThemeColors& colors)
 {
     FILE* f = fopen("/tmp/devpad_theme_debug.log", "a");
-    if (f) {
-        fprintf(f, "registerPluginTheme CALLED: id='%s', inMap=%d\n",
-                qPrintable(themeId), s_pluginThemeMap.contains(themeId));
+    if (f)
+    {
+        fprintf(f, "registerPluginTheme CALLED: id='%s', inMap=%d\n", qPrintable(themeId), s_pluginThemeMap.contains(themeId));
         fclose(f);
     }
-    if (themeId.isEmpty() || s_pluginThemeMap.contains(themeId)) {
-        if (f) {
+    if (themeId.isEmpty() || s_pluginThemeMap.contains(themeId))
+    {
+        if (f)
+        {
             f = fopen("/tmp/devpad_theme_debug.log", "a");
             fprintf(f, "registerPluginTheme: returning false (empty or duplicate)\n");
             fclose(f);
@@ -826,13 +828,15 @@ bool registerPluginTheme(const QString& themeId, const ThemeColors& colors)
         return false;
     }
     ThemeColors resolved = colors;
-    if (f) {
+    if (f)
+    {
         f = fopen("/tmp/devpad_theme_debug.log", "a");
         fprintf(f, "registerPluginTheme: calling resolve()\n");
         fclose(f);
     }
     resolved.resolve();
-    if (f) {
+    if (f)
+    {
         f = fopen("/tmp/devpad_theme_debug.log", "a");
         fprintf(f, "registerPluginTheme: resolve() done\n");
         fclose(f);

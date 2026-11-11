@@ -21,15 +21,13 @@
 #define PLUGININTERFACE_H
 
 #include "plugininfo.h"
+#include "theme.h"
 
 #include <QObject>
-
 #include <QString>
 #include <QStringList>
 #include <QVariant>
 #include <functional>
-
-#include "theme.h"
 
 class QAction;
 class QKeySequence;
@@ -128,8 +126,7 @@ public:
     // Register a snippet contributed by a plugin. scope is a comma-separated
     // list of language ids (e.g. "cpp,python"), or empty for global snippets
     // available in all languages. Returns false if name is already registered.
-    virtual bool registerSnippet(const QString& name, const QString& prefix,
-                                 const QStringList& body, const QString& description,
+    virtual bool registerSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description,
                                  const QString& scope) = 0;
     // Remove a plugin-contributed snippet by name. Returns false if not found.
     virtual bool unregisterSnippet(const QString& name) = 0;
@@ -146,14 +143,27 @@ public:
     virtual bool isWidgetFrontend() const = 0;
 
     // ── Debug control ────────────────────────────────────────────
-    virtual void startDebugging(const QString& sessionKey, const QString& language,
-                                const QString& command, const QStringList& args) {}
-    virtual void stopDebugging(const QString& sessionKey) {}
-    virtual void debugContinue(const QString& sessionKey) {}
-    virtual void debugStepOver(const QString& sessionKey) {}
-    virtual void debugStepInto(const QString& sessionKey) {}
-    virtual void debugStepOut(const QString& sessionKey) {}
-    virtual void debugRestart(const QString& sessionKey) {}
+    virtual void startDebugging(const QString& sessionKey, const QString& language, const QString& command, const QStringList& args)
+    {
+    }
+    virtual void stopDebugging(const QString& sessionKey)
+    {
+    }
+    virtual void debugContinue(const QString& sessionKey)
+    {
+    }
+    virtual void debugStepOver(const QString& sessionKey)
+    {
+    }
+    virtual void debugStepInto(const QString& sessionKey)
+    {
+    }
+    virtual void debugStepOut(const QString& sessionKey)
+    {
+    }
+    virtual void debugRestart(const QString& sessionKey)
+    {
+    }
 
     // ── Panels contributed by plugins / host ─────────────────────
     // Registers a widget (e.g. a dock panel) keyed by id so it can be looked

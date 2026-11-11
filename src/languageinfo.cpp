@@ -579,11 +579,12 @@ bool registerPluginLanguage(const QString& languageId, const QString& lexerClass
     LanguageInfo info;
     info.name = languageId;
     info.lexerClassName = lexerClassName;
-    info.factory = [factory](QObject* parent) -> QsciLexer*
+    info.factory = [factory](QObject* parent) -> QsciLexer* { return static_cast<QsciLexer*>(factory(parent)); };
+    info.keywords = []() -> const QStringList&
     {
-        return static_cast<QsciLexer*>(factory(parent));
+        static const QStringList empty;
+        return empty;
     };
-    info.keywords = []() -> const QStringList& { static const QStringList empty; return empty; };
     info.themeApplicator = [](QsciLexer*, const ThemeColors&) {};
     info.commentSyntax = {"", "", ""};
     table.insert(languageId, info);

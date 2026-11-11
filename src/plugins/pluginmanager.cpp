@@ -94,8 +94,7 @@ QList<PluginInfo> PluginManager::discoveredPlugins() const
     return byId.values();
 }
 
-void PluginManager::appendDiscoveredFromDir(const QString& dirPath,
-                                            QHash<QString, PluginInfo>& byId) const
+void PluginManager::appendDiscoveredFromDir(const QString& dirPath, QHash<QString, PluginInfo>& byId) const
 {
     QDir dir(dirPath);
     if (!dir.exists())
@@ -427,8 +426,7 @@ void PluginManager::connectHostEventForwarding()
             [this](const QString& path)
             {
                 for (auto& entry : m_loaded)
-                    safePluginCall(entry.info.id, "onFileModifiedExternally",
-                                   [path](IPlugin* p) { p->onFileModifiedExternally(path); });
+                    safePluginCall(entry.info.id, "onFileModifiedExternally", [path](IPlugin* p) { p->onFileModifiedExternally(path); });
             });
     connect(m_host.get(), &PluginHost::settingsChanged, this,
             [this]()

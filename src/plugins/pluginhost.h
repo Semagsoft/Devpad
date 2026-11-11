@@ -98,8 +98,7 @@ public:
     bool registerFileNameMapping(const QString& fileName, const QString& languageId) override;
 
     // ── Snippets ─────────────────────────────────────────────────
-    bool registerSnippet(const QString& name, const QString& prefix,
-                         const QStringList& body, const QString& description,
+    bool registerSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description,
                          const QString& scope) override;
     bool unregisterSnippet(const QString& name) override;
 

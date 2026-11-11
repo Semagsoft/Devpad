@@ -49,8 +49,7 @@ PluginHost::PluginHost(MainWindow* mainWindow, QObject* parent) : QObject(parent
         forwardEditorSignals();
 
         if (m_fileWatcherManager)
-            connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this,
-                    &PluginHost::fileModifiedExternally);
+            connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &PluginHost::fileModifiedExternally);
     }
 }
 
@@ -308,9 +307,7 @@ QString PluginHost::addDockWidget(QWidget* widget, Qt::DockWidgetArea area)
         dock->setWidget(widget);
     }
 
-    dock->setObjectName(dock->objectName().isEmpty()
-        ? QStringLiteral("plugin-dock-%1").arg(++m_dockCounter)
-        : dock->objectName());
+    dock->setObjectName(dock->objectName().isEmpty() ? QStringLiteral("plugin-dock-%1").arg(++m_dockCounter) : dock->objectName());
     m_mainWindow->addDockWidget(area, dock);
 
     QString dockId = dock->objectName();
@@ -442,8 +439,7 @@ bool PluginHost::registerFileNameMapping(const QString& fileName, const QString&
     return true;
 }
 
-bool PluginHost::registerSnippet(const QString& name, const QString& prefix,
-                                 const QStringList& body, const QString& description,
+bool PluginHost::registerSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description,
                                  const QString& scope)
 {
     if (!SnippetManager::instance())
@@ -466,8 +462,7 @@ bool PluginHost::unregisterSnippet(const QString& name)
 
 bool PluginHost::registerTheme(const QString& themeId, const ThemeColors& colors)
 {
-    qDebug("PluginHost::registerTheme: id='%s', calling registerPluginTheme",
-           qPrintable(themeId));
+    qDebug("PluginHost::registerTheme: id='%s', calling registerPluginTheme", qPrintable(themeId));
     bool ok = registerPluginTheme(themeId, colors);
     qDebug("PluginHost::registerTheme: registerPluginTheme returned %d", ok);
     if (!ok)

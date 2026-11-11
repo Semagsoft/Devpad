@@ -26,20 +26,21 @@
  *   or %APPDATA%\devpad\plugins\     (Windows)
  */
 
+#include "managers/settingsmanager.h"
 #include "plugins/plugininterface.h"
+#include "terminalpanel.h"
 
 #include <QDockWidget>
 #include <QMainWindow>
-
-#include "managers/settingsmanager.h"
-#include "terminalpanel.h"
 
 class TerminalPlugin : public QObject, public IPlugin
 {
     Q_OBJECT
 
 public:
-    explicit TerminalPlugin(QObject* parent = nullptr) : QObject(parent) {}
+    explicit TerminalPlugin(QObject* parent = nullptr) : QObject(parent)
+    {
+    }
     ~TerminalPlugin() override = default;
 
     PluginInfo info() const override

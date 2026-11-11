@@ -772,14 +772,11 @@ void OptionsDialog::setupPluginsTab()
                 // dock panel immediately and any unsaved terminal state is lost.
                 if (!enabled && pluginId == QStringLiteral("org.semagsoft.devpad.terminal"))
                 {
-                    int ret = QMessageBox::warning(
-                        this,
-                        tr("Disable Terminal Plugin?"),
-                        tr("Disabling the Terminal plugin will remove the terminal panel "
-                           "from Devpad immediately. Any unsaved terminal state will be lost. "
-                           "Do you want to continue?"),
-                        QMessageBox::Yes | QMessageBox::No,
-                        QMessageBox::No);
+                    int ret = QMessageBox::warning(this, tr("Disable Terminal Plugin?"),
+                                                   tr("Disabling the Terminal plugin will remove the terminal panel "
+                                                      "from Devpad immediately. Any unsaved terminal state will be lost. "
+                                                      "Do you want to continue?"),
+                                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
                     if (ret == QMessageBox::No)
                     {
                         // Revert the checkbox to checked. The re-fired

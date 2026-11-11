@@ -160,9 +160,7 @@ void SnippetManager::loadBuiltIn()
     }
 }
 
-bool SnippetManager::addSnippet(const QString& name, const QString& prefix,
-                                const QStringList& body, const QString& description,
-                                const QString& scope)
+bool SnippetManager::addSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description, const QString& scope)
 {
     if (name.isEmpty() || prefix.isEmpty() || body.isEmpty())
         return false;
