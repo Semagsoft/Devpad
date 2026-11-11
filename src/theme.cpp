@@ -1334,9 +1334,5 @@ bool isSystemTheme(ThemeId themeId)
 
 bool prefersNativeStyling(ThemeId themeId)
 {
-    // System theme is resolved to Dark/Light and styled by Devpad itself so
-    // that dark mode is applied consistently regardless of the platform's
-    // native palette (which may not track the desktop colour scheme, e.g.
-    // under gtk3/wayland).
-    return false;
+    return themeId == ThemeId::System;
 }

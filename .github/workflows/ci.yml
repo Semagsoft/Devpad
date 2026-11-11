@@ -620,6 +620,8 @@ jobs:
             -DBUILD_TESTS=ON
 
       - name: Build
+        env:
+          LSAN_OPTIONS: detect_leaks=0
         run: cmake --build build -j$(nproc)
 
       - name: Test

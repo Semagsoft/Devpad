@@ -717,5 +717,7 @@ if(BUILD_TESTS)
         src/panels
     )
 
-    gtest_discover_tests(Devpad_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    gtest_discover_tests(Devpad_tests
+        DISCOVERY_MODE PRE_TEST
+        PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
