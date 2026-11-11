@@ -2,7 +2,7 @@
 name: devpad
 description: >
   A C++17/Qt6 code editor built with QScintilla syntax highlighting
-  and QTermWidget embedded terminal. Use for contributing to or
+  and libghostty-vt embedded terminal. Use for contributing to or
   customizing Devpad's source code, build system, themes, snippets,
   translations, and configuration.
 triggers:
@@ -17,7 +17,7 @@ triggers:
 
 # Devpad Skill
 
-A C++/Qt6 code editor with QScintilla syntax highlighting, QTermWidget embedded terminal, project panel, split views, session management, and 7 built-in themes.
+A C++/Qt6 code editor with QScintilla syntax highlighting, libghostty-vt embedded terminal, project panel, split views, session management, and 7 built-in themes.
 
 **License:** GPL-2.0-only  
 **Copyright:** 2026 Semagsoft
@@ -44,7 +44,7 @@ Devpad/
 ├── .clang-format          # LLVM style, Allman braces, 4-space indent, 150 col limit
 ├── .clang-tidy            # modernize, performance, bugprone checks as errors
 ├── .editorconfig          # 4-space indent, LF, UTF-8
-├── CMakeLists.txt         # CMake 3.23+, C++17, Qt6, qtermwidget6, QScintilla
+├── CMakeLists.txt         # CMake 3.23+, C++17, Qt6, qtermwidget6, QScintilla, libghostty-vt
 ├── flatpak/
 │   └── com.semagsoft.Devpad.yml
 ├── i18n/
@@ -97,7 +97,7 @@ Devpad/
 │   │   └── replacedialog.*       # Find & replace dialog
 │   ├── panels/
 │   │   ├── projectpanel.*    # File tree sidebar with icons, filter, recent
-│   │   ├── terminalpanel.*   # QTermWidget wrapper (docked or tab)
+│   │   ├── terminalpanel.*   # libghostty-vt TerminalBackend wrapper (docked or tab)
 │   │   └── splitview.*       # Split editor views (horizontal/vertical)
 │   └── widgets/
 │       └── themepreviewwidget.*  # Live theme preview in Options dialog
@@ -160,7 +160,7 @@ All managers are singletons or parented to `MainWindow`. The `EditorController` 
 | Qt6 Multimedia | Sound effects |
 | Qt6 Network | Remote file download |
 | Qt6 LinguistTools | TS compilation |
-| qtermwidget6 | Embedded terminal |
+| libghostty-vt | Embedded terminal backend (via FetchContent + Zig; `-DBUILD_GHOSTTY=OFF` falls back to qtermwidget6/KodoTerm) |
 | QScintilla (qt6) | Syntax highlighting |
 | CMake 3.23+ | Build system |
 | C++17 compiler | g++ or clang++ |
@@ -196,7 +196,7 @@ flatpak-builder --run build-dir com.semagsoft.Devpad.yml Devpad
 
 The Flatpak manifest:
 - Uses `org.kde.Platform` runtime (6.8)
-- Builds `qtermwidget` from source (git tag 2.1.0)
+- Builds `qtermwidget` from source (git tag 2.1.0; the Flatpak passes `-DBUILD_GHOSTTY=OFF` since the libghostty-vt backend needs Zig)
 - Builds `qscintilla` from source archive (2.14.1)
 - Builds Devpad with `-DBUILD_TESTS=OFF`
 

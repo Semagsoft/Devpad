@@ -10,7 +10,7 @@
     <ul>
       <li>Multi-tab editing with syntax highlighting for 20+ languages</li>
       <li>LSP integration (go-to-definition, references, rename, hover, completions, diagnostics)</li>
-      <li>Embedded terminal panel (QTermWidget)</li>
+      <li>Embedded terminal panel (libghostty-vt backend, QTermWidget/KodoTerm fallback)</li>
       <li>Project panel with file tree and file type icons</li>
       <li>Split view with drag-and-drop tab support</li>
       <li>Snippet expansion with tab-stop navigation</li>

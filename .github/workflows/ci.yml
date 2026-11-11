@@ -63,7 +63,7 @@ jobs:
               p = e['file']
               if '/src/' in p and p.endswith('.cpp'):
                   low = p.lower()
-                  if 'kodoterm' in low or 'qtermwidget' in low:
+                  if 'kodoterm' in low or 'qtermwidget' in low or 'ghostty' in low:
                       continue
                   seen.add(p)
           print('\n'.join(sorted(seen)))

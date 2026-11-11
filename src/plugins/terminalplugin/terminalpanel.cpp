@@ -21,7 +21,9 @@
 #include "settingsmanager.h"
 #include "terminalbackend.h"
 #include "theme.h"
-#ifdef Q_OS_WIN
+#ifdef DEVPAD_GHOSTTY_TERMINAL
+#include "terminalbackend_ghostty.h"
+#elif defined(Q_OS_WIN)
 #include "terminalbackend_kodoterm.h"
 #else
 #include "terminalbackend_qtermwidget.h"
@@ -177,7 +179,9 @@ void TerminalPanel::ensureTerminalWidget()
     if (m_backend)
         return;
 
-#ifdef Q_OS_WIN
+#ifdef DEVPAD_GHOSTTY_TERMINAL
+    m_backend = new TerminalBackendGhostty(panelWidget);
+#elif defined(Q_OS_WIN)
     m_backend = new TerminalBackendKodoTerm(panelWidget);
 #else
     m_backend = new TerminalBackendQTermWidget(panelWidget);

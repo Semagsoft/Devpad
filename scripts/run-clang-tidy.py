@@ -48,7 +48,7 @@ def db_files(build_dir: str, wanted: str):
         if wanted == "tests" and "/tests/" not in p:
             continue
         low = p.lower()
-        if "kodoterm" in low or "qtermwidget" in low:
+        if "kodoterm" in low or "qtermwidget" in low or "ghostty" in low:
             continue
         if p.endswith(".cpp"):
             seen.add(p)

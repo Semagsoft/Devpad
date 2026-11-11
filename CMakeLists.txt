@@ -27,7 +27,26 @@ if(TARGET Qt6::DBus)
 else()
     message(STATUS "Qt6 DBus not found; portal-based dark-mode detection disabled")
 endif()
-# ── Terminal widget ──────────────────────────────────────────
+# ── Terminal backend: libghostty-vt (default) ─────────────────────
+option(BUILD_GHOSTTY "Build the libghostty-vt terminal backend via FetchContent (Zig)" ON)
+if(BUILD_GHOSTTY)
+    include(FetchContent)
+    message(STATUS "Fetching libghostty-vt (ghostty) via FetchContent...")
+    FetchContent_Declare(ghostty
+        GIT_REPOSITORY https://github.com/ghostty-org/ghostty.git
+        GIT_TAG vt-1.0.0
+    )
+    FetchContent_MakeAvailable(ghostty)
+    set(TERMINAL_TARGET ghostty-vt-static)
+    set(TERMINAL_HAS_GHOSTTY TRUE)
+    set(DEVPAD_GHOSTTY_TERMINAL TRUE)
+endif()
+if(NOT DEFINED TERMINAL_HAS_GHOSTTY)
+    set(TERMINAL_HAS_GHOSTTY FALSE)
+endif()
+
+# ── Terminal widget (legacy backends; only used when libghostty is off) ──
+if(NOT TERMINAL_HAS_GHOSTTY)
 if(WIN32)
     include(FetchContent)
     message(STATUS "Fetching KodoTerm terminal widget (Windows)...")
@@ -80,6 +99,7 @@ else()
         list(PREPEND CMAKE_PREFIX_PATH ${DEPS_PREFIX})
     endif()
     set(TERMINAL_TARGET qtermwidget6)
+endif()
 endif()
 
 # ── QScintilla (system or build from source) ──────────────────
@@ -264,8 +284,12 @@ target_include_directories(Devpad_lsp PUBLIC
     ${CMAKE_BINARY_DIR}/generated
 )
 
-# TERMINAL_HAS_KODOTERM is only set in the Windows branch above; default it
-# everywhere else so the $<BOOL:...> generator expressions below evaluate.
+# TERMINAL_HAS_GHOSTTY / TERMINAL_HAS_KODOTERM are only set in the branches
+# above (libghostty / legacy); default them everywhere else so the
+# $<BOOL:...> generator expressions below evaluate.
+if(NOT DEFINED TERMINAL_HAS_GHOSTTY)
+    set(TERMINAL_HAS_GHOSTTY FALSE)
+endif()
 if(NOT DEFINED TERMINAL_HAS_KODOTERM)
     set(TERMINAL_HAS_KODOTERM FALSE)
 endif()
@@ -300,7 +324,12 @@ target_include_directories(Devpad_panels PUBLIC
 # The terminal panel and backends live exclusively in the terminalplugin
 # module so the heavyweight terminal widget (qtermwidget/KodoTerm) can be
 # loaded at runtime and optionally left out of the main executable.
-if(TERMINAL_HAS_KODOTERM)
+if(TERMINAL_HAS_GHOSTTY)
+    set(DEVPAD_TERMINAL_SOURCES
+        src/plugins/terminalplugin/terminalpanel.cpp
+        src/plugins/terminalplugin/terminalbackend.cpp
+        src/plugins/terminalplugin/terminalbackend_ghostty.cpp)
+elseif(TERMINAL_HAS_KODOTERM)
     set(DEVPAD_TERMINAL_SOURCES
         src/plugins/terminalplugin/terminalpanel.cpp
         src/plugins/terminalplugin/terminalbackend.cpp
@@ -322,6 +351,9 @@ if(BUILD_PLUGINS)
         ${DEVPAD_TERMINAL_SOURCES}
     )
     target_compile_options(terminalplugin PRIVATE -Wall -Wextra -Wpedantic)
+    if(DEVPAD_GHOSTTY_TERMINAL)
+        target_compile_definitions(terminalplugin PRIVATE DEVPAD_GHOSTTY_TERMINAL)
+    endif()
     target_include_directories(terminalplugin PRIVATE
         src
         src/managers

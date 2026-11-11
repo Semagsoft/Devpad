@@ -66,6 +66,9 @@ modules:
       - -DCMAKE_BUILD_TYPE=Release
       - -DBUILD_TESTS=OFF
       - -DBUILD_NEXTGEN=ON
+      # The libghostty-vt backend needs Zig (not available in the KDE runtime);
+      # keep the QTermWidget fallback inside the Flatpak build.
+      - -DBUILD_GHOSTTY=OFF
     sources:
       - type: dir
         path: ..

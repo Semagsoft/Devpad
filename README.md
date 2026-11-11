@@ -17,7 +17,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 - Snippet expansion with tab-stop navigation and predictive auto-completion
 - Bookmark lines per tab
 - Toggle line/block comments
-- Embedded terminal panel (QTermWidget/KodoTerm) — docked or as a tab
+- Embedded terminal panel (libghostty-vt backend, QTermWidget/KodoTerm fallback) — docked or as a tab
 - Project panel with file tree, file type icons, filter/search, recent folders, rename/new folder context menu
 - Split view with drag-and-drop tab reordering across panes
 - Multi-pane tab management
@@ -46,17 +46,19 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 ## Requirements
 
 - Qt6 (Core, Gui, Widgets, PrintSupport, Network, Multimedia, Svg)
-- qtermwidget6 (not needed on Windows — KodoTerm is fetched automatically)
 - QScintilla (qt6 variant, e.g. `qscintilla2-qt6`)
 - CMake 3.23 or higher
 - C++17 compatible compiler
+- libghostty-vt (fetched automatically via CMake FetchContent; building it from source requires Zig ≥ 0.17 — or pass `-DBUILD_GHOSTTY=OFF` to use the QTermWidget/KodoTerm fallback)
 
 ### Installing dependencies
 
 **Debian/Ubuntu:**
 ```bash
-sudo apt install qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev libqtermwidget6-1-dev libqscintilla2-qt6-dev cmake g++
+sudo apt install qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev libqscintilla2-qt6-dev cmake g++
 ```
+
+(The `libqtermwidget6-1-dev` package is only needed when building with `-DBUILD_GHOSTTY=OFF`; the default backend (libghostty-vt) is fetched via CMake FetchContent and built with Zig.)
 
 **Arch Linux:**
 ```bash
@@ -106,7 +108,7 @@ brew install qt cmake librsvg
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(sysctl -n hw.logicalcpu)
 ```
-QScintilla and qtermwidget6 are built automatically from source if not found.
+QScintilla and qtermwidget6 are built automatically from source if not found; the libghostty-vt terminal backend is fetched via CMake FetchContent (requires Zig).
 
 ## Building
 
