@@ -25,6 +25,9 @@ class PaletteChangeFilter : public QObject
 public:
     explicit PaletteChangeFilter(QObject* parent = nullptr);
 
+signals:
+    void systemThemeChanged();
+
 public slots:
     void onSystemThemeChanged();
 #ifdef HAVE_QT_DBUS

@@ -193,7 +193,7 @@ TEST_F(ThemeTest, ThemeDisplayNames)
 
 TEST_F(ThemeTest, PrefersNativeStylingOnlyForSystem)
 {
-    EXPECT_TRUE(prefersNativeStyling(ThemeId::System));
+    EXPECT_FALSE(prefersNativeStyling(ThemeId::System));
     EXPECT_FALSE(prefersNativeStyling(ThemeId::Light));
     EXPECT_FALSE(prefersNativeStyling(ThemeId::Dark));
     EXPECT_FALSE(prefersNativeStyling(ThemeId::Nord));

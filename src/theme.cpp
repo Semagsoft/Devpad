@@ -1094,6 +1094,8 @@ static bool systemIsDarkImpl()
 static bool s_systemDarkCached = false;
 static bool s_systemDarkValue = false;
 
+static PaletteChangeFilter* s_paletteFilter = nullptr;
+
 PaletteChangeFilter::PaletteChangeFilter(QObject* parent) : QObject(parent)
 {
 }
@@ -1101,6 +1103,7 @@ PaletteChangeFilter::PaletteChangeFilter(QObject* parent) : QObject(parent)
 void PaletteChangeFilter::onSystemThemeChanged()
 {
     s_systemDarkCached = false;
+    emit systemThemeChanged();
 }
 
 #ifdef HAVE_QT_DBUS
@@ -1122,30 +1125,33 @@ void initThemeSystem()
 {
     s_systemDarkValue = systemIsDarkImpl();
     s_systemDarkCached = true;
-    static PaletteChangeFilter filter;
+    if (!s_paletteFilter)
+        s_paletteFilter = new PaletteChangeFilter(qApp);
     static bool s_watcherInstalled = false;
     if (qApp && !s_watcherInstalled)
     {
         s_watcherInstalled = true;
-        qApp->installEventFilter(&filter);
+        qApp->installEventFilter(s_paletteFilter);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
         if (QApplication::styleHints())
         {
-            QObject::connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged, &filter, &PaletteChangeFilter::onSystemThemeChanged,
+            QObject::connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged, s_paletteFilter, &PaletteChangeFilter::onSystemThemeChanged,
                              Qt::UniqueConnection);
         }
 #endif
 #ifdef HAVE_QT_DBUS
         QDBusConnection::sessionBus().connect(QStringLiteral("org.freedesktop.portal.Desktop"), QStringLiteral("/org/freedesktop/portal/desktop"),
-                                              QStringLiteral("org.freedesktop.portal.Settings"), QStringLiteral("SettingChanged"), &filter,
+                                              QStringLiteral("org.freedesktop.portal.Settings"), QStringLiteral("SettingChanged"), s_paletteFilter,
                                               SLOT(onPortalSettingChanged(QString, QString, QDBusVariant)));
 #endif
     }
     else if (qApp)
     {
-        qApp->installEventFilter(&filter);
+        qApp->installEventFilter(s_paletteFilter);
     }
 }
+
+PaletteChangeFilter* systemThemeChangeFilter() { return s_paletteFilter; }
 
 static bool systemIsDark()
 {
@@ -1328,5 +1334,9 @@ bool isSystemTheme(ThemeId themeId)
 
 bool prefersNativeStyling(ThemeId themeId)
 {
-    return themeId == ThemeId::System;
+    // System theme is resolved to Dark/Light and styled by Devpad itself so
+    // that dark mode is applied consistently regardless of the platform's
+    // native palette (which may not track the desktop colour scheme, e.g.
+    // under gtk3/wayland).
+    return false;
 }

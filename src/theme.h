@@ -107,6 +107,9 @@ struct ThemeColors
 };
 
 void initThemeSystem();
+
+class PaletteChangeFilter;
+PaletteChangeFilter* systemThemeChangeFilter();
 ThemeColors getThemeColors(ThemeId themeId);
 QPalette getThemePalette(const ThemeColors& colors);
 QString themeDisplayName(ThemeId themeId);

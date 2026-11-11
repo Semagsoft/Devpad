@@ -53,6 +53,8 @@
 #include "tabmanager.h"
 #include "theme.h"
 #include "themeapplier.h"
+#include "palettechangefilter.h"
+#include "theme.h"
 #include "widgets/titlebar.h"
 #ifdef Q_OS_WIN
 #include "widgets/windowsframebridge.h"
@@ -311,6 +313,13 @@ void MainWindow::createManagers()
     m_sessionManager = new SessionManager(this);
     m_encodingManager = new EncodingManager(this);
     m_themeApplier = new ThemeApplier(this);
+    if (auto* filter = systemThemeChangeFilter())
+    {
+        connect(filter, &PaletteChangeFilter::systemThemeChanged, this, [this]()
+                {
+                    applySettings();
+                });
+    }
     m_printManager = new PrintManager(this);
     m_fileManager = new FileManager(this);
     m_fileWatcherManager = new FileWatcherManager(this);
