@@ -110,10 +110,12 @@ public:
 
     // ── Panels ───────────────────────────────────────────────────
     void registerPanel(const QString& id, QWidget* widget) override;
+    void unregisterPanel(const QString& id) override;
     QWidget* panel(const QString& id) const override;
 
     // ── Generic object registry ──────────────────────────────────
     void registerObject(const QString& id, QObject* object) override;
+    void unregisterObject(const QString& id) override;
     QObject* object(const QString& id) const override;
 
     // ── Internal helpers ─────────────────────────────────────────

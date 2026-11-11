@@ -1,3 +1,4 @@
+#include <cstdio>
 /*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
@@ -341,7 +342,21 @@ bool PluginManager::unload(const QString& pluginId)
     LoadedPlugin entry = m_loaded.take(pluginId);
     if (entry.plugin)
     {
-        safePluginCall(pluginId, "shutdown", [](IPlugin* p) { p->shutdown(); });
+        // Invoke shutdown directly on the captured instance; plugin(pluginId)
+        // would now return null because we already took the entry.
+        try
+        {
+            entry.plugin->shutdown();
+        }
+        catch (const std::exception& e)
+        {
+            Logger::instance().error(
+                QStringLiteral("Plugin '%1': uncaught exception in shutdown: %2").arg(pluginId, QString::fromUtf8(e.what())));
+        }
+        catch (...)
+        {
+            Logger::instance().error(QStringLiteral("Plugin '%1': unknown exception in shutdown").arg(pluginId));
+        }
         Logger::instance().info(QStringLiteral("PluginManager: unloaded plugin '%1'").arg(pluginId));
     }
 

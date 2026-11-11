@@ -79,6 +79,8 @@ public:
         if (m_host && !m_dockId.isEmpty())
             m_host->removeDockWidget(m_dockId);
         m_dockId.clear();
+        if (m_host)
+            m_host->unregisterPanel(QStringLiteral("terminal"));
         delete m_terminalPanel;
         m_terminalPanel = nullptr;
         m_host = nullptr;

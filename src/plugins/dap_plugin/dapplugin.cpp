@@ -44,6 +44,8 @@
 #include <QMetaObject>
 #include <QTabWidget>
 
+#include <cstdio>
+
 DapPlugin::DapPlugin(QObject* parent) : QObject(parent)
 {
 }
@@ -96,6 +98,13 @@ void DapPlugin::shutdown()
     if (m_dapServerManager)
         m_dapServerManager->stopAllSessions();
 
+    if (m_host)
+    {
+        m_host->unregisterObject(QStringLiteral("dap_server"));
+        m_host->unregisterPanel(QStringLiteral("debug"));
+    }
+
+    delete m_debugPanel;
     m_debugPanel = nullptr;
     m_dapServerManager = nullptr;
     m_editorIntegrations.clear();

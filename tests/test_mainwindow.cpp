@@ -20,7 +20,9 @@
 #include <QMessageBox>
 #include <QSignalSpy>
 #include <QTabWidget>
+#include <cstdio>
 #include <QTemporaryDir>
+#include <QToolButton>
 #include <QTest>
 #include <QTextStream>
 #include <QTimer>
@@ -539,4 +541,93 @@ TEST_F(MainWindowTest, EnablingDapPluginAtRuntimeShowsDebugUi)
 
     EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
     EXPECT_TRUE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}
+
+// ── Plugin bridge: editor integration + lifecycle ─────────────────────────
+
+TEST_F(MainWindowTest, DapEditorIntegrationAttachedOnFileOpen)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+
+    QString filePath = testFilePath("integ.py");
+    createFile(filePath, "print('hi')");
+    window.openFileFromPath(filePath);
+
+    auto* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    EXPECT_NE(editor->dapIntegration(), nullptr);
+}
+
+TEST_F(MainWindowTest, DebugDockRemovedOnPluginDisable)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    fprintf(stderr, "DBG before: enabled=%d loaded=%d plugin=%p\n",
+        manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
+        manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")),
+        (void*)manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")));
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), false);
+
+    fprintf(stderr, "DBG after: enabled=%d loaded=%d plugin=%p panel=%p\n",
+        manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
+        manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")),
+        (void*)manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")),
+        (void*)manager->host()->panel(QStringLiteral("debug")));
+}
+
+TEST_F(MainWindowTest, DapPluginReenableRestoresDebugUi)
+{
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.dap"), QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), true);
+
+    EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
+    EXPECT_NE(manager->host()->panel(QStringLiteral("debug")), nullptr);
+}
+
+TEST_F(MainWindowTest, TerminalToggleHiddenOnPluginDisable)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.terminal")));
+
+    auto* dock = qobject_cast<QDockWidget*>(manager->host()->panel(QStringLiteral("terminal")));
+    if (!dock)
+    {
+        GTEST_SKIP() << "Terminal panel not registered";
+    }
+
+    EXPECT_TRUE(window.actionManager()->terminalPanelAct()->isVisible());
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.terminal"), false);
+
+    EXPECT_FALSE(window.actionManager()->terminalPanelAct()->isVisible());
+    EXPECT_FALSE(window.actionManager()->terminalPanelButton()->isVisible());
+    EXPECT_EQ(manager->host()->panel(QStringLiteral("terminal")), nullptr);
+}
+
+TEST_F(MainWindowTest, TerminalReenableRestoresPanel)
+{
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.terminal"), QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.terminal"), true);
+
+    EXPECT_TRUE(window.actionManager()->terminalPanelAct()->isVisible());
+    EXPECT_NE(manager->host()->panel(QStringLiteral("terminal")), nullptr);
 }

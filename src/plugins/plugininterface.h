@@ -180,12 +180,14 @@ public:
     // up later by id. Used by the host to expose built-in panels to plugins,
     // and by plugins to expose their own panels to the host.
     virtual void registerPanel(const QString& id, QWidget* widget) = 0;
+    virtual void unregisterPanel(const QString& id) = 0;
     virtual QWidget* panel(const QString& id) const = 0;
 
     // ── Generic object registry ──────────────────────────────────
     // Registers a QObject (e.g. a manager) keyed by id so it can be looked
     // up later by id. Used by plugins to expose objects to MainWindow.
     virtual void registerObject(const QString& id, QObject* object) = 0;
+    virtual void unregisterObject(const QString& id) = 0;
     virtual QObject* object(const QString& id) const = 0;
 };
 

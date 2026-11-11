@@ -330,6 +330,11 @@ void PluginHost::registerPanel(const QString& id, QWidget* widget)
     m_pluginPanels.insert(id, widget);
 }
 
+void PluginHost::unregisterPanel(const QString& id)
+{
+    m_pluginPanels.remove(id);
+}
+
 QWidget* PluginHost::panel(const QString& id) const
 {
     return m_pluginPanels.value(id, nullptr);
@@ -340,6 +345,11 @@ void PluginHost::registerObject(const QString& id, QObject* object)
     if (id.isEmpty() || !object)
         return;
     m_pluginObjects.insert(id, object);
+}
+
+void PluginHost::unregisterObject(const QString& id)
+{
+    m_pluginObjects.remove(id);
 }
 
 QObject* PluginHost::object(const QString& id) const
@@ -357,6 +367,15 @@ bool PluginHost::removeDockWidget(const QString& dockId)
         return false;
 
     m_mainWindow->removeDockWidget(entry.dock);
+    // Unregister any panel that pointed at this dock so host->panel() no
+    // longer returns a dangling (deleted) widget.
+    for (auto it = m_pluginPanels.begin(); it != m_pluginPanels.end();)
+    {
+        if (it.value() == entry.dock)
+            it = m_pluginPanels.erase(it);
+        else
+            ++it;
+    }
     entry.dock->deleteLater();
     return true;
 }
