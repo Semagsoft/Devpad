@@ -175,6 +175,7 @@ private:
     void applyTabBarPosition();
     void applyTerminalPanelPosition();
     void applyTerminalPanelSettings();
+    void setupTerminalPlugin();
     void handleQuitRequest();
     bool signalOtherInstancesToQuit();
     bool saveAllModifiedTabs();

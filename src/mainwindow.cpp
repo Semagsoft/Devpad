@@ -218,47 +218,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     // The Terminal plugin creates TerminalPanel and registers it with the host.
     // Locate it here so MainWindow can connect signals and apply settings.
-    if (m_pluginManager)
-    {
-        auto* panel = m_pluginManager->host()->panel(QStringLiteral("terminal"));
-        if (panel && panel->inherits("TerminalPanel"))
-        {
-            m_terminalPanelDock = qobject_cast<QDockWidget*>(panel);
-            // The Terminal panel exists — show the View menu action and status bar button.
-            m_actionManager->terminalPanelAct()->setVisible(true);
-        }
-    }
-
-    // Connect terminal lifecycle signals (now that the panel exists).
-    if (m_terminalPanelDock)
-    {
-        // terminalStarted is a TerminalPanel-specific signal; connect via
-        // meta-object to avoid compile-time coupling to TerminalPanel's type.
-        auto* meta = m_terminalPanelDock->metaObject();
-        int startedIdx = meta->indexOfSignal("terminalStarted()");
-        if (startedIdx >= 0)
-        {
-            QMetaMethod signalMethod = meta->method(startedIdx);
-            auto* myMeta = this->metaObject();
-            int slotIdx = myMeta->indexOfSlot("onTerminalStarted()");
-            if (slotIdx >= 0)
-                QObject::connect(m_terminalPanelDock, signalMethod, this, myMeta->method(slotIdx));
-        }
-
-        connect(m_terminalPanelDock, &QDockWidget::visibilityChanged, this,
-                [this](bool visible)
-                {
-                    if (SettingsManager::instance().terminalPanelPosition() != TerminalPanelPosition::Tab)
-                    {
-                        m_actionManager->terminalPanelAct()->setChecked(visible);
-                        m_actionManager->terminalPanelButton()->setChecked(visible);
-                        SettingsManager::instance().setShowTerminalPanel(visible);
-                    }
-                });
-    }
-
-    // Apply terminal settings now that the panel is available.
-    applyTerminalPanelSettings();
+    setupTerminalPlugin();
 
     // Debugger UI (Debug menu, View->Debug Panel) is only relevant while the
     // DAP plugin is enabled. The plugin owns the debug panel, so without it
@@ -273,6 +233,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                     m_actionManager->setDebugUiVisible(enabled);
                     if (!enabled)
                         m_debugSessionKey.clear();
+                }
+                else if (pluginId == QStringLiteral("org.semagsoft.devpad.terminal"))
+                {
+                    if (enabled)
+                    {
+                        setupTerminalPlugin();
+                    }
+                    else
+                    {
+                        // The plugin owns and deletes the panel on unload.
+                        m_terminalPanelDock = nullptr;
+                        m_actionManager->terminalPanelAct()->setVisible(false);
+                        m_actionManager->terminalPanelButton()->setVisible(false);
+                    }
                 }
             });
 #endif
@@ -761,6 +735,54 @@ void MainWindow::applyTerminalPanelSettings()
         int pos = static_cast<int>(SettingsManager::instance().terminalPanelPosition());
         QMetaObject::invokeMethod(m_terminalPanelDock, "applyPosition", Q_ARG(int, pos), Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
     }
+}
+
+void MainWindow::setupTerminalPlugin()
+{
+    if (!m_pluginManager)
+        return;
+
+    auto* panel = m_pluginManager->host()->panel(QStringLiteral("terminal"));
+    if (panel && panel->inherits("TerminalPanel"))
+    {
+        m_terminalPanelDock = qobject_cast<QDockWidget*>(panel);
+        // The Terminal panel exists — show the View menu action and status bar button.
+        m_actionManager->terminalPanelAct()->setVisible(true);
+        m_actionManager->terminalPanelButton()->setVisible(true);
+    }
+    else
+    {
+        m_terminalPanelDock = nullptr;
+        m_actionManager->terminalPanelAct()->setVisible(false);
+        m_actionManager->terminalPanelButton()->setVisible(false);
+        return;
+    }
+
+    // Connect terminal lifecycle signals (now that the panel exists).
+    auto* meta = m_terminalPanelDock->metaObject();
+    int startedIdx = meta->indexOfSignal("terminalStarted()");
+    if (startedIdx >= 0)
+    {
+        QMetaMethod signalMethod = meta->method(startedIdx);
+        auto* myMeta = this->metaObject();
+        int slotIdx = myMeta->indexOfSlot("onTerminalStarted()");
+        if (slotIdx >= 0)
+            QObject::connect(m_terminalPanelDock, signalMethod, this, myMeta->method(slotIdx));
+    }
+
+    connect(m_terminalPanelDock, &QDockWidget::visibilityChanged, this,
+            [this](bool visible)
+            {
+                if (SettingsManager::instance().terminalPanelPosition() != TerminalPanelPosition::Tab)
+                {
+                    m_actionManager->terminalPanelAct()->setChecked(visible);
+                    m_actionManager->terminalPanelButton()->setChecked(visible);
+                    SettingsManager::instance().setShowTerminalPanel(visible);
+                }
+            });
+
+    // Apply terminal settings now that the panel is available.
+    applyTerminalPanelSettings();
 }
 
 void MainWindow::onTerminalStarted()
