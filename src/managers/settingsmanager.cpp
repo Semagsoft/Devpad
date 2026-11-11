@@ -161,17 +161,18 @@ bool SettingsManager::removeFileNameMapping(const QString& fileName)
     return pluginFileNameMap().remove(name) > 0;
 }
 
-SettingsManager* SettingsManager::s_testInstance = nullptr;
+// Plugins link Devpad_editor statically, so each plugin DSO would otherwise
+// get its own SettingsManager singleton. Plugins call this with the host's
+// instance (obtained via IPluginHost::settingsManager()) to share the app's
+// cached settings state. Stored as a QPointer so a destroyed host instance
+// cannot leave a plugin with a dangling pointer.
+QPointer<SettingsManager> SettingsManager::s_testInstance;
 
 void SettingsManager::setTestingInstance(SettingsManager* instance)
 {
     s_testInstance = instance;
 }
 
-// Plugins link Devpad_editor statically, so each plugin DSO would otherwise
-// get its own SettingsManager singleton. Plugins call this with the host's
-// instance (obtained via IPluginHost::settingsManager()) to share the app's
-// cached settings state.
 void SettingsManager::setSharedInstance(SettingsManager* instance)
 {
     s_testInstance = instance;
@@ -186,7 +187,7 @@ std::unique_ptr<SettingsManager> SettingsManager::createForTesting()
 
 SettingsManager& SettingsManager::instance()
 {
-    if (s_testInstance)
+    if (!s_testInstance.isNull())
     {
         return *s_testInstance;
     }

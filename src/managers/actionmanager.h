@@ -447,6 +447,17 @@ public:
     {
         return m_restartAct;
     }
+    // Shows/hides all debugger UI (Debug menu + View->Debug Panel action).
+    // Called by MainWindow depending on whether the DAP plugin is enabled.
+    void setDebugUiVisible(bool visible);
+    bool isDebugUiVisible() const
+    {
+        return m_debugPanelAct->isVisible();
+    }
+    QMenu* debugMenu() const
+    {
+        return m_debugMenu;
+    }
     QToolButton* projectPanelButton() const
     {
         return m_projectPanelButton;
@@ -672,6 +683,7 @@ private:
     QAction* m_referencesPanelAct = nullptr;
     QToolButton* m_referencesPanelButton = nullptr;
     QAction* m_debugPanelAct = nullptr;
+    QMenu* m_debugMenu = nullptr;
     QAction* m_startDebuggingAct = nullptr;
     QAction* m_stopDebuggingAct = nullptr;
     QAction* m_continueAct = nullptr;

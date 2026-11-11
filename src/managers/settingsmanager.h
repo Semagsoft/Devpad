@@ -24,6 +24,7 @@
 #include <QFont>
 #include <QHash>
 #include <QObject>
+#include <QPointer>
 #include <QSettings>
 #include <QString>
 #include <memory>
@@ -413,7 +414,7 @@ private:
     static const QHash<QString, QString>& extensionMap();
     static const QHash<QString, QString>& fileNameMap();
     static QString pluginGroup(const QString& pluginId);
-    static SettingsManager* s_testInstance;
+    static QPointer<SettingsManager> s_testInstance;
 
     friend struct std::default_delete<SettingsManager>;
     void loadCache();

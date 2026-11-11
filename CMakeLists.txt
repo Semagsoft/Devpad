@@ -555,6 +555,8 @@ if(BUILD_PLUGINS)
     install(FILES
         ${CMAKE_BINARY_DIR}/plugins/libterminalplugin.so
         ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libdap_plugin.so
+        ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
         DESTINATION lib/devpad/plugins
         OPTIONAL
     )

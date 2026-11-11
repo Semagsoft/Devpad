@@ -484,3 +484,56 @@ TEST_F(MainWindowTest, DebugPanelTogglesViaPluginHost)
     EXPECT_FALSE(dock->isVisible());
     EXPECT_FALSE(window.actionManager()->debugPanelAct()->isChecked());
 }
+
+// ── DAP UI visibility follows plugin state ─────────────────────────────────
+
+TEST_F(MainWindowTest, DapUiHiddenWhenPluginDisabled)
+{
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.dap"), QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+
+    EXPECT_FALSE(window.pluginManager()->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
+    EXPECT_FALSE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}
+
+TEST_F(MainWindowTest, DapUiVisibleWhenPluginEnabled)
+{
+    // Default: no persisted Enabled setting -> manifest default (enabled).
+    MainWindow window;
+
+    EXPECT_TRUE(window.pluginManager()->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+    EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
+    EXPECT_TRUE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}
+
+TEST_F(MainWindowTest, DisablingDapPluginAtRuntimeHidesDebugUi)
+{
+    MainWindow window;
+
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    EXPECT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+    EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), false);
+
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
+    EXPECT_FALSE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}
+
+TEST_F(MainWindowTest, EnablingDapPluginAtRuntimeShowsDebugUi)
+{
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.dap"), QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), true);
+
+    EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
+    EXPECT_TRUE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}

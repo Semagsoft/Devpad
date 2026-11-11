@@ -255,6 +255,22 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     // Apply terminal settings now that the panel is available.
     applyTerminalPanelSettings();
+
+    // Debugger UI (Debug menu, View->Debug Panel) is only relevant while the
+    // DAP plugin is enabled. The plugin owns the debug panel, so without it
+    // the actions would silently no-op.
+    const bool dapEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"));
+    m_actionManager->setDebugUiVisible(dapEnabled);
+    connect(m_pluginManager, &PluginManager::pluginEnabledChanged, this,
+        [this](const QString& pluginId, bool enabled)
+        {
+            if (pluginId == QStringLiteral("org.semagsoft.devpad.dap"))
+            {
+                m_actionManager->setDebugUiVisible(enabled);
+                if (!enabled)
+                    m_debugSessionKey.clear();
+            }
+        });
 #endif
 
     applyAutoSaveSettings();

@@ -450,7 +450,10 @@ bool PluginManager::isPluginEnabled(const QString& pluginId) const
 
 void PluginManager::setPluginEnabled(const QString& pluginId, bool enabled)
 {
-    if (m_enabled.value(pluginId, m_defaultEnabled.value(pluginId, true)) == enabled)
+    // Compare against the effective state (cache, persisted setting, or
+    // manifest default) rather than only the cache: enabling a plugin that
+    // was persisted as disabled must actually run.
+    if (isPluginEnabled(pluginId) == enabled)
         return;
 
     m_enabled[pluginId] = enabled;

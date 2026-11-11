@@ -860,6 +860,7 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
 
     QMenu* debugMenu = editMenu->addMenu(tr("Debug"));
     debugMenu->setIcon(QIcon(":/icons/Debug/start.svg"));
+    m_debugMenu = debugMenu;
     debugMenu->addAction(m_startDebuggingAct);
     debugMenu->addAction(m_stopDebuggingAct);
     debugMenu->addSeparator();
@@ -869,6 +870,14 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     debugMenu->addAction(m_stepOutAct);
     debugMenu->addSeparator();
     debugMenu->addAction(m_restartAct);
+}
+
+void ActionManager::setDebugUiVisible(bool visible)
+{
+    if (m_debugMenu)
+        m_debugMenu->menuAction()->setVisible(visible);
+    if (m_debugPanelAct)
+        m_debugPanelAct->setVisible(visible);
 }
 
 void ActionManager::buildViewMenu(QMenu* viewMenu)
