@@ -145,24 +145,34 @@ public:
     // ── Debug control ────────────────────────────────────────────
     virtual void startDebugging(const QString& sessionKey, const QString& language, const QString& command, const QStringList& args)
     {
+        Q_UNUSED(sessionKey);
+        Q_UNUSED(language);
+        Q_UNUSED(command);
+        Q_UNUSED(args);
     }
     virtual void stopDebugging(const QString& sessionKey)
     {
+        Q_UNUSED(sessionKey);
     }
     virtual void debugContinue(const QString& sessionKey)
     {
+        Q_UNUSED(sessionKey);
     }
     virtual void debugStepOver(const QString& sessionKey)
     {
+        Q_UNUSED(sessionKey);
     }
     virtual void debugStepInto(const QString& sessionKey)
     {
+        Q_UNUSED(sessionKey);
     }
     virtual void debugStepOut(const QString& sessionKey)
     {
+        Q_UNUSED(sessionKey);
     }
     virtual void debugRestart(const QString& sessionKey)
     {
+        Q_UNUSED(sessionKey);
     }
 
     // ── Panels contributed by plugins / host ─────────────────────

@@ -167,7 +167,9 @@ TEST_F(MainWindowTest, TerminalPanelHiddenInTabModeWhenDisabled)
         EXPECT_FALSE(terminal->isVisible());
         auto* tabWidget = window.findChild<QTabWidget*>();
         if (tabWidget)
+        {
             EXPECT_EQ(tabWidget->indexOf(terminal), -1);
+        }
     }
 }
 

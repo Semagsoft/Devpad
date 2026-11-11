@@ -61,12 +61,6 @@ public:
     {
         m_host = host;
 
-        // Share the host's SettingsManager. Plugins link Devpad_editor
-        // statically, so without this the panel would read its own private
-        // settings cache instead of the app's.
-        if (auto* settings = qobject_cast<SettingsManager*>(host->settingsManager()))
-            SettingsManager::setSharedInstance(settings);
-
         // Create the terminal panel. MainWindow does not create one; this
         // plugin is the sole owner of TerminalPanel.
         m_terminalPanel = new TerminalPanel(nullptr);

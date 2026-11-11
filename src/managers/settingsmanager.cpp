@@ -173,11 +173,6 @@ void SettingsManager::setTestingInstance(SettingsManager* instance)
     s_testInstance = instance;
 }
 
-void SettingsManager::setSharedInstance(SettingsManager* instance)
-{
-    s_testInstance = instance;
-}
-
 std::unique_ptr<SettingsManager> SettingsManager::createForTesting()
 {
     static int counter = 0;
