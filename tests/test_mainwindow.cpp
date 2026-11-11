@@ -2,6 +2,10 @@
 #include "editorcontroller.h"
 #include "filemanager.h"
 #include "mainwindow.h"
+#include "lsp/lsptypes.h"
+#include "managers/actionmanager.h"
+#include "plugins/pluginhost.h"
+#include "plugins/pluginmanager.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
 #include "theme.h"
@@ -154,10 +158,17 @@ TEST_F(MainWindowTest, TerminalPanelHiddenInTabModeWhenDisabled)
     MainWindow window;
     window.show();
 
-    // Without the Terminal plugin loaded, MainWindow does not create a
-    // TerminalPanel (terminal panel is plugin-owned in this build).
+    // The terminal panel is plugin-owned: when the Terminal plugin is loaded
+    // the dock object always exists, but with the panel disabled it must not
+    // be visible (no tab added and the dock removed from the main window).
     auto* terminal = window.findChild<QDockWidget*>("TerminalPanel");
-    ASSERT_EQ(terminal, nullptr);
+    if (terminal)
+    {
+        EXPECT_FALSE(terminal->isVisible());
+        auto* tabWidget = window.findChild<QTabWidget*>();
+        if (tabWidget)
+            EXPECT_EQ(tabWidget->indexOf(terminal), -1);
+    }
 }
 
 TEST_F(MainWindowTest, OpenFileFromPathOpensTab)
@@ -385,4 +396,91 @@ TEST_F(MainWindowTest, OpeningSameFileTwiceDoesNotDuplicateTab)
     {
         EXPECT_EQ(editors.front()->text(), "content");
     }
+}
+
+// ── Plugin bridge ──────────────────────────────────────────────────────────
+// MainWindow talks to plugins through QMetaObject::invokeMethod on the
+// plugin's QObject side, since IPlugin is not a QObject. These tests verify
+// that bridge for the DAP debugger plugin.
+
+TEST_F(MainWindowTest, DapPluginExposesInvokableDebugMethods)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    auto* plugin = manager->plugin(QStringLiteral("org.semagsoft.devpad.dap"));
+    ASSERT_NE(plugin, nullptr);
+
+    auto* object = dynamic_cast<QObject*>(plugin);
+    ASSERT_NE(object, nullptr);
+
+    const QMetaObject* meta = object->metaObject();
+    EXPECT_NE(meta->indexOfMethod("startDebugging(QString,QString,QString,QStringList)"), -1);
+    EXPECT_NE(meta->indexOfMethod("stopDebugging(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugContinue(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugStepOver(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugStepInto(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugStepOut(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugRestart(QString)"), -1);
+}
+
+TEST_F(MainWindowTest, StartDebuggingInvokesDapPluginViaMetaObject)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    auto* plugin = manager->plugin(QStringLiteral("org.semagsoft.devpad.dap"));
+    ASSERT_NE(plugin, nullptr);
+    auto* object = dynamic_cast<QObject*>(plugin);
+    ASSERT_NE(object, nullptr);
+
+    // The plugin registers its DapServerManager with the host; connect to its
+    // clientError signal so we can observe that the invocation reached it.
+    auto* server = manager->host()->object(QStringLiteral("dap_server"));
+    ASSERT_NE(server, nullptr);
+    QSignalSpy errorSpy(server, SIGNAL(clientError(QString, QString)));
+
+    // Open a file so startDebugging() has a path to debug, then run it with
+    // a language no adapter is configured for: the DapServerManager must
+    // emit clientError and not spawn a process.
+    QString filePath = testFilePath("debug_me.py");
+    createFile(filePath, "print('hi')");
+    window.openFileFromPath(filePath);
+    ASSERT_NE(window.findChild<CodeEditor*>(), nullptr);
+
+    bool invoked = QMetaObject::invokeMethod(object, "startDebugging", Qt::DirectConnection, Q_ARG(QString, lsp::uriFromPath(filePath)),
+        Q_ARG(QString, QStringLiteral("unknownlang")), Q_ARG(QString, QString()), Q_ARG(QStringList, QStringList()));
+    EXPECT_TRUE(invoked);
+
+    // The invocation reached the plugin and was forwarded to the server
+    // manager, which reports the missing adapter.
+    QTRY_VERIFY_WITH_TIMEOUT(errorSpy.count() >= 1, 1000);
+
+    QMetaObject::invokeMethod(object, "stopDebugging", Qt::DirectConnection, Q_ARG(QString, QStringLiteral("session")));
+}
+
+TEST_F(MainWindowTest, DebugPanelTogglesViaPluginHost)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    auto* dock = qobject_cast<QDockWidget*>(manager->host()->panel(QStringLiteral("debug")));
+    if (!dock)
+    {
+        GTEST_SKIP() << "DAP debug panel not registered (plugin disabled?)";
+    }
+
+    window.show();
+    EXPECT_FALSE(dock->isVisible());
+
+    window.toggleDebugPanel();
+    EXPECT_TRUE(dock->isVisible());
+    EXPECT_TRUE(window.actionManager()->debugPanelAct()->isChecked());
+
+    window.toggleDebugPanel();
+    EXPECT_FALSE(dock->isVisible());
+    EXPECT_FALSE(window.actionManager()->debugPanelAct()->isChecked());
 }

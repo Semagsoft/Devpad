@@ -168,6 +168,15 @@ void SettingsManager::setTestingInstance(SettingsManager* instance)
     s_testInstance = instance;
 }
 
+// Plugins link Devpad_editor statically, so each plugin DSO would otherwise
+// get its own SettingsManager singleton. Plugins call this with the host's
+// instance (obtained via IPluginHost::settingsManager()) to share the app's
+// cached settings state.
+void SettingsManager::setSharedInstance(SettingsManager* instance)
+{
+    s_testInstance = instance;
+}
+
 std::unique_ptr<SettingsManager> SettingsManager::createForTesting()
 {
     static int counter = 0;

@@ -20,13 +20,13 @@
 #define MAINWINDOW_H
 
 #include "appstrings.h"
+#include "codeeditor.h"
 
 #include <QLocalServer>
 #include <QMainWindow>
 #include <QPointer>
 
 class ActionManager;
-class CodeEditor;
 class DialogCoordinator;
 class ErrorListPanel;
 class EditorController;

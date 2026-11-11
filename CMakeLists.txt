@@ -473,6 +473,9 @@ endif()
 
 # ── Main executable ───────────────────────────────────────────
 add_executable(Devpad WIN32)
+# Export symbols so plugins can qobject_cast host objects (e.g. the shared
+# SettingsManager instance) across the DSO boundary.
+set_target_properties(Devpad PROPERTIES ENABLE_EXPORTS ON)
 
 target_sources(Devpad PRIVATE
     src/main.cpp
@@ -686,6 +689,8 @@ if(BUILD_TESTS)
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)
+    # Tests load plugins too; export symbols for cross-DSO qobject_cast.
+    set_target_properties(Devpad_tests PROPERTIES ENABLE_EXPORTS ON)
 
     target_compile_options(Devpad_tests PRIVATE -Wall -Wextra -Wpedantic)
 

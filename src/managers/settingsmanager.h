@@ -94,6 +94,7 @@ class SettingsManager : public QObject
 public:
     static SettingsManager& instance();
     static void setTestingInstance(SettingsManager* instance);
+    static void setSharedInstance(SettingsManager* instance);
     static std::unique_ptr<SettingsManager> createForTesting();
 
     // ── Settings cache ─────────────────────────────────────────

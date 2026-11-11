@@ -73,6 +73,12 @@ bool DapPlugin::initialize(IPluginHost* host)
 {
     m_host = host;
 
+    // Share the host's SettingsManager. Plugins link Devpad_editor statically,
+    // so without this the plugin would read its own private settings cache
+    // instead of the app's.
+    if (auto* settings = qobject_cast<SettingsManager*>(host->settingsManager()))
+        SettingsManager::setSharedInstance(settings);
+
     // Create DAP server manager.
     m_dapServerManager = new dap::DapServerManager(this);
 

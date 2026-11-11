@@ -19,10 +19,11 @@
 #ifndef EDITORCONTROLLER_H
 #define EDITORCONTROLLER_H
 
+#include "codeeditor.h"
+
 #include <QObject>
 #include <QString>
 
-class CodeEditor;
 class TabManager;
 class FileManager;
 class FileWatcherManager;
