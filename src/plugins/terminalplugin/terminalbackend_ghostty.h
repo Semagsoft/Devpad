@@ -29,8 +29,10 @@
 #include <QMouseEvent>
 #include <QMutex>
 #include <QPixmap>
+#include <QScrollBar>
 #include <QString>
 #include <QThread>
+#include <QTimer>
 #include <QWheelEvent>
 #include <QWidget>
 
@@ -101,6 +103,9 @@ private:
     void writeToMaster(const uint8_t* data, size_t len);
     void positionGestureEvents(const QPoint& pos);
     uint64_t nowNs() const;
+    void updateScrollbar();
+    void updateAutoScrollTimer();
+    void autoScrollTick();
 
     // -- Backing state ----------------------------------------------------
     GhosttyTerminal m_terminal = nullptr;
@@ -142,6 +147,18 @@ private:
     QPixmap m_frameCache;
     bool m_needsRender = true;
     bool m_fullRepaintPending = true;
+
+    // Scrollbar overlay bound to GHOSTTY_TERMINAL_DATA_SCROLLBAR.
+    QScrollBar* m_scrollBar = nullptr;
+    uint64_t m_scrollTotal = 0;
+    uint64_t m_scrollOffset = 0;
+    uint64_t m_scrollLen = 0;
+    bool m_viewportPinned = true;
+
+    // Selection auto-scroll while dragging near the vertical edges.
+    QTimer* m_autoScrollTimer = nullptr;
+    int m_autoScrollDir = 0;    // -1 = top edge, +1 = bottom edge, 0 = none
+    int m_lastMouseX = 0;       // mouse x, for extending the selection to the edge row
 
     QMutex m_terminalMutex;
 };

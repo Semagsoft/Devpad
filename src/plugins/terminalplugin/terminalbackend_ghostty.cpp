@@ -222,6 +222,30 @@ TerminalBackendGhostty::TerminalBackendGhostty(QWidget* parent)
     // We always paint our own background; Qt must not erase/under-paint.
     setAttribute(Qt::WA_OpaquePaintEvent);
     setAttribute(Qt::WA_NoSystemBackground);
+
+    // Thin overlay scrollbar for scrolling the viewport through scrollback.
+    m_scrollBar = new QScrollBar(Qt::Vertical, this);
+    m_scrollBar->setObjectName(QStringLiteral("terminalScrollBar"));
+    m_scrollBar->setFixedWidth(12);
+    m_scrollBar->setVisible(false);
+    connect(m_scrollBar, &QScrollBar::valueChanged, this, [this](int value)
+            {
+                if (!m_running || !m_terminal)
+                    return;
+                GhosttyTerminalScrollViewport behavior = {};
+                behavior.tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_ROW;
+                behavior.value.row = static_cast<size_t>(qMax(0, value));
+                QMutexLocker locker(&m_terminalMutex);
+                ghostty_terminal_scroll_viewport(m_terminal, behavior);
+                m_needsRender = true;
+                m_fullRepaintPending = true;
+                update();
+            });
+
+    // Edge-proximity auto-scroll while dragging a selection.
+    m_autoScrollTimer = new QTimer(this);
+    m_autoScrollTimer->setInterval(50);
+    connect(m_autoScrollTimer, &QTimer::timeout, this, &TerminalBackendGhostty::autoScrollTick);
 }
 
 TerminalBackendGhostty::~TerminalBackendGhostty()
@@ -377,6 +401,11 @@ void TerminalBackendGhostty::stop()
         m_selectionGesture = nullptr;
     }
     m_selecting = false;
+    m_autoScrollDir = 0;
+    if (m_autoScrollTimer)
+        m_autoScrollTimer->stop();
+    if (m_scrollBar)
+        m_scrollBar->setVisible(false);
 
     QMutexLocker locker(&m_terminalMutex);
     if (m_terminal)
@@ -1039,6 +1068,20 @@ void TerminalBackendGhostty::renderFrame()
 
     ghostty_render_state_clean(m_renderState);
 
+    // Poll viewport/scrollbar state so the overlay scrollbar and the
+    // scrolled-up indicator have fresh values.
+    GhosttyTerminalScrollbar bar = {};
+    if (ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_SCROLLBAR, &bar) == GHOSTTY_SUCCESS)
+    {
+        m_scrollTotal = bar.total;
+        m_scrollOffset = bar.offset;
+        m_scrollLen = bar.len;
+    }
+    bool pinned = m_viewportPinned;
+    if (ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_VIEWPORT_ACTIVE, &pinned) == GHOSTTY_SUCCESS)
+        m_viewportPinned = pinned;
+    updateScrollbar();
+
     if (cursor.visible && cursor.viewport_has_value)
     {
         int cursorX = static_cast<int>(cursor.viewport_x);
@@ -1082,6 +1125,25 @@ void TerminalBackendGhostty::paintEvent(QPaintEvent* event)
         painter.drawPixmap(0, 0, m_frameCache);
     else
         painter.fillRect(rect(), QColor(Qt::black));
+
+    // "N rows above bottom" indicator when scrolled up into history.
+    const uint64_t rowsBelow = (m_scrollOffset + m_scrollLen <= m_scrollTotal) ? (m_scrollTotal - m_scrollOffset - m_scrollLen) : 0;
+    if (!m_viewportPinned && rowsBelow > 0)
+    {
+        const QString text = tr("↑ %1 rows above bottom").arg(rowsBelow);
+        QFont indicatorFont = font();
+        indicatorFont.setPointSize(9);
+        indicatorFont.setBold(true);
+        painter.setFont(indicatorFont);
+        const QSize textSize = QFontMetrics(indicatorFont).size(Qt::TextSingleLine, text);
+        const QRect boxRect(rect().right() - textSize.width() - 28, rect().bottom() - textSize.height() - 16,
+                            textSize.width() + 14, textSize.height() + 8);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColor(0, 0, 0, 170));
+        painter.drawRoundedRect(boxRect, 5, 5);
+        painter.setPen(QColor(240, 240, 240));
+        painter.drawText(boxRect, Qt::AlignCenter, text);
+    }
 }
 
 void TerminalBackendGhostty::updateGridSize(const QSize& size)
@@ -1119,6 +1181,9 @@ void TerminalBackendGhostty::updateGridSize(const QSize& size)
 void TerminalBackendGhostty::resizeEvent(QResizeEvent* event)
 {
     TerminalBackend::resizeEvent(event);
+    // Position the overlay scrollbar along the right edge.
+    if (m_scrollBar)
+        m_scrollBar->setGeometry(width() - 12, 0, 12, height());
     // While hidden/collapsed we get degenerate sizes; keep the last good grid
     // and let showEvent() re-sync.
     if (!isVisible())
@@ -1129,6 +1194,8 @@ void TerminalBackendGhostty::resizeEvent(QResizeEvent* event)
 void TerminalBackendGhostty::showEvent(QShowEvent* event)
 {
     TerminalBackend::showEvent(event);
+    if (m_scrollBar)
+        m_scrollBar->setGeometry(width() - 12, 0, 12, height());
     // Re-sync the grid/pixmap with our current size — but only re-render when
     // the size actually changed (updateGridSize bumps the repaint flags only
     // then). Otherwise this is just a cheap blit of the cached frame.
@@ -1346,6 +1413,11 @@ void TerminalBackendGhostty::mouseMoveEvent(QMouseEvent* event)
         {
             ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &sel);
         }
+        m_lastMouseX = event->pos().x();
+        const int edgePx = m_cellHeightPx * 2;
+        const int y = event->pos().y();
+        m_autoScrollDir = (y < edgePx) ? -1 : (y > height() - edgePx ? 1 : 0);
+        updateAutoScrollTimer();
         m_needsRender = true;
         m_fullRepaintPending = true;
         update();
@@ -1367,6 +1439,66 @@ void TerminalBackendGhostty::mouseReleaseEvent(QMouseEvent* event)
             update();
         }
         m_selecting = false;
+        m_autoScrollDir = 0;
+        updateAutoScrollTimer();
     }
     QWidget::mouseReleaseEvent(event);
+}
+
+void TerminalBackendGhostty::updateScrollbar()
+{
+    if (!m_scrollBar)
+        return;
+    m_scrollBar->blockSignals(true);
+    if (m_scrollTotal <= m_scrollLen || m_scrollLen == 0)
+    {
+        m_scrollBar->setVisible(false);
+    }
+    else
+    {
+        m_scrollBar->setVisible(true);
+        m_scrollBar->setRange(0, static_cast<int>(m_scrollTotal - m_scrollLen));
+        m_scrollBar->setPageStep(static_cast<int>(m_scrollLen));
+        m_scrollBar->setSingleStep(1);
+        m_scrollBar->setValue(static_cast<int>(m_scrollOffset));
+    }
+    m_scrollBar->blockSignals(false);
+}
+
+void TerminalBackendGhostty::updateAutoScrollTimer()
+{
+    if (m_autoScrollDir != 0 && m_selecting)
+        m_autoScrollTimer->start();
+    else
+        m_autoScrollTimer->stop();
+}
+
+void TerminalBackendGhostty::autoScrollTick()
+{
+    if (m_autoScrollDir == 0 || !m_running || !m_terminal || !m_selecting)
+    {
+        m_autoScrollTimer->stop();
+        return;
+    }
+    const int dir = m_autoScrollDir;
+    int edgeRow = dir < 0 ? 0 : m_rows - 1;
+    int edgeCol = qBound(0, m_lastMouseX / m_cellWidthPx, m_cols - 1);
+
+    QMutexLocker locker(&m_terminalMutex);
+    GhosttyTerminalScrollViewport behavior = {};
+    behavior.tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_DELTA;
+    behavior.value.delta = dir < 0 ? -1 : 1;
+    ghostty_terminal_scroll_viewport(m_terminal, behavior);
+
+    if (m_selectionGesture && m_selectDragEvent)
+    {
+        QPoint pos(edgeCol * m_cellWidthPx, edgeRow * m_cellHeightPx + m_cellHeightPx / 2);
+        positionGestureEvents(pos);
+        GhosttySelection sel = {};
+        if (ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectDragEvent, &sel) == GHOSTTY_SUCCESS)
+            ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &sel);
+    }
+    m_needsRender = true;
+    m_fullRepaintPending = true;
+    update();
 }
