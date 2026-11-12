@@ -921,9 +921,13 @@ void TerminalBackendGhostty::renderFrame()
         return;
     }
 
-    if (m_frameCache.size() != frameRect.size())
+    // Render at the widget's device pixel ratio; otherwise the frame is
+    // upscaled by the compositor and text looks blurry/jagged.
+    const qreal dpr = devicePixelRatioF();
+    if (m_frameCache.size() != (frameRect.size() * dpr) || m_frameCache.devicePixelRatio() != dpr)
     {
-        m_frameCache = QPixmap(frameRect.size());
+        m_frameCache = QPixmap(frameRect.size() * dpr);
+        m_frameCache.setDevicePixelRatio(dpr);
         fullRepaint = true; // Fresh pixmap must be fully redrawn.
     }
 
@@ -937,8 +941,6 @@ void TerminalBackendGhostty::renderFrame()
     QColor backgroundColor(static_cast<int>(colors.background.r), static_cast<int>(colors.background.g), static_cast<int>(colors.background.b));
 
     QPainter painter(&m_frameCache);
-    painter.setRenderHint(QPainter::Antialiasing, false);
-    painter.setRenderHint(QPainter::TextAntialiasing, false);
     if (fullRepaint)
         painter.fillRect(frameRect, backgroundColor);
     painter.setFont(m_cachedFont);
@@ -1117,6 +1119,12 @@ void TerminalBackendGhostty::renderFrame()
 void TerminalBackendGhostty::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
+    // A monitor move can change the device pixel ratio; drop the stale frame.
+    if (!m_frameCache.isNull() && m_frameCache.devicePixelRatio() != devicePixelRatioF())
+    {
+        m_needsRender = true;
+        m_fullRepaintPending = true;
+    }
     if (m_needsRender)
         renderFrame();
 
@@ -1184,6 +1192,11 @@ void TerminalBackendGhostty::resizeEvent(QResizeEvent* event)
     // Position the overlay scrollbar along the right edge.
     if (m_scrollBar)
         m_scrollBar->setGeometry(width() - 12, 0, 12, height());
+    // Any size change invalidates the cached frame (even if the grid size
+    // didn't change), so the pixmap is recreated at the new size/DPR.
+    m_needsRender = true;
+    m_fullRepaintPending = true;
+    update();
     // While hidden/collapsed we get degenerate sizes; keep the last good grid
     // and let showEvent() re-sync.
     if (!isVisible())
