@@ -32,12 +32,14 @@
 
 #include <QApplication>
 #include <QDateTime>
+#include <QEventLoop>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QPointer>
 #include <QTabWidget>
+#include <QTimer>
 
 #include <Qsci/qsciscintilla.h>
 
@@ -46,6 +48,23 @@ EditorController::EditorController(TabManager* tabManager, FileManager* fileMana
     : QObject(parent), m_tabManager(tabManager), m_fileManager(fileManager), m_fileWatcherManager(watcher), m_actionManager(actionManager),
       m_tabWidget(tabWidget)
 {
+    // Remote (ssh://) saves complete asynchronously; the editor and tab
+    // title are updated here, once the upload actually succeeded.
+    connect(m_fileManager, &FileManager::remoteSaveFinished, this,
+            [this](bool ok, const QString& fileName, const QString& errorDetail)
+            {
+                if (ok)
+                {
+                    if (CodeEditor* editor = findEditorByFileName(fileName))
+                        m_tabManager->updateTabTitle(editor);
+                    emit fileSaved(fileName);
+                    return;
+                }
+                QString detail = errorDetail.trimmed();
+                if (detail.isEmpty())
+                    detail = fileName;
+                QMessageBox::warning(qobject_cast<QWidget*>(QObject::parent()), tr("Error"), tr("Cannot save file: %1").arg(detail));
+            });
 }
 
 CodeEditor* EditorController::currentEditor() const
@@ -120,34 +139,35 @@ bool EditorController::saveFileAs()
 
 bool EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
 {
-    if (!checkSaveConflict(editor, fileName))
+    if (checkSaveConflict(editor, fileName))
     {
-        return false;
-    }
-    if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
-    {
-        m_fileWatcherManager->unwatchFile(fileName);
-    }
-    bool saved = m_fileManager->saveFile(fileName, editor);
-    if (!saved)
-    {
-        if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+        bool isRemote = fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive);
+        if (!isRemote)
+            m_fileWatcherManager->unwatchFile(fileName);
+        bool saved = m_fileManager->saveFile(fileName, editor);
+        if (!saved)
         {
-            m_fileWatcherManager->watchFile(fileName);
+            if (!isRemote)
+                m_fileWatcherManager->watchFile(fileName);
+            QString detail = m_fileManager->lastError();
+            if (detail.isEmpty())
+                detail = fileName;
+            QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot save file: %1").arg(detail));
+            return false;
         }
-        QString detail = m_fileManager->lastError();
-        if (detail.isEmpty())
-            detail = fileName;
-        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot save file: %1").arg(detail));
-        return false;
-    }
-    m_tabManager->updateTabTitle(editor);
-    if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
-    {
+        if (isRemote)
+        {
+            // The upload runs asynchronously; tab-title refresh, the fileSaved
+            // signal and the save-failed dialog are delivered by the
+            // remoteSaveFinished handler connected in the constructor.
+            return true;
+        }
+        m_tabManager->updateTabTitle(editor);
         m_fileWatcherManager->watchFile(fileName);
+        emit fileSaved(fileName);
+        return true;
     }
-    emit fileSaved(fileName);
-    return true;
+    return false;
 }
 
 bool EditorController::checkSaveConflict(CodeEditor* editor, const QString& fileName)
@@ -244,6 +264,29 @@ bool EditorController::maybeSave(CodeEditor* editor)
 {
     if (!editor || !editor->isModified())
         return true;
+
+    // A remote save may still be in flight (uploads complete asynchronously).
+    // Wait, bounded, so quitting/closing doesn't kill the upload mid-transfer
+    // and the modified flag settles before the user is prompted.
+    const QString waitName = editor->fileName();
+    if (waitName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive) && m_fileManager->hasPendingRemoteSave(waitName))
+    {
+        QEventLoop waitLoop;
+        QTimer timeout;
+        timeout.setSingleShot(true);
+        timeout.setInterval(30000); // matches the scp watchdog
+        QObject::connect(&timeout, &QTimer::timeout, &waitLoop, &QEventLoop::quit);
+        QObject::connect(m_fileManager, &FileManager::remoteSaveFinished, &waitLoop,
+                         [&waitLoop, &waitName](bool, const QString& fileName, const QString&)
+                         {
+                             if (fileName == waitName)
+                                 waitLoop.quit();
+                         });
+        timeout.start();
+        waitLoop.exec();
+        if (!editor->isModified())
+            return true;
+    }
 
     QPointer<CodeEditor> guard(editor);
     QMessageBox::StandardButton ret =
@@ -586,11 +629,21 @@ void EditorController::autoSave()
                     }
                     if (m_fileManager->saveFile(fileName, editor.data()))
                     {
-                        m_fileWatcherManager->updateModificationTime(fileName);
-                        if (editor)
-                            m_tabManager->updateTabTitle(editor);
-                        emit fileSaved(fileName);
-                        Logger::instance().debug(QString("Auto-saved file: %1").arg(fileName));
+                        if (fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+                        {
+                            // Remote uploads complete asynchronously; the tab
+                            // title and fileSaved signal are handled by the
+                            // remoteSaveFinished handler.
+                            Logger::instance().debug(QString("Auto-save upload started: %1").arg(fileName));
+                        }
+                        else
+                        {
+                            m_fileWatcherManager->updateModificationTime(fileName);
+                            if (editor)
+                                m_tabManager->updateTabTitle(editor);
+                            emit fileSaved(fileName);
+                            Logger::instance().debug(QString("Auto-saved file: %1").arg(fileName));
+                        }
                     }
                 }
                 else

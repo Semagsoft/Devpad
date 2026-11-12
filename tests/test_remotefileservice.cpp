@@ -2,6 +2,7 @@
 
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTest>
 
 #include <gtest/gtest.h>
 
@@ -319,4 +320,27 @@ TEST_F(RemoteFileServiceTest, SaveRemoteSshMissingPathFails)
     QString error;
     ASSERT_FALSE(m_service.saveRemote("ssh://user@host", QByteArray("data"), &error));
     EXPECT_FALSE(error.isEmpty());
+}
+
+TEST_F(RemoteFileServiceTest, SaveRemoteValidUrlStartsUpload)
+{
+    // Validation passes and the upload starts asynchronously, so saveRemote()
+    // reports the start rather than blocking on the transfer. Port 1 is used
+    // so any spawned scp fails fast (connection refused); the test only
+    // asserts the synchronous contract.
+    QString error;
+    ASSERT_TRUE(m_service.saveRemote("ssh://user@127.0.0.1:1/path/to/file", QByteArray("data"), &error));
+}
+
+TEST_F(RemoteFileServiceTest, SaveRemoteAsyncFailureEmitsUploadFailed)
+{
+    QSignalSpy failSpy(&m_service, &RemoteFileService::uploadFailed);
+    ASSERT_TRUE(failSpy.isValid());
+
+    QString error;
+    ASSERT_TRUE(m_service.saveRemote("ssh://user@127.0.0.1:1/path/to/file", QByteArray("data"), &error));
+
+    QTRY_VERIFY_WITH_TIMEOUT(failSpy.count() == 1, 10000);
+    EXPECT_EQ(failSpy.at(0).at(0).toString(), QStringLiteral("ssh://user@127.0.0.1:1/path/to/file"));
+    EXPECT_FALSE(failSpy.at(0).at(1).toString().isEmpty());
 }

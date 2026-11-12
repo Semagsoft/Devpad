@@ -384,6 +384,14 @@ void MainWindow::connectRemoteService()
                 statusBar()->clearMessage();
                 Logger::instance().info(QString("Uploaded remote file: %1").arg(url));
             });
+    connect(m_remoteFileService, &RemoteFileService::uploadFailed, this,
+            [this](const QString&, const QString&)
+            {
+                // The error dialog is shown by EditorController's
+                // remoteSaveFinished handler; just make sure the status bar
+                // does not keep showing "Uploading...".
+                statusBar()->clearMessage();
+            });
     connect(m_remoteFileService, &RemoteFileService::downloadProgress, this,
             [this](const QString&, qint64 received, qint64 total)
             {

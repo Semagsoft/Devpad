@@ -43,7 +43,50 @@ FileManager::FileManager(QObject* parent) : QObject(parent)
 
 void FileManager::setRemoteFileService(RemoteFileService* service)
 {
+    if (m_remoteUploadedConn)
+        QObject::disconnect(m_remoteUploadedConn);
+    if (m_remoteFailedConn)
+        QObject::disconnect(m_remoteFailedConn);
+
     m_remoteFileService = service;
+    if (!service)
+        return;
+
+    m_remoteUploadedConn =
+        connect(service, &RemoteFileService::fileUploaded, this, [this](const QString& url) { completeRemoteSave(url, true, QString()); });
+    m_remoteFailedConn = connect(service, &RemoteFileService::uploadFailed, this,
+                                 [this](const QString& url, const QString& error) { completeRemoteSave(url, false, error); });
+}
+
+void FileManager::completeRemoteSave(const QString& url, bool ok, const QString& errorDetail)
+{
+    QList<QPointer<CodeEditor>> editors;
+    if (auto it = m_pendingRemoteSaves.find(url); it != m_pendingRemoteSaves.end())
+    {
+        editors = *it;
+        m_pendingRemoteSaves.erase(it);
+    }
+
+    if (ok)
+    {
+        for (const auto& editor : editors)
+        {
+            if (editor)
+                editor->setModified(false);
+        }
+        Logger::instance().info(QString("Saved remote file: %1").arg(url));
+        emit fileSaved(url);
+        emit remoteSaveFinished(true, url, QString());
+        return;
+    }
+
+    QString detail = errorDetail.trimmed();
+    if (detail.isEmpty())
+        detail = url;
+    m_lastError = tr("Cannot save file: %1 - %2").arg(url, detail);
+    Logger::instance().error(m_lastError);
+    emit error(m_lastError);
+    emit remoteSaveFinished(false, url, errorDetail);
 }
 
 bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QString& encoding)
@@ -241,11 +284,11 @@ bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, co
         return false;
     }
 
-    editor->setModified(false);
-    // Remote (ssh://) paths have no meaningful local disk mtime; skip
-    // setDiskModifiedAt rather than querying an invalid QFileInfo.
-    Logger::instance().info(QString("Saved remote file: %1").arg(fileName));
-    emit fileSaved(fileName);
+    // The transfer runs asynchronously; completion is reported via
+    // remoteSaveFinished(). Remote (ssh://) paths have no local disk mtime, so
+    // setDiskModifiedAt() is not called — same rationale as before.
+    m_pendingRemoteSaves[fileName].append(editor);
+    Logger::instance().info(QString("Uploading remote file: %1").arg(fileName));
     return true;
 }
 
