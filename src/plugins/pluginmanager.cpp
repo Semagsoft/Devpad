@@ -275,6 +275,23 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     if (entry.info.id.isEmpty())
         entry.info.id = std::move(pluginId);
 
+    // Prefer the plugin's own reported id: a plugin shipped without its
+    // .plugin.json would otherwise be registered under the filename-derived id
+    // and load a second copy of itself (e.g. a stale user install shadowing
+    // the system shipped one).
+    const PluginInfo reportedInfo = plugin->info();
+    if (!reportedInfo.id.isEmpty())
+        entry.info.id = reportedInfo.id;
+    if (m_loaded.contains(entry.info.id))
+    {
+        Logger::instance().warning(
+            QStringLiteral("PluginManager: not loading duplicate plugin '%1' from %2 (already loaded)").arg(entry.info.id, filePath));
+        delete plugin;
+        loader->unload();
+        loader->deleteLater();
+        return false;
+    }
+
     // Bracket the initialize() call so anything the plugin registers
     // (actions, docks) is attributed to it, even if initialize throws.
     m_host->beginPluginSession(entry.info.id);

@@ -56,14 +56,11 @@ TerminalPanel::TerminalPanel(QWidget* parent) : QDockWidget(tr("Terminal"), pare
 #endif
 
     setupUI();
-
-    QApplication::instance()->installEventFilter(this);
 }
 
 TerminalPanel::~TerminalPanel()
 {
     stopTerminal();
-    QApplication::instance()->removeEventFilter(this);
 }
 
 #ifndef Q_OS_WIN
@@ -215,38 +212,6 @@ void TerminalPanel::copyFromTerminal()
         m_backend->copyClipboard();
 }
 
-bool TerminalPanel::eventFilter(QObject* obj, QEvent* event)
-{
-    if (event->type() == QEvent::KeyPress)
-    {
-        auto* ke = static_cast<QKeyEvent*>(event);
-        auto* tw = m_backend ? m_backend->terminalWidget() : nullptr;
-        if (tw && (obj == tw || tw->isAncestorOf(qobject_cast<QWidget*>(obj))))
-        {
-            if (ke->key() == Qt::Key_PageUp)
-            {
-                if (ke->modifiers().testFlag(Qt::ControlModifier))
-                    copyFromTerminal();
-                else if (ke->modifiers().testFlag(Qt::ShiftModifier))
-                    pasteToTerminal();
-                event->accept();
-                return true;
-            }
-
-            if (ke->key() == Qt::Key_Insert)
-            {
-                if (ke->modifiers().testFlag(Qt::ShiftModifier))
-                    pasteToTerminal();
-                else if (ke->modifiers().testFlag(Qt::ControlModifier))
-                    copyFromTerminal();
-                event->accept();
-                return true;
-            }
-        }
-    }
-    return QDockWidget::eventFilter(obj, event);
-}
-
 void TerminalPanel::startTerminal()
 {
     if (m_isRunning)
@@ -266,8 +231,6 @@ void TerminalPanel::stopTerminal()
 {
     if (!m_backend)
         return;
-
-    QApplication::instance()->removeEventFilter(this);
 
     mainLayout->removeWidget(m_backend);
     // Backend destructor stops the shell process (see terminalbackend_*).
@@ -389,6 +352,7 @@ void TerminalPanel::applyPosition(int pos, QTabWidget* tabWidget, QMainWindow* m
             if (SettingsManager::instance().showTerminalPanel())
             {
                 tabWidget->addTab(this, QIcon(":/icons/View/terminal.svg"), tr("Terminal"));
+                show();
             }
         }
         setFeatures(QDockWidget::DockWidgetFeature::NoDockWidgetFeatures);
@@ -404,13 +368,13 @@ void TerminalPanel::applyPosition(int pos, QTabWidget* tabWidget, QMainWindow* m
         Qt::DockWidgetArea area =
             (static_cast<TerminalPanelPosition>(pos) == TerminalPanelPosition::Bottom) ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea;
         mainWindow->addDockWidget(area, this);
+        show();
     }
     setMinimumWidth(SettingsManager::instance().terminalPanelMinWidth());
 }
 
 void TerminalPanel::toggle(QTabWidget* tabWidget, QMainWindow* mainWindow)
 {
-    Q_UNUSED(mainWindow)
     TerminalPanelPosition position = SettingsManager::instance().terminalPanelPosition();
 
     if (position == TerminalPanelPosition::Tab)
@@ -421,12 +385,21 @@ void TerminalPanel::toggle(QTabWidget* tabWidget, QMainWindow* mainWindow)
             if (tabWidget->currentIndex() == tabIndex)
                 tabWidget->setCurrentIndex(0);
             tabWidget->removeTab(tabIndex);
+            setFeatures(QDockWidget::DockWidgetFeature::DockWidgetMovable | QDockWidget::DockWidgetFeature::DockWidgetFloatable |
+                        QDockWidget::DockWidgetFeature::DockWidgetClosable);
+            setTitleBarWidget(new QWidget(this));
             SettingsManager::instance().setShowTerminalPanel(false);
         }
         else
         {
+            // Detach from any dock area before reparenting into the tab widget;
+            // adding a still-docked QDockWidget as a tab leaves it invisible.
+            mainWindow->removeDockWidget(this);
             tabWidget->addTab(this, QIcon(":/icons/View/terminal.svg"), tr("Terminal"));
+            setFeatures(QDockWidget::DockWidgetFeature::NoDockWidgetFeatures);
             tabWidget->setCurrentWidget(this);
+            // The dock widget starts hidden; show it explicitly or it never appears.
+            show();
             SettingsManager::instance().setShowTerminalPanel(true);
         }
     }

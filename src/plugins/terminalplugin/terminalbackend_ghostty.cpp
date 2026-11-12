@@ -35,7 +35,7 @@
 #include <QPainter>
 #include <QRect>
 #include <QThread>
-#include <QTimer>
+#include <atomic>
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
@@ -45,6 +45,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <pty.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -59,13 +60,33 @@ typedef void (*GhosttyWritePtyFn)(GhosttyTerminal terminal, void* userdata, cons
 class GhosttyIoThread : public QThread
 {
 public:
-    GhosttyIoThread(TerminalBackendGhostty* backend, int fd, QObject* parent = nullptr) : QThread(parent), m_backend(backend), m_fd(fd), m_timer(this)
+    GhosttyIoThread(TerminalBackendGhostty* backend, int fd, QObject* parent = nullptr) : QThread(parent), m_backend(backend), m_fd(fd)
     {
+        if (::pipe(m_wakePipe) != 0)
+        {
+            m_wakePipe[0] = -1;
+            m_wakePipe[1] = -1;
+        }
     }
 
+    ~GhosttyIoThread() override
+    {
+        if (m_wakePipe[0] >= 0)
+            ::close(m_wakePipe[0]);
+        if (m_wakePipe[1] >= 0)
+            ::close(m_wakePipe[1]);
+    }
+
+    // Wakes the poll() inside run() so it exits promptly — no 4 Hz timer needed.
     void requestStop()
     {
         m_stop = true;
+        if (m_wakePipe[1] >= 0)
+        {
+            const uint8_t byte = 1;
+            ssize_t written = ::write(m_wakePipe[1], &byte, sizeof(byte));
+            Q_UNUSED(written);
+        }
     }
 
 protected:
@@ -74,8 +95,8 @@ protected:
 private:
     TerminalBackendGhostty* m_backend;
     int m_fd;
-    bool m_stop = false;
-    QTimer m_timer;
+    int m_wakePipe[2] = {-1, -1};
+    std::atomic<bool> m_stop{false};
 };
 
 // Map a Devpad color scheme name (e.g. "DevpadDark") to a ThemeId.
@@ -134,52 +155,60 @@ GhosttyColorRgb resolveStyleColor(const GhosttyStyleColor& color, const GhosttyR
 
 void GhosttyIoThread::run()
 {
-    m_timer.setInterval(250);
-    QObject::connect(&m_timer, &QTimer::timeout, this,
-                     [this]()
-                     {
-                         if (m_stop)
-                         {
-                             m_timer.stop();
-                             return;
-                         }
+    // One blocking poll on two fds: the PTY master (data to read) and the
+    // wake-up pipe (stop requested). The thread consumes zero CPU until the
+    // shell writes something or requestStop() wakes it. If the pipe could not
+    // be created, fall back to a 250 ms timeout plus the atomic stop flag.
+    const bool haveWakePipe = m_wakePipe[0] >= 0 && m_wakePipe[1] >= 0;
+    pollfd fds[2];
+    fds[0].fd = m_fd;
+    fds[0].events = POLLIN;
+    fds[0].revents = 0;
+    fds[1].fd = m_wakePipe[0];
+    fds[1].events = POLLIN;
+    fds[1].revents = 0;
 
-                         pollfd pfd;
-                         pfd.fd = m_fd;
-                         pfd.events = POLLIN;
-                         pfd.revents = 0;
-                         int ready = ::poll(&pfd, 1, 250);
-                         if (ready < 0)
-                         {
-                             if (errno == EINTR)
-                                 return;
-                             m_timer.stop();
-                             return;
-                         }
-                         if (pfd.revents & (POLLIN | POLLHUP | POLLERR))
-                         {
-                             uint8_t buf[4096];
-                             ssize_t n = ::read(m_fd, buf, sizeof(buf));
-                             if (n < 0)
-                             {
-                                 if (errno == EINTR)
-                                     return;
-                                 m_timer.stop();
-                                 return;
-                             }
-                             if (n == 0)
-                             {
-                                 // EOF on the master side: shell has exited.
-                                 m_timer.stop();
-                                 QMetaObject::invokeMethod(m_backend, "handlePtyEof", Qt::QueuedConnection);
-                                 return;
-                             }
-                             QByteArray data(reinterpret_cast<const char*>(buf), static_cast<int>(n));
-                             QMetaObject::invokeMethod(m_backend, "handlePtyData", Qt::QueuedConnection, Q_ARG(QByteArray, data));
-                         }
-                     });
-    m_timer.start();
-    exec();
+    while (true)
+    {
+        fds[0].revents = 0;
+        fds[1].revents = 0;
+        int ready = ::poll(fds, haveWakePipe ? 2 : 1, haveWakePipe ? -1 : 250);
+        if (ready < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+        if (haveWakePipe && (fds[1].revents & (POLLIN | POLLHUP | POLLERR)))
+        {
+            uint8_t wakeBuf[32];
+            ssize_t drained = ::read(m_wakePipe[0], wakeBuf, sizeof(wakeBuf));
+            Q_UNUSED(drained);
+            break;
+        }
+        if (!haveWakePipe && m_stop.load(std::memory_order_relaxed))
+            break;
+
+        if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
+        {
+            uint8_t buf[4096];
+            ssize_t n = ::read(m_fd, buf, sizeof(buf));
+            if (n < 0)
+            {
+                if (errno == EINTR)
+                    continue;
+                break;
+            }
+            if (n == 0)
+            {
+                // EOF on the master side: shell has exited.
+                QMetaObject::invokeMethod(m_backend, "handlePtyEof", Qt::QueuedConnection);
+                break;
+            }
+            QByteArray data(reinterpret_cast<const char*>(buf), static_cast<int>(n));
+            QMetaObject::invokeMethod(m_backend, "handlePtyData", Qt::QueuedConnection, Q_ARG(QByteArray, data));
+        }
+    }
 }
 
 TerminalBackendGhostty::TerminalBackendGhostty(QWidget* parent)
@@ -187,6 +216,9 @@ TerminalBackendGhostty::TerminalBackendGhostty(QWidget* parent)
       m_workingDir(QString()), m_cachedFont(QFont()), m_running(false), m_cols(80), m_rows(24), m_cellWidthPx(10), m_cellHeightPx(20)
 {
     setFocusPolicy(Qt::StrongFocus);
+    // We always paint our own background; Qt must not erase/under-paint.
+    setAttribute(Qt::WA_OpaquePaintEvent);
+    setAttribute(Qt::WA_NoSystemBackground);
 }
 
 TerminalBackendGhostty::~TerminalBackendGhostty()
@@ -208,6 +240,15 @@ void TerminalBackendGhostty::start()
         m_running = false;
         return;
     }
+    if (ghostty_render_state_new(nullptr, &m_renderState) != GHOSTTY_SUCCESS)
+    {
+        ghostty_terminal_free(m_terminal);
+        m_terminal = nullptr;
+        m_running = false;
+        return;
+    }
+    m_needsRender = true;
+    m_fullRepaintPending = true;
 
     // Theme colors.
     ThemeColors colors = getThemeColors(SettingsManager::instance().theme());
@@ -286,6 +327,14 @@ void TerminalBackendGhostty::stop()
         ghostty_key_encoder_free(m_keyEncoder);
         m_keyEncoder = nullptr;
     }
+    if (m_renderState)
+    {
+        ghostty_render_state_free(m_renderState);
+        m_renderState = nullptr;
+    }
+    m_frameCache = QPixmap();
+    m_needsRender = true;
+    m_fullRepaintPending = true;
     m_running = false;
 }
 
@@ -298,6 +347,9 @@ void TerminalBackendGhostty::setTerminalFont(const QFont& font)
 {
     m_cachedFont = font;
     resizeTerminal();
+    m_needsRender = true;
+    m_fullRepaintPending = true;
+    update();
 }
 
 void TerminalBackendGhostty::applyTheme(const QString& schemeName)
@@ -322,6 +374,10 @@ void TerminalBackendGhostty::applyTheme(const QString& schemeName)
     cursorColor.g = static_cast<uint8_t>(colors.caret.green());
     cursorColor.b = static_cast<uint8_t>(colors.caret.blue());
     ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &cursorColor);
+
+    m_needsRender = true;
+    m_fullRepaintPending = true;
+    update();
 }
 
 void TerminalBackendGhostty::copyClipboard()
@@ -383,6 +439,26 @@ void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
 
     int key = event->key();
     Qt::KeyboardModifiers modifiers = event->modifiers();
+
+    // Ctrl+PageUp / Ctrl+Insert copy the selection; Shift+PageUp / Shift+Insert paste.
+    if (key == Qt::Key_PageUp)
+    {
+        if (modifiers.testFlag(Qt::ControlModifier))
+            copyClipboard();
+        else if (modifiers.testFlag(Qt::ShiftModifier))
+            pasteClipboard();
+        event->accept();
+        return;
+    }
+    if (key == Qt::Key_Insert)
+    {
+        if (modifiers.testFlag(Qt::ShiftModifier))
+            pasteClipboard();
+        else if (modifiers.testFlag(Qt::ControlModifier))
+            copyClipboard();
+        event->accept();
+        return;
+    }
 
     GhosttyMods ghosttyMods = 0;
     if (modifiers & Qt::ShiftModifier)
@@ -594,10 +670,26 @@ void TerminalBackendGhostty::handlePtyData(const QByteArray& data)
     if (!m_terminal || data.isEmpty())
         return;
     ghostty_terminal_vt_write(m_terminal, reinterpret_cast<const uint8_t*>(data.constData()), data.size());
+    m_needsRender = true; // Dirty rows only; renderFrame decides full vs dirty from m_fullRepaintPending.
+    update(); // Repaint so newly arrived PTY data is visible on the widget.
 }
 
 void TerminalBackendGhostty::handlePtyEof()
 {
+    if (m_pid > 0)
+    {
+        int status = 0;
+        if (::waitpid(m_pid, &status, 0) >= 0 && WIFEXITED(status))
+        {
+            m_exitCode = WEXITSTATUS(status);
+            m_exitStatus = 0;
+        }
+        else
+        {
+            m_exitStatus = status;
+        }
+        m_pid = -1;
+    }
     m_running = false;
     emit finished(m_exitCode, m_exitStatus);
 }
@@ -619,6 +711,17 @@ void TerminalBackendGhostty::resizeTerminal()
     int rows = m_rows > 0 ? m_rows : 24;
     ghostty_terminal_resize(m_terminal, static_cast<uint16_t>(cols), static_cast<uint16_t>(rows), static_cast<uint32_t>(cellW),
                             static_cast<uint32_t>(cellH));
+    // Tell the PTY (and therefore the shell) its new size; otherwise bash
+    // keeps the 80x24 default and wraps/misaligns output.
+    if (m_masterFd >= 0)
+    {
+        struct winsize ws;
+        ws.ws_row = static_cast<unsigned short>(rows);
+        ws.ws_col = static_cast<unsigned short>(cols);
+        ws.ws_xpixel = static_cast<unsigned short>(cols * cellW);
+        ws.ws_ypixel = static_cast<unsigned short>(rows * cellH);
+        ::ioctl(m_masterFd, TIOCSWINSZ, &ws);
+    }
 }
 
 void TerminalBackendGhostty::startIoThread()
@@ -634,8 +737,7 @@ void TerminalBackendGhostty::stopIoThread()
     if (m_ioThread)
     {
         auto ioThread = static_cast<GhosttyIoThread*>(m_ioThread);
-        ioThread->requestStop();
-        m_ioThread->quit();
+        ioThread->requestStop(); // Wakes the blocking poll() in the IO thread immediately.
         m_ioThread->wait(3000);
         delete m_ioThread;
         m_ioThread = nullptr;
@@ -668,52 +770,79 @@ void TerminalBackendGhostty::writeToMaster(const uint8_t* data, size_t len)
     Q_UNUSED(written);
 }
 
-void TerminalBackendGhostty::render()
+void TerminalBackendGhostty::renderFrame()
 {
-    if (!m_terminal)
-        return;
-
+    // Paint into the persistent frame pixmap only; every other paint path just
+    // blits it (see paintEvent).
     QMutexLocker locker(&m_terminalMutex);
-
-    GhosttyRenderState renderState = nullptr;
-    if (ghostty_render_state_new(nullptr, &renderState) != GHOSTTY_SUCCESS)
-        return;
-
-    GhosttyResult result = ghostty_render_state_update(renderState, m_terminal);
-    if (result != GHOSTTY_SUCCESS)
+    if (!m_terminal || !m_renderState)
     {
-        ghostty_render_state_free(renderState);
+        m_needsRender = false;
+        m_fullRepaintPending = false;
         return;
     }
 
-    GhosttyRenderStateColors colors = GHOSTTY_INIT_SIZED(GhosttyRenderStateColors);
-    ghostty_render_state_get(renderState, GHOSTTY_RENDER_STATE_DATA_COLORS, &colors);
-
+    bool fullRepaint = m_fullRepaintPending;
     QRect frameRect = rect();
+    if (frameRect.isEmpty())
+    {
+        m_needsRender = false;
+        return;
+    }
+
+    if (m_frameCache.size() != frameRect.size())
+    {
+        m_frameCache = QPixmap(frameRect.size());
+        fullRepaint = true; // Fresh pixmap must be fully redrawn.
+    }
+
+    GhosttyResult result = ghostty_render_state_update(m_renderState, m_terminal);
+    if (result != GHOSTTY_SUCCESS)
+        return;
+
+    GhosttyRenderStateColors colors = GHOSTTY_INIT_SIZED(GhosttyRenderStateColors);
+    ghostty_render_state_get(m_renderState, GHOSTTY_RENDER_STATE_DATA_COLORS, &colors);
+
     QColor backgroundColor(static_cast<int>(colors.background.r), static_cast<int>(colors.background.g), static_cast<int>(colors.background.b));
-    QPixmap framePixmap(frameRect.size());
-    framePixmap.fill(backgroundColor);
-    QPainter painter(&framePixmap);
+
+    QPainter painter(&m_frameCache);
     painter.setRenderHint(QPainter::Antialiasing, false);
     painter.setRenderHint(QPainter::TextAntialiasing, false);
-    painter.fillRect(frameRect, backgroundColor);
+    if (fullRepaint)
+        painter.fillRect(frameRect, backgroundColor);
     painter.setFont(m_cachedFont);
 
     GhosttyRenderStateCursor cursor = GHOSTTY_INIT_SIZED(GhosttyRenderStateCursor);
-    ghostty_render_state_get(renderState, GHOSTTY_RENDER_STATE_DATA_CURSOR, &cursor);
+    ghostty_render_state_get(m_renderState, GHOSTTY_RENDER_STATE_DATA_CURSOR, &cursor);
 
     GhosttyRenderStateRowIterator rowIterator = nullptr;
     if (ghostty_render_state_row_iterator_new(nullptr, &rowIterator) == GHOSTTY_SUCCESS)
     {
-        ghostty_render_state_get(renderState, GHOSTTY_RENDER_STATE_DATA_ROW_ITERATOR, &rowIterator);
+        ghostty_render_state_get(m_renderState, GHOSTTY_RENDER_STATE_DATA_ROW_ITERATOR, &rowIterator);
 
+        // The cells handle must be created up front; row_get() populates it,
+        // it does not allocate it. Passing nullptr would yield zero cells.
         GhosttyRenderStateRowCells cells = nullptr;
-        uint16_t rowY = 0;
-        while (ghostty_render_state_row_iterator_next_dirty(rowIterator, &rowY))
+        if (ghostty_render_state_row_cells_new(nullptr, &cells) != GHOSTTY_SUCCESS)
         {
-            // Row-local selection (if any) is exposed via
-            // GHOSTTY_RENDER_STATE_ROW_DATA_SELECTION; selected-cell rendering
-            // policy is handled by the backend as needed.
+            ghostty_render_state_row_iterator_free(rowIterator);
+        }
+        else
+        {
+        uint16_t rowY = 0;
+        bool rowHasValue = false;
+        while (true)
+        {
+            if (fullRepaint)
+                rowHasValue = ghostty_render_state_row_iterator_next(rowIterator);
+            else
+                rowHasValue = ghostty_render_state_row_iterator_next_dirty(rowIterator, &rowY);
+            if (!rowHasValue)
+                break;
+
+            // Clear the row strip so stale glyphs/backgrounds/cursors are erased.
+            if (!fullRepaint)
+                painter.fillRect(QRect(0, rowY * m_cellHeightPx, frameRect.width(), m_cellHeightPx), backgroundColor);
 
             GhosttyResult cellsResult = ghostty_render_state_row_get(rowIterator, GHOSTTY_RENDER_STATE_ROW_DATA_CELLS, &cells);
             if (cellsResult == GHOSTTY_SUCCESS)
@@ -721,6 +850,20 @@ void TerminalBackendGhostty::render()
                 int column = 0;
                 while (ghostty_render_state_row_cells_next(cells))
                 {
+                    QRectF cellRect(QPointF(column * m_cellWidthPx, rowY * m_cellHeightPx), QSizeF(m_cellWidthPx, m_cellHeightPx));
+
+                    GhosttyStyle style;
+                    ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE, &style);
+
+                    // Fill the cell background first so it does not cover the text.
+                    GhosttyColorRgb cellBackground;
+                    if (ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_BG_COLOR, &cellBackground) == GHOSTTY_SUCCESS)
+                    {
+                        QColor backgroundCell(static_cast<int>(cellBackground.r), static_cast<int>(cellBackground.g),
+                                              static_cast<int>(cellBackground.b));
+                        painter.fillRect(cellRect, backgroundCell);
+                    }
+
                     uint32_t graphemesLen = 0;
                     ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_LEN, &graphemesLen);
 
@@ -740,54 +883,44 @@ void TerminalBackendGhostty::render()
                             text.append(c);
                         }
 
-                        GhosttyStyle style;
-                        ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE, &style);
-
                         GhosttyColorRgb cellForeground = resolveStyleColor(style.fg_color, colors, colors.foreground);
                         QColor foregroundColor(static_cast<int>(cellForeground.r), static_cast<int>(cellForeground.g),
                                                static_cast<int>(cellForeground.b));
-                        painter.setBrush(QBrush(foregroundColor));
-                        painter.setPen(Qt::NoPen);
                         QFont cellFont = m_cachedFont;
                         if (style.flags & GHOSTTY_STYLE_FLAG_BOLD)
                             cellFont.setBold(true);
                         painter.setFont(cellFont);
 
-                        QRectF cellRect(QPointF(column * m_cellWidthPx, rowY * m_cellHeightPx), QSizeF(m_cellWidthPx, m_cellHeightPx));
+                        // Text is drawn with the pen, not the brush.
+                        painter.setPen(QPen(foregroundColor));
                         QTextOption textOption;
                         textOption.setAlignment(Qt::AlignTop | Qt::AlignLeft);
                         painter.drawText(cellRect, text, textOption);
+                    }
 
-                        GhosttyColorRgb cellBackground;
-                        GhosttyResult backgroundResult =
-                            ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_BG_COLOR, &cellBackground);
-                        if (backgroundResult == GHOSTTY_SUCCESS)
-                        {
-                            QColor backgroundCell(static_cast<int>(cellBackground.r), static_cast<int>(cellBackground.g),
-                                                  static_cast<int>(cellBackground.b));
-                            painter.fillRect(cellRect, backgroundCell);
-                        }
-
-                        int underline = GHOSTTY_STYLE_UNDERLINE(style);
-                        if (underline != GHOSTTY_SGR_UNDERLINE_NONE)
-                        {
-                            GhosttyColorRgb underlineColor = resolveStyleColor(style.underline_color, colors, cellForeground);
-                            QColor underlineColorC(static_cast<int>(underlineColor.r), static_cast<int>(underlineColor.g),
-                                                   static_cast<int>(underlineColor.b));
-                            painter.setPen(underlineColorC);
-                            painter.drawLine(QPointF(cellRect.topLeft().x(), cellRect.top() + cellRect.height()),
-                                             QPointF(cellRect.topLeft().x() + cellRect.width(), cellRect.top() + cellRect.height()));
-                        }
+                    int underline = GHOSTTY_STYLE_UNDERLINE(style);
+                    if (underline != GHOSTTY_SGR_UNDERLINE_NONE)
+                    {
+                        GhosttyColorRgb cellForeground = resolveStyleColor(style.fg_color, colors, colors.foreground);
+                        GhosttyColorRgb underlineColor = resolveStyleColor(style.underline_color, colors, cellForeground);
+                        QColor underlineColorC(static_cast<int>(underlineColor.r), static_cast<int>(underlineColor.g),
+                                               static_cast<int>(underlineColor.b));
+                        painter.setPen(QPen(underlineColorC));
+                        painter.drawLine(QPointF(cellRect.topLeft().x(), cellRect.top() + cellRect.height()),
+                                         QPointF(cellRect.topLeft().x() + cellRect.width(), cellRect.top() + cellRect.height()));
                     }
                     column++;
                 }
             }
+            if (fullRepaint)
+                rowY++;
+        }
+        ghostty_render_state_row_cells_free(cells);
         }
         ghostty_render_state_row_iterator_free(rowIterator);
     }
 
-    ghostty_render_state_clean(renderState);
-    ghostty_render_state_free(renderState);
+    ghostty_render_state_clean(m_renderState);
 
     if (cursor.visible && cursor.viewport_has_value)
     {
@@ -817,37 +950,73 @@ void TerminalBackendGhostty::render()
         }
     }
 
-    painter.drawPixmap(frameRect.topLeft(), framePixmap);
+    m_needsRender = false;
+    m_fullRepaintPending = false;
 }
 
 void TerminalBackendGhostty::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
-    render();
+    if (m_needsRender)
+        renderFrame();
+
+    QPainter painter(this);
+    if (!m_frameCache.isNull())
+        painter.drawPixmap(0, 0, m_frameCache);
+    else
+        painter.fillRect(rect(), QColor(Qt::black));
+}
+
+void TerminalBackendGhostty::updateGridSize(const QSize& size)
+{
+    if (!m_running || !m_terminal)
+        return;
+    if (size.width() < 20 || size.height() < 10)
+        return; // Collapsed/hidden layout: keep the last good grid.
+
+    QFontMetrics metrics(m_cachedFont);
+    int cellW = metrics.horizontalAdvance(QChar('x'));
+    int cellH = int(metrics.ascent()) + int(metrics.descent());
+    if (cellW < 1)
+        cellW = 1;
+    if (cellH < 1)
+        cellH = 1;
+    int cols = size.width() / cellW;
+    int rows = size.height() / cellH;
+    if (cols < 2)
+        cols = 2;
+    if (rows < 2)
+        rows = 2;
+    if (cols == m_cols && rows == m_rows)
+        return; // No change.
+    m_cols = cols;
+    m_rows = rows;
+    resizeTerminal();
+    // Cell metrics/grid changed: drop the stale frame and force a full redraw.
+    m_frameCache = QPixmap();
+    m_needsRender = true;
+    m_fullRepaintPending = true;
+    update();
 }
 
 void TerminalBackendGhostty::resizeEvent(QResizeEvent* event)
 {
     TerminalBackend::resizeEvent(event);
-    if (m_running && m_terminal)
-    {
-        QFontMetrics metrics(m_cachedFont);
-        int cellW = metrics.horizontalAdvance(QChar('x'));
-        int cellH = int(metrics.ascent()) + int(metrics.descent());
-        if (cellW < 1)
-            cellW = 1;
-        if (cellH < 1)
-            cellH = 1;
-        int cols = static_cast<int>(event->size().width() / cellW);
-        int rows = static_cast<int>(event->size().height() / cellH);
-        if (cols < 1)
-            cols = 1;
-        if (rows < 1)
-            rows = 1;
-        m_cols = cols;
-        m_rows = rows;
-        resizeTerminal();
-    }
+    // While hidden/collapsed we get degenerate sizes; keep the last good grid
+    // and let showEvent() re-sync.
+    if (!isVisible())
+        return;
+    updateGridSize(event->size());
+}
+
+void TerminalBackendGhostty::showEvent(QShowEvent* event)
+{
+    TerminalBackend::showEvent(event);
+    // Re-sync the grid/pixmap with our current size — but only re-render when
+    // the size actually changed (updateGridSize bumps the repaint flags only
+    // then). Otherwise this is just a cheap blit of the cached frame.
+    updateGridSize(size());
+    update();
 }
 
 bool TerminalBackendGhostty::ghosttyMimeReader(void* userdata, GhosttyString mime, GhosttyWriter writer)
@@ -870,7 +1039,14 @@ bool TerminalBackendGhostty::startPty()
 {
     int masterFd = -1;
     int slaveFd = -1;
-    if (openpty(&masterFd, &slaveFd, nullptr, nullptr, nullptr) < 0)
+    int cols = m_cols > 0 ? m_cols : 80;
+    int rows = m_rows > 0 ? m_rows : 24;
+    struct winsize ws;
+    ws.ws_row = static_cast<unsigned short>(rows);
+    ws.ws_col = static_cast<unsigned short>(cols);
+    ws.ws_xpixel = static_cast<unsigned short>(cols * m_cellWidthPx);
+    ws.ws_ypixel = static_cast<unsigned short>(rows * m_cellHeightPx);
+    if (openpty(&masterFd, &slaveFd, nullptr, nullptr, &ws) < 0)
         return false;
     m_masterFd = masterFd;
 
@@ -890,7 +1066,13 @@ bool TerminalBackendGhostty::startPty()
         if (slaveFd >= 0)
         {
             ::ioctl(slaveFd, TIOCSCTTY, 0);
-            ::close(slaveFd);
+            // Attach stdio to the PTY so the shell gets a controlling terminal
+            // and does not complain about job control.
+            ::dup2(slaveFd, STDIN_FILENO);
+            ::dup2(slaveFd, STDOUT_FILENO);
+            ::dup2(slaveFd, STDERR_FILENO);
+            if (slaveFd > STDERR_FILENO)
+                ::close(slaveFd);
         }
         const char* shell = ::getenv("SHELL");
         if (!shell || shell[0] == '\0')
@@ -912,6 +1094,7 @@ bool TerminalBackendGhostty::startPty()
 
     if (slaveFd >= 0)
         ::close(slaveFd);
+    m_pid = pid;
     return true;
 }
 

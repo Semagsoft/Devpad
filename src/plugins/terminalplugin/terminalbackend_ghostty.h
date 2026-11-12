@@ -27,6 +27,7 @@
 #include <QFont>
 #include <QKeyEvent>
 #include <QMutex>
+#include <QPixmap>
 #include <QString>
 #include <QThread>
 #include <QWidget>
@@ -37,9 +38,11 @@
  * TerminalBackend backed by libghostty-vt (ghostty.org).
  *
  * libghostty owns the VT parser + terminal state; this backend owns the
- * PTY (shell process) and the rendering surface. The backend widget itself
- * is the render target: it draws the cell grid on every paint event.
+ * PTY (shell process) and the rendering surface. The backend renders into a
+ * persistent frame pixmap; paintEvent() only blits the cached frame.
  */
+class QShowEvent;
+
 class TerminalBackendGhostty : public TerminalBackend
 {
     Q_OBJECT
@@ -63,6 +66,7 @@ public:
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
 
 private slots:
@@ -81,8 +85,9 @@ private:
     void stopIoThread();
 
     // -- Rendering --------------------------------------------------------
-    void render();
+    void renderFrame();
     void resizeTerminal();
+    void updateGridSize(const QSize& size);
 
     // -- Input -------------------------------------------------------------
     void writeToMaster(const uint8_t* data, size_t len);
@@ -111,6 +116,14 @@ private:
     int m_rows = 24;
     int m_cellWidthPx = 10;
     int m_cellHeightPx = 20;
+
+    // Cached render state + persistent frame pixmap. paintEvent() only blits
+    // the pixmap; libghostty work happens when PTY data or a full-invalidate
+    // (resize/theme/font/show) requires it.
+    GhosttyRenderState m_renderState = nullptr;
+    QPixmap m_frameCache;
+    bool m_needsRender = true;
+    bool m_fullRepaintPending = true;
 
     QMutex m_terminalMutex;
 };

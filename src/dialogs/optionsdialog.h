@@ -94,6 +94,9 @@ private:
     QComboBox* terminalPanelPositionComboBox = nullptr;
     QSpinBox* terminalPanelMinWidthSpin = nullptr;
     QComboBox* terminalFontFaceComboBox = nullptr;
+    // True when the Terminal plugin is loaded and the Terminal group is shown.
+    // The isVisible() check can't be used in the ctor/before show().
+    bool m_terminalGroupAvailable = true;
     QLineEdit* terminalFontSizeBox = nullptr;
     QSpinBox* tabWidthSpin = nullptr;
     QSpinBox* verticalEdgeColumnSpin = nullptr;

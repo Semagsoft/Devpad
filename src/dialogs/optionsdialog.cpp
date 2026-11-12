@@ -575,7 +575,10 @@ void OptionsDialog::setupPanelsTab()
     MainWindow* mw = qobject_cast<MainWindow*>(parent());
     PluginManager* pm = mw ? mw->pluginManager() : nullptr;
     if (!pm || !pm->isLoaded(QStringLiteral("org.semagsoft.devpad.terminal")))
+    {
         terminalGroup->setVisible(false);
+        m_terminalGroupAvailable = false;
+    }
 #endif
 
     mainLayout->addWidget(terminalGroup);
@@ -1034,7 +1037,7 @@ void OptionsDialog::loadSettings()
     cursorBlinkingCheckBox->setChecked(s.cursorBlinking());
     highlightCurrentLineCheckBox->setChecked(s.highlightCurrentLine());
     tabBarPositionComboBox->setCurrentIndex(static_cast<int>(s.tabBarPosition()));
-    if (terminalPanelPositionComboBox->isVisible())
+    if (m_terminalGroupAvailable)
     {
         terminalPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.terminalPanelPosition()));
         terminalPanelMinWidthSpin->setValue(s.terminalPanelMinWidth());
@@ -1129,7 +1132,7 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setCursorBlinking(cursorBlinkingCheckBox->isChecked());
     SettingsManager::instance().setHighlightCurrentLine(highlightCurrentLineCheckBox->isChecked());
     SettingsManager::instance().setTabBarPosition(static_cast<TabBarPosition>(tabBarPositionComboBox->currentIndex()));
-    if (terminalPanelPositionComboBox->isVisible())
+    if (m_terminalGroupAvailable)
     {
         SettingsManager::instance().setTerminalPanelPosition(static_cast<TerminalPanelPosition>(terminalPanelPositionComboBox->currentIndex()));
         SettingsManager::instance().setTerminalPanelMinWidth(terminalPanelMinWidthSpin->value());

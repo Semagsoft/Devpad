@@ -317,9 +317,6 @@ QString PluginHost::addDockWidget(QWidget* widget, Qt::DockWidgetArea area)
     m_pluginDocks.insert(dockId, entry);
     m_pluginDockOwners.insert(dockId, m_currentPluginId);
 
-    // Keep the action checked state in sync with visibility.
-    connect(dock, &QDockWidget::visibilityChanged, dock, [dock](bool visible) { dock->setVisible(visible); });
-
     return dockId;
 }
 
