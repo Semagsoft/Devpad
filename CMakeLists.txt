@@ -52,7 +52,9 @@ if(WIN32)
     message(STATUS "Fetching KodoTerm terminal widget (Windows)...")
     FetchContent_Declare(KodoTerm
         GIT_REPOSITORY https://github.com/diegoiast/KodoTerm.git
-        GIT_TAG main
+        # Pinned to the tip of main as of 2026-11-12; do not float on a
+        # moving branch. Bump deliberately and re-test the Windows build.
+        GIT_TAG 9d016815076a451ad639fa021d46602585e91247
     )
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(KodoTerm)
