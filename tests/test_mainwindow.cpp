@@ -33,7 +33,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-// Counts how many QMessageBox dialogs are shown anywhere in the application.
+// Counts QMessageBox dialogs as they are shown and auto-dismisses them with
+// "No" from inside the prompt's own nested event loop. That makes dismissal
+// deterministic — the dialog's exec() always returns — and removes any
+// dependence on timer granularity, watchdogs, or how loaded the machine is.
+// Used to test the single-prompt guard without hanging or racing.
 class MessageBoxShowCounter : public QObject
 {
 public:
@@ -42,9 +46,14 @@ public:
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override
     {
-        if (event->type() == QEvent::Show && qobject_cast<QMessageBox*>(obj))
+        auto* box = qobject_cast<QMessageBox*>(obj);
+        if (!box)
+            return QObject::eventFilter(obj, event);
+        if (event->type() == QEvent::Show)
+        {
             ++count;
-
+            QTimer::singleShot(0, box, [box]() { box->done(QMessageBox::No); });
+        }
         return QObject::eventFilter(obj, event);
     }
 };
@@ -92,56 +101,31 @@ protected:
         window.openFileFromPath(filePath);
     }
 
-    // Invokes the private onFileModifiedExternally slot, dismissing any prompt it raises
-    // with No. Re-enters the slot `reentries` times from inside that prompt's nested event
-    // loop, mimicking watcher signals delivered while the dialog is already up.
-    // Dialogs shown are accumulated in `counter`, which may span several calls.
+    // Invokes the private onFileModifiedExternally slot. Re-enters the slot
+    // `reentries` times from inside the prompt's nested event loop, mimicking
+    // watcher signals delivered while the dialog is already up; the guard must
+    // drop them. The prompt itself is auto-dismissed with "No" once shown (see
+    // MessageBoxShowCounter), so the sequence is deterministic. Dialogs shown
+    // are accumulated in `counter`, which may span several calls.
     void runExternalChangePrompt(MainWindow& window, const QString& filePath, MessageBoxShowCounter& counter, int reentries = 0)
     {
         // Installed on the application so it sees every event, including those of the
         // dialog (which is not reachable from the main window's modal state here).
         qApp->installEventFilter(&counter);
 
-        QTimer ticker;
-        int tick = 0;
-        QObject::connect(&ticker, &QTimer::timeout, &window,
-                         [&]()
-                         {
-                             if (tick++ < reentries)
-                             {
-                                 QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath));
-                                 return;
-                             }
-
-                             // Dismiss every open prompt so its exec() returns. With the guard
-                             // in place there is at most one; a regression that stacks dialogs
-                             // still unwinds instead of hanging.
-                             const auto prompts = window.findChildren<QMessageBox*>();
-                             for (auto* prompt : prompts)
-                                 prompt->close();
-                         });
-        ticker.start(1);
-
-        // Stacked modal loops cannot always be unwound from here, so give up loudly instead
-        // of hanging the suite when the guard is missing.
-        QTimer watchdog;
-        int budget = 0;
-        QObject::connect(&watchdog, &QTimer::timeout, &window,
-                         [&]()
-                         {
-                             if (++budget <= 40)
-                                 return;
-
-                             fprintf(stderr, "'File Modified' prompts never dismissed: the one-dialog guard is missing\n");
-                             fflush(stderr);
-                             std::_Exit(1);
-                         });
-        watchdog.start(50);
+        // Re-entrant signals delivered while the outer prompt is still open.
+        // They must all be dropped by the guard — none may stack another dialog.
+        for (int i = 0; i < reentries; ++i)
+        {
+            QTimer::singleShot(0, &window, [&window, filePath]()
+                               {
+                                   QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection,
+                                                             Q_ARG(QString, filePath));
+                               });
+        }
 
         QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath));
 
-        ticker.stop();
-        watchdog.stop();
         qApp->removeEventFilter(&counter);
     }
 };

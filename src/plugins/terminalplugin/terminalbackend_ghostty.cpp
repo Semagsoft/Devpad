@@ -32,11 +32,14 @@
 #include <QKeyEvent>
 #include <QMetaObject>
 #include <QMutex>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QRect>
 #include <QThread>
+#include <QWheelEvent>
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -247,11 +250,29 @@ void TerminalBackendGhostty::start()
         m_running = false;
         return;
     }
+    // Retain a couple of pages of scrollback so long output isn't lost.
+    size_t maxScrollbackLines = 10000;
+    ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_LINES, &maxScrollbackLines);
     m_needsRender = true;
     m_fullRepaintPending = true;
 
+    // Mouse selection gesture and its reusable press/drag/release events.
+    if (ghostty_selection_gesture_new(nullptr, &m_selectionGesture) != GHOSTTY_SUCCESS)
+        m_selectionGesture = nullptr;
+    if (m_selectionGesture)
+    {
+        if (ghostty_selection_gesture_event_new(nullptr, &m_selectPressEvent, GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_PRESS) != GHOSTTY_SUCCESS)
+            m_selectPressEvent = nullptr;
+        if (ghostty_selection_gesture_event_new(nullptr, &m_selectDragEvent, GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_DRAG) != GHOSTTY_SUCCESS)
+            m_selectDragEvent = nullptr;
+        if (ghostty_selection_gesture_event_new(nullptr, &m_selectReleaseEvent, GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_RELEASE) != GHOSTTY_SUCCESS)
+            m_selectReleaseEvent = nullptr;
+    }
+
     // Theme colors.
     ThemeColors colors = getThemeColors(SettingsManager::instance().theme());
+    m_selectionBg = colors.selectionBg;
+    m_selectionFg = colors.selectionFg;
     GhosttyColorRgb background;
     background.r = static_cast<uint8_t>(colors.background.red());
     background.g = static_cast<uint8_t>(colors.background.green());
@@ -293,6 +314,26 @@ void TerminalBackendGhostty::start()
 
     if (!startPty())
     {
+        if (m_selectPressEvent)
+        {
+            ghostty_selection_gesture_event_free(m_selectPressEvent);
+            m_selectPressEvent = nullptr;
+        }
+        if (m_selectDragEvent)
+        {
+            ghostty_selection_gesture_event_free(m_selectDragEvent);
+            m_selectDragEvent = nullptr;
+        }
+        if (m_selectReleaseEvent)
+        {
+            ghostty_selection_gesture_event_free(m_selectReleaseEvent);
+            m_selectReleaseEvent = nullptr;
+        }
+        if (m_selectionGesture)
+        {
+            ghostty_selection_gesture_free(m_selectionGesture, m_terminal);
+            m_selectionGesture = nullptr;
+        }
         if (m_terminal)
         {
             ghostty_terminal_free(m_terminal);
@@ -314,6 +355,28 @@ void TerminalBackendGhostty::stop()
 {
     stopIoThread();
     stopPty();
+
+    if (m_selectPressEvent)
+    {
+        ghostty_selection_gesture_event_free(m_selectPressEvent);
+        m_selectPressEvent = nullptr;
+    }
+    if (m_selectDragEvent)
+    {
+        ghostty_selection_gesture_event_free(m_selectDragEvent);
+        m_selectDragEvent = nullptr;
+    }
+    if (m_selectReleaseEvent)
+    {
+        ghostty_selection_gesture_event_free(m_selectReleaseEvent);
+        m_selectReleaseEvent = nullptr;
+    }
+    if (m_selectionGesture)
+    {
+        ghostty_selection_gesture_free(m_selectionGesture, m_terminal);
+        m_selectionGesture = nullptr;
+    }
+    m_selecting = false;
 
     QMutexLocker locker(&m_terminalMutex);
     if (m_terminal)
@@ -374,6 +437,8 @@ void TerminalBackendGhostty::applyTheme(const QString& schemeName)
     cursorColor.g = static_cast<uint8_t>(colors.caret.green());
     cursorColor.b = static_cast<uint8_t>(colors.caret.blue());
     ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &cursorColor);
+    m_selectionBg = colors.selectionBg;
+    m_selectionFg = colors.selectionFg;
 
     m_needsRender = true;
     m_fullRepaintPending = true;
@@ -382,7 +447,32 @@ void TerminalBackendGhostty::applyTheme(const QString& schemeName)
 
 void TerminalBackendGhostty::copyClipboard()
 {
-    QApplication::clipboard()->setText(m_selectedText);
+    if (!m_running || !m_terminal)
+        return;
+
+    // The formatter can export the terminal's active selection to plain text.
+    GhosttySelection selection = {};
+    if (ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_SELECTION, &selection) != GHOSTTY_SUCCESS)
+        return; // GHOSTTY_NO_VALUE: no selection
+
+    GhosttyFormatter formatter = nullptr;
+    if (ghostty_formatter_terminal_new(nullptr, &formatter, m_terminal) != GHOSTTY_SUCCESS)
+        return;
+
+    bool unwrap = true;
+    bool trim = true;
+    GhosttyFormatterFormat formatMode = GHOSTTY_FORMATTER_FORMAT_PLAIN;
+    ghostty_formatter_set(formatter, GHOSTTY_FORMATTER_OPT_UNWRAP, &unwrap);
+    ghostty_formatter_set(formatter, GHOSTTY_FORMATTER_OPT_TRIM, &trim);
+    ghostty_formatter_set(formatter, GHOSTTY_FORMATTER_OPT_EMIT, &formatMode);
+    ghostty_formatter_set(formatter, GHOSTTY_FORMATTER_OPT_SELECTION, &selection);
+
+    uint8_t* buf = nullptr;
+    size_t len = 0;
+    if (ghostty_formatter_format_alloc(formatter, nullptr, &buf, &len) == GHOSTTY_SUCCESS && buf != nullptr && len > 0)
+        QApplication::clipboard()->setText(QString::fromUtf8(reinterpret_cast<const char*>(buf), static_cast<int>(len)));
+    ghostty_free(nullptr, buf, len);
+    ghostty_formatter_free(formatter);
 }
 
 void TerminalBackendGhostty::pasteClipboard()
@@ -456,6 +546,18 @@ void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
             pasteClipboard();
         else if (modifiers.testFlag(Qt::ControlModifier))
             copyClipboard();
+        event->accept();
+        return;
+    }
+    if (key == Qt::Key_C && modifiers.testFlag(Qt::ControlModifier) && modifiers.testFlag(Qt::ShiftModifier))
+    {
+        copyClipboard();
+        event->accept();
+        return;
+    }
+    if (key == Qt::Key_V && modifiers.testFlag(Qt::ControlModifier) && modifiers.testFlag(Qt::ShiftModifier))
+    {
+        pasteClipboard();
         event->accept();
         return;
     }
@@ -844,6 +946,10 @@ void TerminalBackendGhostty::renderFrame()
             if (!fullRepaint)
                 painter.fillRect(QRect(0, rowY * m_cellHeightPx, frameRect.width(), m_cellHeightPx), backgroundColor);
 
+            GhosttyRenderStateRowSelection rowSelection = GHOSTTY_INIT_SIZED(GhosttyRenderStateRowSelection);
+            bool rowSelected =
+                ghostty_render_state_row_get(rowIterator, GHOSTTY_RENDER_STATE_ROW_DATA_SELECTION, &rowSelection) == GHOSTTY_SUCCESS;
+
             GhosttyResult cellsResult = ghostty_render_state_row_get(rowIterator, GHOSTTY_RENDER_STATE_ROW_DATA_CELLS, &cells);
             if (cellsResult == GHOSTTY_SUCCESS)
             {
@@ -851,6 +957,7 @@ void TerminalBackendGhostty::renderFrame()
                 while (ghostty_render_state_row_cells_next(cells))
                 {
                     QRectF cellRect(QPointF(column * m_cellWidthPx, rowY * m_cellHeightPx), QSizeF(m_cellWidthPx, m_cellHeightPx));
+                    bool cellSelected = rowSelected && column >= rowSelection.start_x && column <= rowSelection.end_x;
 
                     GhosttyStyle style;
                     ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE, &style);
@@ -862,6 +969,14 @@ void TerminalBackendGhostty::renderFrame()
                         QColor backgroundCell(static_cast<int>(cellBackground.r), static_cast<int>(cellBackground.g),
                                               static_cast<int>(cellBackground.b));
                         painter.fillRect(cellRect, backgroundCell);
+                    }
+
+                    // Selection overlay, on top of the cell background, under the text.
+                    if (cellSelected && m_selectionBg.isValid())
+                    {
+                        QColor overlay = m_selectionBg;
+                        overlay.setAlpha(160);
+                        painter.fillRect(cellRect, overlay);
                     }
 
                     uint32_t graphemesLen = 0;
@@ -886,6 +1001,8 @@ void TerminalBackendGhostty::renderFrame()
                         GhosttyColorRgb cellForeground = resolveStyleColor(style.fg_color, colors, colors.foreground);
                         QColor foregroundColor(static_cast<int>(cellForeground.r), static_cast<int>(cellForeground.g),
                                                static_cast<int>(cellForeground.b));
+                        if (cellSelected && m_selectionFg.isValid())
+                            foregroundColor = m_selectionFg;
                         QFont cellFont = m_cachedFont;
                         if (style.flags & GHOSTTY_STYLE_FLAG_BOLD)
                             cellFont.setBold(true);
@@ -1104,4 +1221,152 @@ void TerminalBackendGhostty::writePtyCallback(GhosttyTerminal terminal, void* us
     TerminalBackendGhostty* self = static_cast<TerminalBackendGhostty*>(userdata);
     if (self)
         self->writeToMaster(data, len);
+}
+
+uint64_t TerminalBackendGhostty::nowNs() const
+{
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+void TerminalBackendGhostty::positionGestureEvents(const QPoint& pos)
+{
+    if (!m_terminal)
+        return;
+    int col = qBound(0, pos.x() / m_cellWidthPx, m_cols - 1);
+    int row = qBound(0, pos.y() / m_cellHeightPx, m_rows - 1);
+
+    GhosttyPoint point = {};
+    point.tag = GHOSTTY_POINT_TAG_VIEWPORT;
+    point.value.coordinate.x = static_cast<uint16_t>(col);
+    point.value.coordinate.y = static_cast<uint32_t>(row);
+    GhosttyGridRef ref = {};
+    if (ghostty_terminal_grid_ref(m_terminal, point, &ref) != GHOSTTY_SUCCESS)
+        return;
+
+    GhosttySelectionGestureGeometry geom = {};
+    geom.columns = static_cast<uint32_t>(m_cols);
+    geom.cell_width = static_cast<uint32_t>(m_cellWidthPx);
+    geom.padding_left = 0;
+    geom.screen_height = static_cast<uint32_t>(m_rows * m_cellHeightPx);
+
+    uint64_t now = nowNs();
+    double repeatDistance = 5.0;
+    double repeatIntervalNs = 500000000.0; // 500 ms between repeat clicks
+
+    if (m_selectPressEvent)
+    {
+        ghostty_selection_gesture_event_set(m_selectPressEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REF, &ref);
+        ghostty_selection_gesture_event_set(m_selectPressEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_GEOMETRY, &geom);
+        ghostty_selection_gesture_event_set(m_selectPressEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_TIME_NS, &now);
+        ghostty_selection_gesture_event_set(m_selectPressEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REPEAT_DISTANCE, &repeatDistance);
+        ghostty_selection_gesture_event_set(m_selectPressEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REPEAT_INTERVAL_NS, &repeatIntervalNs);
+    }
+    if (m_selectDragEvent)
+    {
+        ghostty_selection_gesture_event_set(m_selectDragEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REF, &ref);
+        ghostty_selection_gesture_event_set(m_selectDragEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_GEOMETRY, &geom);
+        ghostty_selection_gesture_event_set(m_selectDragEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_TIME_NS, &now);
+    }
+    if (m_selectReleaseEvent)
+    {
+        ghostty_selection_gesture_event_set(m_selectReleaseEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REF, &ref);
+        ghostty_selection_gesture_event_set(m_selectReleaseEvent, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_GEOMETRY, &geom);
+    }
+}
+
+void TerminalBackendGhostty::wheelEvent(QWheelEvent* event)
+{
+    if (!m_running || !m_terminal)
+    {
+        event->ignore();
+        return;
+    }
+
+    // If the app inside the terminal enabled mouse tracking, let it see the wheel.
+    bool mouseTracking = false;
+    ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING, &mouseTracking);
+    if (mouseTracking)
+    {
+        event->ignore();
+        return;
+    }
+
+    // Loose line mapping like Qt does: 120 units per notch, 3 lines per notch.
+    int delta = event->angleDelta().y();
+    int lines = delta / 40;
+    if (lines == 0)
+        lines = delta > 0 ? 1 : -1;
+
+    GhosttyTerminalScrollViewport behavior = {};
+    behavior.tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_DELTA;
+    // Negative delta scrolls up into the scrollback history.
+    behavior.value.delta = static_cast<intptr_t>(-lines);
+    ghostty_terminal_scroll_viewport(m_terminal, behavior);
+    m_needsRender = true;
+    m_fullRepaintPending = true; // The entire viewport potentially changed.
+    update();
+    event->accept();
+}
+
+void TerminalBackendGhostty::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton && m_running && m_terminal)
+    {
+        bool mouseTracking = false;
+        ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING, &mouseTracking);
+        if (!mouseTracking)
+        {
+            positionGestureEvents(event->pos());
+            GhosttySelection sel = {};
+            if (m_selectionGesture && m_selectPressEvent
+                && ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectPressEvent, &sel) == GHOSTTY_SUCCESS)
+            {
+                m_selecting = true;
+                ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &sel);
+            }
+            m_needsRender = true;
+            m_fullRepaintPending = true;
+            update();
+            event->accept();
+            return;
+        }
+    }
+    QWidget::mousePressEvent(event);
+}
+
+void TerminalBackendGhostty::mouseMoveEvent(QMouseEvent* event)
+{
+    if (m_selecting && (event->buttons() & Qt::LeftButton) && m_running && m_terminal)
+    {
+        positionGestureEvents(event->pos());
+        GhosttySelection sel = {};
+        if (m_selectionGesture && m_selectDragEvent
+            && ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectDragEvent, &sel) == GHOSTTY_SUCCESS)
+        {
+            ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &sel);
+        }
+        m_needsRender = true;
+        m_fullRepaintPending = true;
+        update();
+        return;
+    }
+    QWidget::mouseMoveEvent(event);
+}
+
+void TerminalBackendGhostty::mouseReleaseEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton)
+    {
+        if (m_selecting && m_running && m_terminal)
+        {
+            positionGestureEvents(event->pos());
+            if (m_selectionGesture && m_selectReleaseEvent)
+                ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectReleaseEvent, nullptr);
+            m_needsRender = true;
+            update();
+        }
+        m_selecting = false;
+    }
+    QWidget::mouseReleaseEvent(event);
 }

@@ -26,11 +26,17 @@
 #include <QEvent>
 #include <QFont>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QMutex>
 #include <QPixmap>
 #include <QString>
 #include <QThread>
+#include <QWheelEvent>
 #include <QWidget>
+
+class QShowEvent;
+class QPaintEvent;
+class QResizeEvent;
 
 #include <ghostty/vt.h>
 
@@ -41,8 +47,6 @@
  * PTY (shell process) and the rendering surface. The backend renders into a
  * persistent frame pixmap; paintEvent() only blits the cached frame.
  */
-class QShowEvent;
-
 class TerminalBackendGhostty : public TerminalBackend
 {
     Q_OBJECT
@@ -68,6 +72,10 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 
 private slots:
     void handlePtyData(const QByteArray& data);
@@ -91,6 +99,8 @@ private:
 
     // -- Input -------------------------------------------------------------
     void writeToMaster(const uint8_t* data, size_t len);
+    void positionGestureEvents(const QPoint& pos);
+    uint64_t nowNs() const;
 
     // -- Backing state ----------------------------------------------------
     GhosttyTerminal m_terminal = nullptr;
@@ -105,8 +115,16 @@ private:
     QFont m_cachedFont;
     bool m_running = false;
 
-    // Last selection captured during rendering (copy source).
-    QString m_selectedText;
+    // Selection gesture (mouse drag) and the reusable press/drag/release events.
+    GhosttySelectionGesture m_selectionGesture = nullptr;
+    GhosttySelectionGestureEvent m_selectPressEvent = nullptr;
+    GhosttySelectionGestureEvent m_selectDragEvent = nullptr;
+    GhosttySelectionGestureEvent m_selectReleaseEvent = nullptr;
+    bool m_selecting = false;
+
+    // Theme selection colors (fill = translucent overlay on selected cells).
+    QColor m_selectionBg;
+    QColor m_selectionFg;
 
     // Shell exit status reported through finished().
     int m_exitCode = -1;
