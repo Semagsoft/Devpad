@@ -24,7 +24,6 @@
 
 #include <QLocalServer>
 #include <QMainWindow>
-#include <QPointer>
 
 class ActionManager;
 class DialogCoordinator;
@@ -45,9 +44,11 @@ class SessionManager;
 class SnippetManager;
 class PluginManager;
 class RemoteOpenCoordinator;
+class RemoteServiceCoordinator;
+class TerminalPanelCoordinator;
+class UpdateServiceCoordinator;
 class SplitView;
 class TabManager;
-class TerminalPanel;
 class ThemeApplier;
 class TitleBar;
 class UpdateChecker;
@@ -77,7 +78,6 @@ public:
     void openFileFromPath(const QString& filePath);
     void openTransferFile(const QString& filePath);
     void openFolderFromPath(const QString& folderPath);
-    void openRemoteFileFromData(const QString& urlStr, const QString& fileName, const QByteArray& data);
     void openRemoteFileActivated(const QString& urlStr);
 
 public slots:
@@ -147,7 +147,6 @@ private slots:
     void updateFileTypeLabel();
     void onTabChanged(int index);
     void onEditorCreated(CodeEditor* editor);
-    void onTerminalStarted();
     void openFileFromProject(const QString& filePath);
     void onFileModifiedExternally(const QString& filePath);
     void onNavigateToLocation(const QString& filePath, int line, int column);
@@ -163,8 +162,6 @@ private:
     void setupWindow();
     void setupDockWidgets();
     void createManagers();
-    void connectRemoteService();
-    void connectUpdateService();
     void applyInitialSettings();
     void setupUI();
     void wireActions();
@@ -173,9 +170,6 @@ private:
     void setupLspConnections();
     void applyCloseButtonPosition();
     void applyTabBarPosition();
-    void applyTerminalPanelPosition();
-    void applyTerminalPanelSettings();
-    void setupTerminalPlugin();
     void handleQuitRequest();
     bool signalOtherInstancesToQuit();
     bool saveAllModifiedTabs();
@@ -198,7 +192,6 @@ private:
     QTabWidget* m_tabWidget = nullptr;
     SplitView* m_splitView = nullptr;
     ProjectPanel* m_projectPanel = nullptr;
-    QPointer<QDockWidget> m_terminalPanelDock = nullptr;
 
     // Owned: QObject children (parent=this), destroyed automatically
     EditorController* m_editorController = nullptr;
@@ -234,6 +227,15 @@ private:
 
     // Handles remote file/folder opening and URL prompts
     RemoteOpenCoordinator* m_remoteOpenCoordinator = nullptr;
+
+    // Handles the remote file service <-> UI glue (status bar, dialogs)
+    RemoteServiceCoordinator* m_remoteCoordinator = nullptr;
+
+    // Handles update-check status messages and dialogs
+    UpdateServiceCoordinator* m_updateCoordinator = nullptr;
+
+    // Locates and wires the plugin-owned Terminal panel
+    TerminalPanelCoordinator* m_terminalCoordinator = nullptr;
 
     QLocalServer* m_localServer = nullptr;
     TitleBar* m_titleBar = nullptr;

@@ -38,8 +38,10 @@
 #include "lsp/lsptypes.h"
 #include "managers/externalchangecoordinator.h"
 #include "managers/remoteopencoordinator.h"
+#include "managers/remoteservicecoordinator.h"
+#include "managers/terminalpanelcoordinator.h"
+#include "managers/updateservicecoordinator.h"
 #include "optionsdialog.h"
-#include "plugins/terminalplugin/terminalpanel.h"
 #include "printmanager.h"
 #include "projectpanel.h"
 #include "referencespanel.h"
@@ -199,8 +201,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     setupDockWidgets();
     createManagers();
-    connectRemoteService();
-    connectUpdateService();
 
     setupUI();
     wireActions();
@@ -218,7 +218,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     // The Terminal plugin creates TerminalPanel and registers it with the host.
     // Locate it here so MainWindow can connect signals and apply settings.
-    setupTerminalPlugin();
+    m_terminalCoordinator->attach();
 
     // Debugger UI (Debug menu, View->Debug Panel) is only relevant while the
     // DAP plugin is enabled. The plugin owns the debug panel, so without it
@@ -238,14 +238,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 {
                     if (enabled)
                     {
-                        setupTerminalPlugin();
+                        m_terminalCoordinator->attach();
                     }
                     else
                     {
                         // The plugin owns and deletes the panel on unload.
-                        m_terminalPanelDock = nullptr;
-                        m_actionManager->terminalPanelAct()->setVisible(false);
-                        m_actionManager->terminalPanelButton()->setVisible(false);
+                        m_terminalCoordinator->detach();
                     }
                 }
             });
@@ -343,88 +341,13 @@ void MainWindow::createManagers()
     m_remoteOpenCoordinator = new RemoteOpenCoordinator(m_remoteFileService, m_projectPanel, m_tabManager, m_editorController, this);
     connect(m_remoteOpenCoordinator, &RemoteOpenCoordinator::fileTypeLabelDirty, this, &MainWindow::updateFileTypeLabel);
 
+    m_remoteCoordinator =
+        new RemoteServiceCoordinator(m_remoteFileService, m_remoteOpenCoordinator, m_projectPanel, m_actionManager, statusBar(), this, this);
+    m_updateCoordinator = new UpdateServiceCoordinator(m_updateChecker, statusBar(), this, this);
+    connect(m_updateCoordinator, &UpdateServiceCoordinator::retryCheckRequested, this, &MainWindow::checkForUpdates);
+    m_terminalCoordinator = new TerminalPanelCoordinator(m_actionManager, m_pluginManager, m_tabWidget, this, this);
+
     connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &MainWindow::onFileModifiedExternally);
-}
-
-void MainWindow::connectRemoteService()
-{
-    connect(m_remoteFileService, &RemoteFileService::fileDownloaded, this,
-            [this](const QString& url, const QString& fileName, const QByteArray& data)
-            {
-                statusBar()->clearMessage();
-                openRemoteFileFromData(url, fileName, data);
-            });
-    connect(m_remoteFileService, &RemoteFileService::remoteDirListed, this,
-            [this](const QString& url, const QString& parentPath, const QList<RemoteFsEntry>& entries)
-            {
-                statusBar()->clearMessage();
-                m_projectPanel->applyRemoteListing(url, parentPath, entries);
-                if (!m_projectPanel->isVisible())
-                {
-                    m_projectPanel->show();
-                    m_actionManager->projectPanelAct()->setChecked(true);
-                }
-                Logger::instance().info(QString("Remote folder listing: %1 (%2, %3 entries)").arg(url, parentPath).arg(entries.size()));
-            });
-    connect(m_remoteFileService, &RemoteFileService::remoteListingFailed, this,
-            [this](const QString&, const QString& remotePath, const QString&)
-            {
-                // Let the panel retry the directory (removes the pending state).
-                m_projectPanel->onRemoteListingFailed(remotePath);
-            });
-    connect(m_remoteFileService, &RemoteFileService::downloadFailed, this,
-            [this](const QString& url, const QString& error)
-            {
-                statusBar()->clearMessage();
-                QMessageBox::warning(this, tr("Download Failed"), tr("Failed to download \"%1\":\n%2").arg(url, error));
-            });
-    connect(m_remoteFileService, &RemoteFileService::fileUploaded, this,
-            [this](const QString& url)
-            {
-                statusBar()->clearMessage();
-                Logger::instance().info(QString("Uploaded remote file: %1").arg(url));
-            });
-    connect(m_remoteFileService, &RemoteFileService::uploadFailed, this,
-            [this](const QString&, const QString&)
-            {
-                // The error dialog is shown by EditorController's
-                // remoteSaveFinished handler; just make sure the status bar
-                // does not keep showing "Uploading...".
-                statusBar()->clearMessage();
-            });
-    connect(m_remoteFileService, &RemoteFileService::downloadProgress, this,
-            [this](const QString&, qint64 received, qint64 total)
-            {
-                if (total > 0)
-                {
-                    int percent = static_cast<int>(received * 100 / total);
-                    statusBar()->showMessage(tr("Downloading... %1%").arg(qBound(0, percent, 100)));
-                }
-            });
-    connect(m_remoteFileService, &RemoteFileService::statusMessage, this, [this](const QString& message) { statusBar()->showMessage(message); });
-}
-
-void MainWindow::connectUpdateService()
-{
-    connect(m_updateChecker, &UpdateChecker::updateAvailable, this,
-            [this](const QString& latestVersion, const QString& releaseUrl)
-            {
-                statusBar()->clearMessage();
-                UpdateDialog::showUpdateAvailable(this, latestVersion, releaseUrl);
-            });
-    connect(m_updateChecker, &UpdateChecker::upToDate, this,
-            [this](const QString& latestVersion)
-            {
-                statusBar()->clearMessage();
-                UpdateDialog::showUpToDate(this, latestVersion);
-            });
-    connect(m_updateChecker, &UpdateChecker::checkFailed, this,
-            [this](const QString& friendlyMessage, const QString& details)
-            {
-                statusBar()->clearMessage();
-                if (UpdateDialog::showCheckFailed(this, friendlyMessage, details))
-                    checkForUpdates();
-            });
 }
 
 void MainWindow::applyInitialSettings()
@@ -443,7 +366,7 @@ void MainWindow::applyInitialSettings()
     m_actionManager->errorListPanelButton()->setChecked(showErrorList);
 
     // Terminal panel settings are applied after the Terminal plugin loads
-    // (see applyTerminalPanelSettings()).
+    // (see TerminalPanelCoordinator::applySettings()).
     if (m_actionManager->terminalPanelAct()->isVisible())
     {
         m_actionManager->terminalPanelAct()->setChecked(SettingsManager::instance().showTerminalPanel());
@@ -715,98 +638,6 @@ void MainWindow::applyTabBarPosition()
     m_tabManager->applyTabBarPosition(SettingsManager::instance().tabBarPosition());
 }
 
-void MainWindow::applyTerminalPanelPosition()
-{
-    if (!m_terminalPanelDock)
-        return;
-    bool visible = SettingsManager::instance().showTerminalPanel();
-    m_actionManager->terminalPanelAct()->setChecked(visible);
-    m_actionManager->terminalPanelButton()->setChecked(visible);
-
-    int pos = static_cast<int>(SettingsManager::instance().terminalPanelPosition());
-    QMetaObject::invokeMethod(m_terminalPanelDock, "applyPosition", Q_ARG(int, pos), Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
-}
-
-void MainWindow::applyTerminalPanelSettings()
-{
-    if (!m_terminalPanelDock)
-        return;
-
-    if (SettingsManager::instance().showTerminalPanel())
-    {
-        QMetaObject::invokeMethod(m_terminalPanelDock, "toggle", Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
-        m_actionManager->terminalPanelAct()->setChecked(true);
-        m_actionManager->terminalPanelButton()->setChecked(true);
-    }
-    else
-    {
-        int pos = static_cast<int>(SettingsManager::instance().terminalPanelPosition());
-        QMetaObject::invokeMethod(m_terminalPanelDock, "applyPosition", Q_ARG(int, pos), Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
-    }
-}
-
-void MainWindow::setupTerminalPlugin()
-{
-    if (!m_pluginManager)
-        return;
-
-    auto* panel = m_pluginManager->host()->panel(QStringLiteral("terminal"));
-    if (panel && panel->inherits("TerminalPanel"))
-    {
-        m_terminalPanelDock = qobject_cast<QDockWidget*>(panel);
-        // The Terminal panel exists — show the View menu action and status bar button.
-        m_actionManager->terminalPanelAct()->setVisible(true);
-        m_actionManager->terminalPanelButton()->setVisible(true);
-    }
-    else
-    {
-        m_terminalPanelDock = nullptr;
-        m_actionManager->terminalPanelAct()->setVisible(false);
-        m_actionManager->terminalPanelButton()->setVisible(false);
-        return;
-    }
-
-    // Connect terminal lifecycle signals (now that the panel exists).
-    auto* meta = m_terminalPanelDock->metaObject();
-    int startedIdx = meta->indexOfSignal("terminalStarted()");
-    if (startedIdx >= 0)
-    {
-        QMetaMethod signalMethod = meta->method(startedIdx);
-        auto* myMeta = this->metaObject();
-        int slotIdx = myMeta->indexOfSlot("onTerminalStarted()");
-        if (slotIdx >= 0)
-            QObject::connect(m_terminalPanelDock, signalMethod, this, myMeta->method(slotIdx));
-    }
-
-    connect(m_terminalPanelDock, &QDockWidget::visibilityChanged, this,
-            [this](bool visible)
-            {
-                if (SettingsManager::instance().terminalPanelPosition() != TerminalPanelPosition::Tab)
-                {
-                    m_actionManager->terminalPanelAct()->setChecked(visible);
-                    m_actionManager->terminalPanelButton()->setChecked(visible);
-                    SettingsManager::instance().setShowTerminalPanel(visible);
-                }
-            });
-
-    // Apply terminal settings now that the panel is available.
-    applyTerminalPanelSettings();
-}
-
-void MainWindow::onTerminalStarted()
-{
-    if (!m_terminalPanelDock)
-        return;
-    auto disableDrops = [](auto&& self, QObject* obj) -> void
-    {
-        if (auto* w = qobject_cast<QWidget*>(obj))
-            w->setAcceptDrops(false);
-        for (QObject* child : obj->children())
-            self(self, child);
-    };
-    disableDrops(disableDrops, m_terminalPanelDock);
-}
-
 void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), Strings::fileFilter());
@@ -814,11 +645,6 @@ void MainWindow::openFile()
     {
         loadFile(fileName);
     }
-}
-
-void MainWindow::openRemoteFileFromData(const QString& urlStr, const QString& fileName, const QByteArray& data)
-{
-    m_remoteOpenCoordinator->openRemoteFileFromData(urlStr, fileName, data);
 }
 
 void MainWindow::openRemote()
@@ -846,8 +672,8 @@ void MainWindow::openFolder()
     m_projectPanel->show();
     m_actionManager->projectPanelAct()->setChecked(true);
     m_actionManager->projectPanelButton()->setChecked(true);
-    if (m_terminalPanelDock)
-        QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory", Q_ARG(QString, dirPath));
+    if (m_terminalCoordinator->dock())
+        QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "setWorkingDirectory", Q_ARG(QString, dirPath));
     Logger::instance().info(QString("Opened folder: %1").arg(dirPath));
 }
 
@@ -875,8 +701,8 @@ void MainWindow::openFolderFromPath(const QString& folderPath)
     m_projectPanel->setRootPath(folderPath);
     m_projectPanel->show();
     m_actionManager->projectPanelAct()->setChecked(true);
-    if (m_terminalPanelDock)
-        QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory", Q_ARG(QString, folderPath));
+    if (m_terminalCoordinator->dock())
+        QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "setWorkingDirectory", Q_ARG(QString, folderPath));
     Logger::instance().info(QString("Opened folder: %1").arg(folderPath));
 }
 
@@ -996,8 +822,8 @@ void MainWindow::showOptions()
             [this]()
             {
                 applySettings();
-                if (m_terminalPanelDock)
-                    QMetaObject::invokeMethod(m_terminalPanelDock, "refreshTheme");
+                if (m_terminalCoordinator->dock())
+                    QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "refreshTheme");
             });
 
     if (dlg.exec() == QDialog::Accepted)
@@ -1005,9 +831,9 @@ void MainWindow::showOptions()
         applySettings();
         applyCloseButtonPosition();
         applyTabBarPosition();
-        applyTerminalPanelPosition();
-        if (m_terminalPanelDock)
-            QMetaObject::invokeMethod(m_terminalPanelDock, "refreshTheme");
+        m_terminalCoordinator->applyPosition();
+        if (m_terminalCoordinator->dock())
+            QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "refreshTheme");
         m_tabManager->updateTabBarVisibility();
         updateRecentFileActions();
         applyAutoSaveSettings();
@@ -1019,8 +845,8 @@ void MainWindow::showOptions()
         SettingsManager::instance().setTerminalFontFamily(originalTermFontFamily);
         SettingsManager::instance().setTerminalFontSize(originalTermFontSize);
         applySettings();
-        if (m_terminalPanelDock)
-            QMetaObject::invokeMethod(m_terminalPanelDock, "refreshTheme");
+        if (m_terminalCoordinator->dock())
+            QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "refreshTheme");
     }
 }
 
@@ -1047,14 +873,14 @@ void MainWindow::runExternalTool(int index)
         index, filePath, projectDir, selectedText, lineNumber,
         [this](const QString& cmd)
         {
-            if (!m_terminalPanelDock)
+            if (!m_terminalCoordinator->dock())
                 return;
-            if (!m_terminalPanelDock->isVisible())
+            if (!m_terminalCoordinator->dock()->isVisible())
             {
-                QMetaObject::invokeMethod(m_terminalPanelDock, "toggle", Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
-                m_terminalPanelDock->show();
+                QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "toggle", Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
+                m_terminalCoordinator->dock()->show();
             }
-            QMetaObject::invokeMethod(m_terminalPanelDock, "sendCommand", Q_ARG(QString, cmd));
+            QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "sendCommand", Q_ARG(QString, cmd));
         },
         this);
 }
@@ -1097,8 +923,8 @@ void MainWindow::applyStartupMode()
             terminalDir = m_projectPanel->rootPath();
         if (terminalDir.isEmpty() && !sessionData.files.isEmpty())
             terminalDir = QFileInfo(sessionData.files.first()).absolutePath();
-        if (!terminalDir.isEmpty() && m_terminalPanelDock)
-            QMetaObject::invokeMethod(m_terminalPanelDock, "setWorkingDirectory", Q_ARG(QString, terminalDir));
+        if (!terminalDir.isEmpty() && m_terminalCoordinator->dock())
+            QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "setWorkingDirectory", Q_ARG(QString, terminalDir));
     }
 }
 
@@ -1269,12 +1095,12 @@ void MainWindow::pageSetup()
 
 void MainWindow::paste()
 {
-    if (m_terminalPanelDock)
+    if (m_terminalCoordinator->dock())
     {
         bool hasFocus = false;
-        QMetaObject::invokeMethod(m_terminalPanelDock, "terminalHasFocus", Qt::DirectConnection, Q_RETURN_ARG(bool, hasFocus));
+        QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "terminalHasFocus", Qt::DirectConnection, Q_RETURN_ARG(bool, hasFocus));
         if (hasFocus)
-            QMetaObject::invokeMethod(m_terminalPanelDock, "pasteToTerminal");
+            QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "pasteToTerminal");
         else if (m_editorController)
             m_editorController->paste();
     }
@@ -1284,12 +1110,12 @@ void MainWindow::paste()
 
 void MainWindow::copy()
 {
-    if (m_terminalPanelDock)
+    if (m_terminalCoordinator->dock())
     {
         bool hasFocus = false;
-        QMetaObject::invokeMethod(m_terminalPanelDock, "terminalHasFocus", Qt::DirectConnection, Q_RETURN_ARG(bool, hasFocus));
+        QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "terminalHasFocus", Qt::DirectConnection, Q_RETURN_ARG(bool, hasFocus));
         if (hasFocus)
-            QMetaObject::invokeMethod(m_terminalPanelDock, "copyFromTerminal");
+            QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "copyFromTerminal");
         else if (m_editorController)
             m_editorController->copy();
     }
@@ -1325,9 +1151,9 @@ void MainWindow::toggleProjectPanel()
 
 void MainWindow::toggleTerminalPanel()
 {
-    if (!m_terminalPanelDock || !m_actionManager->terminalPanelAct()->isVisible())
+    if (!m_terminalCoordinator->dock() || !m_actionManager->terminalPanelAct()->isVisible())
         return;
-    QMetaObject::invokeMethod(m_terminalPanelDock, "toggle", Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
+    QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "toggle", Q_ARG(QTabWidget*, m_tabWidget), Q_ARG(QMainWindow*, this));
     bool visible = SettingsManager::instance().showTerminalPanel();
     m_actionManager->terminalPanelAct()->setChecked(visible);
     m_actionManager->terminalPanelButton()->setChecked(visible);
@@ -1369,7 +1195,7 @@ void MainWindow::updateStatusBarLabelsVisibility()
     bool hasEditor = m_tabManager->count() > 0;
     QTabWidget* activePane = m_tabManager->activePane();
     bool isTerminalTab = (activePane != nullptr) && (SettingsManager::instance().terminalPanelPosition() == TerminalPanelPosition::Tab) &&
-                         (activePane->currentWidget() == m_terminalPanelDock);
+                         (activePane->currentWidget() == m_terminalCoordinator->dock());
     bool shouldShow = hasEditor && !isTerminalTab;
     m_actionManager->lineColLabel()->setVisible(shouldShow);
     m_actionManager->encodingComboBox()->setVisible(shouldShow);
@@ -1389,8 +1215,8 @@ void MainWindow::quitDevpad()
     if (m_actionManager->terminalPanelAct()->isVisible())
         SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
     QString termDir;
-    if (m_terminalPanelDock)
-        QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
+    if (m_terminalCoordinator->dock())
+        QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
     m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
     QApplication::quit();
 }
@@ -1513,8 +1339,9 @@ void MainWindow::handleQuitRequest()
                 if (m_actionManager->terminalPanelAct()->isVisible())
                     SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
                 QString termDir;
-                if (m_terminalPanelDock)
-                    QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
+                if (m_terminalCoordinator->dock())
+                    QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection,
+                                          Q_RETURN_ARG(QString, termDir));
                 m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
                 client->disconnectFromServer();
                 QApplication::quit();
@@ -1541,8 +1368,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
     if (m_actionManager->terminalPanelAct()->isVisible())
         SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
     QString termDir;
-    if (m_terminalPanelDock)
-        QMetaObject::invokeMethod(m_terminalPanelDock, "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
+    if (m_terminalCoordinator->dock())
+        QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
     m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
     event->accept();
 }
@@ -1573,8 +1400,8 @@ void MainWindow::changeEvent(QEvent* event)
                 }
             }
 
-            if (m_terminalPanelDock)
-                QMetaObject::invokeMethod(m_terminalPanelDock, "refreshTheme");
+            if (m_terminalCoordinator->dock())
+                QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "refreshTheme");
         }
     }
     QMainWindow::changeEvent(event);

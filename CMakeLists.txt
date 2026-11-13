@@ -452,6 +452,9 @@ add_library(Devpad_lib STATIC
     src/managers/updatechecker.cpp
     src/managers/externalchangecoordinator.cpp
     src/managers/remoteopencoordinator.cpp
+    src/managers/updateservicecoordinator.cpp
+    src/managers/remoteservicecoordinator.cpp
+    src/managers/terminalpanelcoordinator.cpp
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/findsymbolsdialog.cpp
     src/dialogs/dialogcoordinator.cpp
