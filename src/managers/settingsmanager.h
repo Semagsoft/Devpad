@@ -88,6 +88,17 @@ enum class ShellOpenMode
 // because it is accessed from many contexts (CodeEditor, dialogs, panels, etc.)
 // that do not have a reference to the main window. The testing overrides
 // (setTestingInstance / createForTesting) allow unit tests to isolate state.
+//
+// Bare QSettings use is deliberately confined to feature-scoped stores that do
+// not belong in this app-wide cache:
+//   - SessionManager     (session restore payload, incl. its QLockFile)
+//   - UpdateChecker      (last-check timestamps)
+//   - DialogSettings     (per-dialog geometry via a prefix)
+//   - InlineFindBar      ("Find" group: match case / whole word / regex)
+//   - theme.cpp          (hand-parses gtk/kde config INI files; QSettings is
+//                         wrong for extensionless files, see its comments)
+// Unit tests redirect all of these via XDG_CONFIG_HOME / XDG_DATA_HOME /
+// XDG_CACHE_HOME in tests/main.cpp; do not route them through the cache.
 class SettingsManager : public QObject
 {
     Q_OBJECT
