@@ -10,25 +10,27 @@ class SnippetManagerTest : public ::testing::Test
 {
 protected:
     std::unique_ptr<SettingsManager> m_testSettings;
-    SnippetManager* m_snippetManager = nullptr;
+    std::unique_ptr<SnippetManager> m_snippetManager;
 
     void SetUp() override
     {
         m_testSettings = SettingsManager::createForTesting();
         SettingsManager::setTestingInstance(m_testSettings.get());
-        m_snippetManager = new SnippetManager();
+        m_snippetManager = SnippetManager::createForTesting();
+        SnippetManager::setTestingInstance(m_snippetManager.get());
     }
     void TearDown() override
     {
-        delete m_snippetManager;
+        SnippetManager::setTestingInstance(nullptr);
         SettingsManager::setTestingInstance(nullptr);
+        m_snippetManager.reset();
         m_testSettings.reset();
     }
 };
 
 TEST_F(SnippetManagerTest, InstanceCreated)
 {
-    EXPECT_EQ(SnippetManager::instance(), m_snippetManager);
+    EXPECT_EQ(&SnippetManager::instance(), m_snippetManager.get());
 }
 
 TEST_F(SnippetManagerTest, HasBuiltInSnippets)

@@ -41,7 +41,6 @@ class ReferencesPanel;
 class RemoteFileService;
 class SearchManager;
 class SessionManager;
-class SnippetManager;
 class PluginManager;
 class RemoteOpenCoordinator;
 class RemoteServiceCoordinator;
@@ -212,7 +211,6 @@ private:
     ExternalToolManager* m_externalToolManager = nullptr;
     RemoteFileService* m_remoteFileService = nullptr;
     UpdateChecker* m_updateChecker = nullptr;
-    SnippetManager* m_snippetManager = nullptr;
     lsp::LspServerManager* m_lspServerManager = nullptr;
     PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;

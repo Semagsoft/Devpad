@@ -50,7 +50,6 @@
 #include "searchmanager.h"
 #include "sessionmanager.h"
 #include "settingsmanager.h"
-#include "snippetmanager.h"
 #include "splitview.h"
 #include "tabmanager.h"
 #include "theme.h"
@@ -308,7 +307,6 @@ void MainWindow::createManagers()
     m_remoteFileService = new RemoteFileService(this);
     m_fileManager->setRemoteFileService(m_remoteFileService);
     m_updateChecker = new UpdateChecker(this);
-    m_snippetManager = new SnippetManager(this);
 
     m_lspServerManager = new lsp::LspServerManager(this);
 #ifdef BUILD_PLUGINS

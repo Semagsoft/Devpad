@@ -11,15 +11,12 @@
 #include <QStandardPaths>
 #include <QTimer>
 
-static PrimoTerminal* s_instance = nullptr;
-
-PrimoTerminal* PrimoTerminal::instance()
+PrimoTerminal& PrimoTerminal::instance()
 {
-    if (!s_instance)
-    {
-        s_instance = new PrimoTerminal(QCoreApplication::instance());
-    }
-    return s_instance;
+    // Leaked intentionally: the terminal outlives individual windows and is
+    // published to QML as a process-wide shared resource; parent it to the app.
+    static PrimoTerminal* s_instance = new PrimoTerminal(QCoreApplication::instance());
+    return *s_instance;
 }
 
 PrimoTerminal::PrimoTerminal(QObject* parent) : QObject(parent)

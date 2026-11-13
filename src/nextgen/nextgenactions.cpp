@@ -799,11 +799,10 @@ void NextgenActions::removeExternalTool(int index)
 void NextgenActions::runExternalTool(int index, const QString& filePath, const QString& projectDir, const QString& selectedText, int lineNumber)
 {
     // Terminal sender: write to PrimoTerminal shared instance
-    auto* term = PrimoTerminal::instance();
-    auto sender = [term](const QString& cmd)
+    PrimoTerminal& term = PrimoTerminal::instance();
+    auto sender = [&term](const QString& cmd)
     {
-        if (term)
-            term->write(cmd);
+        term.write(cmd);
     };
     m_externalToolManager->runTool(index, filePath, projectDir, selectedText, lineNumber, sender);
 }

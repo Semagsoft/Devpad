@@ -154,9 +154,8 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 if (SettingsManager::instance().predictiveSnippets() && selectedText.endsWith(marker))
                 {
                     QString prefix = selectedText.left(selectedText.length() - marker.length());
-                    if (SnippetManager* sm = SnippetManager::instance())
                     {
-                        QList<Snippet> candidates = sm->snippetsByPrefix(prefix, m_syntax);
+                        QList<Snippet> candidates = SnippetManager::instance().snippetsByPrefix(prefix, m_syntax);
                         for (const Snippet& snip : candidates)
                         {
                             if (snip.prefix == prefix)
@@ -398,9 +397,8 @@ void CodeEditor::setSyntax(const QString& language)
     }
 
     // Register snippet auto-completion entries
-    if (SnippetManager* sm = SnippetManager::instance())
     {
-        QList<Snippet> snippets = sm->snippetsForLanguage(language);
+        QList<Snippet> snippets = SnippetManager::instance().snippetsForLanguage(language);
         if (!snippets.isEmpty())
         {
             registerSnippetAutoCompletion(snippets);

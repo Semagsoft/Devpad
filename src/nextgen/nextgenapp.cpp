@@ -21,7 +21,6 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QLocale>
-#include <QSettings>
 #include <QTextStream>
 #include <QTranslator>
 
@@ -251,16 +250,16 @@ int runNextgenApp(QCoreApplication* app, const QCommandLineParser& parser, const
                      });
 
     // Shared terminal (singleton) – simple QML TextArea via QProcess, shared across windows
-    auto* term = PrimoTerminal::instance();
+    auto& term = PrimoTerminal::instance();
     if (!initialFolder.isEmpty())
-        term->setCurrentDir(initialFolder);
+        term.setCurrentDir(initialFolder);
     else if (!tabModel->tabs().isEmpty())
     {
         QFileInfo fi(tabModel->tabAt(0));
         if (fi.exists())
-            term->setCurrentDir(fi.absolutePath());
+            term.setCurrentDir(fi.absolutePath());
     }
-    engine.rootContext()->setContextProperty(QStringLiteral("terminalInstance"), term);
+    engine.rootContext()->setContextProperty(QStringLiteral("terminalInstance"), &term);
 
     // Find-in-Files (respects .gitignore + showHidden via SettingsManager)
     auto* finder = new PrimoFindInFiles(app);

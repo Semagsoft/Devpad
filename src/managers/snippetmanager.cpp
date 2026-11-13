@@ -5,34 +5,37 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPointer>
 #include <QStandardPaths>
 
-SnippetManager* SnippetManager::s_instance = nullptr;
+QPointer<SnippetManager> SnippetManager::s_testInstance;
 
 SnippetManager::SnippetManager(QObject* parent) : QObject(parent)
 {
-    s_instance = this;
     loadBuiltIn();
     loadUserSnippets();
 }
 
-SnippetManager::~SnippetManager()
+SnippetManager::~SnippetManager() = default;
+
+void SnippetManager::setTestingInstance(SnippetManager* instance)
 {
-    if (s_instance == this)
-        s_instance = nullptr;
+    s_testInstance = instance;
 }
 
-SnippetManager* SnippetManager::instance()
+std::unique_ptr<SnippetManager> SnippetManager::createForTesting()
 {
-    return s_instance;
+    return std::unique_ptr<SnippetManager>(new SnippetManager());
 }
 
-void SnippetManager::initialize(QObject* parent)
+SnippetManager& SnippetManager::instance()
 {
-    if (!s_instance)
+    if (!s_testInstance.isNull())
     {
-        new SnippetManager(parent);
+        return *s_testInstance;
     }
+    static SnippetManager instance;
+    return instance;
 }
 
 static QStringList parseScope(const QString& scope)

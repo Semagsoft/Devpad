@@ -537,9 +537,9 @@ void EditorController::insertSnippet()
     if (!editor || editor->isReadOnly())
         return;
 
-    if (SnippetManager* sm = SnippetManager::instance())
     {
-        QList<Snippet> snippets = sm->snippetsForLanguage(editor->syntax());
+        SnippetManager& sm = SnippetManager::instance();
+        QList<Snippet> snippets = sm.snippetsForLanguage(editor->syntax());
         if (snippets.isEmpty())
             return;
 
@@ -552,7 +552,7 @@ void EditorController::insertSnippet()
 
         if (ok && !chosen.isEmpty())
         {
-            Snippet snip = sm->snippetByName(chosen);
+            Snippet snip = sm.snippetByName(chosen);
             if (!snip.prefix.isEmpty())
             {
                 editor->insertSnippet(snip);

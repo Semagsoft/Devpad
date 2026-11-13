@@ -23,7 +23,7 @@ class PrimoTerminal : public QObject
     Q_PROPERTY(QString shellProgram READ shellProgram NOTIFY shellProgramChanged)
 
 public:
-    static PrimoTerminal* instance();
+    static PrimoTerminal& instance();
     explicit PrimoTerminal(QObject* parent = nullptr);
     ~PrimoTerminal() override;
 

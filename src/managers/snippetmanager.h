@@ -3,17 +3,25 @@
 
 #include "snippet.h"
 
+#include <QPointer>
 #include <QHash>
 #include <QList>
 #include <QObject>
 #include <QString>
+#include <memory>
 
+// Singleton, matching the SettingsManager/Logger pattern: lazily created on
+// first instance() call with no parent, and redirectable in tests via
+// setTestingInstance()/createForTesting().
 class SnippetManager : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit SnippetManager(QObject* parent = nullptr);
+    static SnippetManager& instance();
+    static void setTestingInstance(SnippetManager* instance);
+    static std::unique_ptr<SnippetManager> createForTesting();
+
     ~SnippetManager() override;
 
     QList<Snippet> snippetsForLanguage(const QString& language) const;
@@ -37,17 +45,17 @@ public:
     // Remove a plugin-contributed snippet by name. Returns false if not found.
     bool removeSnippet(const QString& name);
 
-    static SnippetManager* instance();
-    static void initialize(QObject* parent = nullptr);
-
 private:
+    explicit SnippetManager(QObject* parent = nullptr);
+    Q_DISABLE_COPY(SnippetManager)
+
     void loadBuiltIn();
     void loadUserSnippets();
 
     QHash<QString, QList<Snippet>> m_snippets; // keyed by language
     QList<Snippet> m_globalSnippets;           // snippets with no scope
 
-    static SnippetManager* s_instance;
+    static QPointer<SnippetManager> s_testInstance;
 };
 
 #endif // SNIPPETMANAGER_H

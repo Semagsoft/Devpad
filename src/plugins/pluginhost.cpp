@@ -122,7 +122,7 @@ void PluginHost::endPluginSession(const QString& pluginId)
         for (const auto& fileName : reg.fileNames)
             SettingsManager::removeFileNameMapping(fileName);
         for (const auto& snippetName : reg.snippetNames)
-            SnippetManager::instance()->removeSnippet(snippetName);
+            SnippetManager::instance().removeSnippet(snippetName);
         for (const auto& themeId : reg.themeIds)
             unregisterPluginTheme(themeId);
         m_pluginRegistrations.erase(regIt);
@@ -458,9 +458,7 @@ bool PluginHost::registerFileNameMapping(const QString& fileName, const QString&
 bool PluginHost::registerSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description,
                                  const QString& scope)
 {
-    if (!SnippetManager::instance())
-        return false;
-    if (!SnippetManager::instance()->addSnippet(name, prefix, body, description, scope))
+    if (!SnippetManager::instance().addSnippet(name, prefix, body, description, scope))
         return false;
     m_pluginRegistrations[m_currentPluginId].snippetNames.append(name);
     return true;
@@ -468,9 +466,7 @@ bool PluginHost::registerSnippet(const QString& name, const QString& prefix, con
 
 bool PluginHost::unregisterSnippet(const QString& name)
 {
-    if (!SnippetManager::instance())
-        return false;
-    if (!SnippetManager::instance()->removeSnippet(name))
+    if (!SnippetManager::instance().removeSnippet(name))
         return false;
     m_pluginRegistrations[m_currentPluginId].snippetNames.removeAll(name);
     return true;
