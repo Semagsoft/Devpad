@@ -29,7 +29,26 @@ namespace
 {
 // SCI_GETSTYLEAT = 2010 (2008 is SCI_GETCURRENTPOS).
 constexpr int SCI_GETSTYLEAT = 2010;
+
+// UTF-8 byte length of the code point starting at index i (which may be a
+// surrogate pair = 2 QString code units).
+int utf8CodePointSize(const QString& s, int i)
+{
+    QChar c = s.at(i);
+    uint cp = c.unicode();
+    if ((cp & 0xFC00u) == 0xD800u && i + 1 < s.size() && (s.at(i + 1).unicode() & 0xFC00u) == 0xDC00u)
+        cp = 0x10000u + ((cp - 0xD800u) << 10) + (s.at(i + 1).unicode() - 0xDC00u);
+    return cp <= 0x7F ? 1 : (cp <= 0x7FF ? 2 : (cp <= 0xFFFF ? 3 : 4));
 }
+
+int utf8CodePointLength(const QString& s, int i)
+{
+    QChar c = s.at(i);
+    if ((c.unicode() & 0xFC00u) == 0xD800u && i + 1 < s.size() && (s.at(i + 1).unicode() & 0xFC00u) == 0xDC00u)
+        return 2;
+    return 1;
+}
+} // namespace
 
 PrintManager::PrintManager(QObject* parent) : QObject(parent)
 {
@@ -56,9 +75,8 @@ void PrintManager::printEditorWithHighlighting(CodeEditor* editor, QPrinter* pri
 QString PrintManager::generateHighlightedHtml(CodeEditor* editor) const
 {
     QString html;
-    QString text = editor->text();
-    int pos = 0;
-    int length = text.length();
+    const QString text = editor->text();
+    const int length = text.length();
 
     QsciLexer* lexer = editor->lexer();
     QColor defaultColor = lexer->defaultColor();
@@ -67,9 +85,13 @@ QString PrintManager::generateHighlightedHtml(CodeEditor* editor) const
 
     html += "<pre style=\"font-family: monospace;\">";
 
+    // QScintilla works in UTF-8 byte offsets, the QString in code units;
+    // track both so styles are read from the right bytes.
+    int pos = 0;       // code unit index
+    int bytePos = 0;   // byte offset for 'pos'
     while (pos < length)
     {
-        int style = editor->SendScintilla(SCI_GETSTYLEAT, pos);
+        int style = editor->SendScintilla(SCI_GETSTYLEAT, bytePos);
         QColor fgColor = lexer->color(style);
         if (!fgColor.isValid())
             fgColor = defaultColor;
@@ -78,10 +100,12 @@ QString PrintManager::generateHighlightedHtml(CodeEditor* editor) const
             bgColor = defaultPaper;
         QFont font = lexer->font(style);
 
-        int endPos = pos + 1;
-        while (endPos < length && editor->SendScintilla(SCI_GETSTYLEAT, endPos) == style)
+        int endPos = pos + utf8CodePointLength(text, pos);
+        int endByte = bytePos + utf8CodePointSize(text, pos);
+        while (endPos < length && editor->SendScintilla(SCI_GETSTYLEAT, endByte) == style)
         {
-            endPos++;
+            endByte += utf8CodePointSize(text, endPos);
+            endPos += utf8CodePointLength(text, endPos);
         }
 
         QString segment = text.mid(pos, endPos - pos).toHtmlEscaped();
@@ -97,6 +121,7 @@ QString PrintManager::generateHighlightedHtml(CodeEditor* editor) const
 
         html += QString("<span style=\"%1\">%2</span>").arg(styleAttr, segment);
         pos = endPos;
+        bytePos = endByte;
     }
 
     html += "</pre>";

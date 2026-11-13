@@ -1771,16 +1771,24 @@ void MainWindow::toggleDebugPanel()
 }
 #endif
 
+// line/column are LSP values; column is a UTF-16 code unit count.
 void MainWindow::onNavigateToLocation(const QString& filePath, int line, int column)
 {
     if (filePath.isEmpty())
         return;
 
+    auto applyPosition = [line, column](CodeEditor* editor)
+    {
+        const QString lineText = editor->text(qBound(0, line, editor->lines() - 1));
+        const int charCol = lsp::utf16ColToCharIndex(lineText, column);
+        editor->setCursorPosition(qBound(0, line, editor->lines() - 1), charCol);
+    };
+
     CodeEditor* existing = m_tabManager->findEditorByFileName(filePath);
     if (existing)
     {
         m_tabManager->focusEditorPane(existing);
-        existing->setCursorPosition(line, column);
+        applyPosition(existing);
         existing->setFocus();
         return;
     }
@@ -1789,7 +1797,7 @@ void MainWindow::onNavigateToLocation(const QString& filePath, int line, int col
     CodeEditor* editor = m_tabManager->currentEditor();
     if (editor)
     {
-        editor->setCursorPosition(line, column);
+        applyPosition(editor);
     }
 }
 

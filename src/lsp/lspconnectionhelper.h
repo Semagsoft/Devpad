@@ -18,7 +18,9 @@ struct Diagnostic;
 struct Location;
 
 void setupLspConnections(LspServerManager* manager, TabManager* tabManager, ErrorListPanel* errorPanel, ReferencesPanel* referencesPanel,
-                         ActionManager* actionManager, std::function<void(const QString& filePath, int line, int column)> navigateToLocation);
+                         ActionManager* actionManager,
+                         // line: 0-based. column: LSP UTF-16 code unit column.
+                         std::function<void(const QString& filePath, int line, int column)> navigateToLocation);
 
 } // namespace lsp
 

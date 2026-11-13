@@ -208,6 +208,7 @@ signals:
     void replaceRequested();
     void goToLineRequested();
     void insertSnippetRequested();
+    // line: 0-based. column: LSP UTF-16 code unit column.
     void navigateToLocation(const QString& filePath, int line, int column);
     void diagnosticsChanged(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
     void minimapVisibleChanged(bool visible);

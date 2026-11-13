@@ -49,7 +49,9 @@ BracketContext BracketHelper::contextAtPosition(const QsciScintilla* editor, int
 
     int lineLength = editor->SendScintilla(QsciScintilla::SCI_GETLINEENDPOSITION, line);
     QString lineText = editor->text(lineStart, lineLength);
-    int col = pos - lineStart;
+    // pos/lineStart are byte offsets; the scan below is in code units, so
+    // derive the code-unit column of the caret from the matching prefix.
+    int col = editor->text(lineStart, pos).size();
 
     bool inBlockComment = false;
     for (int i = 0; i < col && i < lineText.length(); ++i)

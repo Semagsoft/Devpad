@@ -136,7 +136,7 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
 
                 int line, col;
                 lineIndexFromPosition(position, &line, &col);
-                lsp::Position pos{line, col};
+                lsp::Position pos{line, lsp::charIndexToUtf16Col(text(line), col)};
                 client->requestHover(uri, pos);
             });
 
@@ -1214,7 +1214,7 @@ void CodeEditor::onCharAdded(int charadded)
     {
         int line, col;
         getCursorPosition(&line, &col);
-        lsp::Position pos{line, qMax(0, col - 1)};
+        lsp::Position pos{line, qMax(0, lsp::charIndexToUtf16Col(text(line), col - 1))};
         if (client)
             client->requestSignatureHelp(lsp::uriFromPath(m_fileName), pos);
     }
@@ -1297,7 +1297,7 @@ void CodeEditor::requestRename()
     getCursorPosition(&line, &col);
     auto* client = m_lspIntegration->clientForCurrentFile();
     if (client)
-        client->requestRename(uri, lsp::Position{line, lsp::byteOffsetToUtf16(text(line), col)}, newName);
+        client->requestRename(uri, lsp::Position{line, lsp::charIndexToUtf16Col(text(line), col)}, newName);
 }
 
 void CodeEditor::requestDocumentHighlight()
@@ -1339,12 +1339,13 @@ void CodeEditor::showCompletion(const lsp::CompletionList& completions)
     QString currentWord = text(start, pos);
 
     // Show autocompletion list using SCI_AUTOCSHOW. Scintilla's default
-    // separator is a space, so set ours explicitly to '\n'.
+    // separator is a space, so set ours explicitly to '\n'. lengthEntered is
+    // in bytes (Scintilla is byte-oriented), not UTF-16 code units.
     constexpr char sep = '\n';
     QString joined = entries.join(QLatin1Char(sep));
     QByteArray data = joined.toUtf8();
     SendScintilla(QsciScintillaBase::SCI_AUTOCSETSEPARATOR, static_cast<uintptr_t>(static_cast<unsigned char>(sep)));
-    SendScintilla(SCI_AUTOCSHOW, static_cast<uintptr_t>(currentWord.length()), data.constData());
+    SendScintilla(SCI_AUTOCSHOW, static_cast<uintptr_t>(currentWord.toUtf8().size()), data.constData());
 }
 
 void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnostic>& diagnostics)
@@ -1380,8 +1381,8 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
 
         QString startLineText = text(d.range.start.line);
         QString endLineText = text(d.range.end.line);
-        fillIndicatorRange(d.range.start.line, lsp::utf16ToByteOffset(startLineText, d.range.start.character), d.range.end.line,
-                           lsp::utf16ToByteOffset(endLineText, d.range.end.character), indicatorId);
+        fillIndicatorRange(d.range.start.line, lsp::utf16ColToCharIndex(startLineText, d.range.start.character), d.range.end.line,
+                           lsp::utf16ColToCharIndex(endLineText, d.range.end.character), indicatorId);
     }
 
     emit diagnosticsChanged(uri, diagnostics);
@@ -1416,8 +1417,8 @@ void CodeEditor::applyHighlights(const QJsonArray& highlights)
 
         QString startLineText = text(range.start.line);
         QString endLineText = text(range.end.line);
-        fillIndicatorRange(range.start.line, lsp::utf16ToByteOffset(startLineText, range.start.character), range.end.line,
-                           lsp::utf16ToByteOffset(endLineText, range.end.character), lsp::LSP_INDICATOR_HIGHLIGHT);
+        fillIndicatorRange(range.start.line, lsp::utf16ColToCharIndex(startLineText, range.start.character), range.end.line,
+                           lsp::utf16ColToCharIndex(endLineText, range.end.character), lsp::LSP_INDICATOR_HIGHLIGHT);
     }
 }
 
@@ -1479,9 +1480,9 @@ void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& token
         if (length > 0 && line >= 0 && line < lines())
         {
             QString lineText = text(line);
-            int startByte = lsp::utf16ToByteOffset(lineText, col);
-            int endByte = lsp::utf16ToByteOffset(lineText, col + length);
-            fillIndicatorRange(line, startByte, line, endByte, lsp::LSP_INDICATOR_SEMANTIC);
+            int startChar = lsp::utf16ColToCharIndex(lineText, col);
+            int endChar = lsp::utf16ColToCharIndex(lineText, col + length);
+            fillIndicatorRange(line, startChar, line, endChar, lsp::LSP_INDICATOR_SEMANTIC);
         }
     }
 }
@@ -1546,8 +1547,12 @@ void CodeEditor::applyTextEdits(const QList<QJsonObject>& editsIn)
         auto range = lsp::Range::fromJson(edit["range"].toObject());
         QString newText = edit["newText"].toString();
 
-        int startPos = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_FINDCOLUMN, range.start.line, range.start.character));
-        int endPos = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_FINDCOLUMN, range.end.line, range.end.character));
+        int startLine = qBound(0, range.start.line, lines() - 1);
+        int endLine = qBound(0, range.end.line, lines() - 1);
+        int startCol = lsp::utf16ColToCharIndex(text(startLine), range.start.character);
+        int endCol = lsp::utf16ColToCharIndex(text(endLine), range.end.character);
+        int startPos = positionFromLineIndex(startLine, startCol);
+        int endPos = positionFromLineIndex(endLine, endCol);
 
         SendScintilla(SCI_SETSEL, startPos, endPos);
         SendScintilla(SCI_REPLACESEL, static_cast<uintptr_t>(0), newText.toUtf8().constData());

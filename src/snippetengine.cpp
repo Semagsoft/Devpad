@@ -35,6 +35,20 @@ SnippetEngine::SnippetEngine(CodeEditor* editor) : QObject(editor), m_editor(edi
             });
 }
 
+namespace
+{
+// UTF-8 byte size of the first \a units code units of \a s. If \a units
+// splits a surrogate pair, back off to the pair boundary so the conversion
+// stays valid (the caller passes snippet-internal offsets in code units).
+int utf8ByteSizeForCodeUnitPrefix(const QString& s, int units)
+{
+    int u = qBound(0, units, s.size());
+    if (u > 0 && u < s.size() && (s.at(u - 1).unicode() & 0xFC00u) == 0xD800u && (s.at(u).unicode() & 0xFC00u) == 0xDC00u)
+        --u;
+    return s.left(u).toUtf8().size();
+}
+} // namespace
+
 void SnippetEngine::insertSnippet(const Snippet& snippet)
 {
     if (m_editor->isReadOnly())
@@ -56,7 +70,7 @@ void SnippetEngine::enterSnippetMode(const Snippet::ExpandedSnippet& expanded, i
 
     if (!triggerText.isEmpty())
     {
-        int triggerStart = insertPos - triggerText.length();
+        int triggerStart = insertPos - static_cast<int>(triggerText.toUtf8().size());
         if (triggerStart >= 0)
         {
             int tl, tc, il, ic;
@@ -82,8 +96,10 @@ void SnippetEngine::enterSnippetMode(const Snippet::ExpandedSnippet& expanded, i
     m_editor->insert(textToInsert);
     m_editor->endUndoAction();
 
+    // All positions in this engine are Scintilla (UTF-8 byte) positions;
+    // convert the snippet-internal code unit offsets once here.
     m_snippetStartPos = insertPos;
-    m_snippetEndPos = insertPos + textToInsert.length();
+    m_snippetEndPos = insertPos + textToInsert.toUtf8().size();
 
     m_tabStopInfos.clear();
     for (const auto& ts : expanded.tabStops)
@@ -92,8 +108,8 @@ void SnippetEngine::enterSnippetMode(const Snippet::ExpandedSnippet& expanded, i
         {
             TabStopInfo info;
             info.number = ts.number;
-            info.pos = insertPos + offset;
-            info.length = ts.length;
+            info.pos = insertPos + utf8ByteSizeForCodeUnitPrefix(textToInsert, offset);
+            info.length = utf8ByteSizeForCodeUnitPrefix(textToInsert, offset + ts.length) - utf8ByteSizeForCodeUnitPrefix(textToInsert, offset);
             info.defaultValue = ts.defaultValue;
             m_tabStopInfos.append(info);
         }

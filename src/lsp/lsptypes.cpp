@@ -239,25 +239,118 @@ QString pathFromUri(const QString& uri)
     return QUrl(uri).toLocalFile();
 }
 
-// Convert an LSP UTF-16 character count to a QScintilla byte offset within a line.
-int utf16ToByteOffset(const QString& lineText, int utf16Character)
+// ── Line column model ────────────────────────────────────────
+// Three column units coexist in this codebase. Pick the right
+// conversion instead of reusing the wrong one:
+//
+//   1. LSP positions: column is a count of UTF-16 code units
+//      (astral characters count as 2).
+//   2. QScintilla line/index APIs: index is a count of *code points*
+//      (SCI_POSITIONAFTER steps one code point at a time).
+//   3. Raw Scintilla positions: byte offsets in the UTF-8 document.
+//
+// The four primitive directions of the triangle are implemented from a
+// single code-point walker so all helpers agree, including on astral
+// characters and out-of-range/clamped inputs.
+
+// Counts of the first `cpLimit` code points of `lineText`.
+static void countsAfterNCodePoints(const QString& lineText, int cpLimit, int* utf16Out, int* bytesOut)
 {
-    if (utf16Character <= 0)
-        return 0;
-    if (utf16Character >= lineText.length())
-        return lineText.toUtf8().size();
-    return lineText.left(utf16Character).toUtf8().size();
+    int utf16 = 0, bytes = 0, cps = 0;
+    for (int i = 0; i < lineText.size() && cps < cpLimit;)
+    {
+        QChar c = lineText.at(i);
+        uint cp = c.unicode();
+        int steps = 1;
+        if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() && (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
+        {
+            cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
+            steps = 2;
+        }
+        utf16 += steps;
+        bytes += cp <= 0x7F ? 1 : (cp <= 0x7FF ? 2 : (cp <= 0xFFFF ? 3 : 4));
+        i += steps;
+        ++cps;
+    }
+    *utf16Out = utf16;
+    *bytesOut = bytes;
 }
 
-// Convert a QScintilla byte offset within a line to an LSP UTF-16 character count.
-int byteOffsetToUtf16(const QString& lineText, int byteOffset)
+// Code point index of the first code unit at or after utf16Col. A UTF-16
+// column that falls inside an astral character is clamped to that
+// character's start.
+int utf16ColToCharIndex(const QString& lineText, int utf16Col)
+{
+    if (utf16Col <= 0)
+        return 0;
+    int cps = 0, units = 0;
+    for (int i = 0; i < lineText.size();)
+    {
+        if (units >= utf16Col)
+            break;
+        QChar c = lineText.at(i);
+        bool astral = (c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() && (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000);
+        int step = astral ? 2 : 1;
+        if (units + step > utf16Col)
+            break; // Column lands inside an astral character; take its start.
+        units += step;
+        i += step;
+        ++cps;
+    }
+    return cps;
+}
+
+int charIndexToUtf16Col(const QString& lineText, int charIndex)
+{
+    if (charIndex <= 0)
+        return 0;
+    int utf16 = 0, bytes = 0;
+    countsAfterNCodePoints(lineText, charIndex, &utf16, &bytes);
+    return utf16;
+}
+
+int charIndexToByteOffset(const QString& lineText, int charIndex)
+{
+    if (charIndex <= 0)
+        return 0;
+    int utf16 = 0, bytes = 0;
+    countsAfterNCodePoints(lineText, charIndex, &utf16, &bytes);
+    return bytes;
+}
+
+int byteOffsetToCharIndex(const QString& lineText, int byteOffset)
 {
     if (byteOffset <= 0)
         return 0;
-    const QByteArray utf8 = lineText.toUtf8();
-    if (byteOffset >= utf8.size())
-        return lineText.length();
-    return QString::fromUtf8(utf8.constData(), byteOffset).length();
+    int cps = 0, bytes = 0;
+    for (int i = 0; i < lineText.size();)
+    {
+        QChar c = lineText.at(i);
+        uint cp = c.unicode();
+        int steps = 1;
+        if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() && (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
+        {
+            cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
+            steps = 2;
+        }
+        int cpBytes = cp <= 0x7F ? 1 : (cp <= 0x7FF ? 2 : (cp <= 0xFFFF ? 3 : 4));
+        if (bytes + cpBytes > byteOffset)
+            break;
+        bytes += cpBytes;
+        i += steps;
+        ++cps;
+    }
+    return cps;
+}
+
+int utf16ToByteOffset(const QString& lineText, int utf16Character)
+{
+    return charIndexToByteOffset(lineText, utf16ColToCharIndex(lineText, utf16Character));
+}
+
+int byteOffsetToUtf16(const QString& lineText, int byteOffset)
+{
+    return charIndexToUtf16Col(lineText, byteOffsetToCharIndex(lineText, byteOffset));
 }
 
 } // namespace lsp

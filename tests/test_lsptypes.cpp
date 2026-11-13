@@ -196,6 +196,93 @@ TEST(LspTypesTest, ByteOffsetToUtf16RoundTripAtBoundaries)
     }
 }
 
+TEST(LspTypesTest, CharIndexToUtf16ColAscii)
+{
+    const QString line = QStringLiteral("hello");
+    EXPECT_EQ(charIndexToUtf16Col(line, 0), 0);
+    EXPECT_EQ(charIndexToUtf16Col(line, 1), 1);
+    EXPECT_EQ(charIndexToUtf16Col(line, 5), 5);
+    EXPECT_EQ(utf16ColToCharIndex(line, 0), 0);
+    EXPECT_EQ(utf16ColToCharIndex(line, 1), 1);
+    EXPECT_EQ(utf16ColToCharIndex(line, 5), 5);
+}
+
+TEST(LspTypesTest, CharIndexAndUtf16ColForMultiByte)
+{
+    // "café日😀": c a f é 日 😀
+    // é is U+00E9 (2 UTF-8 bytes, 1 unit), 日 is U+65E5 (3 bytes, 1 unit),
+    // 😀 is U+1F600 (4 bytes, 2 units).
+    const QString line = QStringLiteral("café日😀");
+    // code point indices: c=0 a=1 f=2 é=3 日=4 😀=5; utf16 cols: c a f é(1) 日(1) 😀(2)
+    EXPECT_EQ(charIndexToUtf16Col(line, 0), 0);
+    EXPECT_EQ(charIndexToUtf16Col(line, 3), 3);   // é
+    EXPECT_EQ(charIndexToUtf16Col(line, 4), 4);   // 日
+    EXPECT_EQ(charIndexToUtf16Col(line, 5), 5);   // start of 😀
+    EXPECT_EQ(charIndexToUtf16Col(line, 6), 7);   // after 😀
+
+    EXPECT_EQ(utf16ColToCharIndex(line, 0), 0);
+    EXPECT_EQ(utf16ColToCharIndex(line, 3), 3);   // é
+    EXPECT_EQ(utf16ColToCharIndex(line, 4), 4);   // 日
+    EXPECT_EQ(utf16ColToCharIndex(line, 5), 5);   // start of 😀
+    EXPECT_EQ(utf16ColToCharIndex(line, 7), 6);   // after 😀
+    // A UTF-16 column inside the astral character clamps to its start.
+    EXPECT_EQ(utf16ColToCharIndex(line, 6), 5);
+}
+
+TEST(LspTypesTest, CharIndexToByteOffsetMultiByte)
+{
+    // "a日😀": a(1,1 unit) 日(3 bytes,1 unit) 😀(4 bytes,2 units)
+    const QString line = QStringLiteral("a日😀");
+    EXPECT_EQ(charIndexToByteOffset(line, 0), 0);
+    EXPECT_EQ(charIndexToByteOffset(line, 1), 1);   // after 'a'
+    EXPECT_EQ(charIndexToByteOffset(line, 2), 4);   // after 日
+    EXPECT_EQ(charIndexToByteOffset(line, 3), 8);   // after 😀
+    EXPECT_EQ(byteOffsetToCharIndex(line, 0), 0);
+    EXPECT_EQ(byteOffsetToCharIndex(line, 1), 1);   // after 'a'
+    EXPECT_EQ(byteOffsetToCharIndex(line, 2), 1);   // mid-日 clamps to 'a'
+    EXPECT_EQ(byteOffsetToCharIndex(line, 4), 2);   // after 日
+    EXPECT_EQ(byteOffsetToCharIndex(line, 5), 2);   // mid-😀 clamps
+    EXPECT_EQ(byteOffsetToCharIndex(line, 8), 3);   // after 😀
+}
+
+TEST(LspTypesTest, AllConversionsAgreeOnRoundTrip)
+{
+    // "naïve日😀x": n a ï v e 日 😀 x
+    // byte boundaries: 0 1 2 4 5 6 9 13 14
+    // utf16 columns:   0 1 2 3 4 5 6 8 9   (😀 is two UTF-16 units)
+    const QString line = QStringLiteral("naïve日😀x");
+    // code points:     0 1 2 3 4 5 6 7 8
+    std::array<int, 8> cp = {0, 1, 2, 3, 4, 5, 6, 7};
+    for (int c : cp)
+    {
+        int utf16 = charIndexToUtf16Col(line, c);
+        int bytes = charIndexToByteOffset(line, c);
+        EXPECT_EQ(utf16ToByteOffset(line, utf16), bytes);
+        EXPECT_EQ(utf16ColToCharIndex(line, utf16), c);
+        EXPECT_EQ(byteOffsetToCharIndex(line, bytes), c);
+        EXPECT_EQ(byteOffsetToUtf16(line, bytes), utf16);
+    }
+}
+
+TEST(LspTypesTest, ConversionClampsBeyondLineEnd)
+{
+    const QString line = QStringLiteral("ab");
+    EXPECT_EQ(utf16ColToCharIndex(line, 10), 2);
+    EXPECT_EQ(charIndexToUtf16Col(line, 10), 2);
+    EXPECT_EQ(charIndexToByteOffset(line, 10), 2);
+    EXPECT_EQ(byteOffsetToCharIndex(line, 10), 2);
+}
+
+TEST(LspTypesTest, ConversionOnEmptyLine)
+{
+    const QString empty;
+    EXPECT_EQ(utf16ColToCharIndex(empty, 0), 0);
+    EXPECT_EQ(charIndexToUtf16Col(empty, 0), 0);
+    EXPECT_EQ(charIndexToByteOffset(empty, 0), 0);
+    EXPECT_EQ(byteOffsetToCharIndex(empty, 0), 0);
+    EXPECT_EQ(utf16ColToCharIndex(empty, 5), 0);
+}
+
 TEST(LspTypesTest, ByteOffsetToUtf16EdgeCases)
 {
     const QString line = QStringLiteral("test");

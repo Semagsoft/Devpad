@@ -149,6 +149,7 @@ private slots:
     void onEditorCreated(CodeEditor* editor);
     void openFileFromProject(const QString& filePath);
     void onFileModifiedExternally(const QString& filePath);
+    // line/column are LSP values; column is a UTF-16 code unit column.
     void onNavigateToLocation(const QString& filePath, int line, int column);
 
 protected:
