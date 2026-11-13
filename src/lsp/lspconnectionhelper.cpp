@@ -16,7 +16,6 @@
 #include <QMenu>
 #include <QPointer>
 #include <QToolButton>
-#include <algorithm>
 
 namespace lsp
 {
@@ -58,12 +57,6 @@ void applyWorkspaceEdit(const QJsonObject& workspaceEdit, TabManager* tabManager
             collectEdits(uri, changesMap[uri].toArray());
     }
 
-    auto rangeKey = [](const QJsonObject& edit)
-    {
-        auto range = lsp::Range::fromJson(edit["range"].toObject());
-        return qMakePair(range.start.line, range.start.character);
-    };
-
     for (auto it = editsByUri.begin(); it != editsByUri.end(); ++it)
     {
         QString filePath = lsp::pathFromUri(it.key());
@@ -72,10 +65,8 @@ void applyWorkspaceEdit(const QJsonObject& workspaceEdit, TabManager* tabManager
             continue;
 
         QList<QJsonObject> edits = it.value();
-        // Descending position order: applying the last (bottom-most) edit first
-        // keeps the ranges of earlier edits valid.
-        std::sort(edits.begin(), edits.end(), [&](const QJsonObject& a, const QJsonObject& b) { return rangeKey(a) > rangeKey(b); });
-
+        // applyTextEdits applies bottom-most first, which keeps the ranges of
+        // earlier edits valid.
         editor->applyTextEdits(edits);
     }
 }

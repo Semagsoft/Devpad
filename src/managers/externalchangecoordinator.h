@@ -46,15 +46,14 @@ public:
 
 signals:
     /**
-     * @brief Reload @p filePath with @p encoding by closing the current editor
-     *        and loading the file again (MainWindow executes this). The editor
-     *        bookmarks captured before closing are passed back for restoration.
+     * @brief Reload @p filePath with @p encoding, in place (MainWindow executes
+     *        this). The tab is preserved; bookmarks captured before the reload
+     *        are passed back for restoration.
      */
     void reloadRequested(const QString& filePath, const QString& encoding, const QList<int>& bookmarks);
 
 private:
     TabManager* m_tabManager;
-    FileWatcherManager* m_fileWatcherManager;
 
     // Guards the modal "File Modified" prompt: QMessageBox spins a nested event
     // loop, so further watcher signals must not stack extra dialogs on top of it.

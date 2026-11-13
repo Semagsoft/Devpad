@@ -27,7 +27,7 @@ BomResult detectBom(const QByteArray& data)
 {
     if (data.size() >= 3 && data.first(3) == QByteArray("\xEF\xBB\xBF", 3))
     {
-        return {3, "UTF-8"};
+        return {3, "UTF-8-BOM"};
     }
     if (data.size() >= 4 && data.first(4) == QByteArray("\x00\x00\xFE\xFF", 4))
     {

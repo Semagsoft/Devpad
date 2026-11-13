@@ -83,6 +83,7 @@ signals:
 
 private:
     QString sessionGroupPrefix() const;
+    void pruneDeadSessionGroups(const QString& ownGroup);
 
     QSettings m_sessionSettings;
     QLockFile m_sessionLock;

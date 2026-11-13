@@ -168,7 +168,7 @@ void TitleBar::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event)
 
-    const ThemeColors colors = getThemeColors(SettingsManager::instance().theme());
+    const ThemeColors colors = SettingsManager::instance().currentThemeColors();
 
     QPainter painter(this);
     painter.fillRect(rect(), colors.toolbarBg);

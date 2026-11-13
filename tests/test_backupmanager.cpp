@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
+#include <QUrl>
 #include <QTextStream>
 
 #include <gtest/gtest.h>
@@ -121,6 +122,66 @@ TEST_F(BackupManagerTest, BackupPathIsEncoded)
     QString backupPath = BackupManager::backupPathForFile(original);
     EXPECT_FALSE(backupPath.isEmpty());
     EXPECT_TRUE(backupPath.contains('%'));
+}
+
+TEST_F(BackupManagerTest, UntitledSyntheticKeyRoundTrip)
+{
+    // Untitled documents are backed up under synthetic "untitled-…" keys.
+    QString key = QStringLiteral("untitled-12345-7");
+    EXPECT_TRUE(BackupManager::saveBackup(key, "unsaved text"));
+    EXPECT_TRUE(BackupManager::hasBackup(key));
+    EXPECT_EQ(BackupManager::getBackupContent(key), "unsaved text");
+
+    QStringList keys = BackupManager::backupKeysWithPrefix(QStringLiteral("untitled-"));
+    EXPECT_TRUE(keys.contains(key));
+
+    EXPECT_TRUE(BackupManager::deleteBackup(key));
+    EXPECT_FALSE(BackupManager::hasBackup(key));
+    // Plain "Untitled" is intentionally not a valid backup key.
+    EXPECT_FALSE(BackupManager::saveBackup(QStringLiteral("Untitled"), "x"));
+}
+
+TEST_F(BackupManagerTest, PurgeKeepsBackupWhenParentDirMissing)
+{
+    // Simulate a file on an unmounted/detached volume: the original path
+    // prefix does not exist. Its backups must survive the purge.
+    QTemporaryDir backupDir;
+    ASSERT_TRUE(backupDir.isValid());
+
+    QString ghostPath = m_tempDir.filePath(QStringLiteral("definitely_no_such_mount/very/deep/file.txt"));
+    QString backupDirPath = backupDir.filePath(QStringLiteral("backups"));
+    QDir().mkpath(backupDirPath);
+
+    // Write the backup directly into the isolated directory.
+    QString backupPath = QDir(backupDirPath).filePath(QUrl::toPercentEncoding(ghostPath));
+    QFile backupFile(backupPath);
+    ASSERT_TRUE(backupFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    backupFile.write("precious unsaved work");
+    backupFile.close();
+
+    BackupManager::purgeStaleBackups(30, backupDirPath);
+
+    EXPECT_TRUE(QFile::exists(backupPath));
+}
+
+TEST_F(BackupManagerTest, PurgeRemovesBackupWhenParentDirExists)
+{
+    QTemporaryDir backupDir;
+    ASSERT_TRUE(backupDir.isValid());
+    QString backupDirPath = backupDir.filePath(QStringLiteral("backups"));
+    QDir().mkpath(backupDirPath);
+
+    // Parent dir "originals" exists; the original file is gone.
+    QString missingOriginal = m_tempDir.filePath(QStringLiteral("originals/never_was.txt"));
+    QString backupPath = QDir(backupDirPath).filePath(QUrl::toPercentEncoding(missingOriginal));
+    QFile backupFile(backupPath);
+    ASSERT_TRUE(backupFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    backupFile.write("stale");
+    backupFile.close();
+
+    BackupManager::purgeStaleBackups(30, backupDirPath);
+
+    EXPECT_FALSE(QFile::exists(backupPath));
 }
 
 TEST_F(BackupManagerTest, MultipleIndependentBackups)

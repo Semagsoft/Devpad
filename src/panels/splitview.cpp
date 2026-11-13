@@ -412,18 +412,15 @@ QTabWidget* SplitView::createTabWidget()
                         tmpFile.write(editor->text().toUtf8());
                         QString tmpPath = tmpFile.fileName();
                         tmpFile.close();
-                        emit tabDetachedToWindow(QString(QChar(1)) + tmpPath);
+                        emit tabDetachedToWindow(QString(QChar(1)) + tmpPath, tw, index);
                     }
                     else
                     {
-                        emit tabDetachedToWindow(filePath);
+                        emit tabDetachedToWindow(filePath, tw, index);
                     }
-
-                    tw->removeTab(index);
-                    if (tw->count() == 0)
-                    {
-                        removePane(tw);
-                    }
+                    // The tab is removed by MainWindow via closeDetachedTab() once
+                    // the new process started successfully; on failure the tab
+                    // stays open and the user keeps their content.
                 });
 
         connect(bar, &DraggableTabBar::closeTabRequested, this,
@@ -1100,30 +1097,17 @@ bool SplitView::moveTabToPane(int tabIndex, QTabWidget* source, QTabWidget* targ
     return true;
 }
 
-void SplitView::detachTabToWindow(int tabIndex, QTabWidget* source)
+void SplitView::closeDetachedTab(QTabWidget* source, int index)
 {
-    if (!source || tabIndex < 0 || tabIndex >= source->count())
+    if (!source || index < 0 || index >= source->count())
         return;
 
-    auto* container = qobject_cast<EditorContainer*>(source->widget(tabIndex));
-    if (!container)
-        return;
-
-    auto* editor = container->editor();
-    if (!editor)
-        return;
-
-    QString filePath = editor->fileName();
-    if (filePath.isEmpty() || filePath == Strings::untitled())
-        return;
-
-    emit tabDetachedToWindow(filePath);
-
-    source->removeTab(tabIndex);
+    auto* container = qobject_cast<EditorContainer*>(source->widget(index));
+    source->removeTab(index);
     // The editor is a child of the container, so deleting the container
-    // cascades to it (matches TabManager::closeEditor). Deleting only the
-    // editor used to leak the container.
-    container->deleteLater();
+    // cascades to it (matches TabManager::closeEditor).
+    if (container)
+        container->deleteLater();
 
     if (source->count() == 0)
     {

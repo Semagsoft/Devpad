@@ -29,8 +29,9 @@
 #include <QWidget>
 
 ExternalChangeCoordinator::ExternalChangeCoordinator(TabManager* tabManager, FileWatcherManager* fileWatcherManager, QObject* parent)
-    : QObject(parent), m_tabManager(tabManager), m_fileWatcherManager(fileWatcherManager)
+    : QObject(parent), m_tabManager(tabManager)
 {
+    Q_UNUSED(fileWatcherManager) // Reload no longer unwatches/re-watches around the reload.
 }
 
 void ExternalChangeCoordinator::handleFileModifiedExternally(const QString& filePath)
@@ -68,15 +69,11 @@ void ExternalChangeCoordinator::handleFileModifiedExternally(const QString& file
     if (result != QMessageBox::Yes)
         return;
 
-    // Preserve bookmarks and encoding across the reload.
+    // Preserve bookmarks and encoding across the reload. Do NOT close the
+    // editor here: the reload path reloads in place, which also works for
+    // pinned tabs (close-and-reopen would create a duplicate tab).
     QList<int> bookmarks = editor->bookmarkLines();
     QString encoding = editor->encoding();
 
-    int idx = m_tabManager->indexOf(editor);
-    if (idx >= 0)
-    {
-        m_tabManager->closeEditor(idx);
-    }
-    m_fileWatcherManager->unwatchFile(filePath);
     emit reloadRequested(filePath, encoding, bookmarks);
 }

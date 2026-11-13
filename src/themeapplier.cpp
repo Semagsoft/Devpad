@@ -26,6 +26,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QMainWindow>
+#include <QStyle>
 #include <array>
 
 ThemeApplier::ThemeApplier(QObject* parent) : QObject(parent)
@@ -51,6 +52,12 @@ void ThemeApplier::applyTheme(QMainWindow* window)
     {
         QPalette palette = getThemePalette(colors);
         QApplication::setPalette(palette);
+    }
+    else
+    {
+        // Restore the native palette; a previously-applied dark/custom palette
+        // would otherwise linger on dialogs, menus and dock widgets.
+        QApplication::setPalette(QApplication::style()->standardPalette());
     }
 
     const auto& ui = s.uiSettings();

@@ -42,7 +42,9 @@
 #include <QMimeData>
 #include <QTimer>
 #include <QToolTip>
+#include <algorithm>
 #include <array>
+#include <utility>
 
 #include <Qsci/qsciapis.h>
 
@@ -71,8 +73,10 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 }
             });
 
-    // Set up invisible indicator for snippet tab stops
-    indicatorDefine(QsciScintilla::HiddenIndicator, SnippetEngine::SNIPPET_INDICATOR);
+    // Set up a visible indicator for snippet tab stops (a subtle straight box;
+    // the previous HiddenIndicator made default values invisible).
+    indicatorDefine(QsciScintilla::StraightBoxIndicator, SnippetEngine::SNIPPET_INDICATOR);
+    setIndicatorForegroundColor(QColor(100, 149, 237), SnippetEngine::SNIPPET_INDICATOR);
 
     // Create snippet engine
     m_snippetEngine = new SnippetEngine(this);
@@ -141,7 +145,11 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
     // Connect char added signal for LSP completion trigger
     connect(this, &QsciScintillaBase::SCN_CHARADDED, this, &CodeEditor::onCharAdded);
 
-    // Connect autocompletion selection signal to handle snippet expansion
+    // Handle autocompletion selection. Scintilla sends SCN_AUTOCSELECTION
+    // *before* inserting the chosen item; `position` is the byte offset of the
+    // start of the word being completed. We always cancel Scintilla's
+    // automatic insertion and perform the edit ourselves, so the typed trigger
+    // is replaced exactly once.
     connect(this, static_cast<void (QsciScintillaBase::*)(const char*, int)>(&QsciScintillaBase::SCN_AUTOCSELECTION), this,
             [this](const char* selection, int position)
             {
@@ -149,6 +157,17 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                     return;
 
                 QString selectedText = QString::fromUtf8(selection);
+
+                // Byte range of the typed trigger: [position, cursorPos).
+                auto deleteTriggerWord = [this, position]()
+                {
+                    int wordEnd = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_GETCURRENTPOS));
+                    if (wordEnd < position)
+                        wordEnd = position;
+                    SendScintilla(QsciScintillaBase::SCI_SETSEL, static_cast<uintptr_t>(position), static_cast<uintptr_t>(wordEnd));
+                    const QByteArray empty;
+                    SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<uintptr_t>(0), empty.constData());
+                };
 
                 static const QString marker = QStringLiteral("\u00ABsnip\u00BB");
                 if (SettingsManager::instance().predictiveSnippets() && selectedText.endsWith(marker))
@@ -160,12 +179,9 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                         {
                             if (snip.prefix == prefix)
                             {
-                                int triggerLen = prefix.length();
-                                int triggerStart = position - triggerLen;
-                                if (triggerStart >= 0)
-                                {
-                                    m_snippetEngine->insertSnippet(snip);
-                                }
+                                SendScintilla(QsciScintillaBase::SCI_AUTOCCANCEL);
+                                deleteTriggerWord();
+                                m_snippetEngine->insertSnippet(snip);
                                 return;
                             }
                         }
@@ -175,26 +191,20 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 auto items = m_lspIntegration->completionItems();
                 if (!items.isEmpty())
                 {
-                    QString label = selectedText;
-                    int sepIdx = label.indexOf(QStringLiteral(" ?"));
-                    if (sepIdx >= 0)
-                        label = label.left(sepIdx);
-
                     for (const auto& item : items)
                     {
-                        if (item.label == label && item.insertText != label)
-                        {
-                            int startPos = position - label.length();
-                            if (startPos >= 0)
-                            {
-                                int startLine, startCol, endLine, endCol;
-                                lineIndexFromPosition(startPos, &startLine, &startCol);
-                                lineIndexFromPosition(position, &endLine, &endCol);
-                                setSelection(startLine, startCol, endLine, endCol);
-                                replaceSelectedText(item.insertText);
-                            }
-                            break;
-                        }
+                        QString shown = item.label;
+                        if (!item.detail.isEmpty())
+                            shown += QStringLiteral(" ?") + item.detail;
+                        if (selectedText != shown && selectedText != item.label)
+                            continue;
+
+                        SendScintilla(QsciScintillaBase::SCI_AUTOCCANCEL);
+                        deleteTriggerWord();
+                        const QString insertText = item.insertText.isEmpty() ? item.label : item.insertText;
+                        const QByteArray utf8 = insertText.toUtf8();
+                        SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<uintptr_t>(0), utf8.constData());
+                        break;
                     }
                 }
             });
@@ -306,12 +316,16 @@ void CodeEditor::applyTheme(ThemeId themeId)
 
 void CodeEditor::applyTheme(const ThemeColors& colors)
 {
-    m_themeId = ThemeId::Light; // placeholder; custom themes aren't a ThemeId
+    // Custom themes have no ThemeId; lexer/edge theming reuses the stored
+    // ThemeColors (see applyThemeColors), so m_themeId is left unchanged.
     applyThemeColors(colors);
 }
 
 void CodeEditor::applyThemeColors(const ThemeColors& colors)
 {
+    m_lastColors = colors;
+    m_hasLastColors = true;
+
     setMarginsBackgroundColor(colors.marginBg);
     setMarginsForegroundColor(colors.marginFg);
     setFoldMarginColors(colors.foldMarginBg, colors.foldMarginBgAlt);
@@ -337,7 +351,7 @@ void CodeEditor::applyLexerTheme()
     if (!lexer)
         return;
 
-    ThemeColors colors = getThemeColors(m_themeId);
+    const ThemeColors colors = m_hasLastColors ? m_lastColors : getThemeColors(m_themeId);
     applyLexerThemeColors(colors);
 }
 
@@ -583,7 +597,7 @@ void CodeEditor::setVerticalEdge(bool enabled, int column)
     {
         setEdgeMode(QsciScintilla::EdgeLine);
         setEdgeColumn(column);
-        ThemeColors colors = getThemeColors(m_themeId);
+        const ThemeColors colors = m_hasLastColors ? m_lastColors : getThemeColors(m_themeId);
         setEdgeColor(colors.separator);
     }
     else
@@ -1324,10 +1338,12 @@ void CodeEditor::showCompletion(const lsp::CompletionList& completions)
     }
     QString currentWord = text(start, pos);
 
-    // Show autocompletion list using SCI_AUTOCSHOW
+    // Show autocompletion list using SCI_AUTOCSHOW. Scintilla's default
+    // separator is a space, so set ours explicitly to '\n'.
     constexpr char sep = '\n';
     QString joined = entries.join(QLatin1Char(sep));
     QByteArray data = joined.toUtf8();
+    SendScintilla(QsciScintillaBase::SCI_AUTOCSETSEPARATOR, static_cast<uintptr_t>(static_cast<unsigned char>(sep)));
     SendScintilla(SCI_AUTOCSHOW, static_cast<uintptr_t>(currentWord.length()), data.constData());
 }
 
@@ -1373,11 +1389,17 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
 
 void CodeEditor::clearDiagnostics()
 {
-    if (lines() == 0)
-        return;
-    clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_ERROR);
-    clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_WARNING);
-    clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_INFO);
+    int len = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_GETLENGTH));
+    if (len > 0)
+    {
+        // Clear the whole raw document: the previous last-line-column-0 end
+        // position let indicators on the last line survive.
+        for (int indicator : {lsp::LSP_INDICATOR_ERROR, lsp::LSP_INDICATOR_WARNING, lsp::LSP_INDICATOR_INFO})
+        {
+            SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT, static_cast<uintptr_t>(indicator));
+            SendScintilla(QsciScintillaBase::SCI_INDICATORCLEARRANGE, static_cast<uintptr_t>(0), static_cast<uintptr_t>(len));
+        }
+    }
 }
 
 void CodeEditor::applyHighlights(const QJsonArray& highlights)
@@ -1401,7 +1423,12 @@ void CodeEditor::applyHighlights(const QJsonArray& highlights)
 
 void CodeEditor::clearHighlights()
 {
-    clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_HIGHLIGHT);
+    int len = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_GETLENGTH));
+    if (len > 0)
+    {
+        SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT, static_cast<uintptr_t>(lsp::LSP_INDICATOR_HIGHLIGHT));
+        SendScintilla(QsciScintillaBase::SCI_INDICATORCLEARRANGE, static_cast<uintptr_t>(0), static_cast<uintptr_t>(len));
+    }
 }
 
 void CodeEditor::setLinkedEditingRanges(const QJsonObject& result)
@@ -1496,16 +1523,26 @@ void CodeEditor::applyFormattingEdits(const QList<QJsonObject>& edits)
     applyTextEdits(edits);
 }
 
-void CodeEditor::applyTextEdits(const QList<QJsonObject>& edits)
+void CodeEditor::applyTextEdits(const QList<QJsonObject>& editsIn)
 {
-    if (edits.isEmpty())
+    if (editsIn.isEmpty())
         return;
+
+    // LSP ranges refer to the original document, so edits must be applied
+    // bottom-most first to keep earlier ranges valid. Sort defensively here
+    // (descending); callers must not pre-sort in a conflicting order.
+    QList<QJsonObject> edits = editsIn;
+    std::sort(edits.begin(), edits.end(),
+              [](const QJsonObject& a, const QJsonObject& b)
+              {
+                  auto ra = lsp::Range::fromJson(a["range"].toObject());
+                  auto rb = lsp::Range::fromJson(b["range"].toObject());
+                  return qMakePair(ra.start.line, ra.start.character) > qMakePair(rb.start.line, rb.start.character);
+              });
+
     beginUndoAction();
-    // Apply edits in reverse order so that earlier edits do not invalidate the
-    // positions of later ones (LSP ranges refer to the original document).
-    for (int i = edits.size() - 1; i >= 0; --i)
+    for (const auto& edit : edits)
     {
-        const auto& edit = edits[i];
         auto range = lsp::Range::fromJson(edit["range"].toObject());
         QString newText = edit["newText"].toString();
 

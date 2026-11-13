@@ -230,23 +230,21 @@ void DraggableTabBar::contextMenuEvent(QContextMenuEvent* event)
 
     bool isUntitled = editor->fileName().isEmpty() || editor->fileName() == Strings::untitled();
     int tabCount = count();
-    bool readOnly = editor->isReadOnly();
 
     QMenu menu(this);
 
     QAction* closeAct = menu.addAction(QIcon(":/icons/File/close.svg"), tr("Close"));
     closeAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_W));
-    closeAct->setEnabled(!readOnly);
 
     QAction* closeOthersAct = menu.addAction(tr("Close Others"));
-    closeOthersAct->setEnabled(tabCount > 1 && !readOnly);
+    closeOthersAct->setEnabled(tabCount > 1);
 
     QAction* closeRightAct = menu.addAction(tr("Close to the Right"));
-    closeRightAct->setEnabled(idx < tabCount - 1 && !readOnly);
+    closeRightAct->setEnabled(idx < tabCount - 1);
 
     QAction* closeAllAct = menu.addAction(QIcon(":/icons/File/closeall.svg"), tr("Close All"));
     closeAllAct->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_W));
-    closeAllAct->setEnabled(tabCount > 0 && !readOnly);
+    closeAllAct->setEnabled(tabCount > 0);
 
     menu.addSeparator();
 

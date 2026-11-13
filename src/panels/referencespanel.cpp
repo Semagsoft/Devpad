@@ -82,6 +82,7 @@ void ReferencesPanel::setReferences(const QList<lsp::Location>& locations)
 
             auto* lineItem = new QStandardItem(QString::number(line + 1));
             lineItem->setEditable(false);
+            lineItem->setData(line + 1, Qt::EditRole); // numeric sort
 
             auto* codeItem = new QStandardItem(code);
             codeItem->setEditable(false);

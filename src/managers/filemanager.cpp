@@ -130,14 +130,16 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
     BomResult bom = detectBom(rawData);
 
     QStringConverter::Encoding enc;
+    QString encDisplayName;
     if (encoding.isEmpty())
     {
-        QString detectedEnc = detectEncoding(rawData);
-        auto encOpt = QStringConverter::encodingForName(detectedEnc.toUtf8());
+        encDisplayName = detectEncoding(rawData);
+        auto encOpt = QStringConverter::encodingForName(encDisplayName.toUtf8());
         enc = encOpt.value_or(QStringConverter::Utf8);
     }
     else
     {
+        encDisplayName = encoding;
         auto encOpt = QStringConverter::encodingForName(encoding.toUtf8());
         enc = encOpt.value_or(QStringConverter::Utf8);
     }
@@ -156,7 +158,7 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
 
     editor->setFileName(fileName);
     editor->setModified(false);
-    editor->setEncoding(encoding.isEmpty() ? encodingToDisplayName(enc) : encoding);
+    editor->setEncoding(encDisplayName);
     editor->setDiskModifiedAt(QFileInfo(fileName).lastModified());
 
     Logger::instance().info(QString("Opened file: %1").arg(fileName));

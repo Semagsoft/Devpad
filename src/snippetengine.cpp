@@ -113,12 +113,13 @@ void SnippetEngine::enterSnippetMode(const Snippet::ExpandedSnippet& expanded, i
 
     for (const auto& info : m_tabStopInfos)
     {
-        if (info.length > 0 || info.defaultValue.isEmpty())
+        if (info.length > 0)
         {
-            int len = qMax(info.length, 1);
+            // Zero-length stops cannot be indicator-marked (Scintilla drops
+            // zero-width runs); they are positioned via the cursor anyway.
             int lf, cf, lt, ct;
             m_editor->lineIndexFromPosition(info.pos, &lf, &cf);
-            m_editor->lineIndexFromPosition(info.pos + len, &lt, &ct);
+            m_editor->lineIndexFromPosition(info.pos + info.length, &lt, &ct);
             m_editor->fillIndicatorRange(lf, cf, lt, ct, SNIPPET_INDICATOR);
         }
     }
@@ -203,11 +204,15 @@ void SnippetEngine::exitSnippetMode()
 
 void SnippetEngine::clearSnippetMarkers()
 {
-    if (m_snippetEndPos > m_snippetStartPos)
+    // Clear across the whole document. The tracked m_snippetEndPos does not
+    // follow edits the user makes inside the snippet, and stale markers would
+    // otherwise linger as unreachable invisible state.
+    int len = static_cast<int>(m_editor->SendScintilla(QsciScintillaBase::SCI_GETLENGTH));
+    if (len > 0)
     {
         int lf, cf, lt, ct;
-        m_editor->lineIndexFromPosition(m_snippetStartPos, &lf, &cf);
-        m_editor->lineIndexFromPosition(m_snippetEndPos, &lt, &ct);
+        m_editor->lineIndexFromPosition(0, &lf, &cf);
+        m_editor->lineIndexFromPosition(len, &lt, &ct);
         m_editor->clearIndicatorRange(lf, cf, lt, ct, SNIPPET_INDICATOR);
     }
 }

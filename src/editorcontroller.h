@@ -77,11 +77,21 @@ public:
     void promptBackupRestore(const QString& filePath);
     void connectEditorSignals(CodeEditor* editor);
     bool saveEditor(CodeEditor* editor, const QString& fileName);
+    // Drop the synthetic auto-save backup of an untitled editor. Used when a
+    // document was explicitly discarded ("Don't Save") so it is not
+    // resurrected on the next launch.
+    void discardUntitledBackup(CodeEditor* editor);
 
     // Load a file from disk into a new editor tab.
     // Returns the editor on success, nullptr on failure.
     // Does NOT check if file is already open (caller handles that).
     CodeEditor* openFile(const QString& fileName, const QString& encoding = QString());
+
+    // Reload the file from disk into an existing editor, in place.
+    // Preserves the editor's tab, pin state and (best effort) bookmarks.
+    // Used by external-change reload and encoding re-read; unlike a
+    // close-and-reopen it also works for pinned tabs.
+    bool reloadFileInPlace(CodeEditor* editor, const QString& encoding = QString(), const QList<int>& bookmarks = {});
 
     // Reload the current editor using a different encoding
     void reloadWithEncoding(const QString& encoding);
@@ -105,11 +115,20 @@ private:
     void applyDefaultSyntax(CodeEditor* editor) const;
     bool checkSaveConflict(CodeEditor* editor, const QString& fileName);
 
+    // Synthetic backup key for an untitled (never-saved) document, so its
+    // content is covered by auto-save. Stored as a dynamic property on the
+    // editor; stable for the editor's lifetime. Keys look like
+    // "untitled-<pid>-<n>" and are removed once the document is saved or the
+    // backup is restored at startup.
+    QString untitledBackupKey(CodeEditor* editor);
+    void deleteUntitledBackup(CodeEditor* editor);
+
     TabManager* m_tabManager;
     FileManager* m_fileManager;
     FileWatcherManager* m_fileWatcherManager;
     ActionManager* m_actionManager;
     QTabWidget* m_tabWidget;
+    int m_untitledBackupSeq = 0;
 };
 
 #endif

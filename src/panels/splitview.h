@@ -56,7 +56,6 @@ public:
     QTabWidget* addNewPane(QTabWidget* relativeTo, Qt::Orientation orientation, bool after);
     void removePane(QTabWidget* tw);
     bool moveTabToPane(int tabIndex, QTabWidget* source, QTabWidget* target, int insertIndex = -1);
-    void detachTabToWindow(int tabIndex, QTabWidget* source);
 
     static quint64 nextDragId();
     static void registerDragSource(quint64 id, QTabWidget* widget);
@@ -67,6 +66,9 @@ public:
     {
         return m_panes.size();
     }
+    // Remove a tab that was detached to a new window after the detach was
+    // confirmed (MainWindow calls this once the new process launched).
+    void closeDetachedTab(QTabWidget* source, int index);
     QTabWidget* paneAt(int index) const;
     QSplitter* splitter() const
     {
@@ -81,7 +83,7 @@ public:
 
 signals:
     void activeTabWidgetChanged(QTabWidget* tabWidget);
-    void tabDetachedToWindow(const QString& filePath);
+    void tabDetachedToWindow(const QString& filePath, QTabWidget* pane, int index);
     void closeAllTabsRequested();
     void tabPinToggled(int tabIndex, QTabWidget* pane);
     void externalTabDropped(const QString& filePath);

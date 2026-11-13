@@ -166,6 +166,7 @@ void ErrorListPanel::onFilterChanged(int index)
 
             auto* lineItem = new QStandardItem(QString::number(d.range.start.line + 1));
             lineItem->setEditable(false);
+            lineItem->setData(d.range.start.line + 1, Qt::EditRole); // numeric sort
 
             row << sevItem << msgItem << fileItem << lineItem;
             m_model->appendRow(row);

@@ -115,7 +115,8 @@ static bool handOffToRunningInstance(const QStringList& paths)
         return false;
 
     QProcess pgrep;
-    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("Devpad"));
+    // -U: only our own uid; do not push file paths into other users' editors.
+    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("-U") << QString::number(static_cast<qint64>(geteuid())) << QStringLiteral("Devpad"));
     if (!pgrep.waitForFinished(2000))
         return false;
 

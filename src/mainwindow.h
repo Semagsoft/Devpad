@@ -116,6 +116,7 @@ public slots:
     void renameSymbol();
     void startDebugging();
     void stopDebugging();
+    void debugStartOrContinue();
     void debugContinue();
     void debugStepOver();
     void debugStepInto();
@@ -174,6 +175,7 @@ private:
     bool saveAllModifiedTabs();
     void applySettings();
     void applyStartupMode();
+    void restoreUntitledBackups();
     void applyAutoSaveSettings();
 
     void invokeOnEditor(void (CodeEditor::*method)());

@@ -84,9 +84,9 @@ InlineFindBar::InlineFindBar(CodeEditor* editor, QWidget* parent) : QWidget(pare
     connect(m_nextBtn, &QToolButton::clicked, this, &InlineFindBar::onFindNextClicked);
     connect(m_closeBtn, &QToolButton::clicked, this, &InlineFindBar::onCloseClicked);
 
-    connect(m_caseBtn, &QToolButton::clicked, this, [this]() { onFindTextChanged(QString()); });
-    connect(m_wordBtn, &QToolButton::clicked, this, [this]() { onFindTextChanged(QString()); });
-    connect(m_regexBtn, &QToolButton::clicked, this, [this]() { onFindTextChanged(QString()); });
+    connect(m_caseBtn, &QToolButton::clicked, this, &InlineFindBar::onOptionToggled);
+    connect(m_wordBtn, &QToolButton::clicked, this, &InlineFindBar::onOptionToggled);
+    connect(m_regexBtn, &QToolButton::clicked, this, &InlineFindBar::onOptionToggled);
 
     connect(m_replaceBtn, &QPushButton::clicked, this, &InlineFindBar::onReplaceClicked);
     connect(m_replaceAllBtn, &QPushButton::clicked, this, &InlineFindBar::onReplaceAllClicked);
@@ -290,6 +290,25 @@ void InlineFindBar::onDebounceTimeout()
     performSearch();
 }
 
+void InlineFindBar::onOptionToggled()
+{
+    // The option toggles re-run the search with the new setting instead of
+    // touching the search text (previously they cleared the search field).
+    saveState();
+    performSearch();
+}
+
+// Select the byte range [posFrom, posTo). Scintilla positions are byte
+// offsets while QsciScintilla's (line, index) APIs work in characters, so
+// convert via lineIndexFromPosition().
+void InlineFindBar::selectByteRange(int posFrom, int posTo)
+{
+    int lineFrom = 0, indexFrom = 0, lineTo = 0, indexTo = 0;
+    m_editor->lineIndexFromPosition(posFrom, &lineFrom, &indexFrom);
+    m_editor->lineIndexFromPosition(posTo, &lineTo, &indexTo);
+    m_editor->setSelection(lineFrom, indexFrom, lineTo, indexTo);
+}
+
 void InlineFindBar::onFindNextClicked()
 {
     findNext();
@@ -340,7 +359,7 @@ void InlineFindBar::onReplaceClicked()
         return;
 
     const auto& match = m_matches[m_currentMatch];
-    m_editor->setSelection(match.pos, 0, match.pos + match.len, 0);
+    selectByteRange(match.pos, match.pos + match.len);
     m_editor->replaceSelectedText(m_replaceInput->text());
 
     performSearch();
@@ -362,7 +381,7 @@ void InlineFindBar::onReplaceAllClicked()
     for (int i = m_matches.size() - 1; i >= 0; --i)
     {
         const auto& match = m_matches[i];
-        m_editor->setSelection(match.pos, 0, match.pos + match.len, 0);
+        selectByteRange(match.pos, match.pos + match.len);
         m_editor->replaceSelectedText(replaceText);
     }
 
@@ -410,8 +429,7 @@ void InlineFindBar::performSearch()
     m_editor->SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT, FIND_INDICATOR);
 
     int pos = 0;
-    bool caseless = !caseSensitive;
-    bool found = m_editor->findFirst(text, regex, caseless, wholeWord, false, true, 0, false);
+    bool found = m_editor->findFirst(text, regex, caseSensitive, wholeWord, false, true, 0, false);
 
     while (found)
     {
@@ -447,7 +465,7 @@ void InlineFindBar::navigateToMatch(int index)
     m_currentMatch = index;
     const auto& match = m_matches[index];
 
-    m_editor->setSelection(match.pos, 0, match.pos + match.len, 0);
+    selectByteRange(match.pos, match.pos + match.len);
     int line = static_cast<int>(m_editor->SendScintilla(QsciScintillaBase::SCI_LINEFROMPOSITION, match.pos));
     m_editor->ensureLineVisible(line);
 
@@ -482,7 +500,7 @@ void InlineFindBar::updateIcons()
 {
     if (!m_editor)
         return;
-    ThemeColors colors = getThemeColors(m_editor->themeId());
+    ThemeColors colors = SettingsManager::instance().currentThemeColors();
     QColor fg = colors.dialogFg;
 
     m_caseBtn->setIcon(paintIcon(fg, QStringLiteral("Aa"), true));
@@ -499,7 +517,7 @@ QColor InlineFindBar::highlightColor() const
 {
     if (!m_editor)
         return QColor(255, 255, 0, 100);
-    ThemeColors colors = getThemeColors(m_editor->themeId());
+    ThemeColors colors = SettingsManager::instance().currentThemeColors();
     QColor base = colors.accent;
     base.setAlpha(80);
     return base;

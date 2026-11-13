@@ -85,6 +85,25 @@ TEST_F(ActionManagerTest, ShortcutActionsNotEmpty)
     }
 }
 
+TEST_F(ActionManagerTest, ShortcutActionsHaveUniqueSequences)
+{
+    ActionManager manager;
+    manager.createActions();
+
+    // Two window-scope actions with the same shortcut make both dead (Qt
+    // reports the ambiguous shortcut and neither fires).
+    QHash<QKeySequence, QString> seen;
+    for (QAction* act : manager.actionsWithShortcuts())
+    {
+        if (act->shortcut().isEmpty())
+            continue;
+        auto it = seen.constFind(act->shortcut());
+        ASSERT_EQ(it, seen.constEnd()) << "Shortcut " << act->shortcut().toString().toStdString() << " is claimed by both \"" << it.value().toStdString()
+                                       << "\" and \"" << act->text().toStdString() << "\"";
+        seen.insert(act->shortcut(), act->text());
+    }
+}
+
 TEST_F(ActionManagerTest, FileMenuContainsActions)
 {
     ActionManager manager;

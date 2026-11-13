@@ -168,6 +168,7 @@ void DapPlugin::stopDebugging(const QString& sessionKey)
     {
         actionManager->debugPanelAct()->setChecked(false);
         actionManager->startDebuggingAct()->setEnabled(true);
+        actionManager->startDebuggingAct()->setText(QObject::tr("Start Debugging"));
         actionManager->stopDebuggingAct()->setEnabled(false);
     }
 
@@ -241,6 +242,7 @@ void DapPlugin::onInitializeDone(const QString& sessionKey, const dap::Capabilit
     {
         actionManager->debugPanelAct()->setChecked(true);
         actionManager->startDebuggingAct()->setEnabled(false);
+        actionManager->startDebuggingAct()->setText(QObject::tr("Continue (F5)"));
         actionManager->stopDebuggingAct()->setEnabled(true);
     }
 
@@ -259,6 +261,7 @@ void DapPlugin::onClientStopped(const QString& sessionKey)
         {
             actionManager->debugPanelAct()->setChecked(false);
             actionManager->startDebuggingAct()->setEnabled(true);
+            actionManager->startDebuggingAct()->setText(QObject::tr("Start Debugging"));
             actionManager->stopDebuggingAct()->setEnabled(false);
         }
     }

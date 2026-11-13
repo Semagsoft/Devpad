@@ -303,7 +303,7 @@ void ActionManager::createEditActions()
         },
         "Edit.GoToLine");
     m_formatSelectionAct = createIconAction(
-        ":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Ctrl+Shift+F"),
+        ":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Alt+Shift+F"),
         [this]()
         {
             emit formatSelectionTriggered();
@@ -464,8 +464,10 @@ void ActionManager::createDebugActions()
             emit debugActionTriggered(DebugAction::StopDebugging);
         },
         "Debug.Stop");
+    // Continue shares F5 with Start Debugging through the F5 toggle in
+    // MainWindow; this action is menu-only so both never fire together.
     m_continueAct = createIconAction(
-        ":/icons/Debug/continue.svg", tr("Continue"), QKeySequence("F5"),
+        ":/icons/Debug/continue.svg", tr("Continue"), QKeySequence(),
         [this]()
         {
             emit continueTriggered();
@@ -537,7 +539,7 @@ void ActionManager::createViewActions()
 #ifdef Q_OS_MACOS
         QKeySequence(),
 #else
-        QKeySequence("F11"),
+        QKeySequence("Ctrl+F11"),
 #endif
         [this]()
         {
@@ -923,6 +925,13 @@ void ActionManager::rebuildExternalToolsMenu()
     }
     m_externalToolActs.clear();
 
+    for (QAction* sep : m_externalToolSeparators)
+    {
+        m_toolsMenu->removeAction(sep);
+        delete sep;
+    }
+    m_externalToolSeparators.clear();
+
     int count = SettingsManager::instance().externalToolCount();
     for (int i = 0; i < count; ++i)
     {
@@ -942,7 +951,7 @@ void ActionManager::rebuildExternalToolsMenu()
     }
 
     if (count > 0)
-        m_toolsMenu->addSeparator();
+        m_externalToolSeparators.append(m_toolsMenu->addSeparator());
 
     QAction* configureAct = new QAction(QIcon(":/icons/Tools/externaltools.svg"), tr("External Tools..."), this);
     connect(configureAct, &QAction::triggered, this,
@@ -954,7 +963,7 @@ void ActionManager::rebuildExternalToolsMenu()
     m_toolsMenu->addAction(configureAct);
     m_externalToolActs.append(configureAct);
 
-    m_toolsMenu->addSeparator();
+    m_externalToolSeparators.append(m_toolsMenu->addSeparator());
     m_toolsMenu->removeAction(m_optionsAct);
     m_toolsMenu->addAction(m_optionsAct);
 
@@ -1140,7 +1149,7 @@ void ActionManager::wireDebugConnections(const ActionTargets& t)
 {
     auto* mw = t.mainWindow;
 
-    connect(this, &ActionManager::startDebuggingTriggered, mw, &MainWindow::startDebugging);
+    connect(this, &ActionManager::startDebuggingTriggered, mw, &MainWindow::debugStartOrContinue);
     connect(this, &ActionManager::stopDebuggingTriggered, mw, &MainWindow::stopDebugging);
     connect(this, &ActionManager::continueTriggered, mw, &MainWindow::debugContinue);
     connect(this, &ActionManager::stepOverTriggered, mw, &MainWindow::debugStepOver);

@@ -27,6 +27,7 @@
 
 #include "logger.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -55,6 +56,19 @@ constexpr qint64 kMaxListingBytes = 10LL * 1024 * 1024;
 
 // Abort an HTTP/HTTPS transfer that stalls for this long.
 constexpr int kHttpTransferTimeoutMs = 30000;
+
+// Inactivity watchdog for scp transfers. scp does not report byte-level
+// progress; a transfer with no destination-file growth (download) or no
+// output/exit for this long is considered stalled and is killed.
+constexpr qint64 kSshStallTimeoutMs = 60 * 1000;
+
+// Upload timeout budget: assume no better than 64 KB/s throughput.
+constexpr qint64 kUploadMinThroughputBytesPerSec = 64LL * 1024;
+// Base allowance for connection setup and protocol overhead on top of the
+// throughput-scaled part.
+constexpr qint64 kUploadBaseTimeoutMs = 30 * 1000;
+// Hard cap on the total upload timeout, regardless of payload size.
+constexpr qint64 kUploadMaxTimeoutMs = 30LL * 60 * 1000;
 } // namespace
 
 RemoteFileService::RemoteFileService(QObject* parent) : QObject(parent)
@@ -665,6 +679,12 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     }
     tmpFile->write(data);
     tmpFile->flush();
+    if (tmpFile->error() != QFile::NoError || tmpFile->size() != data.size())
+    {
+        if (error)
+            *error = tr("Failed to write temp file (%1).").arg(tmpFile->errorString());
+        return false;
+    }
     tmpFile->close();
     QString localPath = tmpFile->fileName();
 
@@ -734,6 +754,7 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     QPointer<QProcess> procGuard(scp);
     std::shared_ptr<bool> processed = std::make_shared<bool>(false);
     auto stderrBuf = std::make_shared<QByteArray>();
+    auto lastProgress = std::make_shared<qint64>(QDateTime::currentMSecsSinceEpoch());
 
     // Disconnect and close the process without deleteLater() — calling
     // deleteLater() from within a QProcess's own signal handlers can cause a
@@ -758,18 +779,20 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     };
 
     connect(scp, &QProcess::readyReadStandardError, this,
-            [scp, procGuard, stderrBuf]()
+            [scp, procGuard, stderrBuf, lastProgress]()
             {
                 if (!procGuard)
                     return;
                 stderrBuf->append(scp->readAllStandardError());
+                *lastProgress = QDateTime::currentMSecsSinceEpoch();
             });
 
     connect(scp, &QProcess::readyReadStandardOutput, this,
-            [scp, procGuard, guard, urlStr]()
+            [scp, procGuard, guard, urlStr, lastProgress]()
             {
                 if (!guard || !procGuard)
                     return;
+                *lastProgress = QDateTime::currentMSecsSinceEpoch();
                 // scp prints the current file being copied; surface the last
                 // line as progress feedback.
                 QString text = QString::fromUtf8(scp->readAllStandardOutput()).trimmed();
@@ -845,22 +868,47 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
                 reportFailure(reason);
             });
 
-    auto* killTimer = new QTimer(scp);
-    killTimer->setSingleShot(true);
-    connect(killTimer, &QTimer::timeout, scp,
-            [scp, guard, processed]()
+    // Inactivity watchdog. scp does not report byte-level progress, so we
+    // poll the destination file: growth resets the stall timer and an
+    // oversized result aborts the transfer. Any stderr output also counts as
+    // activity. A transfer that produces no growth for kSshStallTimeoutMs is
+    // killed.
+    auto* pollTimer = new QTimer(scp);
+    pollTimer->setInterval(500);
+    auto lastSize = std::make_shared<qint64>(0);
+    connect(pollTimer, &QTimer::timeout, scp, [scp, guard, processed, tmpFileShared, lastProgress, lastSize, urlStr]()
             {
                 if (!guard || *processed)
                     return;
-                *processed = true;
-                scp->disconnect();
-                if (scp->state() != QProcess::NotRunning)
-                    scp->kill();
-                emit guard->downloadFailed(scp->property("remoteUrl").toString(), tr("SCP transfer timed out."));
+                QString path = tmpFileShared->fileName();
+                qint64 sz = QFileInfo(path).size();
+                qint64 now = QDateTime::currentMSecsSinceEpoch();
+                if (sz != *lastSize)
+                {
+                    *lastSize = sz;
+                    *lastProgress = now;
+                }
+                if (sz > kMaxRemoteFileSize)
+                {
+                    *processed = true;
+                    scp->disconnect();
+                    if (scp->state() != QProcess::NotRunning)
+                        scp->kill();
+                    emit guard->downloadFailed(urlStr, tr("Remote file too large (limit %1 MB)").arg(kMaxRemoteFileSize / (1024LL * 1024)));
+                    return;
+                }
+                if (now - *lastProgress > kSshStallTimeoutMs)
+                {
+                    *processed = true;
+                    scp->disconnect();
+                    if (scp->state() != QProcess::NotRunning)
+                        scp->kill();
+                    emit guard->downloadFailed(urlStr, tr("SCP transfer timed out."));
+                }
             });
 
     scp->start();
-    killTimer->start(30000);
+    pollTimer->start();
 }
 
 void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList& args, const QString& scpPath,
@@ -877,6 +925,7 @@ void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList&
     QPointer<QProcess> procGuard(scp);
     std::shared_ptr<bool> processed = std::make_shared<bool>(false);
     auto stderrBuf = std::make_shared<QByteArray>();
+    auto lastProgress = std::make_shared<qint64>(QDateTime::currentMSecsSinceEpoch());
 
     // Disconnect and close the process without deleteLater() — calling
     // deleteLater() from within a QProcess's own signal handlers can cause a
@@ -901,18 +950,20 @@ void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList&
     };
 
     connect(scp, &QProcess::readyReadStandardError, this,
-            [scp, procGuard, stderrBuf]()
+            [scp, procGuard, stderrBuf, lastProgress]()
             {
                 if (!procGuard)
                     return;
                 stderrBuf->append(scp->readAllStandardError());
+                *lastProgress = QDateTime::currentMSecsSinceEpoch();
             });
 
     connect(scp, &QProcess::readyReadStandardOutput, this,
-            [scp, procGuard, guard, urlStr]()
+            [scp, procGuard, guard, urlStr, lastProgress]()
             {
                 if (!guard || !procGuard)
                     return;
+                *lastProgress = QDateTime::currentMSecsSinceEpoch();
                 // scp prints the current file being copied; surface the last
                 // line as progress feedback.
                 QString text = QString::fromUtf8(scp->readAllStandardOutput()).trimmed();
@@ -968,6 +1019,13 @@ void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList&
                 reportFailure(reason);
             });
 
+    // Overall timeout scaled by payload size: scp gives no byte-level progress
+    // for uploads (the local file is only read), so allow enough time for a
+    // worst-case throughput of kUploadMinThroughputBytesPerSec plus a base
+    // allowance, capped at kUploadMaxTimeoutMs.
+    const qint64 payloadBytes = QFileInfo(tmpFileShared->fileName()).size();
+    const qint64 budgetMs = qMin(kUploadBaseTimeoutMs + (payloadBytes * 1000) / kUploadMinThroughputBytesPerSec, kUploadMaxTimeoutMs);
+
     auto* killTimer = new QTimer(scp);
     killTimer->setSingleShot(true);
     connect(killTimer, &QTimer::timeout, scp,
@@ -983,5 +1041,5 @@ void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList&
             });
 
     scp->start();
-    killTimer->start(30000);
+    killTimer->start(budgetMs);
 }

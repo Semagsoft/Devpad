@@ -31,6 +31,7 @@
 #include "tabmanager.h"
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QEventLoop>
 #include <QFileDialog>
@@ -56,7 +57,10 @@ EditorController::EditorController(TabManager* tabManager, FileManager* fileMana
                 if (ok)
                 {
                     if (CodeEditor* editor = findEditorByFileName(fileName))
+                    {
                         m_tabManager->updateTabTitle(editor);
+                        deleteUntitledBackup(editor);
+                    }
                     emit fileSaved(fileName);
                     return;
                 }
@@ -125,7 +129,6 @@ bool EditorController::saveFileAs()
     if (!editor)
         return false;
 
-    editor->setFileName(fileName);
     if (!saveEditor(editor.data(), fileName))
     {
         QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save Failed"),
@@ -133,7 +136,10 @@ bool EditorController::saveFileAs()
         return false;
     }
     if (editor)
+    {
+        editor->setFileName(fileName);
         m_tabManager->updateTabTitle(editor);
+    }
     return true;
 }
 
@@ -164,7 +170,9 @@ bool EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
         }
         m_tabManager->updateTabTitle(editor);
         m_fileWatcherManager->watchFile(fileName);
+        deleteUntitledBackup(editor);
         emit fileSaved(fileName);
+        Logger::instance().debug(QString("Saved file: %1").arg(fileName));
         return true;
     }
     return false;
@@ -222,7 +230,6 @@ void EditorController::saveAll()
                     continue;
                 }
 
-                editor->setFileName(fileName);
                 if (!saveEditor(editor, fileName))
                 {
                     failedCount++;
@@ -230,6 +237,7 @@ void EditorController::saveAll()
                 }
                 else if (editor)
                 {
+                    editor->setFileName(fileName);
                     m_tabManager->updateTabTitle(editor);
                 }
             }
@@ -274,7 +282,7 @@ bool EditorController::maybeSave(CodeEditor* editor)
         QEventLoop waitLoop;
         QTimer timeout;
         timeout.setSingleShot(true);
-        timeout.setInterval(30000); // matches the scp watchdog
+        timeout.setInterval(30000); // bounded wait; uploads stream asynchronously and may outlast this
         QObject::connect(&timeout, &QTimer::timeout, &waitLoop, &QEventLoop::quit);
         QObject::connect(m_fileManager, &FileManager::remoteSaveFinished, &waitLoop,
                          [&waitLoop, &waitName](bool, const QString& fileName, const QString&)
@@ -305,7 +313,6 @@ bool EditorController::maybeSave(CodeEditor* editor)
                 return false;
             if (!guard)
                 return false;
-            guard->setFileName(fileName);
             if (!saveEditor(guard.data(), fileName))
             {
                 QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save Failed"),
@@ -313,7 +320,10 @@ bool EditorController::maybeSave(CodeEditor* editor)
                 return false;
             }
             if (guard)
+            {
+                guard->setFileName(fileName);
                 m_tabManager->updateTabTitle(guard);
+            }
             return true;
         }
         if (!saveEditor(guard.data(), guard->fileName()))
@@ -367,8 +377,18 @@ bool EditorController::onTabCloseRequested(int index)
         if (!guard)
             return true; // Editor destroyed during the save prompt.
         QString fileName = guard->fileName();
-        m_tabManager->closeEditor(index);
-        if (fileName != Strings::untitled() && !fileName.isEmpty())
+        // If the user discarded the document (or saved it before closing),
+        // drop any untitled backup so it is not resurrected next launch.
+        if (fileName == Strings::untitled() || fileName.isEmpty())
+            deleteUntitledBackup(guard);
+        bool closed = m_tabManager->closeEditor(index);
+        if (!closed && m_tabManager->isTabPinned(guard))
+        {
+            QMessageBox::information(qobject_cast<QWidget*>(parent()), tr("Pinned Tab"),
+                                     tr("This tab is pinned. Unpin it before closing."));
+            return true; // Handled (user informed); tab stays open.
+        }
+        if (closed && fileName != Strings::untitled() && !fileName.isEmpty())
         {
             m_fileWatcherManager->unwatchFile(fileName);
         }
@@ -391,8 +411,10 @@ void EditorController::closeAllTabs()
         if (!editor)
             continue; // Editor destroyed during the save prompt.
         QString fileName = editor->fileName();
-        m_tabManager->closeEditor(i);
-        if (fileName != Strings::untitled() && !fileName.isEmpty())
+        if (fileName == Strings::untitled() || fileName.isEmpty())
+            deleteUntitledBackup(editor);
+        bool closed = m_tabManager->closeEditor(i);
+        if (closed && fileName != Strings::untitled() && !fileName.isEmpty())
         {
             m_fileWatcherManager->unwatchFile(fileName);
         }
@@ -638,6 +660,10 @@ void EditorController::autoSave()
                         }
                         else
                         {
+                            // QSaveFile replaces the file (rename), killing the old
+                            // inotify watch — re-add it so external changes are
+                            // still detected.
+                            m_fileWatcherManager->watchFile(fileName);
                             m_fileWatcherManager->updateModificationTime(fileName);
                             if (editor)
                                 m_tabManager->updateTabTitle(editor);
@@ -656,9 +682,10 @@ void EditorController::autoSave()
             }
             else
             {
-                if (BackupManager::saveBackup(fileName, editor->text()))
+                QString key = untitledBackupKey(editor);
+                if (!key.isEmpty() && BackupManager::saveBackup(key, editor->text()))
                 {
-                    Logger::instance().debug(QString("Auto-saved backup: %1").arg(fileName));
+                    Logger::instance().debug(QString("Auto-saved untitled backup: %1").arg(key));
                 }
             }
         }
@@ -686,15 +713,18 @@ void EditorController::promptBackupRestore(const QString& filePath)
     if (result == QMessageBox::Yes)
     {
         QString backupContent = BackupManager::getBackupContent(filePath);
-        if (!backupContent.isEmpty())
+        CodeEditor* editor = findEditorByFileName(filePath);
+        if (editor)
         {
-            CodeEditor* editor = findEditorByFileName(filePath);
-            if (editor)
-            {
-                editor->setText(backupContent);
-                editor->setModified(true);
-                Logger::instance().info(QString("Restored auto-save backup: %1").arg(filePath));
-            }
+            // Restore even when the backup is empty: the empty text may be
+            // exactly what the user typed before the crash.
+            editor->setText(backupContent);
+            editor->setModified(true);
+            Logger::instance().info(QString("Restored auto-save backup: %1").arg(filePath));
+        }
+        else
+        {
+            Logger::instance().warning(QString("Auto-save backup for %1 could not be restored: no open editor for the file").arg(filePath));
         }
         BackupManager::deleteBackup(filePath);
     }
@@ -749,6 +779,45 @@ CodeEditor* EditorController::openFile(const QString& fileName, const QString& e
     return editor;
 }
 
+bool EditorController::reloadFileInPlace(CodeEditor* editor, const QString& encoding, const QList<int>& bookmarks)
+{
+    if (!editor)
+        return false;
+
+    const QString fileName = editor->fileName();
+    if (fileName.isEmpty() || fileName == Strings::untitled())
+        return false;
+
+    if (!m_fileManager->loadFile(fileName, editor, encoding))
+    {
+        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot reload file: ") + fileName);
+        return false;
+    }
+
+    SettingsManager::instance().applyToEditor(editor);
+
+    QString syntax = editor->syntax(); // Preserve the current format selection.
+    if (syntax.isEmpty())
+        syntax = SettingsManager::instance().syntaxForFile(fileName);
+    if (!syntax.isEmpty())
+        editor->setSyntax(syntax);
+
+    QFileInfo fileInfo(fileName);
+    if (fileInfo.exists() && !fileInfo.isWritable())
+        editor->setReadOnlyMode(true);
+
+    m_fileWatcherManager->watchFile(fileName);
+    m_fileWatcherManager->updateModificationTime(fileName);
+
+    // Only replace bookmark markers when the caller provides them (callers
+    // that reload in place from elsewhere replace them afterwards).
+    if (!bookmarks.isEmpty())
+        editor->setBookmarks(bookmarks);
+
+    m_tabManager->updateTabTitle(editor);
+    return true;
+}
+
 void EditorController::reloadWithEncoding(const QString& encoding)
 {
     CodeEditor* editor = currentEditor();
@@ -763,7 +832,6 @@ void EditorController::reloadWithEncoding(const QString& encoding)
     }
 
     QList<int> bookmarks = editor->bookmarkLines();
-    QString syntax = editor->syntax();
     if (!maybeSave(editor))
         return;
 
@@ -771,17 +839,11 @@ void EditorController::reloadWithEncoding(const QString& encoding)
     if (!guard)
         return; // Editor destroyed while the save prompt ran.
 
-    int idx = m_tabManager->indexOf(editor);
-    if (idx >= 0)
-        m_tabManager->closeEditor(idx);
-
-    CodeEditor* newEditor = openFile(fileName, encoding);
-    if (newEditor)
-    {
-        if (!syntax.isEmpty())
-            newEditor->setSyntax(syntax);
-        newEditor->setBookmarks(bookmarks);
-    }
+    reloadFileInPlace(editor, encoding);
+    QPointer<CodeEditor> guard2(editor);
+    if (guard2)
+        guard2->setBookmarks(bookmarks); // Replace stale markers unconditionally.
+    updateUndoRedoState();
 }
 
 void EditorController::saveWithEncoding(const QString& encoding)
@@ -834,6 +896,35 @@ void EditorController::handleFileDeleted(const QString& path)
         {
             m_fileWatcherManager->unwatchFile(path);
         }
+    }
+}
+
+QString EditorController::untitledBackupKey(CodeEditor* editor)
+{
+    if (!editor)
+        return QString();
+    QVariant existing = editor->property("untitledBackupKey");
+    if (existing.isValid() && !existing.toString().isEmpty())
+        return existing.toString();
+    QString key = QStringLiteral("untitled-%1-%2").arg(QCoreApplication::applicationPid()).arg(m_untitledBackupSeq++);
+    editor->setProperty("untitledBackupKey", key);
+    return key;
+}
+
+void EditorController::discardUntitledBackup(CodeEditor* editor)
+{
+    deleteUntitledBackup(editor);
+}
+
+void EditorController::deleteUntitledBackup(CodeEditor* editor)
+{
+    if (!editor)
+        return;
+    QVariant existing = editor->property("untitledBackupKey");
+    if (existing.isValid())
+    {
+        BackupManager::deleteBackup(existing.toString());
+        editor->setProperty("untitledBackupKey", QVariant());
     }
 }
 

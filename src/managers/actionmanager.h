@@ -470,6 +470,10 @@ public:
     {
         return m_errorListPanelButton;
     }
+    QToolButton* referencesPanelButton() const
+    {
+        return m_referencesPanelButton;
+    }
 
     void rebuildExternalToolsMenu();
     void wireConnections(const ActionTargets& targets);
@@ -724,6 +728,7 @@ private:
     QAction* m_aboutAct = nullptr;
     QAction* m_checkForUpdatesAct = nullptr;
     QList<QAction*> m_externalToolActs;
+    QList<QAction*> m_externalToolSeparators;
     RecentFilesHelper* m_recentFilesHelper = nullptr;
     EncodingMenuHelper* m_encodingHelper = nullptr;
     QMenu* m_toolsMenu = nullptr;

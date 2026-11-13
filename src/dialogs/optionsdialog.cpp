@@ -111,20 +111,11 @@ protected:
         if (key == Qt::Key_Control || key == Qt::Key_Shift || key == Qt::Key_Alt || key == Qt::Key_Meta)
             return;
 
-        // Build a human-readable shortcut string like "Ctrl+Shift+S".
-        QStringList parts;
-        if (mods & Qt::ControlModifier)
-            parts << tr("Ctrl");
-        if (mods & Qt::ShiftModifier)
-            parts << tr("Shift");
-        if (mods & Qt::AltModifier)
-            parts << tr("Alt");
-        if (mods & Qt::MetaModifier)
-            parts << tr("Meta");
-        parts << QKeySequence(key).toString(QKeySequence::NativeText);
-
-        QString combined = parts.join(QLatin1String("+"));
-        m_sequence = QKeySequence(combined);
+        // Build the sequence from Qt key/modifier enums directly. Going
+        // through translated modifier names breaks on non-English locales
+        // (e.g. "Strg" does not parse back), so never round-trip via text.
+        Qt::KeyboardModifiers modOnly = mods & (Qt::ControlModifier | Qt::ShiftModifier | Qt::AltModifier | Qt::MetaModifier);
+        m_sequence = QKeySequence(modOnly | static_cast<Qt::Key>(key));
         m_sequenceLabel->setText(m_sequence.toString(QKeySequence::NativeText));
         m_captured = true;
     }

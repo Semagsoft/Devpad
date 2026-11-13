@@ -20,6 +20,7 @@
 
 #include "codeeditor.h"
 #include "editorcontroller.h"
+#include "encodingutils.h"
 #include "filemanager.h"
 #include "logger.h"
 #include "managers/remotefileservice.h"
@@ -110,10 +111,11 @@ void RemoteOpenCoordinator::openRemoteFileActivated(const QString& urlStr)
 
 void RemoteOpenCoordinator::openRemoteFileFromData(const QString& urlStr, const QString& fileName, const QByteArray& data)
 {
+    BomResult bom = detectBom(data);
     QString detectedEnc = FileManager::detectEncoding(data);
     auto encOpt = QStringConverter::encodingForName(detectedEnc.toUtf8());
     QStringDecoder decoder(encOpt.value_or(QStringConverter::Utf8));
-    QString content = decoder(data);
+    QString content = decoder(bom.size > 0 ? data.mid(bom.size) : data);
 
     QString displayName = fileName.isEmpty() ? QUrl(urlStr).fileName() : fileName;
     if (displayName.isEmpty())
@@ -123,6 +125,7 @@ void RemoteOpenCoordinator::openRemoteFileFromData(const QString& urlStr, const 
 
     CodeEditor* editor = m_tabManager->createEditor();
     editor->setFileName(urlStr);
+    editor->setEncoding(detectedEnc);
     editor->setText(content);
     editor->setModified(false);
 

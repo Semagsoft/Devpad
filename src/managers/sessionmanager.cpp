@@ -31,6 +31,9 @@
 #include <QStandardPaths>
 #include <QTabWidget>
 
+#include <cerrno>
+#include <csignal>
+
 SessionManager::SessionManager(QObject* parent)
     : QObject(parent), m_sessionSettings(QStringLiteral("Semagsoft"), QStringLiteral("Devpad")),
       m_sessionLock(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/devpad/session.lock"))
@@ -44,6 +47,44 @@ QString SessionManager::sessionGroupPrefix() const
     return QStringLiteral("Session_%1").arg(QCoreApplication::applicationPid());
 }
 
+static bool processAlive(qint64 pid)
+{
+#if defined(Q_OS_UNIX)
+    if (pid <= 0)
+        return false;
+    if (::kill(static_cast<pid_t>(pid), 0) == 0)
+        return true;
+    return errno == EPERM; // Exists but owned by another user.
+#else
+    Q_UNUSED(pid)
+    // Cannot reliably check liveness; fail safe by keeping the group.
+    return true;
+#endif
+}
+
+void SessionManager::pruneDeadSessionGroups(const QString& ownGroup)
+{
+    // Re-read from disk first so groups written by other instances are visible.
+    m_sessionSettings.sync();
+    const QString prefix = QStringLiteral("Session_");
+    for (const QString& g : m_sessionSettings.childGroups())
+    {
+        if (!g.startsWith(prefix) || g == ownGroup)
+            continue;
+        bool ok = false;
+        const qint64 pid = g.mid(prefix.size()).toLongLong(&ok);
+        if (!ok)
+            continue; // Unrecognized format; leave it alone.
+        if (processAlive(pid))
+        {
+            Logger::instance().info(QStringLiteral("SessionManager: keeping session group %1 (process is running)").arg(g));
+            continue;
+        }
+        m_sessionSettings.remove(g);
+        Logger::instance().info(QStringLiteral("SessionManager: pruned stale session group %1").arg(g));
+    }
+}
+
 SessionManager::SessionData SessionManager::loadSessionData()
 {
     SessionData data;
@@ -52,6 +93,8 @@ SessionManager::SessionData SessionManager::loadSessionData()
         Logger::instance().error("SessionManager: failed to acquire lock in loadSessionData");
         return data;
     }
+    // Pick up changes written by other instances before reading.
+    m_sessionSettings.sync();
 
     const QString group = sessionGroupPrefix();
 
@@ -102,15 +145,11 @@ SessionManager::SessionData SessionManager::loadSessionData()
             data.cursors.insert(it.key(), values.mid(0, 3));
     }
 
-    // Prune groups of other instances (crashed or exited) so they can never be
-    // merged by later loads; previously they were only pruned at save time.
-    for (const QString& g : m_sessionSettings.childGroups())
-    {
-        if (g.startsWith(QStringLiteral("Session_")) && g != group)
-        {
-            m_sessionSettings.remove(g);
-        }
-    }
+    // Prune groups of instances whose process is gone (crashed or exited).
+    // Groups of still-running instances are left intact; previously every
+    // foreign group was removed, which silently destroyed other windows'
+    // sessions.
+    pruneDeadSessionGroups(group);
 
     m_sessionLock.unlock();
 
@@ -208,14 +247,9 @@ void SessionManager::saveSessionData(const QStringList& files, int activeIndex, 
     m_sessionSettings.setValue(QStringLiteral("Session_ProjectPath"), projectPath);
     m_sessionSettings.setValue(QStringLiteral("Session_TerminalWorkingDir"), terminalWorkingDir);
 
-    // Remove stale session groups from previous (crashed) process PIDs
-    for (const QString& g : m_sessionSettings.childGroups())
-    {
-        if (g.startsWith(QStringLiteral("Session_")) && g != sessionGroupPrefix())
-        {
-            m_sessionSettings.remove(g);
-        }
-    }
+    // Remove stale session groups from previous (crashed) process PIDs; keep
+    // groups of still-running instances.
+    pruneDeadSessionGroups(sessionGroupPrefix());
 
     m_sessionSettings.sync();
     m_sessionLock.unlock();
@@ -521,13 +555,8 @@ void SessionManager::clearSession()
 
     QString group = sessionGroupPrefix();
 
-    for (const QString& g : m_sessionSettings.childGroups())
-    {
-        if (g.startsWith(QStringLiteral("Session_")))
-        {
-            m_sessionSettings.remove(g);
-        }
-    }
+    pruneDeadSessionGroups(group);
+    m_sessionSettings.remove(group);
 
     m_sessionSettings.remove(QStringLiteral("Session_Files"));
     m_sessionSettings.remove(QStringLiteral("Session_ActiveIndex"));

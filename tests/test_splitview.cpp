@@ -2,7 +2,6 @@
 #include "panels/splitview.h"
 #include "widgets/editorcontainer.h"
 
-#include <QSignalSpy>
 #include <QTabWidget>
 
 #include <gtest/gtest.h>
@@ -99,10 +98,9 @@ TEST(SplitViewTest, MoveTabToPane)
     EXPECT_EQ(pane2->count(), 1);
 }
 
-TEST(SplitViewTest, DetachTabToWindow)
+TEST(SplitViewTest, CloseDetachedTabRemovesTabAndCleansUp)
 {
     SplitView splitView;
-    QSignalSpy spy(&splitView, &SplitView::tabDetachedToWindow);
 
     QTabWidget* pane = splitView.primaryTabWidget();
     auto* editor = new CodeEditor(&splitView);
@@ -111,25 +109,9 @@ TEST(SplitViewTest, DetachTabToWindow)
     pane->addTab(container, QStringLiteral("test_detach.txt"));
 
     ASSERT_EQ(pane->count(), 1);
-    splitView.detachTabToWindow(0, pane);
+    splitView.closeDetachedTab(pane, 0);
 
-    EXPECT_EQ(spy.count(), 1);
-    EXPECT_EQ(spy[0][0].toString(), QStringLiteral("/tmp/test_detach.txt"));
     EXPECT_EQ(pane->count(), 0);
-}
-
-TEST(SplitViewTest, DetachTabToWindowFailsForUntitled)
-{
-    SplitView splitView;
-    QSignalSpy spy(&splitView, &SplitView::tabDetachedToWindow);
-
-    QTabWidget* pane = splitView.primaryTabWidget();
-    auto* editor = new CodeEditor(&splitView);
-    auto* container = new EditorContainer(editor, &splitView);
-    pane->addTab(container, QStringLiteral("Untitled"));
-
-    splitView.detachTabToWindow(0, pane);
-    EXPECT_EQ(spy.count(), 0);
 }
 
 TEST(SplitViewTest, SplitActivePaneHorizontal)

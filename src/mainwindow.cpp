@@ -54,6 +54,10 @@
 #include "tabmanager.h"
 #include "theme.h"
 #include "themeapplier.h"
+
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
 #include "palettechangefilter.h"
 #include "theme.h"
 #include "widgets/titlebar.h"
@@ -114,21 +118,28 @@ QString appBundlePath()
     return QFileInfo::exists(bundle + QStringLiteral("/Contents/Info.plist")) ? bundle : QString();
 }
 
-void launchAppBundle(const QStringList& args)
+bool launchAppBundle(const QStringList& args)
 {
     const QString bundle = appBundlePath();
     if (bundle.isEmpty())
     {
         if (!QProcess::startDetached(QCoreApplication::applicationFilePath(), args))
+        {
             Logger::instance().error(QString("Failed to start detached process: %1").arg(args.join(QLatin1Char(' '))));
-        return;
+            return false;
+        }
+        return true;
     }
     QStringList openArgs;
     openArgs << QStringLiteral("-n") << bundle;
     if (!args.isEmpty())
         openArgs << QStringLiteral("--args") << args;
     if (!QProcess::startDetached(QStringLiteral("open"), openArgs))
+    {
         Logger::instance().error(QString("Failed to launch app bundle with: %1").arg(openArgs.join(QLatin1Char(' '))));
+        return false;
+    }
+    return true;
 }
 } // namespace
 #endif
@@ -167,15 +178,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             });
 
     connect(m_splitView, &SplitView::tabDetachedToWindow, this,
-            [](const QString& filePath)
+            [this](const QString& filePath, QTabWidget* pane, int index)
             {
+                bool launched = false;
 #ifdef Q_OS_MACOS
                 QStringList args;
                 if (!filePath.isEmpty() && filePath[0] == QChar(1))
                     args << QStringLiteral("--transfer") << filePath.mid(1);
                 else if (!filePath.isEmpty())
                     args << filePath;
-                launchAppBundle(args);
+                launched = launchAppBundle(args);
 #else
                 QString appPath = QApplication::applicationFilePath();
                 if (!filePath.isEmpty() && filePath[0] == QChar(1))
@@ -185,6 +197,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                     {
                         Logger::instance().error(QString("Failed to start detached process for: %1").arg(realPath));
                     }
+                    else
+                    {
+                        launched = true;
+                    }
                 }
                 else
                 {
@@ -192,8 +208,29 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                     {
                         Logger::instance().error(QString("Failed to start detached process for: %1").arg(filePath));
                     }
+                    else
+                    {
+                        launched = true;
+                    }
                 }
 #endif
+                if (launched)
+                {
+                    m_splitView->closeDetachedTab(pane, index);
+                    // The tab was the only place this window watched the file;
+                    // if no other editor in this window has it open, unwatch it.
+                    if (!filePath.isEmpty() && filePath[0] != QChar(1) && !m_tabManager->findEditorByFileName(filePath))
+                        m_fileWatcherManager->unwatchFile(filePath);
+                }
+                else
+                {
+                    // Keep the tab so the user does not lose unsaved content;
+                    // remove the transfer temp file it would have carried.
+                    if (!filePath.isEmpty() && filePath[0] == QChar(1))
+                        QFile::remove(filePath.mid(1));
+                    QMessageBox::warning(this, tr("Detach Failed"),
+                                         tr("Could not open a new Devpad window.\nThe tab was kept in this window."));
+                }
             });
 
     connect(m_splitView, &SplitView::externalTabDropped, this, [this](const QString& filePath) { loadFile(filePath); });
@@ -246,6 +283,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                     }
                 }
             });
+#else
+    // No plugin support compiled in: the debug actions would no-op (and the
+    // slots below would deref a null manager), so hide the debug UI entirely.
+    m_actionManager->setDebugUiVisible(false);
 #endif
 
     applyAutoSaveSettings();
@@ -372,6 +413,7 @@ void MainWindow::applyInitialSettings()
     }
 
     applyStartupMode();
+    restoreUntitledBackups();
     updateRecentFileActions();
     // Keep recent menus in sync across multiple windows.
     connect(&SettingsManager::instance(), &SettingsManager::recentFilesChanged, this, &MainWindow::updateRecentFileActions);
@@ -548,6 +590,16 @@ void MainWindow::connectPanelSignals()
 
     connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelAct(), &QAction::setChecked);
     connect(m_projectPanel, &QDockWidget::visibilityChanged, m_actionManager->projectPanelButton(), &QToolButton::setChecked);
+
+    // Keep the references panel menu check state / status-bar toggle in
+    // sync with dock visibility (e.g. when the dock is closed via its X).
+    connect(m_referencesPanel, &QDockWidget::visibilityChanged, m_actionManager->referencesPanelAct(), &QAction::setChecked);
+    connect(m_referencesPanel, &QDockWidget::visibilityChanged, m_actionManager->referencesPanelButton(), &QToolButton::setChecked);
+
+    // Same treatment for the error list: keep menu check state / status-bar
+    // toggle in sync when the dock is closed via its X button.
+    connect(m_errorListPanel, &QDockWidget::visibilityChanged, m_actionManager->errorListPanelAct(), &QAction::setChecked);
+    connect(m_errorListPanel, &QDockWidget::visibilityChanged, m_actionManager->errorListPanelButton(), &QToolButton::setChecked);
 }
 
 void MainWindow::setupEditorConnections()
@@ -721,19 +773,28 @@ void MainWindow::loadFile(const QString& fileName, const QString& encoding, bool
         }
     }
 
-    // When forcing a reload (revert / external-change reload), close any remaining
-    // editors for this file across all panes so we don't end up with duplicate tabs
-    // (one stale, one freshly reloaded). closeEditor() returns false for pinned tabs,
-    // in which case we stop to avoid an infinite loop.
+    // When forcing a reload (revert / external-change reload), reload the
+    // existing editor in place: close-and-reopen would lose pin state and,
+    // for pinned tabs that closeEditor() refuses to close, create a stale
+    // duplicate tab.
     if (reload)
     {
-        while (CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName))
+        if (CodeEditor* existingEditor = m_tabManager->findEditorByFileName(fileName))
         {
-            int idx = m_tabManager->indexOf(existingEditor);
-            if (idx < 0)
-                break;
-            if (!m_tabManager->closeEditor(idx))
-                break;
+            if (m_editorController->reloadFileInPlace(existingEditor, encoding))
+            {
+                m_tabManager->focusEditorPane(existingEditor);
+                existingEditor->setFocus();
+                SettingsManager::instance().addRecentFile(fileName);
+                updateRecentFileActions();
+                updateEncodingSelector();
+                m_editorController->updateUndoRedoState();
+                m_editorController->promptBackupRestore(fileName);
+                return;
+            }
+            // In-place reload failed (e.g. file deleted); do not fall through
+            // to open a duplicate — warn and return.
+            return;
         }
     }
 
@@ -923,6 +984,41 @@ void MainWindow::applyStartupMode()
             terminalDir = QFileInfo(sessionData.files.first()).absolutePath();
         if (!terminalDir.isEmpty() && m_terminalCoordinator->dock())
             QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "setWorkingDirectory", Q_ARG(QString, terminalDir));
+    }
+}
+
+void MainWindow::restoreUntitledBackups()
+{
+    // Untitled documents are not covered by session restore, so look directly
+    // for backups written under synthetic "untitled-…" keys (see EditorController).
+    const QStringList keys = BackupManager::backupKeysWithPrefix(QStringLiteral("untitled-"));
+    if (keys.isEmpty())
+        return;
+
+    int restored = 0;
+    for (const QString& key : keys)
+    {
+        const QString content = BackupManager::getBackupContent(key);
+        // Always drop the synthetic backup: this recovery runs every startup,
+        // and a stale backup would be restored as a duplicate every time.
+        BackupManager::deleteBackup(key);
+        if (content.isEmpty())
+            continue; // Empty document; nothing worth showing.
+
+        CodeEditor* editor = m_tabManager->createEditor();
+        editor->setFileName(Strings::untitled());
+        editor->setText(content);
+        editor->setModified(true);
+        m_editorController->connectEditorSignals(editor);
+        SettingsManager::instance().applyToEditor(editor);
+        m_tabManager->addEditor(editor, Strings::untitled());
+        restored++;
+    }
+
+    if (restored > 0)
+    {
+        statusBar()->showMessage(tr("Recovered %1 unsaved document(s) from a previous session.").arg(restored), 8000);
+        Logger::instance().info(QString("Restored %1 unsaved untitled document(s) from auto-save backups").arg(restored));
     }
 }
 
@@ -1171,6 +1267,7 @@ void MainWindow::toggleReferencesPanel()
     bool visible = !m_referencesPanel->isVisible();
     m_referencesPanel->setVisible(visible);
     m_actionManager->referencesPanelAct()->setChecked(visible);
+    m_actionManager->referencesPanelButton()->setChecked(visible);
 }
 
 void MainWindow::findSymbols()
@@ -1223,7 +1320,9 @@ bool MainWindow::signalOtherInstancesToQuit()
 {
 #ifdef Q_OS_LINUX
     QProcess pgrep;
-    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("Devpad"));
+    // -U: only our own uid. Every user on the machine may run their own
+    // Devpad; sending save_and_quit to theirs would close their windows.
+    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("-U") << QString::number(geteuid()) << QStringLiteral("Devpad"));
     if (!pgrep.waitForFinished(2000))
         return true;
 
@@ -1274,6 +1373,15 @@ bool MainWindow::saveAllModifiedTabs()
             m_quitRequested = false;
             return false;
         }
+    }
+    // Any modified untitled document that survived the prompt loop was
+    // explicitly discarded by the user ("Don't Save"); drop its auto-save
+    // backup so it is not resurrected on the next launch.
+    for (int i = 0; i < m_tabManager->count(); ++i)
+    {
+        CodeEditor* editor = m_tabManager->editorAt(i);
+        if (editor && editor->isModified() && (editor->fileName() == Strings::untitled() || editor->fileName().isEmpty()))
+            m_editorController->discardUntitledBackup(editor);
     }
     return true;
 }
@@ -1388,6 +1496,7 @@ void MainWindow::changeEvent(QEvent* event)
         if (prefersNativeStyling(SettingsManager::instance().theme()))
         {
             window()->setStyleSheet(QString());
+            QApplication::setPalette(QApplication::style()->standardPalette());
 
             for (int i = 0; i < m_tabManager->count(); ++i)
             {
@@ -1543,6 +1652,20 @@ void MainWindow::triggerCompletion()
     invokeOnEditor(&CodeEditor::triggerCompletion);
 }
 
+void MainWindow::debugStartOrContinue()
+{
+    // Single F5 action. The DAP plugin keeps the start action disabled while a
+    // session is active; F5 then means "continue". In non-plugin builds the
+    // action stays enabled and F5 just starts a session.
+    if (!m_actionManager->startDebuggingAct()->isEnabled())
+    {
+        debugContinue();
+        return;
+    }
+    startDebugging();
+}
+
+#ifdef BUILD_PLUGINS
 void MainWindow::startDebugging()
 {
     CodeEditor* editor = m_tabManager->currentEditor();
@@ -1619,6 +1742,34 @@ void MainWindow::toggleDebugPanel()
     dock->setVisible(visible);
     m_actionManager->debugPanelAct()->setChecked(visible);
 }
+#else
+// No plugin support compiled in: the debug UI is hidden and the F5/Step
+// actions no-op.
+void MainWindow::startDebugging()
+{
+}
+void MainWindow::stopDebugging()
+{
+}
+void MainWindow::debugContinue()
+{
+}
+void MainWindow::debugStepOver()
+{
+}
+void MainWindow::debugStepInto()
+{
+}
+void MainWindow::debugStepOut()
+{
+}
+void MainWindow::debugRestart()
+{
+}
+void MainWindow::toggleDebugPanel()
+{
+}
+#endif
 
 void MainWindow::onNavigateToLocation(const QString& filePath, int line, int column)
 {

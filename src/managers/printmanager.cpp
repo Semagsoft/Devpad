@@ -27,7 +27,8 @@
 
 namespace
 {
-constexpr int SCI_GETSTYLEAT = 2008;
+// SCI_GETSTYLEAT = 2010 (2008 is SCI_GETCURRENTPOS).
+constexpr int SCI_GETSTYLEAT = 2010;
 }
 
 PrintManager::PrintManager(QObject* parent) : QObject(parent)

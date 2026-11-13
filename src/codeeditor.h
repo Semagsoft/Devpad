@@ -232,6 +232,11 @@ private:
     QDateTime m_diskModifiedAt;
     QFont m_defaultFont;
     ThemeId m_themeId;
+    // Last resolved colors applied to the editor. Custom themes have no
+    // ThemeId, so theme re-application (e.g. after setSyntax) must reuse
+    // these instead of re-deriving from m_themeId.
+    ThemeColors m_lastColors;
+    bool m_hasLastColors = false;
     QScopedPointer<QsciLexer> m_lexer;
     QScopedPointer<QsciAPIs> m_apis;
     bool m_lineNumbersVisible = true;

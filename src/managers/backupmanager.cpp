@@ -169,13 +169,33 @@ bool BackupManager::deleteBackup(const QString& filePath)
     return false;
 }
 
-void BackupManager::purgeStaleBackups(int maxAgeDays)
+QStringList BackupManager::backupKeysWithPrefix(const QString& prefix)
 {
     QMutexLocker locker(&s_mutex);
 
     QDir dir(backupDirectory());
-    const QFileInfoList entries = dir.entryInfoList(QDir::Files, QDir::Time);
+    const QStringList entries = dir.entryList(QDir::Files, QDir::Time);
 
+    QStringList keys;
+    for (const QString& entry : entries)
+    {
+        const QString key = QUrl::fromPercentEncoding(entry.toUtf8());
+        if (key.startsWith(prefix))
+            keys.append(key);
+    }
+    return keys;
+}
+
+void BackupManager::purgeStaleBackups(int maxAgeDays, const QString& directory)
+{
+    QMutexLocker locker(&s_mutex);
+
+    const QString dirPath = directory.isEmpty() ? backupDirectory() : directory;
+    QDir dir(dirPath);
+    if (!dir.exists())
+        return;
+
+    const QFileInfoList entries = dir.entryInfoList(QDir::Files, QDir::Time);
     const QDateTime cutoff = QDateTime::currentDateTimeUtc().addDays(-maxAgeDays);
     for (const QFileInfo& entry : entries)
     {
@@ -184,11 +204,28 @@ void BackupManager::purgeStaleBackups(int maxAgeDays)
         const bool originalGone = !QFileInfo::exists(originalPath);
         const bool tooOld = entry.lastModified() < cutoff;
 
-        if (originalGone || tooOld)
+        if (tooOld)
         {
             if (!QFile::remove(entry.absoluteFilePath()))
             {
                 Logger::instance().warning(QString("Failed to remove stale backup: %1").arg(entry.absoluteFilePath()));
+            }
+            continue;
+        }
+
+        if (originalGone)
+        {
+            // Only purge when the original's parent directory is present. If a
+            // path prefix is missing (network mount not mounted yet, removable
+            // drive detached), the "gone" original may still come back together
+            // with its backups; deleting them then would lose work forever.
+            const QDir parentDir(QFileInfo(originalPath).absolutePath());
+            if (parentDir.exists())
+            {
+                if (!QFile::remove(entry.absoluteFilePath()))
+                {
+                    Logger::instance().warning(QString("Failed to remove stale backup: %1").arg(entry.absoluteFilePath()));
+                }
             }
         }
     }
