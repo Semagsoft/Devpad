@@ -65,6 +65,8 @@ void ErrorListPanel::setupUI()
     setWidget(content);
 
     connect(m_treeView, &QTreeView::doubleClicked, this, &ErrorListPanel::onItemDoubleClicked);
+    // Enter/Return navigates to the selected diagnostic (keyboard users).
+    connect(m_treeView, &QTreeView::activated, this, &ErrorListPanel::onItemDoubleClicked);
     connect(m_filterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ErrorListPanel::onFilterChanged);
 }
 

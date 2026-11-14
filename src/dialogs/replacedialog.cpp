@@ -33,6 +33,7 @@ ReplaceDialog::ReplaceDialog(QWidget* parent) : QDialog(parent), editor(nullptr)
     setWindowTitle(tr("Replace"));
     setupUI();
     loadSettings();
+    m_settings.restoreGeometry(this);
 }
 
 ReplaceDialog::~ReplaceDialog() = default;
@@ -40,6 +41,7 @@ ReplaceDialog::~ReplaceDialog() = default;
 void ReplaceDialog::closeEvent(QCloseEvent* event)
 {
     saveSettings();
+    m_settings.saveGeometry(this);
     QDialog::closeEvent(event);
 }
 
