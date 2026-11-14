@@ -747,6 +747,7 @@ if(BUILD_TESTS)
         tests/test_tuihighlighter.cpp
         tests/test_tuifindinfiles.cpp
         tests/test_tuicommand.cpp
+        tests/test_pluginapi.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)
@@ -772,6 +773,12 @@ if(BUILD_TESTS)
         src/managers
         src/dialogs
         src/panels
+    )
+
+    target_compile_definitions(Devpad_tests PRIVATE
+        DEVPAD_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+        DEVPAD_BUILD_DIR="${CMAKE_BINARY_DIR}"
+        $<$<BOOL:${BUILD_PLUGINS}>:DEVPAD_BUILD_PLUGINS=1>
     )
 
     gtest_discover_tests(Devpad_tests
