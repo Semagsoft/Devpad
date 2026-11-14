@@ -36,7 +36,15 @@ if(BUILD_GHOSTTY)
         GIT_REPOSITORY https://github.com/ghostty-org/ghostty.git
         GIT_TAG vt-1.0.0
     )
-    FetchContent_MakeAvailable(ghostty)
+    # Ghostty-vt unconditionally registers install rules (library, headers,
+    # CMake config). Embedded in this project it must be built but NOT
+    # installed into the system prefix by `cmake --install` — EXCLUDE_FROM_ALL
+    # drops the subdirectory's install rules while keeping its targets.
+    cmake_policy(PUSH)
+    cmake_policy(SET CMP0169 OLD)
+    FetchContent_Populate(ghostty)
+    add_subdirectory(${ghostty_SOURCE_DIR} ${ghostty_BINARY_DIR} EXCLUDE_FROM_ALL)
+    cmake_policy(POP)
     set(TERMINAL_TARGET ghostty-vt-static)
     set(TERMINAL_HAS_GHOSTTY TRUE)
     set(DEVPAD_GHOSTTY_TERMINAL TRUE)
@@ -57,7 +65,12 @@ if(WIN32)
         GIT_TAG 9d016815076a451ad639fa021d46602585e91247
     )
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(KodoTerm)
+    # Embedded dependency: built but not installed into the system prefix.
+    cmake_policy(PUSH)
+    cmake_policy(SET CMP0169 OLD)
+    FetchContent_Populate(KodoTerm)
+    add_subdirectory(${KodoTerm_SOURCE_DIR} ${KodoTerm_BINARY_DIR} EXCLUDE_FROM_ALL)
+    cmake_policy(POP)
     set(TERMINAL_TARGET KodoTerm::KodoTerm)
     set(TERMINAL_HAS_KODOTERM TRUE)
 else()
@@ -674,6 +687,8 @@ if(BUILD_TESTS)
         GIT_TAG v1.14.0
     )
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    # Embedded dependency: built but not installed into the system prefix.
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
     enable_testing()
