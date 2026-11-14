@@ -323,7 +323,7 @@
     <message>
         <location filename="../src/managers/actionmanager.cpp" line="442"/>
         <source>Menu in Titlebar</source>
-        <translation type="unfinished"></translation>
+        <translation>Menü in der Titelleiste</translation>
     </message>
     <message>
         <location filename="../src/managers/actionmanager.cpp" line="451"/>
@@ -348,7 +348,7 @@
     <message>
         <location filename="../src/managers/actionmanager.cpp" line="460"/>
         <source>Check for Updates</source>
-        <translation type="unfinished"></translation>
+        <translation>Nach Updates suchen</translation>
     </message>
     <message>
         <location filename="../src/managers/actionmanager.cpp" line="471"/>
@@ -1381,12 +1381,12 @@ Möchten Sie sie wiederherstellen?</translation>
     <message>
         <location filename="../src/mainwindow.cpp" line="1044"/>
         <source>QML</source>
-        <translation type="unfinished"></translation>
+        <translation>QML</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1044"/>
         <source>Lua</source>
-        <translation type="unfinished"></translation>
+        <translation>Lua</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1051"/>
@@ -1420,7 +1420,7 @@ Möchten Sie sie verwerfen und von der Festplatte neu laden?</translation>
     <message>
         <location filename="../src/mainwindow.cpp" line="1501"/>
         <source>Checking for updates...</source>
-        <translation type="unfinished"></translation>
+        <translation>Suche nach Updates...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1636"/>
@@ -1585,12 +1585,12 @@ Möchten Sie die Datei neu laden?</translation>
     <message>
         <location filename="../src/dialogs/optionsdialog.cpp" line="124"/>
         <source>QML</source>
-        <translation type="unfinished"></translation>
+        <translation>QML</translation>
     </message>
     <message>
         <location filename="../src/dialogs/optionsdialog.cpp" line="125"/>
         <source>Lua</source>
-        <translation type="unfinished"></translation>
+        <translation>Lua</translation>
     </message>
     <message>
         <location filename="../src/dialogs/optionsdialog.cpp" line="131"/>
@@ -1915,17 +1915,17 @@ Möchten Sie die Datei neu laden?</translation>
     <message>
         <location filename="../src/dialogs/optionsdialog.cpp" line="434"/>
         <source>Single Click</source>
-        <translation type="unfinished"></translation>
+        <translation>Ein Klick</translation>
     </message>
     <message>
         <location filename="../src/dialogs/optionsdialog.cpp" line="434"/>
         <source>Double Click</source>
-        <translation type="unfinished"></translation>
+        <translation>Doppelklick</translation>
     </message>
     <message>
         <location filename="../src/dialogs/optionsdialog.cpp" line="435"/>
         <source>Open file on:</source>
-        <translation type="unfinished"></translation>
+        <translation>Datei öffnen bei:</translation>
     </message>
     <message>
         <location filename="../src/dialogs/optionsdialog.cpp" line="436"/>
@@ -2290,7 +2290,7 @@ Möchten Sie die Datei neu laden?</translation>
     <message>
         <location filename="../src/managers/remotefileservice.cpp" line="97"/>
         <source>Remote file too large (%1 bytes, limit %2 MB)</source>
-        <translation type="unfinished"></translation>
+        <translation>Remote-Datei zu groß (%1 Bytes, Limit %2 MB)</translation>
     </message>
     <message>
         <location filename="../src/managers/remotefileservice.cpp" line="149"/>
@@ -2462,23 +2462,23 @@ Beispiel: ssh://benutzer@host/pfad/zur/datei</translation>
     <message>
         <location filename="../src/widgets/titlebar.cpp" line="110"/>
         <source>Minimize</source>
-        <translation type="unfinished"></translation>
+        <translation>Minimieren</translation>
     </message>
     <message>
         <location filename="../src/widgets/titlebar.cpp" line="112"/>
         <location filename="../src/widgets/titlebar.cpp" line="153"/>
         <source>Maximize</source>
-        <translation type="unfinished"></translation>
+        <translation>Maximieren</translation>
     </message>
     <message>
         <location filename="../src/widgets/titlebar.cpp" line="115"/>
         <source>Close</source>
-        <translation type="unfinished">Schließen</translation>
+        <translation>Schließen</translation>
     </message>
     <message>
         <location filename="../src/widgets/titlebar.cpp" line="153"/>
         <source>Restore</source>
-        <translation type="unfinished"></translation>
+        <translation>Wiederherstellen</translation>
     </message>
 </context>
 <context>
@@ -2486,27 +2486,27 @@ Beispiel: ssh://benutzer@host/pfad/zur/datei</translation>
     <message>
         <location filename="../src/managers/updatechecker.cpp" line="64"/>
         <source>The update server returned an invalid response.</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Update-Server hat eine ungültige Antwort geliefert.</translation>
     </message>
     <message>
         <location filename="../src/managers/updatechecker.cpp" line="85"/>
         <source>A secure connection to the update server could not be established. This installation may be missing TLS support; please download Devpad again from the website.</source>
-        <translation type="unfinished"></translation>
+        <translation>Eine sichere Verbindung zum Update-Server konnte nicht hergestellt werden. Dieser Installation fehlt möglicherweise die TLS-Unterstützung; bitte laden Sie Devpad erneut von der Website herunter.</translation>
     </message>
     <message>
         <location filename="../src/managers/updatechecker.cpp" line="90"/>
         <source>The update server refused the request (rate limit). Please try again later.</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Update-Server hat die Anfrage abgelehnt (Ratenbegrenzung). Bitte versuchen Sie es später erneut.</translation>
     </message>
     <message>
         <location filename="../src/managers/updatechecker.cpp" line="99"/>
         <source>Could not reach the update server. Check your internet connection and try again.</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Update-Server ist nicht erreichbar. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.</translation>
     </message>
     <message>
         <location filename="../src/managers/updatechecker.cpp" line="101"/>
         <source>The update check failed. Please try again later.</source>
-        <translation type="unfinished"></translation>
+        <translation>Die Update-Prüfung ist fehlgeschlagen. Bitte versuchen Sie es später erneut.</translation>
     </message>
 </context>
 <context>
@@ -2514,54 +2514,56 @@ Beispiel: ssh://benutzer@host/pfad/zur/datei</translation>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="64"/>
         <source>Check for Updates</source>
-        <translation type="unfinished"></translation>
+        <translation>Nach Updates suchen</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="102"/>
         <source>You&apos;re up to date</source>
-        <translation type="unfinished"></translation>
+        <translation>Sie sind auf dem neuesten Stand</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="103"/>
         <source>Devpad %1 is the latest version.</source>
-        <translation type="unfinished"></translation>
+        <translation>Devpad %1 ist die aktuelle Version.</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="106"/>
         <source>Update Available</source>
-        <translation type="unfinished"></translation>
+        <translation>Update verfügbar</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="107"/>
         <source>A new version of Devpad is available (%1).
 
 You are currently running version %2.</source>
-        <translation type="unfinished"></translation>
+        <translation>Eine neue Version von Devpad ist verfügbar (%1).
+
+Sie verwenden derzeit Version %2.</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="112"/>
         <source>Check for Updates Failed</source>
-        <translation type="unfinished"></translation>
+        <translation>Update-Suche fehlgeschlagen</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="147"/>
         <source>Download</source>
-        <translation type="unfinished"></translation>
+        <translation>Herunterladen</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="154"/>
         <source>Retry</source>
-        <translation type="unfinished"></translation>
+        <translation>Erneut versuchen</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="165"/>
         <source>Close</source>
-        <translation type="unfinished">Schließen</translation>
+        <translation>Schließen</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="191"/>
         <source>Could Not Open Download Page</source>
-        <translation type="unfinished"></translation>
+        <translation>Download-Seite konnte nicht geöffnet werden</translation>
     </message>
     <message>
         <location filename="../src/dialogs/updatedialog.cpp" line="192"/>
@@ -2571,7 +2573,12 @@ The release URL has been copied to your clipboard:
 %1
 
 Please paste it into your browser to download the update.</source>
-        <translation type="unfinished"></translation>
+        <translation>Devpad konnte die Download-Seite nicht im Browser öffnen.
+
+Die Release-URL wurde in die Zwischenablage kopiert:
+%1
+
+Bitte fügen Sie sie in Ihren Browser ein, um das Update herunterzuladen.</translation>
     </message>
 </context>
 <context>
