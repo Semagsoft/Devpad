@@ -59,6 +59,8 @@
 
 #ifdef Q_OS_UNIX
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #endif
 #include "palettechangefilter.h"
 #include "theme.h"
@@ -109,6 +111,48 @@
 #include <QToolButton>
 #ifndef Q_OS_WIN
 // #include <QTermWidget>  // Removed - QTermWidget not available in Qt6
+#endif
+
+#ifdef Q_OS_UNIX
+namespace
+{
+// Returns true only if the peer at the other end of @p socket belongs to the
+// current user. The "devpad-<pid>" socket can live in a shared temp directory,
+// so without this check any local user could connect and trigger
+// "save_and_quit" (force-save + quit) or have us open arbitrary files.
+bool isLocalPeerSameUser(QLocalSocket* socket)
+{
+    const auto fd = static_cast<int>(socket->socketDescriptor());
+    if (fd < 0)
+        return false;
+#if defined(Q_OS_LINUX)
+    // getsockopt(SO_PEERCRED) yields the peer's uid/gid/pid. We declare the
+    // credential struct locally and define SO_PEERCRED ourselves so this does
+    // not depend on _GNU_SOURCE being defined.
+    struct PeerCred
+    {
+        pid_t pid;
+        uid_t uid;
+        gid_t gid;
+    } cred {};
+#ifndef SO_PEERCRED
+#define SO_PEERCRED 17
+#endif
+    socklen_t len = sizeof(cred);
+    if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) != 0)
+        return false;
+    return cred.uid == geteuid();
+#elif defined(Q_OS_MACOS) || defined(Q_OS_BSD4)
+    uid_t uid = static_cast<uid_t>(-1);
+    gid_t gid = static_cast<gid_t>(-1);
+    if (getpeereid(fd, &uid, &gid) != 0)
+        return false;
+    return uid == geteuid();
+#else
+    return true; // No peer-credential API known for this platform.
+#endif
+}
+} // namespace
 #endif
 
 #ifdef Q_OS_MACOS
@@ -343,7 +387,8 @@ void MainWindow::createManagers()
     m_localServer = new QLocalServer(this);
     QString serverName = QStringLiteral("devpad-%1").arg(QCoreApplication::applicationPid());
     QLocalServer::removeServer(serverName);
-    m_localServer->listen(serverName);
+    if (!m_localServer->listen(serverName))
+        Logger::instance().error(QStringLiteral("Failed to listen on local server '%1'; single-instance handoff disabled.").arg(serverName));
     connect(m_localServer, &QLocalServer::newConnection, this, &MainWindow::handleQuitRequest);
 
     m_externalToolManager = new ExternalToolManager(this);
@@ -1399,6 +1444,17 @@ void MainWindow::handleQuitRequest()
     QLocalSocket* client = m_localServer->nextPendingConnection();
     if (!client)
         return;
+#ifdef Q_OS_UNIX
+    // Reject peers that do not belong to the current user before acting on
+    // anything they send.
+    if (!isLocalPeerSameUser(client))
+    {
+        Logger::instance().warning(QStringLiteral("Rejected local handoff connection from a different user."));
+        client->disconnectFromServer();
+        client->deleteLater();
+        return;
+    }
+#endif
     connect(client, &QLocalSocket::readyRead, this,
             [this, client]()
             {
