@@ -741,6 +741,7 @@ if(BUILD_TESTS)
         tests/test_lspclient.cpp
         tests/test_fileservice.cpp
         tests/test_tuibuffer.cpp
+        tests/test_terminalshortcuts.cpp
         tests/test_tuitabmodel.cpp
         tests/test_tuisearchengine.cpp
         tests/test_tuifiletree.cpp

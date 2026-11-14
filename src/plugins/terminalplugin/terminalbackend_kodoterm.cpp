@@ -1,11 +1,14 @@
 #include "terminalbackend_kodoterm.h"
 
+#include "terminalshortcuts.h"
+
 #include <KodoTerm/KodoTerm.hpp>
 #include <KodoTerm/KodoTermConfig.hpp>
 #include <QApplication>
 #include <QClipboard>
 #include <QCoreApplication>
 #include <QDir>
+#include <QEvent>
 #include <QFont>
 #include <QKeyEvent>
 #include <QProcessEnvironment>
@@ -41,6 +44,10 @@ void TerminalBackendKodoTerm::start()
     if (!m_term)
     {
         m_term = new KodoTerm(this);
+        // The terminal claims ShortcutOverride so app-wide window shortcuts
+        // don't fire while typing in it; only the terminal toggle and the
+        // terminal copy/paste actions stay global.
+        m_term->installEventFilter(this);
         if (!m_workingDir.isEmpty())
             m_term->setWorkingDirectory(m_workingDir);
         KodoTermConfig cfg = m_term->getConfig();
@@ -168,4 +175,18 @@ bool TerminalBackendKodoTerm::isRunning() const
 QWidget* TerminalBackendKodoTerm::terminalWidget() const
 {
     return m_term;
+}
+
+bool TerminalBackendKodoTerm::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_term && event->type() == QEvent::ShortcutOverride)
+    {
+        const auto* keyEvent = static_cast<const QKeyEvent*>(event);
+        if (!TerminalShortcuts::allowsGlobalShortcut(*keyEvent))
+        {
+            event->accept();
+            return true;
+        }
+    }
+    return TerminalBackend::eventFilter(watched, event);
 }

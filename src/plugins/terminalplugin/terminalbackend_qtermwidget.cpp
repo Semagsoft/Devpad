@@ -1,7 +1,10 @@
 #include "terminalbackend_qtermwidget.h"
 
 #include "settingsmanager.h"
+#include "terminalshortcuts.h"
 
+#include <QEvent>
+#include <QKeyEvent>
 #include <QStandardPaths>
 #include <QVBoxLayout>
 
@@ -24,6 +27,10 @@ void TerminalBackendQTermWidget::start()
     if (!m_term)
     {
         m_term = new QTermWidget(0, this);
+        // The terminal claims ShortcutOverride so app-wide window shortcuts
+        // don't fire while typing in it; only the terminal toggle and the
+        // terminal copy/paste actions stay global.
+        m_term->installEventFilter(this);
         if (!m_workingDir.isEmpty())
             m_term->setWorkingDirectory(m_workingDir);
         m_term->setTerminalFont(m_cachedFont);
@@ -103,4 +110,18 @@ bool TerminalBackendQTermWidget::isRunning() const
 QWidget* TerminalBackendQTermWidget::terminalWidget() const
 {
     return m_term;
+}
+
+bool TerminalBackendQTermWidget::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_term && event->type() == QEvent::ShortcutOverride)
+    {
+        const auto* keyEvent = static_cast<const QKeyEvent*>(event);
+        if (!TerminalShortcuts::allowsGlobalShortcut(*keyEvent))
+        {
+            event->accept();
+            return true;
+        }
+    }
+    return TerminalBackend::eventFilter(watched, event);
 }

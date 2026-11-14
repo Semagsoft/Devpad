@@ -26,14 +26,18 @@
 #include <QEvent>
 #include <QClipboard>
 #include <QFont>
+#include <QFocusEvent>
+#include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QMutex>
 #include <QPixmap>
+#include <QRect>
 #include <QScrollBar>
 #include <QString>
 #include <QThread>
 #include <QTimer>
+#include <QVariant>
 #include <QWheelEvent>
 #include <QWidget>
 #include <QContextMenuEvent>
@@ -73,6 +77,8 @@ public:
     QWidget* terminalWidget() const override;
 
     void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
+    bool event(QEvent* event) override;
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -84,6 +90,10 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
     void leaveEvent(QEvent* event) override;
+    void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+    void inputMethodEvent(QInputMethodEvent* event) override;
+    QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 
 private slots:
     void handlePtyData(const QByteArray& data);
@@ -109,6 +119,10 @@ private:
 
     // -- Input -------------------------------------------------------------
     void writeToMaster(const uint8_t* data, size_t len);
+    void encodeKeyEvent(QKeyEvent* event, GhosttyKeyAction action);
+    void sendFocusEvent(GhosttyFocusEvent event);
+    bool terminalModeEnabled(GhosttyMode mode) const;
+    QRect cursorViewportRect() const;
     void positionGestureEvents(const QPoint& pos);
     uint64_t nowNs() const;
     void updateScrollbar();
@@ -179,6 +193,10 @@ private:
     int m_rows = 24;
     int m_cellWidthPx = 10;
     int m_cellHeightPx = 20;
+
+    // IME preedit text shown while composing; m_composing mirrors preedit activity.
+    QString m_preeditText;
+    bool m_composing = false;
 
     // Cached render state + persistent frame pixmap. paintEvent() only blits
     // the pixmap; libghostty work happens when PTY data or a full-invalidate

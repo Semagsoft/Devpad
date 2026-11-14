@@ -552,6 +552,8 @@ signals:
     void cutTriggered();
     void copyTriggered();
     void pasteTriggered();
+    void terminalCopyTriggered();
+    void terminalPasteTriggered();
     void selectAllTriggered();
     void deleteTriggered();
     void findTriggered();
@@ -717,6 +719,8 @@ private:
     QAction* m_fullScreenAct = nullptr;
     QAction* m_projectPanelAct = nullptr;
     QAction* m_terminalPanelAct = nullptr;
+    QAction* m_terminalCopyAct = nullptr;
+    QAction* m_terminalPasteAct = nullptr;
     QAction* m_errorListPanelAct = nullptr;
     QAction* m_referencesPanelAct = nullptr;
     QToolButton* m_referencesPanelButton = nullptr;

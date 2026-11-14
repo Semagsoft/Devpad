@@ -26,6 +26,9 @@ public:
     bool isRunning() const override;
     QWidget* terminalWidget() const override;
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     static QString shellProgram();
     static QStringList shellArguments();

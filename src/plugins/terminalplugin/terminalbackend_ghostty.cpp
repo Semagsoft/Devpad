@@ -20,6 +20,7 @@
 #include "terminalbackend_ghostty.h"
 
 #include "settingsmanager.h"
+#include "terminalshortcuts.h"
 #include "theme.h"
 
 #include <QApplication>
@@ -28,8 +29,10 @@
 #include <QDebug>
 #include <QDesktopServices>
 #include <QEvent>
+#include <QFocusEvent>
 #include <QFont>
 #include <QFontMetrics>
+#include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QMetaObject>
 #include <QMutex>
@@ -42,6 +45,7 @@
 #include <QUrl>
 #include <QDateTime>
 #include <QWheelEvent>
+#include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -227,6 +231,8 @@ TerminalBackendGhostty::TerminalBackendGhostty(QWidget* parent)
     // We always paint our own background; Qt must not erase/under-paint.
     setAttribute(Qt::WA_OpaquePaintEvent);
     setAttribute(Qt::WA_NoSystemBackground);
+    // The terminal handles text input itself (including IME preedit).
+    setAttribute(Qt::WA_InputMethodEnabled, true);
 
     // Thin overlay scrollbar for scrolling the viewport through scrollback.
     m_scrollBar = new QScrollBar(Qt::Vertical, this);
@@ -630,45 +636,29 @@ QWidget* TerminalBackendGhostty::terminalWidget() const
     return const_cast<TerminalBackendGhostty*>(this);
 }
 
-void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
+bool TerminalBackendGhostty::event(QEvent* event)
 {
-    if (!m_running || !m_terminal)
-        return;
+    // The terminal claims every key it can send to the PTY, so application-wide
+    // window shortcuts do not fire while the user is typing in the terminal.
+    // Only the terminal toggle and the terminal copy/paste actions stay
+    // global (both remappable in Options -> Keyboard; see terminalshortcuts.h).
+    if (event->type() == QEvent::ShortcutOverride)
+    {
+        auto* keyEvent = static_cast<QKeyEvent*>(event);
+        if (!TerminalShortcuts::allowsGlobalShortcut(*keyEvent))
+        {
+            keyEvent->accept();
+            return true;
+        }
+    }
+    return TerminalBackend::event(event);
+}
 
-    int key = event->key();
+void TerminalBackendGhostty::encodeKeyEvent(QKeyEvent* event, GhosttyKeyAction action)
+{
+    const int key = event->key();
     Qt::KeyboardModifiers modifiers = event->modifiers();
-
-    // Ctrl+PageUp / Ctrl+Insert copy the selection; Shift+PageUp / Shift+Insert paste.
-    if (key == Qt::Key_PageUp)
-    {
-        if (modifiers.testFlag(Qt::ControlModifier))
-            copyClipboard();
-        else if (modifiers.testFlag(Qt::ShiftModifier))
-            pasteClipboard();
-        event->accept();
-        return;
-    }
-    if (key == Qt::Key_Insert)
-    {
-        if (modifiers.testFlag(Qt::ShiftModifier))
-            pasteClipboard();
-        else if (modifiers.testFlag(Qt::ControlModifier))
-            copyClipboard();
-        event->accept();
-        return;
-    }
-    if (key == Qt::Key_C && modifiers.testFlag(Qt::ControlModifier) && modifiers.testFlag(Qt::ShiftModifier))
-    {
-        copyClipboard();
-        event->accept();
-        return;
-    }
-    if (key == Qt::Key_V && modifiers.testFlag(Qt::ControlModifier) && modifiers.testFlag(Qt::ShiftModifier))
-    {
-        pasteClipboard();
-        event->accept();
-        return;
-    }
+    const QString text = event->text();
 
     GhosttyMods ghosttyMods = 0;
     if (modifiers & Qt::ShiftModifier)
@@ -681,7 +671,6 @@ void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
         ghosttyMods |= GHOSTTY_MODS_SUPER;
 
     GhosttyKey ghosttyKey = GHOSTTY_KEY_UNIDENTIFIED;
-    QString text = event->text();
     uint32_t unshifted = 0;
 
     switch (key)
@@ -696,11 +685,15 @@ void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
     case Qt::Key_Tab:
         ghosttyKey = GHOSTTY_KEY_TAB;
         break;
+    case Qt::Key_Backtab: // Qt reports Shift+Tab as Backtab; the shift mod is already set.
+        ghosttyKey = GHOSTTY_KEY_TAB;
+        break;
     case Qt::Key_Escape:
         ghosttyKey = GHOSTTY_KEY_ESCAPE;
         break;
     case Qt::Key_Space:
         ghosttyKey = GHOSTTY_KEY_SPACE;
+        unshifted = ' ';
         break;
     case Qt::Key_Home:
         ghosttyKey = GHOSTTY_KEY_HOME;
@@ -768,99 +761,173 @@ void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
     case Qt::Key_F12:
         ghosttyKey = GHOSTTY_KEY_F12;
         break;
+    // Modifier-only presses, so kitty-protocol apps that ask for them see them.
+    case Qt::Key_Shift:
+        ghosttyKey = GHOSTTY_KEY_SHIFT_LEFT;
+        break;
+    case Qt::Key_Control:
+        ghosttyKey = GHOSTTY_KEY_CONTROL_LEFT;
+        break;
+    case Qt::Key_Alt:
+        ghosttyKey = GHOSTTY_KEY_ALT_LEFT;
+        break;
+    case Qt::Key_Meta:
+        ghosttyKey = GHOSTTY_KEY_META_LEFT;
+        break;
+    case Qt::Key_CapsLock:
+        ghosttyKey = GHOSTTY_KEY_CAPS_LOCK;
+        break;
     default:
         break;
     }
 
-    if (text.size() > 0)
+    // Printable keys: derive the W3C-style code from the key itself. Qt reports
+    // the base key value (e.g. Key_1 for Shift+1), which is exactly the
+    // unshifted codepoint the kitty keyboard protocol wants, on any layout.
+    if (ghosttyKey == GHOSTTY_KEY_UNIDENTIFIED)
     {
-        QChar c = text.at(0);
-        uint32_t uc = c.unicode();
-        if (uc >= 'a' && uc <= 'z')
+        if (key >= Qt::Key_A && key <= Qt::Key_Z)
         {
-            ghosttyKey = static_cast<GhosttyKey>(GHOSTTY_KEY_A + (uc - 'a'));
-            unshifted = uc;
+            ghosttyKey = static_cast<GhosttyKey>(GHOSTTY_KEY_A + (key - Qt::Key_A));
+            unshifted = static_cast<uint32_t>('a' + (key - Qt::Key_A));
         }
-        else if (uc >= 'A' && uc <= 'Z')
+        else if (key >= Qt::Key_0 && key <= Qt::Key_9)
         {
-            ghosttyKey = static_cast<GhosttyKey>(GHOSTTY_KEY_A + (uc - 'A'));
-            unshifted = uc + ('a' - 'A'); // base key codepoint without shift
+            ghosttyKey = static_cast<GhosttyKey>(GHOSTTY_KEY_DIGIT_0 + (key - Qt::Key_0));
+            unshifted = static_cast<uint32_t>('0' + (key - Qt::Key_0));
         }
-        else if (uc >= '0' && uc <= '9')
+        else
         {
-            ghosttyKey = static_cast<GhosttyKey>(GHOSTTY_KEY_DIGIT_0 + (uc - '0'));
-            unshifted = uc;
-        }
-        else if (uc == '`')
-        {
-            ghosttyKey = GHOSTTY_KEY_BACKQUOTE;
-            unshifted = uc;
-        }
-        else if (uc == 92) // backslash
-        {
-            ghosttyKey = GHOSTTY_KEY_BACKSLASH;
-            unshifted = uc;
-        }
-        else if (uc == '[')
-        {
-            ghosttyKey = GHOSTTY_KEY_BRACKET_LEFT;
-            unshifted = uc;
-        }
-        else if (uc == ']')
-        {
-            ghosttyKey = GHOSTTY_KEY_BRACKET_RIGHT;
-            unshifted = uc;
-        }
-        else if (uc == ';')
-        {
-            ghosttyKey = GHOSTTY_KEY_SEMICOLON;
-            unshifted = uc;
-        }
-        else if (uc == '\'')
-        {
-            ghosttyKey = GHOSTTY_KEY_QUOTE;
-            unshifted = uc;
-        }
-        else if (uc == '/')
-        {
-            ghosttyKey = GHOSTTY_KEY_SLASH;
-            unshifted = uc;
-        }
-        else if (uc == '.')
-        {
-            ghosttyKey = GHOSTTY_KEY_PERIOD;
-            unshifted = uc;
-        }
-        else if (uc == '-')
-        {
-            ghosttyKey = GHOSTTY_KEY_MINUS;
-            unshifted = uc;
-        }
-        else if (uc == '=')
-        {
-            ghosttyKey = GHOSTTY_KEY_EQUAL;
-            unshifted = uc;
-        }
-        else if (uc == ',')
-        {
-            ghosttyKey = GHOSTTY_KEY_COMMA;
-            unshifted = uc;
+            switch (key)
+            {
+            case Qt::Key_QuoteLeft:
+            case Qt::Key_AsciiTilde:
+                ghosttyKey = GHOSTTY_KEY_BACKQUOTE;
+                unshifted = '`';
+                break;
+            case Qt::Key_Minus:
+            case Qt::Key_Underscore:
+                ghosttyKey = GHOSTTY_KEY_MINUS;
+                unshifted = '-';
+                break;
+            case Qt::Key_Equal:
+            case Qt::Key_Plus:
+                ghosttyKey = GHOSTTY_KEY_EQUAL;
+                unshifted = '=';
+                break;
+            case Qt::Key_BracketLeft:
+            case Qt::Key_BraceLeft:
+                ghosttyKey = GHOSTTY_KEY_BRACKET_LEFT;
+                unshifted = '[';
+                break;
+            case Qt::Key_BracketRight:
+            case Qt::Key_BraceRight:
+                ghosttyKey = GHOSTTY_KEY_BRACKET_RIGHT;
+                unshifted = ']';
+                break;
+            case Qt::Key_Backslash:
+            case Qt::Key_Bar:
+                ghosttyKey = GHOSTTY_KEY_BACKSLASH;
+                unshifted = '\\';
+                break;
+            case Qt::Key_Semicolon:
+            case Qt::Key_Colon:
+                ghosttyKey = GHOSTTY_KEY_SEMICOLON;
+                unshifted = ';';
+                break;
+            case Qt::Key_Apostrophe:
+            case Qt::Key_QuoteDbl:
+                ghosttyKey = GHOSTTY_KEY_QUOTE;
+                unshifted = '\'';
+                break;
+            case Qt::Key_Comma:
+            case Qt::Key_Less:
+                ghosttyKey = GHOSTTY_KEY_COMMA;
+                unshifted = ',';
+                break;
+            case Qt::Key_Period:
+            case Qt::Key_Greater:
+                ghosttyKey = GHOSTTY_KEY_PERIOD;
+                unshifted = '.';
+                break;
+            case Qt::Key_Slash:
+            case Qt::Key_Question:
+                ghosttyKey = GHOSTTY_KEY_SLASH;
+                unshifted = '/';
+                break;
+            // Shifted-digit identities some platforms report instead of the base key.
+            case Qt::Key_Exclam:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_1;
+                unshifted = '1';
+                break;
+            case Qt::Key_At:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_2;
+                unshifted = '2';
+                break;
+            case Qt::Key_NumberSign:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_3;
+                unshifted = '3';
+                break;
+            case Qt::Key_Dollar:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_4;
+                unshifted = '4';
+                break;
+            case Qt::Key_Percent:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_5;
+                unshifted = '5';
+                break;
+            case Qt::Key_AsciiCircum:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_6;
+                unshifted = '6';
+                break;
+            case Qt::Key_Ampersand:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_7;
+                unshifted = '7';
+                break;
+            case Qt::Key_Asterisk:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_8;
+                unshifted = '8';
+                break;
+            case Qt::Key_ParenLeft:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_9;
+                unshifted = '9';
+                break;
+            case Qt::Key_ParenRight:
+                ghosttyKey = GHOSTTY_KEY_DIGIT_0;
+                unshifted = '0';
+                break;
+            default:
+                break;
+            }
         }
     }
 
     QByteArray utf8 = text.toUtf8();
-    GhosttyKeyEvent eventHandle;
+
+    // Mods consumed producing the text (Shift/Alt, per the kitty protocol).
+    // Control-only text (e.g. Ctrl+A) consumes nothing.
+    GhosttyMods consumed = 0;
+    const bool printableText = !text.isEmpty() && std::all_of(text.cbegin(), text.cend(), [](QChar ch) { return ch.unicode() >= 0x20; });
+    if (printableText)
+    {
+        if (modifiers & Qt::ShiftModifier)
+            consumed |= GHOSTTY_MODS_SHIFT;
+        if (modifiers & Qt::AltModifier)
+            consumed |= GHOSTTY_MODS_ALT;
+    }
+
+    GhosttyKeyEvent eventHandle = nullptr;
     GhosttyResult eventResult = ghostty_key_event_new(nullptr, &eventHandle);
-    if (eventResult != GHOSTTY_SUCCESS)
+    if (eventResult != GHOSTTY_SUCCESS || !eventHandle)
         return;
-    ghostty_key_event_set_action(eventHandle, GHOSTTY_KEY_ACTION_PRESS);
+    ghostty_key_event_set_action(eventHandle, action);
     ghostty_key_event_set_key(eventHandle, ghosttyKey);
     ghostty_key_event_set_mods(eventHandle, ghosttyMods);
-    ghostty_key_event_set_consumed_mods(eventHandle, 0);
-    ghostty_key_event_set_composing(eventHandle, false);
+    ghostty_key_event_set_consumed_mods(eventHandle, consumed);
+    ghostty_key_event_set_composing(eventHandle, m_composing);
     GhosttyString utf8Value;
     utf8Value.ptr = reinterpret_cast<const uint8_t*>(utf8.constData());
-    utf8Value.len = utf8.size();
+    utf8Value.len = static_cast<size_t>(utf8.size());
     ghostty_key_event_set_utf8(eventHandle, utf8Value);
     ghostty_key_event_set_unshifted_codepoint(eventHandle, unshifted);
 
@@ -872,16 +939,158 @@ void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
         writeToMaster(keyBuffer, written);
 }
 
+void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
+{
+    event->accept();
+    if (!m_running || !m_terminal)
+        return;
+
+    const int key = event->key();
+    Qt::KeyboardModifiers modifiers = event->modifiers();
+
+    // Ctrl+PageUp / Ctrl+Insert copy the selection; Shift+PageUp / Shift+Insert paste.
+    // Plain PageUp falls through to the encoder so less/vim receive it.
+    if (key == Qt::Key_PageUp)
+    {
+        if (modifiers.testFlag(Qt::ControlModifier))
+        {
+            copyClipboard();
+            return;
+        }
+        if (modifiers.testFlag(Qt::ShiftModifier))
+        {
+            pasteClipboard();
+            return;
+        }
+    }
+    else if (key == Qt::Key_Insert)
+    {
+        if (modifiers.testFlag(Qt::ShiftModifier))
+        {
+            pasteClipboard();
+            return;
+        }
+        if (modifiers.testFlag(Qt::ControlModifier))
+        {
+            copyClipboard();
+            return;
+        }
+    }
+
+    // Ctrl+Shift+C / Ctrl+Shift+V are handled by the Terminal.Copy/Terminal.Paste
+    // actions (routed through the shortcut system, so they can be remapped);
+    // they never reach this function when bound.
+    encodeKeyEvent(event, event->isAutoRepeat() ? GHOSTTY_KEY_ACTION_REPEAT : GHOSTTY_KEY_ACTION_PRESS);
+}
+
+void TerminalBackendGhostty::keyReleaseEvent(QKeyEvent* event)
+{
+    event->accept();
+    if (!m_running || !m_terminal)
+        return;
+    encodeKeyEvent(event, GHOSTTY_KEY_ACTION_RELEASE);
+}
+
+void TerminalBackendGhostty::focusInEvent(QFocusEvent* event)
+{
+    TerminalBackend::focusInEvent(event);
+    sendFocusEvent(GHOSTTY_FOCUS_GAINED);
+}
+
+void TerminalBackendGhostty::focusOutEvent(QFocusEvent* event)
+{
+    sendFocusEvent(GHOSTTY_FOCUS_LOST);
+    TerminalBackend::focusOutEvent(event);
+}
+
+bool TerminalBackendGhostty::terminalModeEnabled(GhosttyMode mode) const
+{
+    if (!m_terminal)
+        return false;
+    GhosttyTerminalModeConfig config = {};
+    config.mode = mode;
+    config.value = false;
+    if (ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_MODE, &config) != GHOSTTY_SUCCESS)
+        return false;
+    return config.value;
+}
+
+void TerminalBackendGhostty::sendFocusEvent(GhosttyFocusEvent focusEvent)
+{
+    if (!m_running || !m_terminal)
+        return;
+    if (!terminalModeEnabled(GHOSTTY_MODE_FOCUS_EVENT))
+        return;
+    uint8_t buffer[8];
+    size_t written = 0;
+    if (ghostty_focus_encode(focusEvent, buffer, sizeof(buffer), &written) != GHOSTTY_SUCCESS || written == 0)
+        return;
+    writeToMaster(buffer, written);
+}
+
+QRect TerminalBackendGhostty::cursorViewportRect() const
+{
+    if (!m_terminal || !m_renderState)
+        return QRect();
+    bool hasCursor = false;
+    if (ghostty_render_state_get(m_renderState, GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_HAS_VALUE, &hasCursor) != GHOSTTY_SUCCESS || !hasCursor)
+        return QRect();
+    uint16_t x = 0, y = 0;
+    if (ghostty_render_state_get(m_renderState, GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_X, &x) != GHOSTTY_SUCCESS)
+        return QRect();
+    if (ghostty_render_state_get(m_renderState, GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_Y, &y) != GHOSTTY_SUCCESS)
+        return QRect();
+    return QRect(static_cast<int>(x) * m_cellWidthPx, static_cast<int>(y) * m_cellHeightPx, m_cellWidthPx, m_cellHeightPx);
+}
+
+void TerminalBackendGhostty::inputMethodEvent(QInputMethodEvent* event)
+{
+    if (!m_running || !m_terminal)
+    {
+        TerminalBackend::inputMethodEvent(event);
+        return;
+    }
+
+    m_preeditText = event->preeditString();
+    m_composing = !m_preeditText.isEmpty();
+
+    const QString commit = event->commitString();
+    if (!commit.isEmpty())
+    {
+        const QByteArray utf8 = commit.toUtf8();
+        writeToMaster(reinterpret_cast<const uint8_t*>(utf8.constData()), static_cast<size_t>(utf8.size()));
+    }
+    update(); // Repaint the preedit overlay.
+    event->accept();
+}
+
+QVariant TerminalBackendGhostty::inputMethodQuery(Qt::InputMethodQuery query) const
+{
+    switch (query)
+    {
+    case Qt::ImCursorRectangle:
+    case Qt::ImAnchorRectangle:
+        return QVariant(cursorViewportRect());
+    case Qt::ImFont:
+        return QVariant(font());
+    default:
+        return TerminalBackend::inputMethodQuery(query);
+    }
+}
+
+
 void TerminalBackendGhostty::handlePtyData(const QByteArray& data)
 {
     QMutexLocker locker(&m_terminalMutex);
     if (!m_terminal || data.isEmpty())
         return;
     ghostty_terminal_vt_write(m_terminal, reinterpret_cast<const uint8_t*>(data.constData()), data.size());
-    // PTY output is where mouse-tracking escape sequences arrive; re-sync the
-    // encoder so modes/formats take effect immediately.
+    // Terminal modes can change as apps run (e.g. kitty keyboard protocol or
+    // focus reporting); re-sync the encoders so new modes take effect at once.
     if (m_mouseEncoder)
         ghostty_mouse_encoder_set_from_terminal(m_mouseEncoder, m_terminal);
+    if (m_keyEncoder)
+        ghostty_key_encoder_set_from_terminal(m_keyEncoder, m_terminal);
     m_urlCacheValid = false;
     updatePointerShape();
     m_needsRender = true; // Dirty rows only; renderFrame decides full vs dirty from m_fullRepaintPending.
@@ -1224,6 +1433,24 @@ void TerminalBackendGhostty::paintEvent(QPaintEvent* event)
         painter.drawPixmap(0, 0, m_frameCache);
     else
         painter.fillRect(rect(), QColor(Qt::black));
+
+    // IME preedit (composition) text at the cursor cell, underlined.
+    if (!m_preeditText.isEmpty())
+    {
+        const QRect cell = cursorViewportRect();
+        if (!cell.isNull())
+        {
+            const QFont imeFont = font();
+            painter.setFont(imeFont);
+            const QFontMetrics imeMetrics(imeFont);
+            const int textWidth = imeMetrics.horizontalAdvance(m_preeditText);
+            const QRect preeditRect(cell.topLeft(), QSize(qMax(textWidth + 4, cell.width()), cell.height()));
+            painter.fillRect(preeditRect, QColor(127, 127, 127, 140));
+            painter.setPen(palette().text().color());
+            painter.drawText(preeditRect.adjusted(2, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft, m_preeditText);
+            painter.fillRect(QRect(preeditRect.left(), preeditRect.bottom() - 1, preeditRect.width(), 1), palette().highlight().color());
+        }
+    }
 
     // Ctrl+hover underline for the detected URL.
     if (!m_hoverUrl.isEmpty() && m_hoverRow >= 0 && m_hoverEndCol >= m_hoverStartCol)

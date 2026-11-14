@@ -379,6 +379,15 @@ void ActionManager::createEditActions()
             emit editActionTriggered(EditAction::FindPreviousWithSelection);
         },
         "Edit.FindPreviousWithSelection");
+
+    // Not shown in any menu: kept for the terminal plugin. The terminal
+    // claims all other shortcuts, these stay global so copy/paste work
+    // while the terminal has focus. Remappable in Options -> Keyboard.
+    m_terminalCopyAct = createIconAction(
+        ":/icons/Edit/copy.svg", tr("Copy (Terminal)"), QKeySequence("Ctrl+Shift+C"), [this]() { emit terminalCopyTriggered(); }, "Terminal.Copy");
+    m_terminalPasteAct = createIconAction(
+        ":/icons/Edit/paste.svg", tr("Paste (Terminal)"), QKeySequence("Ctrl+Shift+V"), [this]() { emit terminalPasteTriggered(); },
+        "Terminal.Paste");
 }
 
 void ActionManager::createBookmarkActions()
@@ -1108,6 +1117,10 @@ void ActionManager::wireEditConnections(const ActionTargets& t)
     connect(this, &ActionManager::cutTriggered, ec, &EditorController::cut);
     connect(this, &ActionManager::copyTriggered, mw, &MainWindow::copy);
     connect(this, &ActionManager::pasteTriggered, mw, &MainWindow::paste);
+    // Terminal copy/paste: MainWindow::copy/paste already prefer the terminal
+    // when it has focus, so route both through the same slots.
+    connect(this, &ActionManager::terminalCopyTriggered, mw, &MainWindow::copy);
+    connect(this, &ActionManager::terminalPasteTriggered, mw, &MainWindow::paste);
     connect(this, &ActionManager::selectAllTriggered, ec, &EditorController::selectAll);
     connect(this, &ActionManager::deleteTriggered, ec, &EditorController::deleteText);
     connect(this, &ActionManager::findTriggered, mw, &MainWindow::find);

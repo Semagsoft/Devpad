@@ -29,6 +29,9 @@ public:
         return m_term;
     }
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     QTermWidget* m_term;
     bool m_running;
