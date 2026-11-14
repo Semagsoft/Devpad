@@ -144,6 +144,14 @@ void ActionManager::createFileActions()
             emit fileActionTriggered(FileAction::SaveAll);
         },
         "File.SaveAll");
+    m_reopenClosedTabAct = createIconAction(
+        ":/icons/File/open.svg", tr("Reopen Closed Tab"), QKeySequence("Ctrl+Shift+T"),
+        [this]()
+        {
+            emit reopenClosedTabTriggered();
+            emit fileActionTriggered(FileAction::ReopenClosedTab);
+        },
+        "File.ReopenClosedTab");
     m_revertAct = createIconAction(
         ":/icons/File/revert.svg", tr("Revert"), QKeySequence(),
         [this]()
@@ -789,6 +797,7 @@ void ActionManager::buildFileMenu(QMenu* fileMenu)
     openMenu->addAction(m_openFolderAct);
     openMenu->addAction(m_openRemoteAct);
     openMenu->addAction(m_openRemoteFolderAct);
+    fileMenu->addAction(m_reopenClosedTabAct);
     fileMenu->addSeparator();
 
     fileMenu->addMenu(m_recentFilesHelper->createMenu(fileMenu));
@@ -1029,6 +1038,7 @@ void ActionManager::wireFileConnections(const ActionTargets& t)
     connect(this, &ActionManager::saveFileTriggered, ec, &EditorController::saveFile);
     connect(this, &ActionManager::saveFileAsTriggered, ec, &EditorController::saveFileAs);
     connect(this, &ActionManager::saveAllTriggered, ec, &EditorController::saveAll);
+    connect(this, &ActionManager::reopenClosedTabTriggered, mw, &MainWindow::reopenClosedTab);
     connect(this, &ActionManager::revertTriggered, mw, &MainWindow::revertFile);
     connect(this, &ActionManager::closeCurrentTabTriggered, ec, &EditorController::closeCurrentTab);
     connect(this, &ActionManager::closeAllTabsTriggered, ec, &EditorController::closeAllTabs);
@@ -1230,6 +1240,9 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_lineColLabel->setVisible(false);
     m_encodingComboBox->setVisible(false);
     m_fileTypeLabel->setVisible(false);
+    m_lineColLabel->setToolTip(tr("Current line and column"));
+    m_encodingComboBox->setToolTip(tr("Text encoding for the current file"));
+    m_fileTypeLabel->setToolTip(tr("Language / file type of the current file"));
     statusBar->addPermanentWidget(m_lineColLabel);
     statusBar->addPermanentWidget(m_fileTypeLabel);
     statusBar->addPermanentWidget(m_encodingComboBox);
@@ -1238,6 +1251,7 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_projectPanelButton->setIcon(QIcon(":/icons/Common/folder.svg"));
     m_projectPanelButton->setCheckable(true);
     m_projectPanelButton->setCursor(Qt::PointingHandCursor);
+    m_projectPanelButton->setToolTip(tr("Toggle Project Panel (Ctrl+B)"));
     m_projectPanelButton->setStyleSheet(
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_projectPanelButton, &QToolButton::clicked, this, [this]() { emit toggleProjectPanelTriggered(); });
@@ -1247,6 +1261,7 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_terminalPanelButton->setIcon(QIcon(":/icons/View/terminal.svg"));
     m_terminalPanelButton->setCheckable(true);
     m_terminalPanelButton->setCursor(Qt::PointingHandCursor);
+    m_terminalPanelButton->setToolTip(tr("Toggle Terminal Panel (Ctrl+`)"));
     m_terminalPanelButton->setStyleSheet(
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_terminalPanelButton, &QToolButton::clicked, this, [this]() { emit toggleTerminalPanelTriggered(); });
@@ -1256,6 +1271,7 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_errorListPanelButton->setIcon(QIcon(":/icons/View/error.svg"));
     m_errorListPanelButton->setCheckable(true);
     m_errorListPanelButton->setCursor(Qt::PointingHandCursor);
+    m_errorListPanelButton->setToolTip(tr("Toggle Error List (LSP diagnostics)"));
     m_errorListPanelButton->setStyleSheet(
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_errorListPanelButton, &QToolButton::clicked, this, [this]() { emit toggleErrorListPanelTriggered(); });
@@ -1265,6 +1281,7 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_referencesPanelButton->setIcon(QIcon(":/icons/Edit/find.svg"));
     m_referencesPanelButton->setCheckable(true);
     m_referencesPanelButton->setCursor(Qt::PointingHandCursor);
+    m_referencesPanelButton->setToolTip(tr("Toggle References Panel (Find References)"));
     m_referencesPanelButton->setStyleSheet(
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_referencesPanelButton, &QToolButton::clicked, this, [this]() { emit toggleReferencesPanelTriggered(); });

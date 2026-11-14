@@ -27,6 +27,7 @@
 #include "snippetmanager.h"
 #include "theme.h"
 #include "widgets/brackethelper.h"
+#include "widgets/scrollbarannotation.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -38,6 +39,9 @@
 #include <QIcon>
 #include <QInputDialog>
 #include <QKeyEvent>
+#include <QMenu>
+#include <QResizeEvent>
+#include <QScrollBar>
 #include <QMenu>
 #include <QMimeData>
 #include <QTimer>
@@ -208,6 +212,13 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                     }
                 }
             });
+
+    // Scrollbar annotation strip (bookmark + diagnostic ticks next to the scrollbar).
+    m_scrollbarAnnotation = new ScrollbarAnnotation(this);
+    connect(this, &CodeEditor::bookmarksChanged, this, [this]() { updateScrollbarAnnotations(); });
+    connect(this, &CodeEditor::diagnosticsChanged, this, [this](const QString&, const QList<lsp::Diagnostic>&) { updateScrollbarAnnotations(); });
+    connect(this, &QsciScintilla::textChanged, this, [this]() { updateScrollbarAnnotations(); });
+    updateScrollbarAnnotations();
 }
 
 CodeEditor::~CodeEditor()
@@ -1352,6 +1363,8 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
 {
     Q_UNUSED(uri)
 
+    m_lspDiagnostics = diagnostics;
+
     // Clear existing diagnostics
     clearDiagnostics();
 
@@ -1586,4 +1599,47 @@ void CodeEditor::showSignatureHelp(const QJsonObject& info)
 void CodeEditor::setSelectionRanges(const QJsonArray& ranges)
 {
     m_lspIntegration->handleSelectionRanges(ranges);
+}
+
+void CodeEditor::resizeEvent(QResizeEvent* event)
+{
+    QsciScintilla::resizeEvent(event);
+    updateScrollbarAnnotations();
+}
+
+void CodeEditor::updateScrollbarAnnotations()
+{
+    if (!m_scrollbarAnnotation)
+        return;
+
+    const int annotationWidth = 5;
+    const int scrollBarWidth = verticalScrollBar() ? verticalScrollBar()->width() : 0;
+    m_scrollbarAnnotation->setGeometry(width() - scrollBarWidth - annotationWidth, 0, annotationWidth, height());
+
+    QList<QPair<int, QColor>> ticks;
+    for (const auto& d : m_lspDiagnostics)
+    {
+        QColor color;
+        switch (d.severityLevel)
+        {
+        case 1:
+            color = QColor(229, 72, 77); // error
+            break;
+        case 2:
+            color = QColor(245, 166, 35); // warning
+            break;
+        default:
+            color = QColor(59, 130, 246); // info/hint
+            break;
+        }
+        ticks.append({d.range.start.line, color});
+    }
+    const int totalLines = lines();
+    for (int i = 0; i < totalLines; ++i)
+    {
+        if (markersAtLine(i) & (1u << static_cast<unsigned int>(MARKER_BOOKMARK)))
+            ticks.append({i, QColor(255, 153, 0)}); // bookmark
+    }
+    std::stable_sort(ticks.begin(), ticks.end(), [](const QPair<int, QColor>& a, const QPair<int, QColor>& b) { return a.first < b.first; });
+    m_scrollbarAnnotation->setAnnotations(ticks, totalLines);
 }

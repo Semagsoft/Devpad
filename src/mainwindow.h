@@ -81,6 +81,7 @@ public:
 
 public slots:
     void newWindow();
+    void reopenClosedTab();
     void openFile();
     void openRemote();
     void openRemoteFolder();

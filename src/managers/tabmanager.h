@@ -90,6 +90,20 @@ public:
 
     EditorContainer* containerFor(CodeEditor* editor) const;
 
+    struct ClosedTab
+    {
+        QString fileName;
+        int line = 0;
+        int column = 0;
+        int firstVisibleLine = 0;
+    };
+    /**
+     * @brief Pop the most recently closed file tab (stack is capped at 20).
+     * @return true and fills @p entry when a closed tab is available.
+     */
+    bool takeLastClosedTab(ClosedTab& entry);
+    bool hasClosedTabs() const;
+
     /**
      * @brief Bring an already-open editor to the foreground: activates the pane
      *        containing it and selects its tab. No-op if the editor is unknown.
@@ -104,6 +118,7 @@ signals:
 
 private:
     QList<QTabWidget*> m_panes;
+    QList<ClosedTab> m_closedTabs;  // stack, most recent at back; capped at 20
     QTabWidget* m_primaryWidget;
     QTabWidget* m_activePane;
     // QPointer auto-nulls if an editor is deleted outside normal close path

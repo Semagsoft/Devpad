@@ -765,6 +765,21 @@ void MainWindow::openFileFromPath(const QString& filePath)
     loadFile(filePath);
 }
 
+void MainWindow::reopenClosedTab()
+{
+    TabManager::ClosedTab entry;
+    if (!m_tabManager || !m_tabManager->takeLastClosedTab(entry))
+        return;
+    loadFile(entry.fileName);
+    if (CodeEditor* editor = m_tabManager->currentEditor())
+    {
+        editor->setCursorPosition(entry.line, entry.column);
+        if (entry.firstVisibleLine >= 0)
+            editor->setFirstVisibleLine(entry.firstVisibleLine);
+        editor->setFocus();
+    }
+}
+
 void MainWindow::openFolder()
 {
     QString dirPath = QFileDialog::getExistingDirectory(this, tr("Open Folder"));

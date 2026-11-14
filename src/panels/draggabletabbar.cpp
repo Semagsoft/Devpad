@@ -52,6 +52,16 @@ DraggableTabBar::DraggableTabBar(QWidget* parent) : QTabBar(parent)
 void DraggableTabBar::mousePressEvent(QMouseEvent* event)
 {
     m_dragTabIndex = -1;
+    if (event->button() == Qt::MiddleButton)
+    {
+        const int idx = tabAt(event->pos());
+        if (idx >= 0)
+        {
+            emit closeTabRequested(idx);
+            event->accept();
+            return;
+        }
+    }
     if (event->button() == Qt::LeftButton)
     {
         int idx = tabAt(event->pos());

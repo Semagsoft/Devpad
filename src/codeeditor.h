@@ -35,6 +35,9 @@
 #include <Qsci/qscilexer.h>
 #include <Qsci/qsciscintilla.h>
 
+class ScrollbarAnnotation;
+class QResizeEvent;
+
 class CodeEditor : public QsciScintilla
 {
     Q_OBJECT
@@ -225,11 +228,15 @@ protected:
     void dropEvent(QDropEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     QString m_fileName;
     QString m_syntax;
     QString m_encoding;
+    QList<lsp::Diagnostic> m_lspDiagnostics;
+    ScrollbarAnnotation* m_scrollbarAnnotation = nullptr;
+    void updateScrollbarAnnotations();
     QDateTime m_diskModifiedAt;
     QFont m_defaultFont;
     ThemeId m_themeId;

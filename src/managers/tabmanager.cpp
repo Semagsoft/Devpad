@@ -233,6 +233,22 @@ bool TabManager::closeEditor(int index)
             removeCloseButtons(localIdx, pane);
             m_pinnedEditors.remove(editor);
             m_containers.remove(editor);
+            // Remember the closed tab so "Reopen Closed Tab" can restore it.
+            const QString closedFile = editor->fileName();
+            if (!closedFile.isEmpty() && closedFile != Strings::untitled())
+            {
+                int line = 0;
+                int column = 0;
+                editor->getCursorPosition(&line, &column);
+                ClosedTab entry;
+                entry.fileName = closedFile;
+                entry.line = line;
+                entry.column = column;
+                entry.firstVisibleLine = editor->firstVisibleLine();
+                m_closedTabs.append(entry);
+                while (m_closedTabs.size() > 20)
+                    m_closedTabs.removeFirst();
+            }
             pane->removeTab(localIdx);
             for (int i = localIdx; i < pane->count(); ++i)
             {
@@ -558,4 +574,17 @@ void TabManager::applyCloseButtonPosition(CloseButtonMode closeButtonMode)
         }
         pane->setStyleSheet(QString());
     }
+}
+
+bool TabManager::takeLastClosedTab(ClosedTab& entry)
+{
+    if (m_closedTabs.isEmpty())
+        return false;
+    entry = m_closedTabs.takeLast();
+    return true;
+}
+
+bool TabManager::hasClosedTabs() const
+{
+    return !m_closedTabs.isEmpty();
 }

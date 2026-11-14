@@ -66,6 +66,7 @@ public:
     {
         New,
         NewWindow,
+        ReopenClosedTab,
         Open,
         OpenRemote,
         OpenRemoteFolder,
@@ -160,6 +161,10 @@ public:
     QToolBar* buildToolBar();
     void buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectPanel, TerminalPanel* terminalPanel);
 
+    QAction* reopenClosedTabAct() const
+    {
+        return m_reopenClosedTabAct;
+    }
     QAction* newAct() const
     {
         return m_newAct;
@@ -519,6 +524,7 @@ signals:
     void saveFileAsTriggered();
     void saveAllTriggered();
     void revertTriggered();
+    void reopenClosedTabTriggered();
     void closeCurrentTabTriggered();
     void closeAllTabsTriggered();
     void exitTriggered();
@@ -657,6 +663,7 @@ private:
     QAction* m_openFolderAct = nullptr;
     QAction* m_closeProjectAct = nullptr;
     QAction* m_revertAct = nullptr;
+    QAction* m_reopenClosedTabAct = nullptr;
     QAction* m_saveAct = nullptr;
     QAction* m_saveAsAct = nullptr;
     QAction* m_saveAllAct = nullptr;

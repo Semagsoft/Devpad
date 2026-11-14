@@ -250,6 +250,7 @@ add_library(Devpad_editor STATIC
     src/widgets/brackethelper.cpp
     src/widgets/inlinefindbar.cpp
     src/widgets/minimap.cpp
+    src/widgets/scrollbarannotation.cpp
     src/widgets/editorcontainer.cpp
     src/widgets/themepreviewwidget.cpp
 )

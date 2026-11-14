@@ -17,7 +17,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 - Snippet expansion with tab-stop navigation and predictive auto-completion
 - Bookmark lines per tab
 - Toggle line/block comments
-- Embedded terminal panel (libghostty-vt backend, QTermWidget/KodoTerm fallback) — docked or as a tab
+- Embedded terminal panel (libghostty-vt backend, QTermWidget/KodoTerm fallback) — docked or as a tab. Mouse support: drag-to-select with edge auto-scroll, wheel scrollback, scrollbar, xterm mouse reporting to apps that enable it (SGR/X10, incl. wheel as buttons 4/5), Shift+drag local selection override, middle-click paste, Ctrl+Click to open URLs under the cursor, OSC 22 pointer shapes
 - Project panel with file tree, file type icons, filter/search, recent folders, rename/new folder context menu
 - Split view with drag-and-drop tab reordering across panes
 - Multi-pane tab management
