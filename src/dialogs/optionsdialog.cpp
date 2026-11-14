@@ -560,6 +560,10 @@ void OptionsDialog::setupPanelsTab()
     QIntValidator* terminalFontSizeValidator = new QIntValidator(6, 72, terminalFontSizeBox);
     terminalFontSizeBox->setValidator(terminalFontSizeValidator);
     terminalLayout->addRow(tr("Font size:"), terminalFontSizeBox);
+    terminalBellCheckBox = new QCheckBox(tr("Bell on BEL (beep + flash taskbar when not focused)"), terminalGroup);
+    terminalLayout->addWidget(terminalBellCheckBox);
+    terminalCopyOnSelectCheckBox = new QCheckBox(tr("Copy selection to clipboard automatically"), terminalGroup);
+    terminalLayout->addWidget(terminalCopyOnSelectCheckBox);
 
 #ifdef BUILD_PLUGINS
     // Hide the Terminal panel group when the Terminal plugin is not loaded.
@@ -1037,6 +1041,8 @@ void OptionsDialog::loadSettings()
         if (termFontIndex >= 0)
             terminalFontFaceComboBox->setCurrentIndex(termFontIndex);
         terminalFontSizeBox->setText(QString::number(s.terminalFontSize()));
+        terminalBellCheckBox->setChecked(s.terminalBellEnabled());
+        terminalCopyOnSelectCheckBox->setChecked(s.terminalCopyOnSelect());
     }
     projectPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.projectPanelPosition()));
     projectFileOpenComboBox->setCurrentIndex(static_cast<int>(s.fileOpenMode()));
@@ -1129,6 +1135,8 @@ void OptionsDialog::saveSettings()
         SettingsManager::instance().setTerminalPanelMinWidth(terminalPanelMinWidthSpin->value());
         SettingsManager::instance().setTerminalFontFamily(terminalFontFaceComboBox->currentText());
         SettingsManager::instance().setTerminalFontSize(qMax(1, terminalFontSizeBox->text().toInt()));
+        SettingsManager::instance().setTerminalBellEnabled(terminalBellCheckBox->isChecked());
+        SettingsManager::instance().setTerminalCopyOnSelect(terminalCopyOnSelectCheckBox->isChecked());
     }
     SettingsManager::instance().setProjectPanelPosition(static_cast<ProjectPanelPosition>(projectPanelPositionComboBox->currentIndex()));
     SettingsManager::instance().setFileOpenMode(static_cast<FileOpenMode>(projectFileOpenComboBox->currentIndex()));

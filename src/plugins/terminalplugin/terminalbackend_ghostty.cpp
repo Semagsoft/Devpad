@@ -40,6 +40,7 @@
 #include <QRegularExpression>
 #include <QThread>
 #include <QUrl>
+#include <QDateTime>
 #include <QWheelEvent>
 #include <atomic>
 #include <cerrno>
@@ -345,6 +346,10 @@ void TerminalBackendGhostty::start()
     // Host -> pty output (responses to queries etc.).
     GhosttyWritePtyFn writePtyFn = &TerminalBackendGhostty::writePtyCallback;
     ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_WRITE_PTY, reinterpret_cast<const void*>(writePtyFn));
+    // Effects callbacks carry this pointer as userdata (writePtyCallback and
+    // bellCallback dereference it).
+    ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_USERDATA, reinterpret_cast<const void*>(this));
+    ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_BELL, reinterpret_cast<const void*>(&TerminalBackendGhostty::bellCallback));
 
     // Key encoder, synced to the terminal state (legacy modes by default).
     if (ghostty_key_encoder_new(nullptr, &m_keyEncoder) == GHOSTTY_SUCCESS)
@@ -556,22 +561,21 @@ void TerminalBackendGhostty::pasteClipboard()
     if (!m_running || !m_terminal)
         return;
 
-    // Pasting clipboard text that contains newlines would auto-execute each
-    // line in the shell. Ask for confirmation before allowing unsafe paste.
-    const QByteArray clipboardUtf8 = QApplication::clipboard()->text().toUtf8();
-    if (clipboardUtf8.contains('\n') || clipboardUtf8.contains('\r'))
-    {
-        if (QMessageBox::question(this, tr("Paste multi-line text?"),
-                                  tr("The clipboard contains newlines and would execute each line in the shell.\nPaste anyway?"),
-                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
-            return;
-    }
+    pasteFromClipboard(QClipboard::Clipboard);
+}
+
+void TerminalBackendGhostty::pasteFromClipboard(QClipboard::Mode mode)
+{
+    if (!m_running || !m_terminal)
+        return;
 
     static const char kMimeType[] = "text/plain";
 
+    m_pasteMode = mode; // mime reader serves the same clipboard the paste reports
+
     GhosttyPaste paste = GHOSTTY_INIT_SIZED(GhosttyPaste);
     paste.size = sizeof(GhosttyPaste);
-    paste.location = GHOSTTY_CLIPBOARD_LOCATION_PRIMARY;
+    paste.location = (mode == QClipboard::Selection) ? GHOSTTY_CLIPBOARD_LOCATION_PRIMARY : GHOSTTY_CLIPBOARD_LOCATION_STANDARD;
     paste.source = GHOSTTY_PASTE_SOURCE_CLIPBOARD;
     GhosttyString mimeEntries[1];
     mimeEntries[0].ptr = reinterpret_cast<const uint8_t*>(kMimeType);
@@ -580,11 +584,26 @@ void TerminalBackendGhostty::pasteClipboard()
     paste.mimes_len = 1;
     paste.reader.read = &TerminalBackendGhostty::ghosttyMimeReader;
     paste.reader.userdata = this;
-    paste.allow_unsafe = true; // safe: multi-line content was confirmed above
+    paste.allow_unsafe = false; // validated by the library; retry after user confirmation on rejection
 
     bool pasted = false;
     GhosttyResult result = ghostty_terminal_paste(m_terminal, &paste, &pasted);
+    if (result == GHOSTTY_REJECTED)
+    {
+        // The text would inject commands (line terminators outside bracketed
+        // paste, or the bracketed-paste end sequence). libghostty refused it;
+        // ask the user whether to paste anyway.
+        if (QMessageBox::question(this, tr("Paste unsafe text?"),
+                                  tr("The clipboard contains text that could execute commands in the shell "
+                                     "(e.g. newlines outside bracketed paste mode).\nPaste anyway?"),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes)
+        {
+            paste.allow_unsafe = true;
+            result = ghostty_terminal_paste(m_terminal, &paste, &pasted);
+        }
+    }
     Q_UNUSED(result);
+    Q_UNUSED(pasted);
 }
 
 void TerminalBackendGhostty::sendText(const QString& text)
@@ -1301,7 +1320,7 @@ bool TerminalBackendGhostty::ghosttyMimeReader(void* userdata, GhosttyString mim
     TerminalBackendGhostty* self = static_cast<TerminalBackendGhostty*>(userdata);
     if (!self)
         return false;
-    QString text = QApplication::clipboard()->text();
+    QString text = QApplication::clipboard()->text(self->m_pasteMode);
     QByteArray utf8 = text.toUtf8();
     if (utf8.isEmpty())
         return false;
@@ -1381,6 +1400,29 @@ void TerminalBackendGhostty::writePtyCallback(GhosttyTerminal terminal, void* us
     TerminalBackendGhostty* self = static_cast<TerminalBackendGhostty*>(userdata);
     if (self)
         self->writeToMaster(data, len);
+}
+
+void TerminalBackendGhostty::bellCallback(GhosttyTerminal terminal, void* userdata)
+{
+    Q_UNUSED(terminal);
+    auto* self = static_cast<TerminalBackendGhostty*>(userdata);
+    if (!self)
+        return;
+    // Called while libghostty parses the VT stream; bounce to the GUI thread.
+    QMetaObject::invokeMethod(self, "handleBell", Qt::QueuedConnection);
+}
+
+void TerminalBackendGhostty::handleBell()
+{
+    if (!SettingsManager::instance().terminalBellEnabled())
+        return;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - m_lastBellMs < 1000)
+        return; // Debounce output full of BEL characters.
+    m_lastBellMs = now;
+    QApplication::beep();
+    if (!hasFocus() || !window()->isActiveWindow())
+        QApplication::alert(this, 0); // Bounce the taskbar icon until activation.
 }
 
 uint64_t TerminalBackendGhostty::nowNs() const
@@ -1494,7 +1536,7 @@ void TerminalBackendGhostty::mousePressEvent(QMouseEvent* event)
     if (event->button() == Qt::MiddleButton && !tracking && !shift)
     {
         if (running)
-            pasteClipboard();
+            pasteFromClipboard(QClipboard::Selection); // xterm-style PRIMARY selection paste
         event->accept();
         return;
     }
@@ -1623,6 +1665,8 @@ void TerminalBackendGhostty::mouseReleaseEvent(QMouseEvent* event)
             positionGestureEvents(event->pos());
             if (m_selectionGesture && m_selectReleaseEvent)
                 ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectReleaseEvent, nullptr);
+            if (SettingsManager::instance().terminalCopyOnSelect())
+                copyClipboard();
             m_needsRender = true;
             update();
         }

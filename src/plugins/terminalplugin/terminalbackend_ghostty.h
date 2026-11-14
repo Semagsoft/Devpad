@@ -24,6 +24,7 @@
 #include "theme.h"
 
 #include <QEvent>
+#include <QClipboard>
 #include <QFont>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -66,6 +67,7 @@ public:
     void applyTheme(const QString& schemeName) override;
     void copyClipboard() override;
     void pasteClipboard() override;
+    void pasteFromClipboard(QClipboard::Mode mode);
     void sendText(const QString& text) override;
     bool isRunning() const override;
     QWidget* terminalWidget() const override;
@@ -86,10 +88,12 @@ protected:
 private slots:
     void handlePtyData(const QByteArray& data);
     void handlePtyEof();
+    void handleBell();
 
 private:
     // -- libghostty C API callbacks ----------------------------------------
     static void writePtyCallback(GhosttyTerminal terminal, void* userdata, const uint8_t* data, size_t len);
+    static void bellCallback(GhosttyTerminal terminal, void* userdata);
     static bool ghosttyMimeReader(void* userdata, GhosttyString mime, GhosttyWriter writer);
 
     // -- PTY + IO ----------------------------------------------------------
@@ -168,6 +172,8 @@ private:
     GhosttyMouseEvent m_mouseEvent = nullptr;
     Qt::MouseButtons m_mouseButtonsDown;
     int m_lastPointerShape = -1;
+    QClipboard::Mode m_pasteMode = QClipboard::Clipboard;
+    qint64 m_lastBellMs = 0; // debounce BEL storms
 
     int m_cols = 80;
     int m_rows = 24;

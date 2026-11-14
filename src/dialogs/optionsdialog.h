@@ -94,6 +94,8 @@ private:
     QComboBox* terminalPanelPositionComboBox = nullptr;
     QSpinBox* terminalPanelMinWidthSpin = nullptr;
     QComboBox* terminalFontFaceComboBox = nullptr;
+    QCheckBox* terminalBellCheckBox = nullptr;
+    QCheckBox* terminalCopyOnSelectCheckBox = nullptr;
     // True when the Terminal plugin is loaded and the Terminal group is shown.
     // The isVisible() check can't be used in the ctor/before show().
     bool m_terminalGroupAvailable = true;

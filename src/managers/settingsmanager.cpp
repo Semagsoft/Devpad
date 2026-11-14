@@ -267,6 +267,8 @@ void SettingsManager::loadCache()
     m_cache.terminal.terminalFontFamily = m_settings.value("Options_TerminalFont", "Monospace").toString();
     m_cache.terminal.terminalFontSize = m_settings.value("Options_TerminalFontSize", 12).toInt();
     m_cache.terminal.showTerminalPanel = m_settings.value("Options_ShowTerminalPanel", false).toBool();
+    m_cache.terminal.terminalCopyOnSelect = m_settings.value("Options_TerminalCopyOnSelect", false).toBool();
+    m_cache.terminal.terminalBellEnabled = m_settings.value("Options_TerminalBellEnabled", true).toBool();
 
     m_cache.autoSave.autoSaveEnabled = m_settings.value("Options_AutoSaveEnabled", false).toBool();
     m_cache.autoSave.autoSaveInterval = m_settings.value("Options_AutoSaveInterval", 60).toInt();
@@ -789,6 +791,22 @@ void SettingsManager::setTerminalFontSize(int size)
 void SettingsManager::setShowTerminalPanel(bool visible)
 {
     writeCached("Options_ShowTerminalPanel", m_cache.terminal.showTerminalPanel, visible);
+}
+bool SettingsManager::terminalCopyOnSelect() const
+{
+    return m_cache.terminal.terminalCopyOnSelect;
+}
+void SettingsManager::setTerminalCopyOnSelect(bool enabled)
+{
+    writeCached("Options_TerminalCopyOnSelect", m_cache.terminal.terminalCopyOnSelect, enabled);
+}
+bool SettingsManager::terminalBellEnabled() const
+{
+    return m_cache.terminal.terminalBellEnabled;
+}
+void SettingsManager::setTerminalBellEnabled(bool enabled)
+{
+    writeCached("Options_TerminalBellEnabled", m_cache.terminal.terminalBellEnabled, enabled);
 }
 
 void SettingsManager::setAutoSaveEnabled(bool enabled)

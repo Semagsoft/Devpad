@@ -161,6 +161,8 @@ public:
         QString terminalFontFamily = "Monospace";
         int terminalFontSize = 12;
         bool showTerminalPanel = false;
+        bool terminalCopyOnSelect = false;
+        bool terminalBellEnabled = true;
     };
 
     struct AutoSaveSettings
@@ -326,6 +328,10 @@ public:
     void setTerminalFontFamily(const QString& family);
     void setTerminalFontSize(int size);
     void setShowTerminalPanel(bool visible);
+    bool terminalCopyOnSelect() const;
+    void setTerminalCopyOnSelect(bool enabled);
+    bool terminalBellEnabled() const;
+    void setTerminalBellEnabled(bool enabled);
 
     // ── Auto-save settings ─────────────────────────────────────
     AutoSaveSettings autoSaveSettings() const;
