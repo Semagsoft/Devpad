@@ -77,7 +77,16 @@ public:
     void shutdown() override
     {
         if (m_host && !m_dockId.isEmpty())
+        {
+            // removeDockWidget takes ownership of the panel (deleteLater).
             m_host->removeDockWidget(m_dockId);
+            m_terminalPanel = nullptr;
+        }
+        else if (m_terminalPanel)
+        {
+            delete m_terminalPanel;
+            m_terminalPanel = nullptr;
+        }
         m_dockId.clear();
         if (m_host)
             m_host->unregisterPanel(QStringLiteral("terminal"));

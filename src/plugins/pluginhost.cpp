@@ -235,6 +235,15 @@ QMenu* PluginHost::menu(const QString& path) const
     QMenu* current = nullptr;
     QMenu* parentMenu = nullptr;
 
+    // Menus matched by title; normalize away mnemonic markers and case so
+    // "&View" matches "view".
+    const auto menuTitleMatches = [](const QString& title, const QString& part)
+    {
+        QString normalized = title;
+        normalized.remove(QLatin1Char('&'));
+        return normalized.compare(part, Qt::CaseInsensitive) == 0;
+    };
+
     for (const QString& part : parts)
     {
         // Look for an existing top-level or sub-menu matching part.
@@ -243,7 +252,8 @@ QMenu* PluginHost::menu(const QString& path) const
         {
             for (QAction* act : bar->actions())
             {
-                if (QMenu* m = act->menu(); m->title() == part)
+                QMenu* m = act->menu();
+                if (m && menuTitleMatches(m->title(), part))
                 {
                     found = m;
                     break;
@@ -256,7 +266,8 @@ QMenu* PluginHost::menu(const QString& path) const
         {
             for (QAction* act : current->actions())
             {
-                if (QMenu* m = act->menu(); m->title() == part)
+                QMenu* m = act->menu();
+                if (m && menuTitleMatches(m->title(), part))
                 {
                     found = m;
                     break;

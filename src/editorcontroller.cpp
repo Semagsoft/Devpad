@@ -276,6 +276,7 @@ bool EditorController::maybeSave(CodeEditor* editor)
     // A remote save may still be in flight (uploads complete asynchronously).
     // Wait, bounded, so quitting/closing doesn't kill the upload mid-transfer
     // and the modified flag settles before the user is prompted.
+    QPointer<CodeEditor> guard(editor);
     const QString waitName = editor->fileName();
     if (waitName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive) && m_fileManager->hasPendingRemoteSave(waitName))
     {
@@ -292,11 +293,11 @@ bool EditorController::maybeSave(CodeEditor* editor)
                          });
         timeout.start();
         waitLoop.exec();
-        if (!editor->isModified())
+        if (!guard)
+            return false; // Editor was destroyed during the wait; nothing left to save.
+        if (!guard->isModified())
             return true;
     }
-
-    QPointer<CodeEditor> guard(editor);
     QMessageBox::StandardButton ret =
         QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save"), tr("The document has been modified.\nDo you want to save your changes?"),
                              QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
@@ -803,8 +804,8 @@ bool EditorController::reloadFileInPlace(CodeEditor* editor, const QString& enco
         editor->setSyntax(syntax);
 
     QFileInfo fileInfo(fileName);
-    if (fileInfo.exists() && !fileInfo.isWritable())
-        editor->setReadOnlyMode(true);
+    if (fileInfo.exists())
+        editor->setReadOnlyMode(!fileInfo.isWritable()); // keep read-only in sync both ways
 
     m_fileWatcherManager->watchFile(fileName);
     m_fileWatcherManager->updateModificationTime(fileName);

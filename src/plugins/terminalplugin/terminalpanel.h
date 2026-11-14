@@ -77,6 +77,7 @@ private:
 
     QString m_workingDirectory;
     bool m_isRunning;
+    bool m_sessionExited = false; // shell died; don't silently respawn on next show
 };
 
 #endif // TERMINALPANEL_H

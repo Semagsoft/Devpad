@@ -121,10 +121,10 @@ void TerminalPanel::setupUI()
 void TerminalPanel::showEvent(QShowEvent* event)
 {
     QDockWidget::showEvent(event);
-    if (!m_backend || !m_isRunning)
-    {
+    // Don't silently respawn a shell the user's program already exited from;
+    // they can restart it from the context menu.
+    if (!m_sessionExited && (!m_backend || !m_isRunning))
         startTerminal();
-    }
 }
 
 QString TerminalPanel::themeToColorScheme(ThemeId themeId) const
@@ -221,6 +221,7 @@ void TerminalPanel::startTerminal()
 
     m_backend->start();
     m_isRunning = true;
+    m_sessionExited = false;
     emit terminalStarted();
     m_backend->setFocus();
 
@@ -245,13 +246,24 @@ void TerminalPanel::stopTerminal()
 void TerminalPanel::setWorkingDirectory(const QString& path)
 {
     m_workingDirectory = path;
+    // POSIX: single-quote the path (embedded single quotes escaped as '\'') so
+    // shell metacharacters in directory names cannot inject commands.
+    const auto shellQuote = [](const QString& s)
+    {
+        QString quoted = s;
+        quoted.replace(QLatin1Char('\''), QStringLiteral("'\\''"));
+        return QLatin1Char('\'') + quoted + QLatin1Char('\'');
+    };
     if (m_backend && m_isRunning)
     {
         m_backend->setWorkingDirectory(path);
 #ifdef Q_OS_WIN
-        m_backend->sendText(QString("cd /d \"%1\" && cls\n").arg(path));
+        // cmd.exe: double quotes, with embedded quotes doubled.
+        QString quoted = path;
+        quoted.replace(QLatin1Char('"'), QStringLiteral("\"\""));
+        m_backend->sendText(QStringLiteral("cd /d \"%1\" && cls\n").arg(quoted));
 #else
-        m_backend->sendText(QString("cd \"%1\" && clear\n").arg(path));
+        m_backend->sendText(QStringLiteral("cd %1 && clear\n").arg(shellQuote(path)));
 #endif
     }
 }
@@ -299,6 +311,7 @@ void TerminalPanel::sendCommand(const QString& command)
 void TerminalPanel::onSessionFinished()
 {
     m_isRunning = false;
+    m_sessionExited = true;
     emit terminalStopped();
     emit sessionExited();
 }
@@ -318,6 +331,8 @@ void TerminalPanel::contextMenuEvent(QContextMenuEvent* event)
     QAction* clearAct = menu.addAction(QIcon(":/icons/Common/clear.svg"), tr("Clear"));
     clearAct->setEnabled(m_backend != nullptr);
 
+    QAction* restartAct = menu.addAction(QIcon(":/icons/View/terminal.svg"), tr("Restart Shell"));
+
     menu.addSeparator();
 
     QAction* copyPathAct = menu.addAction(QIcon(":/icons/Edit/copy.svg"), tr("Copy Path"));
@@ -334,6 +349,13 @@ void TerminalPanel::contextMenuEvent(QContextMenuEvent* event)
         m_backend->pasteClipboard();
     else if (chosen == clearAct)
         m_backend->sendText("clear\n");
+    else if (chosen == restartAct)
+    {
+        m_sessionExited = false;
+        stopTerminal();
+        startTerminal();
+        return;
+    }
     else if (chosen == copyPathAct)
         QApplication::clipboard()->setText(m_workingDirectory);
     else if (chosen == showInFmAct)
@@ -353,6 +375,13 @@ void TerminalPanel::applyPosition(int pos, QTabWidget* tabWidget, QMainWindow* m
             {
                 tabWidget->addTab(this, QIcon(":/icons/View/terminal.svg"), tr("Terminal"));
                 show();
+            }
+            else
+            {
+                // Keep the panel alive but owned: park it hidden as a child of
+                // the main window instead of leaving a parentless top-level.
+                setParent(mainWindow);
+                hide();
             }
         }
         setFeatures(QDockWidget::DockWidgetFeature::NoDockWidgetFeatures);

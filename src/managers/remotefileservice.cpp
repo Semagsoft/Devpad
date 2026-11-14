@@ -307,17 +307,17 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
     auto stdoutBuf = std::make_shared<QByteArray>();
     auto stderrBuf = std::make_shared<QByteArray>();
 
-    // Disconnect and close the process without deleteLater() — calling
-    // deleteLater() from within a QProcess's own signal handlers can cause a
-    // use-after-free when both finished() and errorOccurred() fire. The
-    // QProcess is a child of RemoteFileService and will be cleaned up by its
-    // destructor.
+    // Disconnect, close and deleteLater() the process once finished —
+    // deleteLater defers destruction to the event loop, so this is safe even
+    // from inside the handler, and avoids unbounded accumulation of dead
+    // QProcess children.
     auto finishProcess = [ssh, procGuard]()
     {
         if (procGuard)
         {
             ssh->disconnect();
             ssh->close();
+            ssh->deleteLater(); // deleteLater is safe from inside a handler; avoids unbounded accumulation
         }
     };
 
@@ -756,17 +756,17 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     auto stderrBuf = std::make_shared<QByteArray>();
     auto lastProgress = std::make_shared<qint64>(QDateTime::currentMSecsSinceEpoch());
 
-    // Disconnect and close the process without deleteLater() — calling
-    // deleteLater() from within a QProcess's own signal handlers can cause a
-    // use-after-free when both finished() and errorOccurred() fire. The
-    // QProcess is a child of RemoteFileService and will be cleaned up by its
-    // destructor.
+    // Disconnect, close and deleteLater() the process once finished —
+    // deleteLater defers destruction to the event loop, so this is safe even
+    // from inside the handler, and avoids unbounded accumulation of dead
+    // QProcess children.
     auto finishProcess = [scp, procGuard]()
     {
         if (procGuard)
         {
             scp->disconnect();
             scp->close();
+            scp->deleteLater(); // safe: DeferredDelete runs after the current signal stack
         }
     };
 
@@ -927,17 +927,17 @@ void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList&
     auto stderrBuf = std::make_shared<QByteArray>();
     auto lastProgress = std::make_shared<qint64>(QDateTime::currentMSecsSinceEpoch());
 
-    // Disconnect and close the process without deleteLater() — calling
-    // deleteLater() from within a QProcess's own signal handlers can cause a
-    // use-after-free when both finished() and errorOccurred() fire. The
-    // QProcess is a child of RemoteFileService and will be cleaned up by its
-    // destructor.
+    // Disconnect, close and deleteLater() the process once finished —
+    // deleteLater defers destruction to the event loop, so this is safe even
+    // from inside the handler, and avoids unbounded accumulation of dead
+    // QProcess children.
     auto finishProcess = [scp, procGuard]()
     {
         if (procGuard)
         {
             scp->disconnect();
             scp->close();
+            scp->deleteLater(); // safe: DeferredDelete runs after the current signal stack
         }
     };
 
