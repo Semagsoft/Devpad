@@ -824,7 +824,7 @@ void MainWindow::openFolderFromPath(const QString& folderPath)
     Logger::instance().info(QString("Opened folder: %1").arg(folderPath));
 }
 
-void MainWindow::loadFile(const QString& fileName, const QString& encoding, bool reload)
+void MainWindow::loadFile(const QString& fileName, const QString& encoding, bool reload, bool addToRecent)
 {
     if (!reload)
     {
@@ -853,7 +853,8 @@ void MainWindow::loadFile(const QString& fileName, const QString& encoding, bool
             {
                 m_tabManager->focusEditorPane(existingEditor);
                 existingEditor->setFocus();
-                SettingsManager::instance().addRecentFile(fileName);
+                if (addToRecent)
+                    SettingsManager::instance().addRecentFile(fileName);
                 updateRecentFileActions();
                 updateEncodingSelector();
                 m_editorController->updateUndoRedoState();
@@ -873,8 +874,11 @@ void MainWindow::loadFile(const QString& fileName, const QString& encoding, bool
         return;
     }
 
-    SettingsManager::instance().addRecentFile(fileName);
-    updateRecentFileActions();
+    if (addToRecent)
+    {
+        SettingsManager::instance().addRecentFile(fileName);
+        updateRecentFileActions();
+    }
     updateEncodingSelector();
     m_editorController->updateUndoRedoState();
     updateFileTypeLabel();
@@ -1943,7 +1947,13 @@ void MainWindow::updateSplitViewVisibility()
 
 void MainWindow::openTransferFile(const QString& filePath)
 {
-    loadFile(filePath);
+    if (!QFileInfo::exists(filePath))
+    {
+        Logger::instance().warning(QString("Transfer file no longer exists: %1").arg(filePath));
+        return;
+    }
+    // Do not add the temp transfer file to the recent-files list.
+    loadFile(filePath, QString(), false, false);
     CodeEditor* editor = m_tabManager->currentEditor();
     if (editor && editor->fileName() == filePath)
     {

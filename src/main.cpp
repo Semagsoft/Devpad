@@ -336,6 +336,10 @@ int main(int argc, char* argv[])
     // one. Otherwise they open in this window below.
     QStringList shellFiles;
     QStringList shellFolders;
+    // Files passed via --transfer belong to this instance: they are temp
+    // copies of drag-detached tabs and must be opened as untitled documents
+    // here, never handed off to another instance or opened in a new window.
+    QStringList transferFiles;
 
     const auto collectShellPath = [&](const QString& arg)
     {
@@ -349,12 +353,17 @@ int main(int argc, char* argv[])
             shellFolders.append(filePath);
     };
 
-    if (parser.isSet(transferOpt))
+    const auto collectTransferPath = [&](const QString& arg)
     {
-        const QString transferPath = parser.value(transferOpt);
-        if (!transferPath.isEmpty())
-            shellFiles.append(transferPath);
-    }
+        QString filePath = arg;
+        if (!filePath.isEmpty() && !QFileInfo(filePath).isAbsolute())
+            filePath = QDir::current().absoluteFilePath(filePath);
+        if (!filePath.isEmpty())
+            transferFiles.append(filePath);
+    };
+
+    if (parser.isSet(transferOpt))
+        collectTransferPath(parser.value(transferOpt));
 
     // Legacy --transfer positional handling for drag-detached tabs
     QStringList positional = parser.positionalArguments();
@@ -363,7 +372,7 @@ int main(int argc, char* argv[])
         const QString arg = positional.at(i);
         if (arg == QStringLiteral("--transfer") && i + 1 < positional.size())
         {
-            shellFiles.append(positional.at(++i));
+            collectTransferPath(positional.at(++i));
             continue;
         }
         collectShellPath(arg);
@@ -417,6 +426,10 @@ int main(int argc, char* argv[])
         openFileFromShell(path);
     for (const QString& path : shellFolders)
         openFolderFromShell(path);
+    // Transfer files always open locally as untitled documents; the temp
+    // file is loaded, marked modified, and deleted by openTransferFile().
+    for (const QString& path : transferFiles)
+        mainWindow.openTransferFile(path);
 
     // Clean up auto-save backups that will never be prompted for again:
     // originals deleted on disk, or backups older than the retention window.

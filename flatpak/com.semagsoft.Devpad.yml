@@ -9,7 +9,13 @@ finish-args:
   - --socket=wayland
   - --share=network
   - --device=dri
-  - --filesystem=home
+  # Least-privilege filesystem access: user documents/downloads plus the app's
+  # own config/data dirs. Grant more via `flatpak override --user com.semagsoft.Devpad --filesystem=<path>` if needed.
+  - --filesystem=xdg-documents
+  - --filesystem=xdg-download
+  - --filesystem=xdg-config/Semagsoft:create
+  - --filesystem=xdg-config/devpad:create
+  - --filesystem=xdg-data/devpad:create
   - --socket=pulseaudio
   - --talk-name=org.freedesktop.Notifications
   - --talk-name=org.freedesktop.portal.Desktop

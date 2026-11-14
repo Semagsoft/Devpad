@@ -571,9 +571,10 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
         return;
     }
 
-    // Remote paths may legitimately contain spaces/unicode (they arrive from
-    // remote listings), so only host/user are strictly checked; the path must
-    // merely be free of shell-breaking control characters.
+    // Remote paths may legitimately contain spaces/unicode/shell metacharacters
+    // (they arrive from remote listings), so only host/user are strictly checked;
+    // the path only needs to be free of control characters — unsafe bytes are
+    // neutralized by shellQuote() when the path is passed to the remote shell.
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
     if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
@@ -607,7 +608,7 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
     // BatchMode prevents interactive prompts (password/host-key) without a
     // TTY; ConnectTimeout fails fast on unreachable hosts.
     args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
-    args << QString("%1@%2:%3").arg(user, host, remotePath);
+    args << QString("%1@%2:%3").arg(user, host, shellQuote(remotePath));
 
     // Start the transfer on the next event-loop iteration. Deferring the
     // download attempt keeps the synchronous part of downloadSsh() limited to
@@ -642,7 +643,8 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     }
 
     // Same validation as downloadSsh: host/user are strict; the path may
-    // contain spaces/unicode but must be free of shell-breaking control chars.
+    // contain spaces/unicode/shell metacharacters (neutralized by shellQuote())
+    // but must be free of control chars.
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
     if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
@@ -694,7 +696,7 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     // BatchMode prevents interactive prompts without a TTY; ConnectTimeout
     // fails fast on unreachable hosts.
     args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
-    args << localPath << QString("%1@%2:%3").arg(user, host, remotePath);
+    args << localPath << QString("%1@%2:%3").arg(user, host, shellQuote(remotePath));
 
     QString scpPath = findScpPath();
     if (scpPath.isEmpty())

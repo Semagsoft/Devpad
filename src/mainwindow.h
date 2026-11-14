@@ -184,7 +184,7 @@ private:
 
     void invokeOnEditor(void (CodeEditor::*method)());
 
-    void loadFile(const QString& fileName, const QString& encoding = QString(), bool reload = false);
+    void loadFile(const QString& fileName, const QString& encoding = QString(), bool reload = false, bool addToRecent = true);
     void updateSplitViewVisibility();
     QString getSyntaxForFile(const QString& displayName) const;
     void updateStatusBarLabelsVisibility();
