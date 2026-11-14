@@ -110,8 +110,11 @@ public:
 
     // ── Encoding ─────────────────────────────────────────────────
     // Registers a custom text encoding. encodingName is passed to
-    // QStringConverter (e.g. "ISO-8859-1", "Windows-1252"). Returns false if
-    // displayName is already registered.
+    // QStringConverter (e.g. "UTF-8", "ISO-8859-1"). Qt6 only provides the
+    // encodings listed in QStringConverter::SupportedEncodings; legacy codecs
+    // like Windows-1252 are NOT available and registration will fail.
+    // Returns false if displayName is already registered or encodingName
+    // cannot be resolved.
     virtual bool registerEncoding(const QString& displayName, const QString& encodingName) = 0;
 
     // ── File type mapping ────────────────────────────────────────

@@ -105,9 +105,19 @@ void LspJsonRpc::handleData(const QByteArray& data)
     {
         if (m_contentLength < 0)
         {
+            static constexpr int kMaxHeaderSize = 16 * 1024;
             int headerEnd = m_buffer.indexOf("\r\n\r\n");
             if (headerEnd < 0)
+            {
+                if (m_buffer.size() > kMaxHeaderSize)
+                {
+                    // Server without Content-Length framing on the wire; shed
+                    // the unbounded garbage instead of buffering it forever.
+                    qWarning("LSP: header larger than %d bytes, dropping buffer contents to resync", kMaxHeaderSize);
+                    m_buffer.clear();
+                }
                 return;
+            }
 
             QByteArray header = m_buffer.left(headerEnd);
             int parsed = -1;
@@ -182,11 +192,11 @@ void LspJsonRpc::processMessage(const QByteArray& message)
     QJsonDocument doc = QJsonDocument::fromJson(message, &parseError);
     if (parseError.error != QJsonParseError::NoError)
     {
-        // A malformed message can never be matched to its request id again;
-        // fail outstanding requests immediately instead of stranding them
-        // until their timeout fires.
+        // The Content-Length framing already guarantees message boundaries,
+        // so an unparseable frame is isolated to this one message. Do not
+        // fail outstanding requests; they still have their own timeouts and
+        // the server may answer them normally afterwards.
         qWarning() << "LSP: dropping malformed JSON-RPC message:" << parseError.errorString();
-        failPendingRequests(-32700, QStringLiteral("Malformed message; in-flight requests failed"));
         return;
     }
 

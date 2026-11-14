@@ -94,9 +94,11 @@ public:
             return false;
         }
 
-        // Register a custom encoding (e.g. a legacy Windows code page).
-        if (!m_host->registerEncoding(QStringLiteral("Windows-1252 (legacy)"),
-                                      QStringLiteral("Windows-1252")))
+        // Register a custom encoding (e.g. a legacy Latin-1 code page).
+        // Note: Qt6 does not ship a Windows-1252 codec, so the example
+        // registers ISO-8859-1 (Latin-1), which IS supported.
+        if (!m_host->registerEncoding(QStringLiteral("ISO-8859-1 (legacy)"),
+                                      QStringLiteral("ISO-8859-1")))
         {
             return false;
         }

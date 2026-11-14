@@ -85,6 +85,82 @@ TEST(LspTypesTest, ServerCapabilitiesFromJsonFull)
     EXPECT_TRUE(result.diagnosticProvider);
 }
 
+TEST(LspTypesTest, ServerCapabilitiesExplicitFalseIsNotSupported)
+{
+    QJsonObject caps;
+    caps["hoverProvider"] = false;
+    caps["completionProvider"] = QJsonObject{{"triggerCharacters", QJsonArray{"."}}};
+    caps["definitionProvider"] = QJsonObject{};
+    caps["referencesProvider"] = true;
+
+    ServerCapabilities result = ServerCapabilities::fromJson(caps);
+    EXPECT_FALSE(result.hoverProvider);
+    EXPECT_TRUE(result.completionProvider);
+    EXPECT_TRUE(result.definitionProvider);
+    EXPECT_TRUE(result.referencesProvider);
+    EXPECT_EQ(result.completionTriggerChars.size(), 1);
+    EXPECT_EQ(result.completionTriggerChars.first(), ".");
+}
+
+TEST(LspTypesTest, ServerCapabilitiesFalseEmbeddedInTextDocument)
+{
+    QJsonObject td;
+    td["completion"] = false;
+    td["hover"] = QJsonObject{};
+    QJsonObject caps;
+    caps["textDocument"] = td;
+
+    ServerCapabilities result = ServerCapabilities::fromJson(caps);
+    EXPECT_FALSE(result.completionProvider);
+    EXPECT_TRUE(result.hoverProvider);
+}
+
+TEST(LspTypesTest, ServerCapabilitiesWorkspaceSymbol)
+{
+    QJsonObject caps;
+    caps["workspaceSymbolProvider"] = true;
+    EXPECT_TRUE(ServerCapabilities::fromJson(caps).workspaceSymbolProvider);
+
+    caps = QJsonObject{};
+    caps["workspace"] = QJsonObject{{"symbol", QJsonObject{}}};
+    EXPECT_TRUE(ServerCapabilities::fromJson(caps).workspaceSymbolProvider);
+
+    caps = QJsonObject{};
+    caps["workspace"] = QJsonObject{{"symbol", false}};
+    EXPECT_FALSE(ServerCapabilities::fromJson(caps).workspaceSymbolProvider);
+
+    caps = QJsonObject{};
+    EXPECT_FALSE(ServerCapabilities::fromJson(caps).workspaceSymbolProvider);
+}
+
+TEST(LspTypesTest, DiagnosticCodeStringIsPreserved)
+{
+    QJsonObject obj;
+    obj["range"] = QJsonObject{{"start", QJsonObject{{"line", 0}, {"character", 0}}}, {"end", QJsonObject{{"line", 0}, {"character", 1}}}};
+    obj["message"] = QStringLiteral("ts error");
+    obj["severity"] = 1;
+
+    obj["code"] = QStringLiteral("TS2304");
+    EXPECT_EQ(Diagnostic::fromJson(obj).code, "TS2304");
+
+    obj["code"] = 2304; // numeric codes are stringified
+    EXPECT_EQ(Diagnostic::fromJson(obj).code, "2304");
+}
+
+TEST(LspTypesTest, SymbolKindName)
+{
+    EXPECT_EQ(symbolKindName(1), "File");
+    EXPECT_EQ(symbolKindName(5), "Class");
+    EXPECT_EQ(symbolKindName(6), "Method");
+    EXPECT_EQ(symbolKindName(12), "Function");
+    EXPECT_EQ(symbolKindName(14), "Constant");
+    EXPECT_EQ(symbolKindName(23), "Struct");
+    EXPECT_EQ(symbolKindName(26), "TypeParameter");
+    EXPECT_EQ(symbolKindName(0), QString());
+    EXPECT_EQ(symbolKindName(27), QString());
+    EXPECT_EQ(symbolKindName(-1), QString());
+}
+
 TEST(LspTypesTest, PositionToJsonAndBack)
 {
     Position pos{5, 10};

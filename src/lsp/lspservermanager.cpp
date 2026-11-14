@@ -32,6 +32,30 @@ LspServerManager::LspServerManager(QObject* parent) : QObject(parent)
 {
 }
 
+QList<QPair<QString, QPair<QString, int>>> LspServerManager::documentsForReplay(const QString& language) const
+{
+    QList<QPair<QString, QPair<QString, int>>> result;
+    for (auto it = m_documentLanguages.constBegin(); it != m_documentLanguages.constEnd(); ++it)
+    {
+        if (it.value() != language)
+            continue;
+        result.append(qMakePair(it.key(), qMakePair(m_documentTexts.value(it.key()), m_documentVersions.value(it.key(), 1))));
+    }
+    return result;
+}
+
+void LspServerManager::replayDocuments(const QString& language, LspClient* client)
+{
+    if (!client)
+        return;
+    for (const auto& doc : documentsForReplay(language))
+    {
+        // Server is not initialized right after a crash; the client queues
+        // these and flushes them once the new server finishes initializing.
+        client->openDocument(doc.first, doc.second.first, doc.second.second);
+    }
+}
+
 LspServerManager::~LspServerManager()
 {
     for (auto* client : m_clients)
@@ -108,6 +132,15 @@ LspClient* LspServerManager::clientForLanguage(const QString& language)
     auto* client = new LspClient(language, this);
     m_clients[language] = client;
 
+    // Replay open documents when the server crashes and restarts (the fresh
+    // server starts with no document state, so hover/diagnostics/completion
+    // would silently fail until the next keystroke).
+    connect(client, &LspClient::serverCrashed, this,
+            [this, language, client]()
+            {
+                replayDocuments(language, client);
+            });
+
     // Forward signals
     connect(client, &LspClient::completionReady, this, &LspServerManager::completionReady);
     connect(client, &LspClient::definitionReady, this, &LspServerManager::definitionReady);
@@ -148,6 +181,13 @@ void LspServerManager::openDocument(const QString& language, const QString& uri,
     if (!SettingsManager::instance().lspEnabled())
         return;
 
+    // Track the document even when no server is available for the language,
+    // so a later plugin registration or config change can pick it up.
+    int version = m_documentVersions.value(uri, 0) + 1;
+    m_documentLanguages[uri] = language;
+    m_documentVersions[uri] = version;
+    m_documentTexts[uri] = text;
+
     QString rootUri = rootUriForFile(pathFromUri(uri));
     auto* client = clientForLanguage(language);
     if (!client)
@@ -164,9 +204,6 @@ void LspServerManager::openDocument(const QString& language, const QString& uri,
         client->startServer(command, args, rootUri);
     }
 
-    int version = 1;
-    m_documentLanguages[uri] = language;
-    m_documentVersions[uri] = version;
     client->openDocument(uri, text, version);
 }
 
@@ -177,24 +214,26 @@ QStringList LspServerManager::documentUris() const
 
 void LspServerManager::changeDocument(const QString& uri, const QString& text)
 {
+    // Track even when the server is gone; replay needs the latest text.
+    int version = m_documentVersions.value(uri, 0) + 1;
+    m_documentVersions[uri] = version;
+    m_documentTexts[uri] = text;
+
     auto* client = clientForUri(uri);
     if (!client)
         return;
-
-    int version = m_documentVersions.value(uri, 0) + 1;
-    m_documentVersions[uri] = version;
     client->changeDocument(uri, text, version);
 }
 
 void LspServerManager::closeDocument(const QString& uri)
 {
     auto* client = clientForUri(uri);
-    if (!client)
-        return;
-
-    client->closeDocument(uri);
+    if (client)
+        client->closeDocument(uri);
+    // Always untrack, even when no server was running.
     m_documentLanguages.remove(uri);
     m_documentVersions.remove(uri);
+    m_documentTexts.remove(uri);
 }
 
 void LspServerManager::saveDocument(const QString& uri)

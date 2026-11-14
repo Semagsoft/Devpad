@@ -86,7 +86,15 @@ Diagnostic Diagnostic::fromJson(const QJsonObject& obj)
     }
     d.source = obj["source"].toString();
     if (obj.contains("code"))
-        d.code = QString::number(obj["code"].toVariant().toLongLong());
+    {
+        QJsonValue code = obj["code"];
+        if (code.isString())
+            d.code = code.toString(); // e.g. "TS2304"
+        else if (code.isDouble() || code.isBool())
+            d.code = QString::number(code.toVariant().toLongLong());
+        else
+            d.code = code.toVariant().toString();
+    }
     return d;
 }
 
@@ -133,8 +141,14 @@ CompletionItem CompletionItem::fromJson(const QJsonObject& obj)
 ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
 {
     ServerCapabilities c;
-    // Per LSP spec ServerCapabilities are top-level keys
-    auto hasTopLevel = [&caps](const QString& key) { return caps.contains(key); };
+    // Per LSP spec, provider capabilities are booleans or option objects.
+    // A present key with an explicit false means "not supported".
+    auto has = [](const QJsonObject& obj, const QString& key)
+    {
+        QJsonValue v = obj.value(key);
+        return !v.isUndefined() && !(v.isBool() && !v.toBool());
+    };
+    auto hasTopLevel = [&has, &caps](const QString& key) { return has(caps, key); };
     auto hasCompletionTrigger = [&caps](QStringList& out) -> bool
     {
         QJsonValue compVal = caps["completionProvider"];
@@ -176,7 +190,7 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
     else
     {
         QJsonObject ws = caps["workspace"].toObject();
-        c.workspaceSymbolProvider = ws.contains("symbol") || ws.contains("workspaceSymbol");
+        c.workspaceSymbolProvider = has(ws, QStringLiteral("symbol")) || has(ws, QStringLiteral("workspaceSymbol"));
     }
 
     // Legacy fallback: some servers embed capabilities under textDocument.* (previous bug)
@@ -185,24 +199,23 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
         QJsonObject td = caps["textDocument"].toObject();
         if (!td.isEmpty())
         {
-            c.completionProvider = c.completionProvider || td.contains("completion");
-            c.definitionProvider = c.definitionProvider || td.contains("definition");
-            c.referencesProvider = c.referencesProvider || td.contains("references");
-            c.hoverProvider = c.hoverProvider || td.contains("hover");
-            c.documentSymbolProvider = c.documentSymbolProvider || td.contains("documentSymbol");
-            c.signatureHelpProvider = c.signatureHelpProvider || td.contains("signatureHelp");
-            c.formattingProvider = c.formattingProvider || td.contains("formatting");
-            c.codeActionProvider = c.codeActionProvider || td.contains("codeAction");
-            c.renameProvider = c.renameProvider || td.contains("rename");
-            c.documentHighlightProvider = c.documentHighlightProvider || td.contains("documentHighlight");
-            c.typeDefinitionProvider = c.typeDefinitionProvider || td.contains("typeDefinition");
-            c.declarationProvider = c.declarationProvider || td.contains("declaration");
-            c.selectionRangeProvider = c.selectionRangeProvider || td.contains("selectionRange");
-            c.linkedEditingRangeProvider = c.linkedEditingRangeProvider || td.contains("linkedEditingRange");
-            c.callHierarchyProvider = c.callHierarchyProvider || td.contains("callHierarchy");
-            c.semanticTokensProvider = c.semanticTokensProvider || td.contains("semanticTokens");
-            QJsonObject ws = caps["workspace"].toObject();
-            c.workspaceSymbolProvider = c.workspaceSymbolProvider || ws.contains("symbol");
+            auto hasTd = [&has, &td](const QString& key) { return has(td, key); };
+            c.completionProvider = c.completionProvider || hasTd(QStringLiteral("completion"));
+            c.definitionProvider = c.definitionProvider || hasTd(QStringLiteral("definition"));
+            c.referencesProvider = c.referencesProvider || hasTd(QStringLiteral("references"));
+            c.hoverProvider = c.hoverProvider || hasTd(QStringLiteral("hover"));
+            c.documentSymbolProvider = c.documentSymbolProvider || hasTd(QStringLiteral("documentSymbol"));
+            c.signatureHelpProvider = c.signatureHelpProvider || hasTd(QStringLiteral("signatureHelp"));
+            c.formattingProvider = c.formattingProvider || hasTd(QStringLiteral("formatting"));
+            c.codeActionProvider = c.codeActionProvider || hasTd(QStringLiteral("codeAction"));
+            c.renameProvider = c.renameProvider || hasTd(QStringLiteral("rename"));
+            c.documentHighlightProvider = c.documentHighlightProvider || hasTd(QStringLiteral("documentHighlight"));
+            c.typeDefinitionProvider = c.typeDefinitionProvider || hasTd(QStringLiteral("typeDefinition"));
+            c.declarationProvider = c.declarationProvider || hasTd(QStringLiteral("declaration"));
+            c.selectionRangeProvider = c.selectionRangeProvider || hasTd(QStringLiteral("selectionRange"));
+            c.linkedEditingRangeProvider = c.linkedEditingRangeProvider || hasTd(QStringLiteral("linkedEditingRange"));
+            c.callHierarchyProvider = c.callHierarchyProvider || hasTd(QStringLiteral("callHierarchy"));
+            c.semanticTokensProvider = c.semanticTokensProvider || hasTd(QStringLiteral("semanticTokens"));
         }
     }
 
@@ -224,6 +237,18 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
         }
     }
     return c;
+}
+
+QString symbolKindName(int kind)
+{
+    // LSP SymbolKind, 1-based.
+    static constexpr std::array<const char*, 26> names = {"File",        "Module",    "Namespace", "Package",    "Class",    "Method",   "Property",
+                                                          "Field",       "Constructor", "Enum",     "Interface",  "Function", "Variable", "Constant",
+                                                          "String",      "Number",    "Boolean",   "Array",      "Object",   "Key",      "Null",
+                                                          "EnumMember",  "Struct",    "Event",     "Operator",   "TypeParameter"};
+    if (kind >= 1 && kind <= static_cast<int>(names.size()))
+        return QString::fromLatin1(names[kind - 1]);
+    return QString();
 }
 
 QString uriFromPath(const QString& path)

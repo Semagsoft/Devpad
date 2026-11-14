@@ -97,6 +97,7 @@ signals:
     void serverStarted();
     void serverStopped();
     void serverError(const QString& error);
+    void serverCrashed();
     void capabilitiesReady(const ServerCapabilities& caps);
 
     // Results
@@ -181,6 +182,7 @@ private:
     static constexpr int MAX_RETRIES = 3;
     static constexpr int START_TIMEOUT_MS = 5000;
     static constexpr int SHUTDOWN_TIMEOUT_MS = 5000;
+    static constexpr int EXIT_GRACE_MS = 250;
     static constexpr int KILL_TIMEOUT_MS = 2000;
 };
 

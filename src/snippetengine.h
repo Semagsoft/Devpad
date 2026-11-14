@@ -61,7 +61,17 @@ private:
     void retreatTabStop();
     void clearSnippetMarkers();
     void selectTabStopRange(int pos, int len);
-    void recalculateTabStopPositions();
+    // Adjust member ranges in place for an edit at byte position @a pos
+    // with type @a mtype and @a length bytes (SC_MOD_INSERTTEXT/DELETETEXT).
+    void adjustMemberPositionsForEdit(int pos, int mtype, int length);
+
+    // ${1}-style mirror tab stops: same-numbered stops are one logical
+    // field. When the user edits a member that is currently selected, the
+    // same edit is propagated to the other members.
+    QList<int> mirrorMemberIndices(int number) const;
+    void updateMirrorSnapshot();
+    void syncMirrorEdit();
+    void applyMirrorEdit(int changedIdx, const QString& after, const QList<int>& memberIdx, int number);
 
     CodeEditor* m_editor;
 
@@ -70,6 +80,10 @@ private:
     int m_snippetStartPos = 0;
     int m_snippetEndPos = 0;
     QList<TabStopInfo> m_tabStopInfos;
+    // Text of the current mirror group captured before each edit, used to
+    // derive the edit delta. Empty when the current stop is not a mirror.
+    QString m_mirrorSnapshot;
+    bool m_applyingMirrorEdit = false;
 };
 
 #endif

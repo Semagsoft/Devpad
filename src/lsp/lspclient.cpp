@@ -54,10 +54,16 @@ LspClient::~LspClient()
         m_process->disconnect();
         if (m_process->state() != QProcess::NotRunning)
         {
-            m_process->terminate();
-            if (!m_process->waitForFinished(KILL_TIMEOUT_MS))
-                m_process->kill();
-            m_process->waitForFinished(KILL_TIMEOUT_MS);
+            // Give the server a short bounded window to answer shutdown and
+            // exit (typical well-behaved servers exit in milliseconds), then
+            // terminate, then kill without waiting. Deliberately short so
+            // app quit stays responsive.
+            if (!m_process->waitForFinished(EXIT_GRACE_MS))
+            {
+                m_process->terminate();
+                if (!m_process->waitForFinished(500))
+                    m_process->kill();
+            }
         }
         delete m_process;
         m_process = nullptr;
@@ -815,6 +821,9 @@ void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
     if (status == QProcess::CrashExit && m_retryCount < MAX_RETRIES)
     {
         m_retryCount++;
+        // Let managers replay open documents against the fresh server once
+        // it has restarted (the old server's state died with it).
+        emit serverCrashed();
 #ifdef QT_DEBUG
         qDebug().noquote()
             << QString("Language server for %1 crashed, restarting (attempt %2/%3)...").arg(m_language).arg(m_retryCount).arg(MAX_RETRIES);

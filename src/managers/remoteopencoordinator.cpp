@@ -113,8 +113,7 @@ void RemoteOpenCoordinator::openRemoteFileFromData(const QString& urlStr, const 
 {
     BomResult bom = detectBom(data);
     QString detectedEnc = FileManager::detectEncoding(data);
-    auto encOpt = QStringConverter::encodingForName(detectedEnc.toUtf8());
-    QStringDecoder decoder(encOpt.value_or(QStringConverter::Utf8));
+    QStringDecoder decoder(encodingFromName(detectedEnc));
     QString content = decoder(bom.size > 0 ? data.mid(bom.size) : data);
 
     QString displayName = fileName.isEmpty() ? QUrl(urlStr).fileName() : fileName;

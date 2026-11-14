@@ -134,14 +134,12 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
     if (encoding.isEmpty())
     {
         encDisplayName = detectEncoding(rawData);
-        auto encOpt = QStringConverter::encodingForName(encDisplayName.toUtf8());
-        enc = encOpt.value_or(QStringConverter::Utf8);
+        enc = encodingFromName(encDisplayName);
     }
     else
     {
         encDisplayName = encoding;
-        auto encOpt = QStringConverter::encodingForName(encoding.toUtf8());
-        enc = encOpt.value_or(QStringConverter::Utf8);
+        enc = encodingFromName(encoding);
     }
     QStringDecoder decoder(enc);
     QString content;
@@ -210,7 +208,6 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
     }
 
     QString useEncoding = encoding.isEmpty() ? editor->encoding() : encoding;
-    auto encOpt = QStringConverter::encodingForName(useEncoding.toUtf8());
 
     QByteArray bom = bomForEncoding(useEncoding);
     if (!bom.isEmpty())
@@ -219,14 +216,7 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
     }
 
     QTextStream out(&file);
-    if (encOpt.has_value())
-    {
-        out.setEncoding(encOpt.value());
-    }
-    else
-    {
-        out.setEncoding(QStringConverter::Utf8);
-    }
+    out.setEncoding(encodingFromName(useEncoding));
 
     out << editor->text();
     out.flush();
@@ -272,8 +262,7 @@ bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, co
     QBuffer buffer;
     buffer.open(QIODevice::WriteOnly);
     QTextStream out(&buffer);
-    auto encOpt = QStringConverter::encodingForName(useEncoding.toUtf8());
-    out.setEncoding(encOpt.value_or(QStringConverter::Utf8));
+    out.setEncoding(encodingFromName(useEncoding));
     out << editor->text();
     out.flush();
 

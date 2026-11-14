@@ -50,8 +50,7 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
     if (requestedEncoding.isEmpty())
     {
         QString detectedEnc = detectEncoding(rawData);
-        auto encOpt = QStringConverter::encodingForName(detectedEnc.toUtf8());
-        enc = encOpt.value_or(QStringConverter::Utf8);
+        enc = encodingFromName(detectedEnc);
         encDisplayName = detectedEnc;
         // Normalize display name via encoding utils when possible
         if (encDisplayName.isEmpty())
@@ -59,8 +58,7 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
     }
     else
     {
-        auto encOpt = QStringConverter::encodingForName(requestedEncoding.toUtf8());
-        enc = encOpt.value_or(QStringConverter::Utf8);
+        enc = encodingFromName(requestedEncoding);
         encDisplayName = requestedEncoding;
     }
 
@@ -91,17 +89,14 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
     }
 
     QString useEncoding = encoding.isEmpty() ? QStringLiteral("UTF-8") : encoding;
-    auto encOpt = QStringConverter::encodingForName(useEncoding.toUtf8());
+    QStringConverter::Encoding enc = encodingFromName(useEncoding);
 
     QByteArray bom = bomForEncoding(useEncoding);
     if (!bom.isEmpty())
         file.write(bom);
 
     QTextStream out(&file);
-    if (encOpt.has_value())
-        out.setEncoding(encOpt.value());
-    else
-        out.setEncoding(QStringConverter::Utf8);
+    out.setEncoding(enc);
 
     out << text;
     out.flush();

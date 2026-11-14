@@ -56,7 +56,15 @@ const QVector<EncodingInfo>& supportedEncodings()
         {"UTF-32LE", QStringConverter::Utf32LE}, {"UTF-32BE", QStringConverter::Utf32BE}, {"ISO-8859-1", QStringConverter::Latin1},
         {"System", QStringConverter::System},
     };
-    return encodings;
+    // Built-ins first, then plugin-registered encodings (which is also the
+    // precedence used by encodingToDisplayName and the encoding menus).
+    static QVector<EncodingInfo> merged;
+    merged = encodings;
+    const auto& plugins = pluginEncodingTable();
+    merged.reserve(encodings.size() + plugins.size());
+    for (const auto& plugin : plugins)
+        merged.append(plugin);
+    return merged;
 }
 
 QStringConverter::Encoding encodingFromName(const QString& name)
@@ -112,24 +120,13 @@ bool registerPluginEncoding(const QString& displayName, const QString& encodingN
         if (info.displayName == displayName)
             return false;
     }
-    QStringConverter::Encoding enc = QStringConverter::Utf8;
-    // Try to resolve the encoding name via QStringConverter.
-    // QStringConverter doesn't have a name lookup, so we just store the name
-    // and use the encoding value. For now, map common names; unknown names
-    // default to UTF-8.
-    if (encodingName == QLatin1String("UTF-8"))
-        enc = QStringConverter::Utf8;
-    else if (encodingName == QLatin1String("UTF-16LE"))
-        enc = QStringConverter::Utf16LE;
-    else if (encodingName == QLatin1String("UTF-16BE"))
-        enc = QStringConverter::Utf16BE;
-    else if (encodingName == QLatin1String("UTF-32LE"))
-        enc = QStringConverter::Utf32LE;
-    else if (encodingName == QLatin1String("UTF-32BE"))
-        enc = QStringConverter::Utf32BE;
-    else if (encodingName == QLatin1String("ISO-8859-1") || encodingName == QLatin1String("Latin1"))
-        enc = QStringConverter::Latin1;
-    table.append({displayName, enc});
+    // Resolve the encoding through Qt's name lookup, the same route used by
+    // the built-in table. Unknown names are rejected rather than silently
+    // degrading to UTF-8.
+    const auto encOpt = QStringConverter::encodingForName(encodingName.toUtf8());
+    if (!encOpt.has_value())
+        return false;
+    table.append({displayName, encOpt.value()});
     return true;
 }
 

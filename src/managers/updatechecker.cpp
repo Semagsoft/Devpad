@@ -78,8 +78,6 @@ bool UpdateChecker::checkForUpdates()
                 if (*aborted)
                 {
                     m_checkInProgress = false;
-                    m_lastCheckTime = now;
-                    saveLastCheckTime();
                     reply->deleteLater();
                     emit checkFailed(tr("The update server response was too large."), QString());
                     return;
@@ -88,24 +86,28 @@ bool UpdateChecker::checkForUpdates()
                 // Catch any tail bytes delivered with the finished state
                 // instead of a final readyRead signal.
                 data->append(reply->readAll());
-                m_lastCheckTime = now;
-                saveLastCheckTime();
-                handleReply(reply, *data);
+                handleReply(reply, *data, now);
             });
 
     return true;
 }
 
-void UpdateChecker::handleReply(QNetworkReply* reply, const QByteArray& payload)
+void UpdateChecker::handleReply(QNetworkReply* reply, const QByteArray& payload, const QDateTime& now)
 {
     m_checkInProgress = false;
     reply->deleteLater();
 
     if (reply->error() != QNetworkReply::NoError)
     {
+        // Do NOT persist the throttle on network failure: a transient error
+        // must not suppress the next check for an hour.
         emit checkFailed(friendlyFailureMessage(*reply), reply->errorString());
         return;
     }
+
+    // We reached the server and got an HTTP response; consume the throttle.
+    m_lastCheckTime = now;
+    saveLastCheckTime();
 
     const QJsonDocument doc = QJsonDocument::fromJson(payload);
     const QJsonObject obj = doc.object();

@@ -217,6 +217,10 @@ struct ServerCapabilities
 QString uriFromPath(const QString& path);
 QString pathFromUri(const QString& uri);
 
+// LSP SymbolKind (1-based, see the LSP spec): map the numeric value to a
+// stable name, or nullptr-equivalent QString() when unknown.
+QString symbolKindName(int kind);
+
 // Convert between the column units used on one line:
 //   1. LSP positions: UTF-16 code units
 //   2. QScintilla line/index APIs: Unicode code points

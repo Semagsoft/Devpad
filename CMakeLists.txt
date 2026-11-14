@@ -268,6 +268,8 @@ add_library(Devpad_lsp STATIC
     src/lsp/lspservermanager.cpp
     src/lsp/lspeditorintegration.cpp
     src/lsp/lspindicators.h
+    src/lsp/lspworkspaceedit.cpp
+    src/lsp/lspworkspaceedit.h
 )
 target_compile_options(Devpad_lsp PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_lsp PUBLIC
@@ -715,6 +717,8 @@ if(BUILD_TESTS)
         tests/test_recentfileshelper.cpp
         tests/test_lsptypes.cpp
         tests/test_lspjsonrpc.cpp
+        tests/test_lspservermanager.cpp
+        tests/test_workspaceedit.cpp
         tests/test_splitview.cpp
         tests/test_updatechecker.cpp
         tests/test_projectpanel.cpp

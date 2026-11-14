@@ -236,7 +236,7 @@ TEST(LspJsonRpcTest, ErrorResponsePropagatesToCallback)
     EXPECT_EQ(receivedError["message"].toString(), QStringLiteral("Invalid params"));
 }
 
-TEST(LspJsonRpcTest, MalformedMessageFailsPendingRequests)
+TEST(LspJsonRpcTest, MalformedFrameDropsOnlyThatFrame)
 {
     LspJsonRpc rpc;
     bool called = false;
@@ -249,10 +249,12 @@ TEST(LspJsonRpcTest, MalformedMessageFailsPendingRequests)
                                    receivedError = error;
                                });
 
+    // A malformed frame does NOT fail unrelated pending requests; the
+    // response can still arrive later.
     rpc.handleData("Content-Length: 10\r\n\r\nnot-a-json");
 
-    EXPECT_TRUE(called);
-    EXPECT_EQ(receivedError["code"].toInt(), -32700);
+    EXPECT_FALSE(called);
+    EXPECT_TRUE(receivedError.isEmpty());
 }
 
 TEST(LspJsonRpcTest, FailPendingRequestsInvokesAllCallbacks)
@@ -284,3 +286,42 @@ TEST(LspJsonRpcTest, FailPendingRequestsInvokesAllCallbacks)
     rpc.handleData(header + body);
     EXPECT_EQ(calls, 3);
 }
+
+TEST(LspJsonRpcTest, MalformedFrameDoesNotFailPendingRequests)
+{
+    LspJsonRpc rpc;
+    QSignalSpy spy(&rpc, &LspJsonRpc::responseReceived);
+
+    bool callbackCalled = false;
+    int requestId = rpc.nextRequestId();
+    rpc.registerPendingRequest(requestId, [&callbackCalled](const QJsonValue&, const QJsonObject&) { callbackCalled = true; });
+
+    // Inject a malformed frame (valid Content-Length, broken JSON).
+    const QByteArray garbage = "{ not json !!!";
+    QByteArray bad = "Content-Length: " + QByteArray::number(garbage.size()) + "\r\n\r\n" + garbage;
+    rpc.handleData(bad);
+
+    // Pending request must survive: server can still answer it afterwards.
+    QByteArray body = R"({"jsonrpc":"2.0","id":)" + QByteArray::number(requestId) + R"(,"result":{}})";
+    rpc.handleData("Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_TRUE(callbackCalled);
+}
+
+TEST(LspJsonRpcTest, OversizedHeaderIsDroppedAndStreamResyncs)
+{
+    LspJsonRpc rpc;
+    QSignalSpy spy(&rpc, &LspJsonRpc::notificationReceived);
+
+    // Flood the buffer with bytes that never terminate the header.
+    rpc.handleData(QByteArray("X").repeated(32 * 1024));
+
+    // The buffer must have been shed; a well-formed frame afterwards parses.
+    QByteArray msg = rpc.createNotification(QStringLiteral("test/resync"), QJsonObject());
+    rpc.handleData(msg);
+
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy[0][0].toString(), QStringLiteral("test/resync"));
+}
+

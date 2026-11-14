@@ -57,6 +57,10 @@ public:
     bool hasCapability(const QString& uri, const QString& capability) const;
     QString rootUriForFile(const QString& filePath) const;
 
+    // Returns (uri, (text, version)) for documents to re-open after a crash.
+    // Exposed for testing the replay selection logic.
+    QList<QPair<QString, QPair<QString, int>>> documentsForReplay(const QString& language) const;
+
     QList<QString> languages() const
     {
         return m_clients.keys();
@@ -93,8 +97,13 @@ private:
     QHash<QString, LspClient*> m_clients;           // language -> client
     QMap<QString, QString> m_documentLanguages;     // uri -> language
     QMap<QString, int> m_documentVersions;          // uri -> version
+    QMap<QString, QString> m_documentTexts;         // uri -> last known text
     QHash<QString, QString> m_pluginServerCommands; // language -> command (plugins)
     QHash<QString, QStringList> m_pluginServerArgs; // language -> args (plugins)
+
+    // Re-send didOpen for every open document of this language. Used after a
+    // server crash/restart, since the new server starts with no document state.
+    void replayDocuments(const QString& language, LspClient* client);
 };
 
 } // namespace lsp

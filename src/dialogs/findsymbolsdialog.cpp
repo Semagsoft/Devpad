@@ -119,7 +119,8 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
     {
         QJsonObject obj = s.toObject();
         QString name = obj["name"].toString();
-        QString kind = obj["kind"].toString();
+        const int kind = obj["kind"].toInt(0);
+        const QString kindName = lsp::symbolKindName(kind);
 
         QString location;
         QString filePath;
@@ -135,17 +136,17 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
         }
 
         QString icon;
-        if (kind == "Function" || kind == "Method")
+        if (kindName == QLatin1String("Function") || kindName == QLatin1String("Method") || kindName == QLatin1String("Constructor"))
             icon = QStringLiteral("\u0192");
-        else if (kind == "Class" || kind == "Struct")
+        else if (kindName == QLatin1String("Class") || kindName == QLatin1String("Struct"))
             icon = QStringLiteral("\u2299");
-        else if (kind == "Variable" || kind == "Field")
+        else if (kindName == QLatin1String("Variable") || kindName == QLatin1String("Field") || kindName == QLatin1String("Property"))
             icon = QStringLiteral("\u25CB");
-        else if (kind == "Interface")
+        else if (kindName == QLatin1String("Interface"))
             icon = QStringLiteral("\u2261");
-        else if (kind == "Module" || kind == "Namespace")
+        else if (kindName == QLatin1String("Module") || kindName == QLatin1String("Namespace") || kindName == QLatin1String("Package"))
             icon = QStringLiteral("\u25A0");
-        else if (kind == "Enum")
+        else if (kindName == QLatin1String("Enum") || kindName == QLatin1String("EnumMember"))
             icon = QStringLiteral("\u2630");
         else
             icon = QStringLiteral("\u2022");
@@ -156,7 +157,7 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
         nameItem->setData(line, Qt::UserRole + 2);
         nameItem->setData(col, Qt::UserRole + 3);
 
-        auto* kindItem = new QStandardItem(kind);
+        auto* kindItem = new QStandardItem(kindName.isEmpty() ? QString::number(kind) : kindName);
         kindItem->setEditable(false);
 
         auto* fileItem = new QStandardItem(location);

@@ -5,12 +5,15 @@
 #include "errorlistpanel.h"
 #include "lspclient.h"
 #include "lspservermanager.h"
+#include "lspworkspaceedit.h"
 #include "lsptypes.h"
+#include "logger.h"
 #include "referencespanel.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
 
 #include <QCursor>
+#include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMenu>
@@ -31,6 +34,8 @@ CodeEditor* editorForUri(TabManager* tabManager, const QString& uri)
 
 // Apply a LSP WorkspaceEdit to the matching open editors. Edits within a
 // single document are applied in reverse order so that positions remain valid.
+// Files that are not open in an editor are edited on disk (UTF-8, atomic
+// write). LSP resource operations (create/rename/delete) are handled too.
 void applyWorkspaceEdit(const QJsonObject& workspaceEdit, TabManager* tabManager)
 {
     QHash<QString, QList<QJsonObject>> editsByUri;
@@ -46,6 +51,39 @@ void applyWorkspaceEdit(const QJsonObject& workspaceEdit, TabManager* tabManager
         for (const auto& v : workspaceEdit["documentChanges"].toArray())
         {
             QJsonObject dc = v.toObject();
+            const QString kind = dc["kind"].toString();
+            if (!kind.isEmpty())
+            {
+                // Resource operation (CreateFile/RenameFile/DeleteFile).
+                const QString uri = dc["uri"].toString();
+                const QString filePath = pathFromUri(uri);
+                if (kind == QStringLiteral("create"))
+                {
+                    if (!filePath.isEmpty() && !QFile::exists(filePath))
+                    {
+                        QFile createFile(filePath);
+                        if (!createFile.open(QIODevice::WriteOnly))
+                            Logger::instance().warning(QString("Workspace edit: cannot create file %1").arg(filePath));
+                        createFile.close();
+                    }
+                }
+                else if (kind == QStringLiteral("rename"))
+                {
+                    const QString newPath = pathFromUri(dc["newUri"].toString());
+                    if (!filePath.isEmpty() && !newPath.isEmpty() && filePath != newPath)
+                    {
+                        if (!QFile::rename(filePath, newPath))
+                            Logger::instance().warning(QString("Workspace edit: cannot rename %1 to %2").arg(filePath, newPath));
+                    }
+                }
+                else if (kind == QStringLiteral("delete"))
+                {
+                    // Never delete files automatically as a side effect of a
+                    // server request; the delete needs an explicit UI confirm.
+                    Logger::instance().warning(QString("Workspace edit: ignoring delete of %1 (requires confirmation)").arg(filePath));
+                }
+                continue;
+            }
             QString uri = dc["textDocument"].toObject()["uri"].toString();
             collectEdits(uri, dc["edits"].toArray());
         }
@@ -60,14 +98,20 @@ void applyWorkspaceEdit(const QJsonObject& workspaceEdit, TabManager* tabManager
     for (auto it = editsByUri.begin(); it != editsByUri.end(); ++it)
     {
         QString filePath = lsp::pathFromUri(it.key());
-        CodeEditor* editor = tabManager ? tabManager->findEditorByFileName(filePath) : nullptr;
-        if (!editor)
-            continue;
-
         QList<QJsonObject> edits = it.value();
-        // applyTextEdits applies bottom-most first, which keeps the ranges of
-        // earlier edits valid.
-        editor->applyTextEdits(edits);
+
+        // Apply bottom-most first, which keeps the ranges of earlier edits valid.
+        CodeEditor* editor = tabManager ? tabManager->findEditorByFileName(filePath) : nullptr;
+        if (editor)
+        {
+            editor->applyTextEdits(edits);
+            continue;
+        }
+
+        // File not open in any editor: edit the file on disk.
+        QString error;
+        if (!applyTextEditsToFile(filePath, edits, &error))
+            Logger::instance().warning(QString("Workspace edit: %1: %2").arg(filePath, error));
     }
 }
 } // namespace

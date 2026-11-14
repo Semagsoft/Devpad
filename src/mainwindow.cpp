@@ -561,7 +561,13 @@ void MainWindow::connectPanelSignals()
             {
                 const QString& filePath = editor->fileName();
                 if (!filePath.isEmpty() && filePath != Strings::untitled())
-                    m_lspServerManager->closeDocument(lsp::uriFromPath(filePath));
+                {
+                    const QString uri = lsp::uriFromPath(filePath);
+                    m_lspServerManager->closeDocument(uri);
+                    // Drop this document's diagnostics so they don't linger
+                    // pointing at a file no longer open.
+                    m_errorListPanel->clearDiagnostics(uri);
+                }
                 updateSplitViewVisibility();
             });
     connect(m_tabManager, &TabManager::tabCloseRequested, this,

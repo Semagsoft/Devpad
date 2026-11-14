@@ -43,8 +43,10 @@ QStringConverter::Encoding encodingFromName(const QString& name);
 QString encodingToDisplayName(QStringConverter::Encoding enc);
 
 // ── Plugin encoding registration ──────────────────────────────
-// Allows plugins to contribute additional text encodings. encodingName is
-// passed to QStringConverter (e.g. "ISO-8859-1", "Windows-1252", "KOI8-R").
+// Allows plugins to contribute additional text encodings. encodingName must
+// be resolvable through QStringConverter::encodingForName (Qt6 supports
+// UTF-8/16/32, Latin-1 and System; legacy codecs like Windows-1252 are not
+// available). Unknown names are rejected, never silently mapped to UTF-8.
 bool registerPluginEncoding(const QString& displayName, const QString& encodingName);
 bool unregisterPluginEncoding(const QString& displayName);
 
