@@ -13,9 +13,11 @@
 #include "nextgen/primoeditor.h"
 #include "nextgen/primohighlighter.h"
 #include "nextgen/primoterminal.h"
+#include "managers/updatechecker.h"
 #include "theme.h"
 
 #include <QApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -44,6 +46,7 @@ NextgenActions::NextgenActions(QObject* parent)
                 emit showMenuBarChanged();
                 emit recentFilesChanged();
             });
+    initUpdateChecker();
 }
 NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent)
     : QObject(parent), m_editor(editor), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
@@ -57,6 +60,31 @@ NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent)
                 emit showMenuBarChanged();
                 emit recentFilesChanged();
             });
+    initUpdateChecker();
+}
+void NextgenActions::initUpdateChecker()
+{
+    m_updateChecker = new UpdateChecker(this);
+    connect(m_updateChecker, &UpdateChecker::updateAvailable, this, &NextgenActions::updateAvailable);
+    connect(m_updateChecker, &UpdateChecker::upToDate, this, &NextgenActions::updateUpToDate);
+    connect(m_updateChecker, &UpdateChecker::checkFailed, this, &NextgenActions::updateCheckFailed);
+}
+void NextgenActions::checkForUpdates()
+{
+    // Manual check: the "check on startup" setting does not apply; the
+    // one-hour throttle still does. QML shows the result in a modal dialog.
+    if (m_updateChecker->checkForUpdates())
+    {
+        emit showMessage(tr("Checking for updates..."));
+        return;
+    }
+    if (m_updateChecker->isCheckInProgress())
+    {
+        emit updateCheckThrottled(QString());
+        return;
+    }
+    const QDateTime lastCheck = m_updateChecker->lastCheckTime();
+    emit updateCheckThrottled(lastCheck.isValid() ? lastCheck.toLocalTime().toString(QStringLiteral("yyyy-MM-dd hh:mm")) : QString());
 }
 QObject* NextgenActions::editorObj() const
 {

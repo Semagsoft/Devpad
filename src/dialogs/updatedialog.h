@@ -20,6 +20,7 @@
 #define UPDATEDIALOG_H
 
 #include <QDialog>
+#include <QDateTime>
 #include <QString>
 
 class QLabel;
@@ -34,7 +35,8 @@ public:
     {
         UpToDate,
         UpdateAvailable,
-        CheckFailed
+        CheckFailed,
+        AlreadyChecked // informational: manual check requested while throttled or in progress
     };
 
     static void showUpToDate(QWidget* parent, const QString& latestVersion);
@@ -43,6 +45,11 @@ public:
     // Shows the failure view and returns true if the user chose to retry the
     // check (the caller should then re-run the check after the dialog closes).
     static bool showCheckFailed(QWidget* parent, const QString& friendlyMessage, const QString& details);
+
+    // Shown when the user asks for a manual check but one already happened
+    // within the throttle interval or is still in flight. Pass an invalid
+    // lastCheckTime to indicate a check is currently in progress.
+    static void showAlreadyChecked(QWidget* parent, const QDateTime& lastCheckTime);
 
 private:
     UpdateDialog(Mode mode, const QString& version, const QString& releaseUrl, const QString& details, QWidget* parent = nullptr);

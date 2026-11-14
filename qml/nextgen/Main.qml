@@ -461,6 +461,52 @@ ApplicationWindow {
         }
     }
 
+    // Update check result dialog
+    Dialog {
+        id: updateDlg
+        title: updateDlgTitleText
+        modal: true
+        width: 420
+
+        property string updateDlgTitleText: qsTr("Check for Updates")
+        property string message: ""
+        property string detail: ""
+        property string downloadUrl: ""
+
+        function show(title, msg, details, url) {
+            updateDlgTitleText = title;
+            message = msg;
+            detail = details ? details : "";
+            downloadUrl = url ? url : "";
+            open();
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 10
+            Label { text: updateDlg.message; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            Label {
+                text: updateDlg.detail
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+                visible: updateDlg.detail.length > 0
+                opacity: 0.75
+                font.pointSize: Math.max(8, updateDlg.font.pointSize - 1)
+            }
+            Button {
+                text: qsTr("Download")
+                visible: updateDlg.downloadUrl.length > 0
+                Layout.alignment: Qt.AlignRight
+                onClicked: {
+                    Qt.openUrlExternally(updateDlg.downloadUrl);
+                    updateDlg.close();
+                }
+            }
+        }
+        standardButtons: Dialog.Close
+    }
+
     // References dialog
     Dialog {
         id: refDlg
@@ -652,6 +698,30 @@ ApplicationWindow {
         function onShowMessage(msg) {
             statusMsg.text = msg;
             statusMsgTimer.restart();
+        }
+        function onUpdateAvailable(latestVersion, releaseUrl) {
+            updateDlg.show(qsTr("Update Available"),
+                           qsTr("A new version of Devpad is available (%1).\n\nYou are currently running version %2.").arg(latestVersion).arg(devpadVersion),
+                           "", releaseUrl);
+        }
+        function onUpdateUpToDate(latestVersion) {
+            updateDlg.show(qsTr("You're up to date"),
+                           qsTr("Devpad %1 is the latest version.").arg(latestVersion),
+                           "", "");
+        }
+        function onUpdateCheckFailed(message, details) {
+            updateDlg.show(qsTr("Check for Updates Failed"), message, details, "");
+        }
+        function onUpdateCheckThrottled(lastCheckText) {
+            if (lastCheckText.length === 0) {
+                updateDlg.show(qsTr("Already checked recently"),
+                               qsTr("An update check is already in progress. Please wait for it to complete."),
+                               "", "");
+            } else {
+                updateDlg.show(qsTr("Already checked recently"),
+                               qsTr("Devpad checks for updates at most once per hour.\n\nLast checked: %1").arg(lastCheckText),
+                               "", "");
+            }
         }
     }
 

@@ -18,6 +18,7 @@
  */
 #include "updatedialog.h"
 
+#include <QDateTime>
 #include <QApplication>
 #include <QClipboard>
 #include <QCoreApplication>
@@ -60,6 +61,15 @@ bool UpdateDialog::showCheckFailed(QWidget* parent, const QString& friendlyMessa
     return dialog.m_retryRequested;
 }
 
+void UpdateDialog::showAlreadyChecked(QWidget* parent, const QDateTime& lastCheckTime)
+{
+    const QString lastCheckText = lastCheckTime.isValid()
+        ? lastCheckTime.toLocalTime().toString(QStringLiteral("yyyy-MM-dd hh:mm"))
+        : QString();
+    UpdateDialog dialog(Mode::AlreadyChecked, lastCheckText, QString(), QString(), parent);
+    dialog.exec();
+}
+
 void UpdateDialog::setupUi()
 {
     setWindowTitle(tr("Check for Updates"));
@@ -72,6 +82,7 @@ void UpdateDialog::setupUi()
     {
     case Mode::UpToDate:
     case Mode::UpdateAvailable:
+    case Mode::AlreadyChecked:
         iconPath = QStringLiteral(":/icons/Help/update.svg");
         break;
     case Mode::CheckFailed:
@@ -112,6 +123,13 @@ void UpdateDialog::setupUi()
     case Mode::CheckFailed:
         titleLabel->setText(tr("Check for Updates Failed"));
         messageLabel->setText(m_version);
+        break;
+    case Mode::AlreadyChecked:
+        titleLabel->setText(tr("Already checked recently"));
+        if (m_version.isEmpty())
+            messageLabel->setText(tr("An update check is already in progress. Please wait for it to complete."));
+        else
+            messageLabel->setText(tr("Devpad checks for updates at most once per hour.\n\nLast checked: %1").arg(m_version));
         break;
     }
 

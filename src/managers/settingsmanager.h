@@ -147,7 +147,7 @@ public:
         bool showMenuInTitlebar = true;
         bool showToolbar = true;
         bool showStatusbar = true;
-        bool checkForUpdatesEnabled = false;
+        bool checkForUpdatesEnabled = true; // matches the QSettings load default (settingsmanager.cpp)
         QString uiFontFamily = "Sans Serif";
         int uiFontSize = 10;
         ShellOpenMode shellOpenModeFiles = ShellOpenMode::NewWindow;

@@ -40,6 +40,8 @@
 #include "managers/remoteopencoordinator.h"
 #include "managers/remoteservicecoordinator.h"
 #include "managers/terminalpanelcoordinator.h"
+#include <QDateTime>
+
 #include "managers/updateservicecoordinator.h"
 #include "optionsdialog.h"
 #include "printmanager.h"
@@ -1576,17 +1578,16 @@ void MainWindow::showAbout()
 
 void MainWindow::checkForUpdates()
 {
-    if (!SettingsManager::instance().checkForUpdatesEnabled())
-    {
-        statusBar()->showMessage(tr("Update checks are disabled in settings."), 3000);
-        return;
-    }
-
+    // Manual check: the user asked explicitly, so the "check for updates on
+    // startup" setting does not apply. The one-hour throttle is still
+    // respected to avoid hammering the update server; when throttled (or a
+    // check is in flight) we say so in a modal dialog instead of silently
+    // doing nothing.
     statusBar()->showMessage(tr("Checking for updates..."));
     if (!m_updateChecker->checkForUpdates())
     {
-        // A check was already performed recently; don't hammer the server.
-        statusBar()->showMessage(tr("Already checked for updates recently. Try again later."), 3000);
+        statusBar()->clearMessage();
+        UpdateDialog::showAlreadyChecked(this, m_updateChecker->isCheckInProgress() ? QDateTime() : m_updateChecker->lastCheckTime());
     }
 }
 

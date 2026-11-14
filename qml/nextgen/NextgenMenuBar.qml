@@ -148,7 +148,7 @@ MenuBar {
     Menu {
         title: qsTr("&Help")
         Action { text: qsTr("&About Devpad"); onTriggered: actions.showAbout() }
-        Action { text: qsTr("Check for &Updates"); onTriggered: actions.showMessage("Check for updates") }
+        Action { text: qsTr("Check for &Updates"); onTriggered: actions.checkForUpdates() }
         Action { text: qsTr("&Website"); onTriggered: Qt.openUrlExternally("https://semagsoft.com") }
     }
 }
