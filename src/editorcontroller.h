@@ -53,6 +53,9 @@ public:
 
     void undo();
     void redo();
+    void duplicateLine();
+    void moveLineUp();
+    void moveLineDown();
     void cut();
     void copy();
     void paste();

@@ -94,6 +94,8 @@ public slots:
     void goToLine();
     void findNext();
     void findPrevious();
+    void findNextWithSelection();
+    void findPreviousWithSelection();
     void toggleFullScreen();
     void toggleProjectPanel();
     void toggleTerminalPanel();

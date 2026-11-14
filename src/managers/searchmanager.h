@@ -23,6 +23,10 @@ public:
     void showReplaceDialog();
     void findNext();
     void findPrevious();
+    // Ctrl+F3 / Shift+F3: use the current single-line selection as the search
+    // term (like most editors); falls back to the regular find next/previous.
+    void findNextWithSelection();
+    void findPreviousWithSelection();
     bool hasActiveSearch() const
     {
         return !m_lastSearchText.isEmpty();

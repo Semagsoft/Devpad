@@ -222,6 +222,9 @@ public slots:
     void zoomIn() override;
     void zoomOut() override;
     void zoomReset();
+    void duplicateLine();
+    void moveLineUp();
+    void moveLineDown();
 
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;

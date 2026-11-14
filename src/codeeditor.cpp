@@ -1601,6 +1601,21 @@ void CodeEditor::setSelectionRanges(const QJsonArray& ranges)
     m_lspIntegration->handleSelectionRanges(ranges);
 }
 
+void CodeEditor::duplicateLine()
+{
+    SendScintilla(QsciScintillaBase::SCI_SELECTIONDUPLICATE);
+}
+
+void CodeEditor::moveLineUp()
+{
+    SendScintilla(QsciScintillaBase::SCI_MOVESELECTEDLINESUP);
+}
+
+void CodeEditor::moveLineDown()
+{
+    SendScintilla(QsciScintillaBase::SCI_MOVESELECTEDLINESDOWN);
+}
+
 void CodeEditor::resizeEvent(QResizeEvent* event)
 {
     QsciScintilla::resizeEvent(event);

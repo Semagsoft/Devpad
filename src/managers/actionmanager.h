@@ -96,6 +96,11 @@ public:
         GoToLine,
         FindNext,
         FindPrevious,
+        FindNextWithSelection,
+        FindPreviousWithSelection,
+        DuplicateLine,
+        MoveLineUp,
+        MoveLineDown,
         ToggleComment,
         FormatSelection,
         ExpandSelection,
@@ -164,6 +169,18 @@ public:
     QAction* reopenClosedTabAct() const
     {
         return m_reopenClosedTabAct;
+    }
+    QAction* duplicateLineAct() const
+    {
+        return m_duplicateLineAct;
+    }
+    QAction* moveLineUpAct() const
+    {
+        return m_moveLineUpAct;
+    }
+    QAction* moveLineDownAct() const
+    {
+        return m_moveLineDownAct;
     }
     QAction* newAct() const
     {
@@ -543,6 +560,11 @@ signals:
     void goToLineTriggered();
     void findNextTriggered();
     void findPreviousTriggered();
+    void findNextWithSelectionTriggered();
+    void findPreviousWithSelectionTriggered();
+    void duplicateLineTriggered();
+    void moveLineUpTriggered();
+    void moveLineDownTriggered();
 
     void zoomInTriggered();
     void zoomOutTriggered();
@@ -664,6 +686,11 @@ private:
     QAction* m_closeProjectAct = nullptr;
     QAction* m_revertAct = nullptr;
     QAction* m_reopenClosedTabAct = nullptr;
+    QAction* m_duplicateLineAct = nullptr;
+    QAction* m_moveLineUpAct = nullptr;
+    QAction* m_moveLineDownAct = nullptr;
+    QAction* m_findNextWithSelectionAct = nullptr;
+    QAction* m_findPreviousWithSelectionAct = nullptr;
     QAction* m_saveAct = nullptr;
     QAction* m_saveAsAct = nullptr;
     QAction* m_saveAllAct = nullptr;

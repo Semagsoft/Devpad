@@ -584,6 +584,27 @@ void EditorController::insertSnippet()
     }
 }
 
+void EditorController::duplicateLine()
+{
+    CodeEditor* editor = currentEditor();
+    if (editor && !editor->isReadOnly())
+        editor->duplicateLine();
+}
+
+void EditorController::moveLineUp()
+{
+    CodeEditor* editor = currentEditor();
+    if (editor && !editor->isReadOnly())
+        editor->moveLineUp();
+}
+
+void EditorController::moveLineDown()
+{
+    CodeEditor* editor = currentEditor();
+    if (editor && !editor->isReadOnly())
+        editor->moveLineDown();
+}
+
 void EditorController::toggleComment()
 {
     CodeEditor* editor = currentEditor();
@@ -601,6 +622,12 @@ void EditorController::updateUndoRedoState()
         m_actionManager->redoAct()->setEnabled(!readOnly && editor->isRedoAvailable());
         m_actionManager->insertSnippetAct()->setEnabled(!readOnly);
         m_actionManager->toggleCommentAct()->setEnabled(!readOnly);
+        if (auto* duplicate = m_actionManager->duplicateLineAct())
+            duplicate->setEnabled(!readOnly);
+        if (auto* up = m_actionManager->moveLineUpAct())
+            up->setEnabled(!readOnly);
+        if (auto* down = m_actionManager->moveLineDownAct())
+            down->setEnabled(!readOnly);
     }
     else
     {
@@ -608,6 +635,12 @@ void EditorController::updateUndoRedoState()
         m_actionManager->redoAct()->setEnabled(false);
         m_actionManager->insertSnippetAct()->setEnabled(false);
         m_actionManager->toggleCommentAct()->setEnabled(false);
+        if (auto* duplicate = m_actionManager->duplicateLineAct())
+            duplicate->setEnabled(false);
+        if (auto* up = m_actionManager->moveLineUpAct())
+            up->setEnabled(false);
+        if (auto* down = m_actionManager->moveLineDownAct())
+            down->setEnabled(false);
     }
 }
 

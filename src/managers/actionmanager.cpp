@@ -338,6 +338,47 @@ void ActionManager::createEditActions()
     // them once one is available.
     m_insertSnippetAct->setEnabled(false);
     m_toggleCommentAct->setEnabled(false);
+
+    m_duplicateLineAct = createIconAction(
+        ":/icons/Edit/duplicate.svg", tr("Duplicate Line"), QKeySequence("Ctrl+D"),
+        [this]()
+        {
+            emit duplicateLineTriggered();
+            emit editActionTriggered(EditAction::DuplicateLine);
+        },
+        "Edit.DuplicateLine");
+    m_moveLineUpAct = createIconAction(
+        ":/icons/Edit/movelineup.svg", tr("Move Line Up"), QKeySequence("Alt+Up"),
+        [this]()
+        {
+            emit moveLineUpTriggered();
+            emit editActionTriggered(EditAction::MoveLineUp);
+        },
+        "Edit.MoveLineUp");
+    m_moveLineDownAct = createIconAction(
+        ":/icons/Edit/movelinedown.svg", tr("Move Line Down"), QKeySequence("Alt+Down"),
+        [this]()
+        {
+            emit moveLineDownTriggered();
+            emit editActionTriggered(EditAction::MoveLineDown);
+        },
+        "Edit.MoveLineDown");
+    m_findNextWithSelectionAct = createIconAction(
+        ":/icons/Edit/findnext.svg", tr("Find Next (Selection)"), QKeySequence("Ctrl+F3"),
+        [this]()
+        {
+            emit findNextWithSelectionTriggered();
+            emit editActionTriggered(EditAction::FindNextWithSelection);
+        },
+        "Edit.FindNextWithSelection");
+    m_findPreviousWithSelectionAct = createIconAction(
+        ":/icons/Edit/findprevious.svg", tr("Find Previous (Selection)"), QKeySequence("Shift+F3"),
+        [this]()
+        {
+            emit findPreviousWithSelectionTriggered();
+            emit editActionTriggered(EditAction::FindPreviousWithSelection);
+        },
+        "Edit.FindPreviousWithSelection");
 }
 
 void ActionManager::createBookmarkActions()
@@ -838,10 +879,16 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     editMenu->addSeparator();
     editMenu->addAction(m_selectAllAct);
     editMenu->addSeparator();
+    editMenu->addAction(m_duplicateLineAct);
+    editMenu->addAction(m_moveLineUpAct);
+    editMenu->addAction(m_moveLineDownAct);
+    editMenu->addSeparator();
     editMenu->addAction(m_findAct);
     editMenu->addAction(m_replaceAct);
     editMenu->addAction(m_findInFilesAct);
     editMenu->addAction(m_goToAct);
+    editMenu->addAction(m_findNextWithSelectionAct);
+    editMenu->addAction(m_findPreviousWithSelectionAct);
     editMenu->addSeparator();
     editMenu->addAction(m_insertSnippetAct);
     editMenu->addAction(m_toggleCommentAct);
@@ -1051,6 +1098,11 @@ void ActionManager::wireEditConnections(const ActionTargets& t)
     auto* ec = t.editorController;
     auto* mw = t.mainWindow;
 
+    connect(this, &ActionManager::duplicateLineTriggered, ec, &EditorController::duplicateLine);
+    connect(this, &ActionManager::moveLineUpTriggered, ec, &EditorController::moveLineUp);
+    connect(this, &ActionManager::moveLineDownTriggered, ec, &EditorController::moveLineDown);
+    connect(this, &ActionManager::findNextWithSelectionTriggered, mw, &MainWindow::findNextWithSelection);
+    connect(this, &ActionManager::findPreviousWithSelectionTriggered, mw, &MainWindow::findPreviousWithSelection);
     connect(this, &ActionManager::undoTriggered, ec, &EditorController::undo);
     connect(this, &ActionManager::redoTriggered, ec, &EditorController::redo);
     connect(this, &ActionManager::cutTriggered, ec, &EditorController::cut);

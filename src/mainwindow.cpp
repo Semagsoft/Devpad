@@ -932,6 +932,16 @@ void MainWindow::findPrevious()
     m_searchManager->findPrevious();
 }
 
+void MainWindow::findNextWithSelection()
+{
+    m_searchManager->findNextWithSelection();
+}
+
+void MainWindow::findPreviousWithSelection()
+{
+    m_searchManager->findPreviousWithSelection();
+}
+
 void MainWindow::findInFiles()
 {
     m_dialogCoordinator->findInFiles();

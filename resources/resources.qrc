@@ -42,6 +42,9 @@
         <file>icons/Edit/selectall.svg</file>
         <file>icons/Edit/undo.svg</file>
         <file>icons/Edit/togglecomment.svg</file>
+        <file>icons/Edit/duplicate.svg</file>
+        <file>icons/Edit/movelineup.svg</file>
+        <file>icons/Edit/movelinedown.svg</file>
         <file>icons/Debug/start.svg</file>
         <file>icons/Debug/stop.svg</file>
         <file>icons/Debug/continue.svg</file>
