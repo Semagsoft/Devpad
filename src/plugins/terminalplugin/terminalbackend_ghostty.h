@@ -35,12 +35,14 @@
 #include <QTimer>
 #include <QWheelEvent>
 #include <QWidget>
+#include <QContextMenuEvent>
 
 class QShowEvent;
 class QPaintEvent;
 class QResizeEvent;
 
 #include <ghostty/vt.h>
+#include <ghostty/vt/mouse.h>
 
 /**
  * TerminalBackend backed by libghostty-vt (ghostty.org).
@@ -78,6 +80,8 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void contextMenuEvent(QContextMenuEvent* event) override;
+    void leaveEvent(QEvent* event) override;
 
 private slots:
     void handlePtyData(const QByteArray& data);
@@ -107,6 +111,30 @@ private:
     void updateAutoScrollTimer();
     void autoScrollTick();
 
+    // -- Mouse reporting (xterm-style SGR/X10 escape sequences) -------------
+    void updateMouseEncoderSize();
+    bool isMouseTracking() const;
+    GhosttyMouseButton qtButtonToGhostty(Qt::MouseButton button) const;
+    GhosttyMods qtModsToGhostty(Qt::KeyboardModifiers mods) const;
+    void reportMouseEvent(GhosttyMouseAction action, GhosttyMouseButton button, const QPointF& pos, Qt::KeyboardModifiers mods);
+    void updatePointerShape();
+
+    // -- URL detection + Ctrl-click ------------------------------------------
+    void rebuildUrlCache();
+    QString urlAt(const QPointF& pos, int* hoverRow = nullptr, int* startCol = nullptr, int* endCol = nullptr);
+    struct UrlSpan
+    {
+        int startCol;
+        int endCol;
+        QString url;
+    };
+    QVector<QList<UrlSpan>> m_urlSpans; // per visible row
+    bool m_urlCacheValid = false;
+    QString m_hoverUrl; // URL currently hovered under Ctrl
+    int m_hoverRow = -1;
+    int m_hoverStartCol = 0;
+    int m_hoverEndCol = -1;
+
     // -- Backing state ----------------------------------------------------
     GhosttyTerminal m_terminal = nullptr;
     GhosttyKeyEncoder m_keyEncoder = nullptr;
@@ -134,6 +162,12 @@ private:
     // Shell exit status reported through finished().
     int m_exitCode = -1;
     int m_exitStatus = -1;
+
+    // Mouse reporting state.
+    GhosttyMouseEncoder m_mouseEncoder = nullptr;
+    GhosttyMouseEvent m_mouseEvent = nullptr;
+    Qt::MouseButtons m_mouseButtonsDown;
+    int m_lastPointerShape = -1;
 
     int m_cols = 80;
     int m_rows = 24;

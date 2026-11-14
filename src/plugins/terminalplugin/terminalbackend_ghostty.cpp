@@ -26,16 +26,20 @@
 #include <QClipboard>
 #include <QColor>
 #include <QDebug>
+#include <QDesktopServices>
 #include <QEvent>
 #include <QFont>
 #include <QFontMetrics>
 #include <QKeyEvent>
 #include <QMetaObject>
 #include <QMutex>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QRect>
+#include <QRegularExpression>
 #include <QThread>
+#include <QUrl>
 #include <QWheelEvent>
 #include <atomic>
 #include <cerrno>
@@ -192,7 +196,7 @@ void GhosttyIoThread::run()
         if (!haveWakePipe && m_stop.load(std::memory_order_relaxed))
             break;
 
-        if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
+        if (fds[0].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL))
         {
             uint8_t buf[4096];
             ssize_t n = ::read(m_fd, buf, sizeof(buf));
@@ -237,6 +241,7 @@ TerminalBackendGhostty::TerminalBackendGhostty(QWidget* parent)
                 behavior.value.row = static_cast<size_t>(qMax(0, value));
                 QMutexLocker locker(&m_terminalMutex);
                 ghostty_terminal_scroll_viewport(m_terminal, behavior);
+                m_urlCacheValid = false;
                 m_needsRender = true;
                 m_fullRepaintPending = true;
                 update();
@@ -292,6 +297,19 @@ void TerminalBackendGhostty::start()
         if (ghostty_selection_gesture_event_new(nullptr, &m_selectReleaseEvent, GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_RELEASE) != GHOSTTY_SUCCESS)
             m_selectReleaseEvent = nullptr;
     }
+
+    // Mouse reporting encoder + reusable event. Track last cell so motion
+    // deduplication works; the encoder drops motion events in modes that
+    // shouldn't emit them (e.g. X10/normal) or repeated cells.
+    if (ghostty_mouse_encoder_new(nullptr, &m_mouseEncoder) == GHOSTTY_SUCCESS)
+    {
+        bool trackLastCell = true;
+        ghostty_mouse_encoder_set(m_mouseEncoder, GHOSTTY_MOUSE_ENCODER_OPT_TRACK_LAST_CELL, &trackLastCell);
+        updateMouseEncoderSize();
+        ghostty_mouse_encoder_set_from_terminal(m_mouseEncoder, m_terminal);
+    }
+    if (ghostty_mouse_event_new(nullptr, &m_mouseEvent) != GHOSTTY_SUCCESS)
+        m_mouseEvent = nullptr;
 
     // Theme colors.
     ThemeColors colors = getThemeColors(SettingsManager::instance().theme());
@@ -358,6 +376,21 @@ void TerminalBackendGhostty::start()
             ghostty_selection_gesture_free(m_selectionGesture, m_terminal);
             m_selectionGesture = nullptr;
         }
+        if (m_mouseEvent)
+        {
+            ghostty_mouse_event_free(m_mouseEvent);
+            m_mouseEvent = nullptr;
+        }
+        if (m_mouseEncoder)
+        {
+            ghostty_mouse_encoder_free(m_mouseEncoder);
+            m_mouseEncoder = nullptr;
+        }
+        if (m_renderState)
+        {
+            ghostty_render_state_free(m_renderState);
+            m_renderState = nullptr;
+        }
         if (m_terminal)
         {
             ghostty_terminal_free(m_terminal);
@@ -400,6 +433,20 @@ void TerminalBackendGhostty::stop()
         ghostty_selection_gesture_free(m_selectionGesture, m_terminal);
         m_selectionGesture = nullptr;
     }
+    if (m_mouseEvent)
+    {
+        ghostty_mouse_event_free(m_mouseEvent);
+        m_mouseEvent = nullptr;
+    }
+    if (m_mouseEncoder)
+    {
+        ghostty_mouse_encoder_free(m_mouseEncoder);
+        m_mouseEncoder = nullptr;
+    }
+    m_mouseButtonsDown = Qt::NoButton;
+    m_lastPointerShape = -1;
+    m_hoverUrl.clear();
+    m_urlCacheValid = false;
     m_selecting = false;
     m_autoScrollDir = 0;
     if (m_autoScrollTimer)
@@ -509,6 +556,17 @@ void TerminalBackendGhostty::pasteClipboard()
     if (!m_running || !m_terminal)
         return;
 
+    // Pasting clipboard text that contains newlines would auto-execute each
+    // line in the shell. Ask for confirmation before allowing unsafe paste.
+    const QByteArray clipboardUtf8 = QApplication::clipboard()->text().toUtf8();
+    if (clipboardUtf8.contains('\n') || clipboardUtf8.contains('\r'))
+    {
+        if (QMessageBox::question(this, tr("Paste multi-line text?"),
+                                  tr("The clipboard contains newlines and would execute each line in the shell.\nPaste anyway?"),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+            return;
+    }
+
     static const char kMimeType[] = "text/plain";
 
     GhosttyPaste paste = GHOSTTY_INIT_SIZED(GhosttyPaste);
@@ -522,7 +580,7 @@ void TerminalBackendGhostty::pasteClipboard()
     paste.mimes_len = 1;
     paste.reader.read = &TerminalBackendGhostty::ghosttyMimeReader;
     paste.reader.userdata = this;
-    paste.allow_unsafe = true;
+    paste.allow_unsafe = true; // safe: multi-line content was confirmed above
 
     bool pasted = false;
     GhosttyResult result = ghostty_terminal_paste(m_terminal, &paste, &pasted);
@@ -538,7 +596,9 @@ void TerminalBackendGhostty::sendText(const QString& text)
     QByteArray utf8 = text.toUtf8();
     if (utf8.isEmpty())
         return;
-    ghostty_terminal_vt_write(m_terminal, reinterpret_cast<const uint8_t*>(utf8.constData()), utf8.size());
+    // Feed the bytes to the PTY as terminal input; vt_write() would paint them
+    // into the screen buffer instead of being executed by the shell.
+    writeToMaster(reinterpret_cast<const uint8_t*>(utf8.constData()), utf8.size());
 }
 
 bool TerminalBackendGhostty::isRunning() const
@@ -705,7 +765,7 @@ void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
         else if (uc >= 'A' && uc <= 'Z')
         {
             ghosttyKey = static_cast<GhosttyKey>(GHOSTTY_KEY_A + (uc - 'A'));
-            unshifted = uc;
+            unshifted = uc + ('a' - 'A'); // base key codepoint without shift
         }
         else if (uc >= '0' && uc <= '9')
         {
@@ -767,8 +827,6 @@ void TerminalBackendGhostty::keyPressEvent(QKeyEvent* event)
             ghosttyKey = GHOSTTY_KEY_COMMA;
             unshifted = uc;
         }
-        if ((modifiers & Qt::ShiftModifier) && (uc >= 'a' && uc <= 'z'))
-            unshifted = uc - 'a' + 'A';
     }
 
     QByteArray utf8 = text.toUtf8();
@@ -801,6 +859,12 @@ void TerminalBackendGhostty::handlePtyData(const QByteArray& data)
     if (!m_terminal || data.isEmpty())
         return;
     ghostty_terminal_vt_write(m_terminal, reinterpret_cast<const uint8_t*>(data.constData()), data.size());
+    // PTY output is where mouse-tracking escape sequences arrive; re-sync the
+    // encoder so modes/formats take effect immediately.
+    if (m_mouseEncoder)
+        ghostty_mouse_encoder_set_from_terminal(m_mouseEncoder, m_terminal);
+    m_urlCacheValid = false;
+    updatePointerShape();
     m_needsRender = true; // Dirty rows only; renderFrame decides full vs dirty from m_fullRepaintPending.
     update(); // Repaint so newly arrived PTY data is visible on the widget.
 }
@@ -853,6 +917,9 @@ void TerminalBackendGhostty::resizeTerminal()
         ws.ws_ypixel = static_cast<unsigned short>(rows * cellH);
         ::ioctl(m_masterFd, TIOCSWINSZ, &ws);
     }
+    if (m_mouseEncoder)
+        updateMouseEncoderSize();
+    m_urlCacheValid = false;
 }
 
 void TerminalBackendGhostty::startIoThread()
@@ -869,9 +936,19 @@ void TerminalBackendGhostty::stopIoThread()
     {
         auto ioThread = static_cast<GhosttyIoThread*>(m_ioThread);
         ioThread->requestStop(); // Wakes the blocking poll() in the IO thread immediately.
-        m_ioThread->wait(3000);
-        delete m_ioThread;
-        m_ioThread = nullptr;
+        if (m_ioThread->wait(3000))
+        {
+            delete m_ioThread;
+            m_ioThread = nullptr;
+        }
+        else
+        {
+            // Never delete a running QThread; detach it and let it exit on its
+            // own instead of invoking undefined behavior.
+            qWarning("Terminal IO thread did not stop within 3s; detaching");
+            m_ioThread->setParent(nullptr);
+            m_ioThread = nullptr;
+        }
     }
 }
 
@@ -1022,12 +1099,7 @@ void TerminalBackendGhostty::renderFrame()
                         graphemes.len = 0;
                         ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_BUF, &graphemes);
                         size_t codepointCount = graphemes.len < graphemes.cap ? graphemes.len : graphemes.cap;
-                        QString text;
-                        for (size_t i = 0; i < codepointCount; ++i)
-                        {
-                            QChar c(static_cast<ushort>(codepoints[i]));
-                            text.append(c);
-                        }
+                        QString text = QString::fromUcs4(reinterpret_cast<const char32_t*>(codepoints), static_cast<qsizetype>(codepointCount));
 
                         GhosttyColorRgb cellForeground = resolveStyleColor(style.fg_color, colors, colors.foreground);
                         QColor foregroundColor(static_cast<int>(cellForeground.r), static_cast<int>(cellForeground.g),
@@ -1133,6 +1205,14 @@ void TerminalBackendGhostty::paintEvent(QPaintEvent* event)
         painter.drawPixmap(0, 0, m_frameCache);
     else
         painter.fillRect(rect(), QColor(Qt::black));
+
+    // Ctrl+hover underline for the detected URL.
+    if (!m_hoverUrl.isEmpty() && m_hoverRow >= 0 && m_hoverEndCol >= m_hoverStartCol)
+    {
+        const QRect hoverRect(m_hoverStartCol * m_cellWidthPx, (m_hoverRow + 1) * m_cellHeightPx - 1,
+                              (m_hoverEndCol - m_hoverStartCol + 1) * m_cellWidthPx, 1);
+        painter.fillRect(hoverRect, QColor(110, 170, 255));
+    }
 
     // "N rows above bottom" indicator when scrolled up into history.
     const uint64_t rowsBelow = (m_scrollOffset + m_scrollLen <= m_scrollTotal) ? (m_scrollTotal - m_scrollOffset - m_scrollLen) : 0;
@@ -1363,12 +1443,24 @@ void TerminalBackendGhostty::wheelEvent(QWheelEvent* event)
         return;
     }
 
-    // If the app inside the terminal enabled mouse tracking, let it see the wheel.
-    bool mouseTracking = false;
-    ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING, &mouseTracking);
-    if (mouseTracking)
+    const bool tracking = isMouseTracking();
+    const bool shiftHeld = event->modifiers() & Qt::ShiftModifier;
+
+    // If the app inside the terminal enabled mouse tracking, encode the wheel
+    // as button-4/5 presses (X10 convention) unless Shift forces local scroll.
+    if (tracking && !shiftHeld)
     {
-        event->ignore();
+        const int deltaY = event->angleDelta().y();
+        if (deltaY != 0)
+        {
+            GhosttyMouseButton button = deltaY > 0 ? GHOSTTY_MOUSE_BUTTON_FOUR : GHOSTTY_MOUSE_BUTTON_FIVE;
+            int steps = qAbs(deltaY) / 120;
+            if (steps == 0)
+                steps = 1;
+            for (int i = 0; i < steps; ++i)
+                reportMouseEvent(GHOSTTY_MOUSE_ACTION_PRESS, button, event->position(), event->modifiers());
+        }
+        event->accept();
         return;
     }
 
@@ -1383,6 +1475,7 @@ void TerminalBackendGhostty::wheelEvent(QWheelEvent* event)
     // Negative delta scrolls up into the scrollback history.
     behavior.value.delta = static_cast<intptr_t>(-lines);
     ghostty_terminal_scroll_viewport(m_terminal, behavior);
+    m_urlCacheValid = false;
     m_needsRender = true;
     m_fullRepaintPending = true; // The entire viewport potentially changed.
     update();
@@ -1391,32 +1484,100 @@ void TerminalBackendGhostty::wheelEvent(QWheelEvent* event)
 
 void TerminalBackendGhostty::mousePressEvent(QMouseEvent* event)
 {
-    if (event->button() == Qt::LeftButton && m_running && m_terminal)
+    const bool running = m_running && m_terminal;
+    const bool shift = event->modifiers() & Qt::ShiftModifier;
+    const bool ctrl = event->modifiers() & Qt::ControlModifier;
+    const bool tracking = running && isMouseTracking();
+
+    // Middle click pastes from PRIMARY selection (xterm-style) when the app
+    // isn't grabbing the mouse.
+    if (event->button() == Qt::MiddleButton && !tracking && !shift)
     {
-        bool mouseTracking = false;
-        ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING, &mouseTracking);
-        if (!mouseTracking)
+        if (running)
+            pasteClipboard();
+        event->accept();
+        return;
+    }
+
+    // Ctrl+Click on a detected URL opens it locally.
+    if (event->button() == Qt::LeftButton && ctrl)
+    {
+        const QString url = urlAt(event->position());
+        if (!url.isEmpty())
         {
-            positionGestureEvents(event->pos());
-            GhosttySelection sel = {};
-            if (m_selectionGesture && m_selectPressEvent
-                && ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectPressEvent, &sel) == GHOSTTY_SUCCESS)
-            {
-                m_selecting = true;
-                ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &sel);
-            }
-            m_needsRender = true;
-            m_fullRepaintPending = true;
-            update();
+            QDesktopServices::openUrl(QUrl::fromUserInput(url));
             event->accept();
             return;
         }
+    }
+
+    // App-grabbed mouse: report the press to the app.
+    if (tracking && !shift)
+    {
+        GhosttyMouseButton button = qtButtonToGhostty(event->button());
+        if (button != GHOSTTY_MOUSE_BUTTON_UNKNOWN)
+        {
+            m_mouseButtonsDown |= event->button();
+            reportMouseEvent(GHOSTTY_MOUSE_ACTION_PRESS, button, event->position(), event->modifiers());
+            event->accept();
+            return;
+        }
+    }
+
+    // Otherwise, left-drag selects locally (also the Shift override when the
+    // app grabbed the mouse).
+    if (event->button() == Qt::LeftButton && running)
+    {
+        positionGestureEvents(event->pos());
+        GhosttySelection sel = {};
+        if (m_selectionGesture && m_selectPressEvent
+            && ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectPressEvent, &sel) == GHOSTTY_SUCCESS)
+        {
+            m_selecting = true;
+            ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &sel);
+        }
+        m_needsRender = true;
+        m_fullRepaintPending = true;
+        update();
+        event->accept();
+        return;
     }
     QWidget::mousePressEvent(event);
 }
 
 void TerminalBackendGhostty::mouseMoveEvent(QMouseEvent* event)
 {
+    const bool running = m_running && m_terminal;
+    const bool shift = event->modifiers() & Qt::ShiftModifier;
+    const bool ctrl = event->modifiers() & Qt::ControlModifier;
+    const bool tracking = running && isMouseTracking();
+
+    // Ctrl+hover: point the cursor at clickable URLs.
+    if (ctrl && !(event->buttons() & Qt::LeftButton))
+    {
+        const QString url = urlAt(event->position(), &m_hoverRow, &m_hoverStartCol, &m_hoverEndCol);
+        if (url != m_hoverUrl)
+        {
+            m_hoverUrl = url;
+            setCursor(url.isEmpty() ? Qt::ArrowCursor : Qt::PointingHandCursor);
+        }
+    }
+    else if (!m_hoverUrl.isEmpty())
+    {
+        m_hoverUrl.clear();
+        m_hoverRow = -1;
+        updatePointerShape();
+    }
+
+    // App-grabbed mouse: report motion to the app (encoder drops it in modes
+    // that don't want motion events).
+    if (tracking && !shift)
+    {
+        reportMouseEvent(GHOSTTY_MOUSE_ACTION_MOTION, GHOSTTY_MOUSE_BUTTON_UNKNOWN, event->position(), event->modifiers());
+        event->accept();
+        return;
+    }
+
     if (m_selecting && (event->buttons() & Qt::LeftButton) && m_running && m_terminal)
     {
         positionGestureEvents(event->pos());
@@ -1441,6 +1602,20 @@ void TerminalBackendGhostty::mouseMoveEvent(QMouseEvent* event)
 
 void TerminalBackendGhostty::mouseReleaseEvent(QMouseEvent* event)
 {
+    const bool shift = event->modifiers() & Qt::ShiftModifier;
+    const bool tracking = m_running && m_terminal && isMouseTracking();
+
+    // App-grabbed mouse: report the release to the app and stop tracking the button.
+    if (tracking && !shift)
+    {
+        GhosttyMouseButton button = qtButtonToGhostty(event->button());
+        m_mouseButtonsDown &= ~event->button();
+        if (button != GHOSTTY_MOUSE_BUTTON_UNKNOWN)
+            reportMouseEvent(GHOSTTY_MOUSE_ACTION_RELEASE, button, event->position(), event->modifiers());
+        event->accept();
+        return;
+    }
+
     if (event->button() == Qt::LeftButton)
     {
         if (m_selecting && m_running && m_terminal)
@@ -1502,6 +1677,7 @@ void TerminalBackendGhostty::autoScrollTick()
     behavior.tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_DELTA;
     behavior.value.delta = dir < 0 ? -1 : 1;
     ghostty_terminal_scroll_viewport(m_terminal, behavior);
+    m_urlCacheValid = false;
 
     if (m_selectionGesture && m_selectDragEvent)
     {
@@ -1514,4 +1690,284 @@ void TerminalBackendGhostty::autoScrollTick()
     m_needsRender = true;
     m_fullRepaintPending = true;
     update();
+}
+
+void TerminalBackendGhostty::contextMenuEvent(QContextMenuEvent* event)
+{
+    // When the app grabbed the mouse, right-clicks belong to the app; swallow the
+    // context menu. Shift+right-click still opens Devpad's menu.
+    if (isMouseTracking() && !(event->modifiers() & Qt::ShiftModifier))
+    {
+        event->accept();
+        return;
+    }
+    // Default implementation ignores the event, propagating it to the panel,
+    // which shows Devpad's context menu.
+    QWidget::contextMenuEvent(event);
+}
+
+void TerminalBackendGhostty::leaveEvent(QEvent* event)
+{
+    if (!m_hoverUrl.isEmpty())
+    {
+        m_hoverUrl.clear();
+        m_hoverRow = -1;
+        updatePointerShape();
+    }
+    QWidget::leaveEvent(event);
+}
+
+void TerminalBackendGhostty::updateMouseEncoderSize()
+{
+    if (!m_mouseEncoder)
+        return;
+    GhosttyMouseEncoderSize size = GHOSTTY_INIT_SIZED(GhosttyMouseEncoderSize);
+    size.size = sizeof(size);
+    size.screen_width = static_cast<uint32_t>(m_cols * m_cellWidthPx);
+    size.screen_height = static_cast<uint32_t>(m_rows * m_cellHeightPx);
+    size.cell_width = static_cast<uint32_t>(m_cellWidthPx);
+    size.cell_height = static_cast<uint32_t>(m_cellHeightPx);
+    size.padding_top = 0;
+    size.padding_bottom = 0;
+    size.padding_right = 0;
+    size.padding_left = 0;
+    ghostty_mouse_encoder_set(m_mouseEncoder, GHOSTTY_MOUSE_ENCODER_OPT_SIZE, &size);
+}
+
+bool TerminalBackendGhostty::isMouseTracking() const
+{
+    if (!m_terminal)
+        return false;
+    bool tracking = false;
+    ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING, &tracking);
+    return tracking;
+}
+
+GhosttyMouseButton TerminalBackendGhostty::qtButtonToGhostty(Qt::MouseButton button) const
+{
+    switch (button)
+    {
+    case Qt::LeftButton:
+        return GHOSTTY_MOUSE_BUTTON_LEFT;
+    case Qt::RightButton:
+        return GHOSTTY_MOUSE_BUTTON_RIGHT;
+    case Qt::MiddleButton:
+        return GHOSTTY_MOUSE_BUTTON_MIDDLE;
+    case Qt::BackButton:
+        return GHOSTTY_MOUSE_BUTTON_EIGHT;
+    case Qt::ForwardButton:
+        return GHOSTTY_MOUSE_BUTTON_NINE;
+    default:
+        return GHOSTTY_MOUSE_BUTTON_UNKNOWN;
+    }
+}
+
+GhosttyMods TerminalBackendGhostty::qtModsToGhostty(Qt::KeyboardModifiers mods) const
+{
+    GhosttyMods ghosttyMods = 0;
+    if (mods & Qt::ShiftModifier)
+        ghosttyMods |= GHOSTTY_MODS_SHIFT;
+    if (mods & Qt::ControlModifier)
+        ghosttyMods |= GHOSTTY_MODS_CTRL;
+    if (mods & Qt::AltModifier)
+        ghosttyMods |= GHOSTTY_MODS_ALT;
+    if (mods & Qt::MetaModifier)
+        ghosttyMods |= GHOSTTY_MODS_SUPER;
+    return ghosttyMods;
+}
+
+void TerminalBackendGhostty::reportMouseEvent(GhosttyMouseAction action, GhosttyMouseButton button, const QPointF& pos,
+                                              Qt::KeyboardModifiers mods)
+{
+    if (!m_mouseEncoder || !m_mouseEvent || !m_terminal)
+        return;
+
+    ghostty_mouse_event_set_action(m_mouseEvent, action);
+    if (button == GHOSTTY_MOUSE_BUTTON_UNKNOWN)
+        ghostty_mouse_event_clear_button(m_mouseEvent);
+    else
+        ghostty_mouse_event_set_button(m_mouseEvent, button);
+    ghostty_mouse_event_set_mods(m_mouseEvent, qtModsToGhostty(mods));
+
+    GhosttyMousePosition position;
+    position.x = static_cast<float>(pos.x());
+    position.y = static_cast<float>(pos.y());
+    ghostty_mouse_event_set_position(m_mouseEvent, position);
+
+    const bool anyButtonPressed = m_mouseButtonsDown != Qt::NoButton;
+    ghostty_mouse_encoder_set(m_mouseEncoder, GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED, &anyButtonPressed);
+
+    uint8_t buffer[128];
+    size_t written = 0;
+    if (ghostty_mouse_encoder_encode(m_mouseEncoder, m_mouseEvent, buffer, sizeof(buffer), &written) == GHOSTTY_SUCCESS && written > 0)
+        writeToMaster(buffer, written);
+}
+
+void TerminalBackendGhostty::updatePointerShape()
+{
+    if (!m_terminal || !m_hoverUrl.isEmpty())
+        return;
+    GhosttyMouseShape shape = GHOSTTY_MOUSE_SHAPE_DEFAULT;
+    if (ghostty_terminal_get(m_terminal, GHOSTTY_TERMINAL_DATA_MOUSE_SHAPE, &shape) != GHOSTTY_SUCCESS)
+        return;
+    const int shapeValue = static_cast<int>(shape);
+    if (shapeValue == m_lastPointerShape)
+        return;
+    m_lastPointerShape = shapeValue;
+    Qt::CursorShape cursor = Qt::ArrowCursor;
+    switch (shape)
+    {
+    case GHOSTTY_MOUSE_SHAPE_TEXT:
+    case GHOSTTY_MOUSE_SHAPE_VERTICAL_TEXT:
+        cursor = Qt::IBeamCursor;
+        break;
+    case GHOSTTY_MOUSE_SHAPE_POINTER:
+        cursor = Qt::PointingHandCursor;
+        break;
+    case GHOSTTY_MOUSE_SHAPE_CROSSHAIR:
+        cursor = Qt::CrossCursor;
+        break;
+    case GHOSTTY_MOUSE_SHAPE_WAIT:
+        cursor = Qt::WaitCursor;
+        break;
+    case GHOSTTY_MOUSE_SHAPE_PROGRESS:
+        cursor = Qt::BusyCursor;
+        break;
+    case GHOSTTY_MOUSE_SHAPE_ALIAS:
+    case GHOSTTY_MOUSE_SHAPE_COPY:
+        cursor = Qt::DragCopyCursor;
+        break;
+    case GHOSTTY_MOUSE_SHAPE_MOVE:
+        cursor = Qt::SizeAllCursor;
+        break;
+    default:
+        break;
+    }
+    setCursor(cursor);
+}
+
+void TerminalBackendGhostty::rebuildUrlCache()
+{
+    m_urlSpans.clear();
+    m_urlCacheValid = true;
+    if (!m_terminal)
+        return;
+
+    // Read the visible viewport through a throwaway render state so we don't
+    // disturb the persistent render used for painting.
+    QMutexLocker locker(&m_terminalMutex);
+    GhosttyRenderState rs = nullptr;
+    if (ghostty_render_state_new(nullptr, &rs) != GHOSTTY_SUCCESS)
+        return;
+    if (ghostty_render_state_update(rs, m_terminal) != GHOSTTY_SUCCESS)
+    {
+        ghostty_render_state_free(rs);
+        return;
+    }
+
+    GhosttyRenderStateRowIterator iterator = nullptr;
+    if (ghostty_render_state_row_iterator_new(nullptr, &iterator) != GHOSTTY_SUCCESS)
+    {
+        ghostty_render_state_free(rs);
+        return;
+    }
+    ghostty_render_state_get(rs, GHOSTTY_RENDER_STATE_DATA_ROW_ITERATOR, &iterator);
+
+    GhosttyRenderStateRowCells cells = nullptr;
+    if (ghostty_render_state_row_cells_new(nullptr, &cells) != GHOSTTY_SUCCESS)
+    {
+        ghostty_render_state_row_iterator_free(iterator);
+        ghostty_render_state_free(rs);
+        return;
+    }
+
+    static const QRegularExpression urlPattern(
+        QStringLiteral(R"((?:https?|ftp|ssh|git|file)://[^\s<>"'\)\]]+|www\.[^\s<>"'\)\]]+)"));
+
+    while (ghostty_render_state_row_iterator_next(iterator))
+    {
+        QString line;
+        QVector<int> colForIndex; // maps UTF-16 index in `line` -> cell column
+        if (ghostty_render_state_row_get(iterator, GHOSTTY_RENDER_STATE_ROW_DATA_CELLS, &cells) == GHOSTTY_SUCCESS)
+        {
+            int col = 0;
+            while (ghostty_render_state_row_cells_next(cells))
+            {
+                uint32_t graphemesLen = 0;
+                ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_LEN, &graphemesLen);
+                if (graphemesLen > 0)
+                {
+                    uint32_t codepoints[16];
+                    GhosttyCodepointBuffer graphemes;
+                    graphemes.ptr = codepoints;
+                    graphemes.cap = 16;
+                    graphemes.len = 0;
+                    ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_BUF, &graphemes);
+                    const size_t count = graphemes.len < graphemes.cap ? graphemes.len : graphemes.cap;
+                    const QString text = QString::fromUcs4(reinterpret_cast<const char32_t*>(codepoints), static_cast<qsizetype>(count));
+                    for (const QChar c : text)
+                    {
+                        line.append(c);
+                        colForIndex.append(col);
+                    }
+                }
+                col++;
+            }
+        }
+
+        QList<UrlSpan> spans;
+        auto matchIterator = urlPattern.globalMatch(line);
+        while (matchIterator.hasNext())
+        {
+            const QRegularExpressionMatch match = matchIterator.next();
+            QString url = match.captured(0);
+            // Strip trailing punctuation that is almost never part of the URL.
+            static const QString trailingPunctuation = QStringLiteral(".,;:!?')]}\\");
+            while (!url.isEmpty() && trailingPunctuation.contains(url.back()))
+                url.chop(1);
+            if (url.startsWith(QLatin1String("www.")))
+                url = QStringLiteral("https://") + url;
+            const int start = match.capturedStart();
+            const int end = match.capturedStart() + static_cast<int>(match.capturedLength() - 1);
+            UrlSpan span;
+            span.startCol = start < colForIndex.size() ? colForIndex[start] : start;
+            span.endCol = end < colForIndex.size() ? colForIndex[end] : end;
+            span.url = url;
+            if (span.endCol >= span.startCol)
+                spans.append(span);
+        }
+        m_urlSpans.append(spans);
+    }
+
+    ghostty_render_state_row_cells_free(cells);
+    ghostty_render_state_row_iterator_free(iterator);
+    ghostty_render_state_free(rs);
+}
+
+QString TerminalBackendGhostty::urlAt(const QPointF& pos, int* hoverRow, int* startCol, int* endCol)
+{
+    if (hoverRow)
+        *hoverRow = -1;
+    if (!m_urlCacheValid)
+        rebuildUrlCache();
+    if (m_cellHeightPx <= 0 || m_cellWidthPx <= 0)
+        return {};
+    const int row = static_cast<int>(pos.y()) / m_cellHeightPx;
+    const int col = static_cast<int>(pos.x()) / m_cellWidthPx;
+    if (row < 0 || row >= m_urlSpans.size())
+        return {};
+    for (const UrlSpan& span : m_urlSpans.at(row))
+    {
+        if (col >= span.startCol && col <= span.endCol)
+        {
+            if (hoverRow)
+                *hoverRow = row;
+            if (startCol)
+                *startCol = span.startCol;
+            if (endCol)
+                *endCol = span.endCol;
+            return span.url;
+        }
+    }
+    return {};
 }
