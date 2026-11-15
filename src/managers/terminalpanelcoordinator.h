@@ -45,6 +45,13 @@ public:
     explicit TerminalPanelCoordinator(ActionManager* actionManager, PluginManager* pluginManager, QTabWidget* tabWidget, QMainWindow* uiParent,
                                       QObject* parent = nullptr);
 
+    // Re-point the tab widget used for terminal placement (when SplitView
+    // promotes a new primary pane).
+    void setTabWidget(QTabWidget* tabWidget)
+    {
+        m_tabWidget = tabWidget;
+    }
+
     /** @brief Find the plugin's terminal panel and wire it up. Safe to call again after plugin re-enable. */
     void attach();
 

@@ -165,6 +165,7 @@ public:
     void clearHighlights();
     void applyDiagnostics(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
     void clearDiagnostics();
+    void clearDiagnosticIndicators();
     void showCompletion(const lsp::CompletionList& completions);
     void requestCodeActions();
     void expandSelection();

@@ -28,6 +28,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QStringConverter>
+#include <QStringEncoder>
 #include <QTextStream>
 
 namespace
@@ -60,19 +61,27 @@ void FileManager::setRemoteFileService(RemoteFileService* service)
 
 void FileManager::completeRemoteSave(const QString& url, bool ok, const QString& errorDetail)
 {
-    QList<QPointer<CodeEditor>> editors;
+    QList<PendingRemoteSave> pending;
     if (auto it = m_pendingRemoteSaves.find(url); it != m_pendingRemoteSaves.end())
     {
-        editors = *it;
+        pending = *it;
         m_pendingRemoteSaves.erase(it);
     }
 
     if (ok)
     {
-        for (const auto& editor : editors)
+        for (const auto& save : pending)
         {
-            if (editor)
-                editor->setModified(false);
+            if (!save.editor)
+                continue;
+            // The user may have edited the buffer while the upload was in
+            // flight. Only clear the modified flag when what is on disk
+            // matches what the editor shows; otherwise keep the unsaved
+            // state so the edits are not silently lost on close.
+            if (save.editor->text() == save.text)
+                save.editor->setModified(false);
+            else
+                Logger::instance().warning(QStringLiteral("Remote save completed but the editor has unsaved edits: %1").arg(url));
         }
         Logger::instance().info(QString("Saved remote file: %1").arg(url));
         emit fileSaved(url);
@@ -209,6 +218,17 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
 
     QString useEncoding = encoding.isEmpty() ? editor->encoding() : encoding;
 
+    // Fail fast instead of writing '?' for unrepresentable characters.
+    QStringEncoder probe(encodingFromName(useEncoding));
+    (void) probe.encode(editor->text());
+    if (probe.hasError())
+    {
+        m_lastError = tr("The text contains characters that cannot be represented in %1").arg(useEncoding);
+        Logger::instance().error(m_lastError);
+        emit error(m_lastError);
+        return false;
+    }
+
     QByteArray bom = bomForEncoding(useEncoding);
     if (!bom.isEmpty())
     {
@@ -257,6 +277,17 @@ bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, co
 
     QString useEncoding = encoding.isEmpty() ? editor->encoding() : encoding;
 
+    // Fail fast instead of uploading '?' for unrepresentable characters.
+    QStringEncoder probe(encodingFromName(useEncoding));
+    (void) probe.encode(editor->text());
+    if (probe.hasError())
+    {
+        m_lastError = tr("The text contains characters that cannot be represented in %1").arg(useEncoding);
+        Logger::instance().error(m_lastError);
+        emit error(m_lastError);
+        return false;
+    }
+
     // Encode the editor text into a byte buffer. Remote files are written
     // without a BOM.
     QBuffer buffer;
@@ -278,7 +309,7 @@ bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, co
     // The transfer runs asynchronously; completion is reported via
     // remoteSaveFinished(). Remote (ssh://) paths have no local disk mtime, so
     // setDiskModifiedAt() is not called — same rationale as before.
-    m_pendingRemoteSaves[fileName].append(editor);
+    m_pendingRemoteSaves[fileName].append({editor, editor->text()});
     Logger::instance().info(QString("Uploading remote file: %1").arg(fileName));
     return true;
 }

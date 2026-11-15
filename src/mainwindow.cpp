@@ -209,6 +209,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                                       m_tabManager->updateCloseButton(index, pane, SettingsManager::instance().closeButtonMode());
                                       m_tabManager->updateTabBarVisibility();
                                   });
+    m_splitView->setTabClosedCallback([this](QTabWidget* pane, int index) { return m_tabManager->closeEditorInPane(pane, index); });
+    // When the primary pane is removed, SplitView promotes a new one; re-point
+    // every cached owner of the primary pane pointer.
+    connect(m_splitView, &SplitView::primaryPaneChanged, this,
+            [this](QTabWidget* pane)
+            {
+                m_tabWidget = pane;
+                m_tabWidget->setDocumentMode(true);
+                if (auto* bar = m_tabWidget->tabBar())
+                    bar->setExpanding(false);
+                m_tabManager->setPrimaryWidget(pane);
+                if (m_terminalCoordinator)
+                    m_terminalCoordinator->setTabWidget(pane);
+            });
 
     connect(m_splitView, &SplitView::activeTabWidgetChanged, this,
             [this](QTabWidget* tw)
@@ -225,6 +239,22 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     connect(m_splitView, &SplitView::tabDetachedToWindow, this,
             [this](const QString& filePath, QTabWidget* pane, int index)
             {
+                // Pinned tabs stay in this window: detaching would silently
+                // duplicate the pinned file into a second window.
+                if (QWidget* w = pane->widget(index))
+                {
+                    if (auto* editor = w->findChild<CodeEditor*>())
+                    {
+                        if (m_tabManager->isTabPinned(editor))
+                        {
+                            if (filePath.size() > 1 && filePath[0] == QChar(1))
+                                QFile::remove(filePath.mid(1));
+                            QMessageBox::information(this, tr("Pinned Tab"),
+                                                     tr("This tab is pinned. Unpin it before moving it to another window."));
+                            return;
+                        }
+                    }
+                }
                 bool launched = false;
 #ifdef Q_OS_MACOS
                 QStringList args;

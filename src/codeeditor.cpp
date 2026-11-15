@@ -925,10 +925,11 @@ void CodeEditor::toggleComment()
         {
             modified.insert(firstNonSpace, cs->lineComment);
         }
-        else
+        else if (ln.mid(firstNonSpace).startsWith(cs->lineComment))
         {
             modified.remove(firstNonSpace, commentLen);
         }
+        // Lines that are not commented must keep `commentLen` untouched.
         result << modified;
     }
 
@@ -1308,10 +1309,12 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
 {
     Q_UNUSED(uri)
 
+    // Clear the indicators only. Assigning the stored list before clearing
+    // the indicators used to wipe it again inside clearDiagnostics(), which
+    // left m_lspDiagnostics empty (broken scrollbar ticks) and emitted
+    // diagnosticsChanged twice.
+    clearDiagnosticIndicators();
     m_lspDiagnostics = diagnostics;
-
-    // Clear existing diagnostics
-    clearDiagnostics();
 
     // Apply indicators and markers for each diagnostic
     for (const auto& d : diagnostics)
@@ -1346,7 +1349,7 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
     emit diagnosticsChanged(uri, diagnostics);
 }
 
-void CodeEditor::clearDiagnostics()
+void CodeEditor::clearDiagnosticIndicators()
 {
     int len = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_GETLENGTH));
     if (len > 0)
@@ -1359,6 +1362,11 @@ void CodeEditor::clearDiagnostics()
             SendScintilla(QsciScintillaBase::SCI_INDICATORCLEARRANGE, static_cast<uintptr_t>(0), static_cast<uintptr_t>(len));
         }
     }
+}
+
+void CodeEditor::clearDiagnostics()
+{
+    clearDiagnosticIndicators();
 
     if (!m_lspDiagnostics.isEmpty())
     {

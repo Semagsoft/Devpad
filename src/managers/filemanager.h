@@ -79,8 +79,15 @@ private:
     RemoteFileService* m_remoteFileService = nullptr;
     // Editors with a remote save in flight, keyed by the target URL. Multiple
     // saves of the same file (e.g. re-saves) are all accounted for on
-    // completion.
-    QHash<QString, QList<QPointer<CodeEditor>>> m_pendingRemoteSaves;
+    // completion. The text captured at upload start is kept so the modified
+    // flag is only cleared when the editor still matches the uploaded bytes
+    // (i.e. the user did not type during the upload).
+    struct PendingRemoteSave
+    {
+        QPointer<CodeEditor> editor;
+        QString text;
+    };
+    QHash<QString, QList<PendingRemoteSave>> m_pendingRemoteSaves;
     QMetaObject::Connection m_remoteUploadedConn;
     QMetaObject::Connection m_remoteFailedConn;
 };

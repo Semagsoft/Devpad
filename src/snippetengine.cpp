@@ -361,10 +361,15 @@ void SnippetEngine::applyMirrorEdit(int changedIdx, const QString& after, const 
         QString sibText = m_editor->text(info.pos, info.pos + info.length);
         if (sibText != before)
             continue;
-        const int start = info.pos + prefix;
+        // `info.pos` is a byte offset into the Scintilla document, but the
+        // mirror snapshot/after strings are UTF-16 code-unit based, so the
+        // start position and the delete length must be converted.
+        const int prefixBytes = utf8ByteSizeForCodeUnitPrefix(before, prefix);
+        const int deleteLenBytes = utf8ByteSizeForCodeUnitPrefix(before, prefix + deleteLen) - prefixBytes;
+        const int start = info.pos + prefixBytes;
         int l1 = 0, c1 = 0, l2 = 0, c2 = 0;
         m_editor->lineIndexFromPosition(start, &l1, &c1);
-        m_editor->lineIndexFromPosition(start + deleteLen, &l2, &c2);
+        m_editor->lineIndexFromPosition(start + deleteLenBytes, &l2, &c2);
         m_editor->setSelection(l1, c1, l2, c2);
         // Same public path as user edits; nested edits from inside the
         // SCN_MODIFIED notification would be silently dropped, but we run

@@ -56,7 +56,7 @@ void UpdateDialog::showUpdateAvailable(QWidget* parent, const QString& latestVer
 
 bool UpdateDialog::showCheckFailed(QWidget* parent, const QString& friendlyMessage, const QString& details)
 {
-    UpdateDialog dialog(Mode::CheckFailed, friendlyMessage, details, QString(), parent);
+    UpdateDialog dialog(Mode::CheckFailed, friendlyMessage, QString(), details, parent);
     dialog.exec();
     return dialog.m_retryRequested;
 }

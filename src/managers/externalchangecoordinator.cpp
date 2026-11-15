@@ -69,6 +69,12 @@ void ExternalChangeCoordinator::handleFileModifiedExternally(const QString& file
     if (result != QMessageBox::Yes)
         return;
 
+    // The modal prompt runs a nested event loop; the editor may have been
+    // closed (or its tab re-created) while the dialog was open. QPointer is
+    // nulled in that case — do not use it after the dialog.
+    if (!editor)
+        return;
+
     // Preserve bookmarks and encoding across the reload. Do NOT close the
     // editor here: the reload path reloads in place, which also works for
     // pinned tabs (close-and-reopen would create a duplicate tab).

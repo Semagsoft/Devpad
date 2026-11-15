@@ -120,8 +120,9 @@ CompletionItem CompletionItem::fromJson(const QJsonObject& obj)
                                           "Interface", "Module", "Property", "Unit",         "Value",  "Enum",       "Keyword",
                                           "Snippet",   "Color",  "File",     "Reference",    "Folder", "EnumMember", "Constant",
                                           "Struct",    "Event",  "Operator", "TypeParameter"};
-    if (k >= 0 && k <= 25)
-        item.kind = QString::fromLatin1(kindNames[k]);
+    // LSP CompletionItemKind is 1-based: Text == 1 ... TypeParameter == 25.
+    if (k >= 1 && k <= static_cast<int>(kindNames.size()))
+        item.kind = QString::fromLatin1(kindNames[static_cast<size_t>(k - 1)]);
     item.detail = obj["detail"].toString();
     item.documentation = obj["documentation"].toString();
     if (obj.contains("textEdit"))

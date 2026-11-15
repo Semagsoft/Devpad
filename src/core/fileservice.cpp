@@ -12,6 +12,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QStringConverter>
+#include <QStringEncoder>
 #include <QTextStream>
 
 FileLoadResult FileService::load(const QString& filePath, const QString& requestedEncoding)
@@ -78,6 +79,23 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
 
 bool FileService::save(const QString& filePath, const QString& text, const QString& encoding, QString* error)
 {
+    QString useEncoding = encoding.isEmpty() ? QStringLiteral("UTF-8") : encoding;
+    QStringConverter::Encoding enc = encodingFromName(useEncoding);
+
+    // Fail fast when the text cannot be represented in the target encoding:
+    // QTextStream maps unrepresentable characters to '?' with no error,
+    // which silently destroys user data.
+    QStringEncoder probe(enc);
+    (void) probe.encode(text);
+    if (probe.hasError())
+    {
+        QString msg = QStringLiteral("The text contains characters that cannot be represented in %1").arg(useEncoding);
+        Logger::instance().error(msg);
+        if (error)
+            *error = msg;
+        return false;
+    }
+
     QSaveFile file(filePath);
     if (!file.open(QIODevice::WriteOnly))
     {
@@ -87,9 +105,6 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
             *error = msg;
         return false;
     }
-
-    QString useEncoding = encoding.isEmpty() ? QStringLiteral("UTF-8") : encoding;
-    QStringConverter::Encoding enc = encodingFromName(useEncoding);
 
     QByteArray bom = bomForEncoding(useEncoding);
     if (!bom.isEmpty())

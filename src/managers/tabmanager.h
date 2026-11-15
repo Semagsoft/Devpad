@@ -56,6 +56,14 @@ public:
     CodeEditor* createEditor();
     void addEditor(CodeEditor* editor, const QString& title);
     bool closeEditor(int index);
+    // Same as closeEditor() but addresses a pane-local index (used by
+    // SplitView when a tab is torn off into a new window).
+    bool closeEditorInPane(QTabWidget* pane, int localIndex);
+
+    // Re-anchor the primary pane (SplitView promotes a new primary when the
+    // original primary pane is removed). Repoints internal references and
+    // drops the old primary from the pane list.
+    void setPrimaryWidget(QTabWidget* pane);
 
     void addPane(QTabWidget* pane);
     void removePane(QTabWidget* pane);
