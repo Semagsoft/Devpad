@@ -58,7 +58,7 @@ class WindowsFrameBridge;
 
 namespace lsp
 {
-class LspServerManager;
+class ILspService;
 } // namespace lsp
 
 namespace dap
@@ -169,9 +169,10 @@ private:
     void applyInitialSettings();
     void setupUI();
     void wireActions();
+    void wireEditor(CodeEditor* editor);
+    lsp::ILspService* lspService() const;
     void connectPanelSignals();
     void setupEditorConnections();
-    void setupLspConnections();
     void applyCloseButtonPosition();
     void applyTabBarPosition();
     void handleQuitRequest();
@@ -217,7 +218,7 @@ private:
     ExternalToolManager* m_externalToolManager = nullptr;
     RemoteFileService* m_remoteFileService = nullptr;
     UpdateChecker* m_updateChecker = nullptr;
-    lsp::LspServerManager* m_lspServerManager = nullptr;
+    class LspHostCoordinator* m_lspCoordinator = nullptr;
     PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
     ReferencesPanel* m_referencesPanel = nullptr;

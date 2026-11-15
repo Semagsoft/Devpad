@@ -47,6 +47,8 @@ public:
     CodeEditor* currentEditor() const;
     CodeEditor* editorAt(int index) const;
     CodeEditor* findEditorByFileName(const QString& fileName) const;
+    /** Every open editor across all panes. */
+    QList<CodeEditor*> editors() const;
     int indexOf(CodeEditor* editor) const;
     int count() const;
     int currentIndex() const;
@@ -118,7 +120,7 @@ signals:
 
 private:
     QList<QTabWidget*> m_panes;
-    QList<ClosedTab> m_closedTabs;  // stack, most recent at back; capped at 20
+    QList<ClosedTab> m_closedTabs; // stack, most recent at back; capped at 20
     QTabWidget* m_primaryWidget;
     QTabWidget* m_activePane;
     // QPointer auto-nulls if an editor is deleted outside normal close path

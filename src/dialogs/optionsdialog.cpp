@@ -21,7 +21,7 @@
 #include "customthemedialog.h"
 #include "defaultsyntax.h"
 #include "encodingutils.h"
-#include "lsp/lspservermanager.h"
+#include "lsp/lspdefaults.h"
 #include "mainwindow.h"
 #include "managers/actionmanager.h"
 #include "settingsmanager.h"
@@ -246,7 +246,7 @@ void OptionsDialog::setupGeneralTab()
     defaultsLayout->addRow(tr("Default encoding:"), defaultEncodingComboBox);
     mainLayout->addWidget(defaultsGroup);
 
-    QGroupBox* lspGeneralGroup = new QGroupBox(tr("Language Server Protocol"), content);
+    lspGeneralGroup = new QGroupBox(tr("Language Server Protocol"), content);
     QVBoxLayout* lspGeneralLayout = new QVBoxLayout(lspGeneralGroup);
     lspEnabledCheckBox = new QCheckBox(tr("Enable LSP (Language Server Protocol)"), lspGeneralGroup);
     lspGeneralLayout->addWidget(lspEnabledCheckBox);
@@ -259,9 +259,9 @@ void OptionsDialog::setupGeneralTab()
     lspGeneralLayout->addLayout(thresholdLayout);
     mainLayout->addWidget(lspGeneralGroup);
 
-    QGroupBox* serverGroup = new QGroupBox(tr("Server Commands"), content);
-    QVBoxLayout* serverLayout = new QVBoxLayout(serverGroup);
-    lspServerTable = new QTableWidget(serverGroup);
+    lspServerGroup = new QGroupBox(tr("Server Commands"), content);
+    QVBoxLayout* serverLayout = new QVBoxLayout(lspServerGroup);
+    lspServerTable = new QTableWidget(lspServerGroup);
     lspServerTable->setColumnCount(3);
     lspServerTable->setHorizontalHeaderLabels({tr("Language"), tr("Command"), tr("Arguments")});
     lspServerTable->horizontalHeader()->setStretchLastSection(true);
@@ -270,7 +270,21 @@ void OptionsDialog::setupGeneralTab()
     lspServerTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     lspServerTable->setSelectionMode(QAbstractItemView::SingleSelection);
     serverLayout->addWidget(lspServerTable);
-    mainLayout->addWidget(serverGroup);
+    mainLayout->addWidget(lspServerGroup);
+
+    // Hide the LSP groups when the LSP plugin is disabled or absent.
+    {
+        bool lspAvailable = false;
+#if defined(BUILD_PLUGINS)
+        if (auto* mw = qobject_cast<MainWindow*>(parent()))
+        {
+            if (auto* pm = mw->pluginManager())
+                lspAvailable = pm->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"));
+        }
+#endif
+        lspGeneralGroup->setVisible(lspAvailable);
+        lspServerGroup->setVisible(lspAvailable);
+    }
 
     mainLayout->addStretch();
 
@@ -1085,7 +1099,7 @@ void OptionsDialog::loadSettings()
 #endif
 
     // Populate LSP server table with default + custom entries
-    auto defaultCmds = lsp::LspServerManager::defaultServerCommands();
+    auto defaultCmds = lsp::defaultServerCommands();
     QSet<QString> seen;
     lspServerTable->setRowCount(0);
     for (auto it = defaultCmds.constBegin(); it != defaultCmds.constEnd(); ++it)
@@ -1098,7 +1112,7 @@ void OptionsDialog::loadSettings()
         if (cmd.isEmpty())
             cmd = it.value();
         if (args.isEmpty())
-            args = lsp::LspServerManager::defaultServerArgs(lang);
+            args = lsp::defaultServerArgs(lang);
         lspServerTable->setItem(row, 0, new QTableWidgetItem(lang));
         lspServerTable->setItem(row, 1, new QTableWidgetItem(cmd));
         lspServerTable->setItem(row, 2, new QTableWidgetItem(args.join(' ')));
@@ -1180,12 +1194,12 @@ void OptionsDialog::saveSettings()
         QStringList args;
         if (argsItem && !argsItem->text().trimmed().isEmpty())
             args = argsItem->text().trimmed().split(' ', Qt::SkipEmptyParts);
-        auto defaultCmds = lsp::LspServerManager::defaultServerCommands();
+        auto defaultCmds = lsp::defaultServerCommands();
         if (cmd != defaultCmds.value(lang))
         {
             SettingsManager::instance().setLspServerCommand(lang, cmd);
         }
-        auto defaultArgs = lsp::LspServerManager::defaultServerArgs(lang);
+        auto defaultArgs = lsp::defaultServerArgs(lang);
         if (args != defaultArgs)
         {
             SettingsManager::instance().setLspServerArgs(lang, args);

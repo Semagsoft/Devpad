@@ -19,8 +19,8 @@
 #ifndef LSPSERVERMANAGER_H
 #define LSPSERVERMANAGER_H
 
+#include "lsp/lsptypes.h"
 #include "lspclient.h"
-#include "lsptypes.h"
 
 #include <QHash>
 #include <QMap>

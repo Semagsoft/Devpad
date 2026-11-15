@@ -19,13 +19,13 @@
 
 #include "plugins/pluginmanager.h"
 
-#include <gtest/gtest.h>
-
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLibrary>
 #include <QString>
+
+#include <gtest/gtest.h>
 
 namespace
 {
@@ -86,6 +86,40 @@ TEST(PluginApi, BuiltTerminalPluginReportsSupportedApiVersion)
     IPlugin* plugin = factory();
     ASSERT_NE(plugin, nullptr);
     EXPECT_EQ(PluginManager::HostApiVersion, plugin->info().apiVersion);
+    delete plugin;
+    library.unload();
+#else
+    GTEST_SKIP() << "DEVPAD_BUILD_DIR/DEVPAD_BUILD_PLUGINS not defined";
+#endif
+}
+
+TEST(PluginApi, LspManifestDeclaresSupportedApiVersion)
+{
+#ifdef DEVPAD_SOURCE_DIR
+    bool ok = false;
+    const qint64 apiVersion = readApiVersion(QStringLiteral(DEVPAD_SOURCE_DIR "/src/plugins/lsp_plugin/lsp_plugin.plugin.json"), &ok);
+    ASSERT_TRUE(ok) << "Failed to read lsp_plugin.plugin.json";
+    EXPECT_EQ(PluginManager::HostApiVersion, static_cast<int>(apiVersion));
+#else
+    GTEST_SKIP() << "DEVPAD_SOURCE_DIR not defined";
+#endif
+}
+
+TEST(PluginApi, BuiltLspPluginReportsSupportedApiVersion)
+{
+#if defined(DEVPAD_BUILD_DIR) && defined(DEVPAD_BUILD_PLUGINS)
+    const QString libraryPath = QStringLiteral(DEVPAD_BUILD_DIR "/plugins/liblsp_plugin.so");
+    QLibrary library(libraryPath);
+    ASSERT_TRUE(library.load()) << "Failed to load " << libraryPath.toStdString() << ": " << library.errorString().toStdString();
+
+    using FactoryFn = IPlugin* (*)();
+    auto* factory = reinterpret_cast<FactoryFn>(library.resolve("devpadCreatePlugin"));
+    ASSERT_NE(factory, nullptr);
+
+    IPlugin* plugin = factory();
+    ASSERT_NE(plugin, nullptr);
+    EXPECT_EQ(PluginManager::HostApiVersion, plugin->info().apiVersion);
+    EXPECT_EQ(QStringLiteral("org.semagsoft.devpad.lsp"), plugin->info().id);
     delete plugin;
     library.unload();
 #else

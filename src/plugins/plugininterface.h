@@ -37,11 +37,6 @@ class QWidget;
 
 class CodeEditor;
 
-namespace lsp
-{
-class LspServerManager;
-}
-
 /**
  * IPluginHost is the host-side surface exposed to plugins. Plugins receive a
  * PluginHost* in IPlugin::initialize() and use it to register actions, menu
@@ -63,6 +58,8 @@ public:
     virtual QObject* settingsManager() const = 0;
     virtual QObject* editorController() const = 0;
     virtual QObject* tabManager() const = 0;
+    // Deprecated: kept to preserve the vtable layout. The LSP manager is owned
+    // by the LSP plugin; use the "lsp_service" object (lspinterface.h) instead.
     virtual QObject* lspServerManager() const = 0;
 
     // ── Actions / commands ───────────────────────────────────────

@@ -1,5 +1,5 @@
-#include "lsp/lspjsonrpc.h"
 #include "lsp/lsptypes.h"
+#include "plugins/lsp_plugin/lspjsonrpc.h"
 
 #include <QJsonArray>
 #include <QSignalSpy>
@@ -324,4 +324,3 @@ TEST(LspJsonRpcTest, OversizedHeaderIsDroppedAndStreamResyncs)
     ASSERT_EQ(spy.count(), 1);
     EXPECT_EQ(spy[0][0].toString(), QStringLiteral("test/resync"));
 }
-

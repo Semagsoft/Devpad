@@ -1,7 +1,7 @@
 #ifndef DAPCLIENT_H
 #define DAPCLIENT_H
 
-#include "../lsp/lspjsonrpc.h"
+#include "../lsp_plugin/lspjsonrpc.h"
 #include "daptypes.h"
 
 #include <QObject>

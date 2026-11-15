@@ -39,11 +39,6 @@ class SettingsManager;
 class TabManager;
 class FileWatcherManager;
 
-namespace lsp
-{
-class LspServerManager;
-}
-
 /**
  * Concrete host surface exposed to plugins. Wraps the MainWindow-owned managers
  * and forwards editor/file lifecycle signals so plugins (via PluginManager) can
@@ -148,7 +143,6 @@ private:
     QPointer<SettingsManager> m_settingsManager;
     QPointer<EditorController> m_editorController;
     QPointer<TabManager> m_tabManager;
-    QPointer<lsp::LspServerManager> m_lspServerManager;
     QPointer<FileWatcherManager> m_fileWatcherManager;
 
     // Plugin-registered actions keyed by id so they can be removed on unload.

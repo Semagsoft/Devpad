@@ -2,6 +2,25 @@
 
 ## [1.10] - WIP
 
+What's new in Devpad 1.10:
+
+- LSP support now ships as a first-party runtime-loaded plugin
+  (org.semagsoft.devpad.lsp). Host code interacts with it exclusively through
+  the interfaces in src/plugins/lspinterface.h (IEditorLspBridge /
+  ILspEditorSession / ILspService). The plugin can be disabled at runtime in
+  Options → Plugins; all LSP UI (Language Server menu, Diagnostics/References
+  panels, options page, status bar buttons) hides automatically and sessions
+  detach/reattach live. SHA: TBD
+
+Bug fixes for version 1.10:
+
+- Fix shell-open "New window" mode spawning an unbounded chain of detached
+  Devpad instances; spawned instances now open the file locally instead of
+  forking another copy. SHA: TBD
+- Startup-restored editors were never wired for editor events (status bar,
+  find/go-to/snippet actions, LSP): they are now wired identically to editors
+  opened after startup. SHA: TBD
+
 ## [1.09] - 2026-11-09
 
 What's new in Devpad 1.09:

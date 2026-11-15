@@ -4,6 +4,7 @@
 #include "lsp/lsptypes.h"
 #include "mainwindow.h"
 #include "managers/actionmanager.h"
+#include "plugins/lspinterface.h"
 #include "plugins/pluginhost.h"
 #include "plugins/pluginmanager.h"
 #include "settingsmanager.h"
@@ -12,6 +13,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDockWidget>
 #include <QEvent>
 #include <QFile>
@@ -20,13 +22,11 @@
 #include <QMessageBox>
 #include <QSignalSpy>
 #include <QTabWidget>
-#include <cstdio>
-#include <QCoreApplication>
 #include <QTemporaryDir>
-#include <QToolButton>
 #include <QTest>
 #include <QTextStream>
 #include <QTimer>
+#include <QToolButton>
 #include <cstdio>
 #include <cstdlib>
 
@@ -118,10 +118,7 @@ protected:
         for (int i = 0; i < reentries; ++i)
         {
             QTimer::singleShot(0, &window, [&window, filePath]()
-                               {
-                                   QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection,
-                                                             Q_ARG(QString, filePath));
-                               });
+                               { QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath)); });
         }
 
         QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath));
@@ -158,6 +155,62 @@ TEST_F(MainWindowTest, TerminalPanelHiddenInTabModeWhenDisabled)
             EXPECT_EQ(tabWidget->indexOf(terminal), -1);
         }
     }
+}
+
+TEST_F(MainWindowTest, OpenCppFileAttachesLspSession)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    MainWindow window;
+    auto* host = window.pluginManager() ? window.pluginManager()->host() : nullptr;
+    auto* service = host ? qobject_cast<lsp::ILspService*>(host->object(QString::fromLatin1(lsp::LspServiceObjectId))) : nullptr;
+    if (!service)
+        GTEST_SKIP() << "LSP plugin not loaded in this build";
+
+    QString filePath = testFilePath("lsp_session.cpp");
+    createFile(filePath, "int main() { return 0; }");
+
+    window.openFileFromPath(filePath);
+
+    auto* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    ASSERT_NE(editor->lspSession(), nullptr) << "editor must have an LSP session attached after open";
+    EXPECT_TRUE(editor->lspSession()->isActive());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, DisablingLspPluginDetachesAndReattachWorks)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    MainWindow window;
+    ASSERT_TRUE(window.pluginManager() != nullptr);
+    auto* host = window.pluginManager()->host();
+    if (qobject_cast<lsp::ILspService*>(host->object(QString::fromLatin1(lsp::LspServiceObjectId))) == nullptr)
+        GTEST_SKIP() << "LSP plugin not loaded in this build";
+
+    QString filePath = testFilePath("lsp_toggle.cpp");
+    createFile(filePath, "int main() { return 0; }");
+
+    window.openFileFromPath(filePath);
+    auto* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    ASSERT_NE(editor->lspSession(), nullptr);
+
+    // Disable: sessions must die and the editor must silently no-op.
+    window.pluginManager()->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"), false);
+    EXPECT_TRUE(window.pluginManager()->isLoaded(QStringLiteral("org.semagsoft.devpad.lsp")) == false);
+    EXPECT_EQ(nullptr, editor->lspSession());
+    EXPECT_FALSE(editor->lspActive());
+
+    // Re-enable: a fresh session must be attached for the open editor.
+    window.pluginManager()->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"), true);
+    ASSERT_TRUE(window.pluginManager()->isLoaded(QStringLiteral("org.semagsoft.devpad.lsp")));
+    ASSERT_NE(editor->lspSession(), nullptr) << "re-enabling the plugin must re-attach sessions";
+    EXPECT_TRUE(editor->lspSession()->isActive());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
 }
 
 TEST_F(MainWindowTest, OpenFileFromPathOpensTab)
@@ -552,18 +605,14 @@ TEST_F(MainWindowTest, DebugDockRemovedOnPluginDisable)
     auto* manager = window.pluginManager();
     ASSERT_NE(manager, nullptr);
 
-    fprintf(stderr, "DBG before: enabled=%d loaded=%d plugin=%p\n",
-        manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
-        manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")),
-        (void*)manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")));
+    fprintf(stderr, "DBG before: enabled=%d loaded=%d plugin=%p\n", manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
+            manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")), (void*)manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")));
 
     manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), false);
 
-    fprintf(stderr, "DBG after: enabled=%d loaded=%d plugin=%p panel=%p\n",
-        manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
-        manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")),
-        (void*)manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")),
-        (void*)manager->host()->panel(QStringLiteral("debug")));
+    fprintf(stderr, "DBG after: enabled=%d loaded=%d plugin=%p panel=%p\n", manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
+            manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")), (void*)manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")),
+            (void*)manager->host()->panel(QStringLiteral("debug")));
 }
 
 TEST_F(MainWindowTest, DapPluginReenableRestoresDebugUi)
@@ -637,15 +686,13 @@ TEST_F(MainWindowTest, TerminalToggleAddsRemovesTab)
     SettingsManager::instance().setShowTerminalPanel(false);
     EXPECT_EQ(tabWidget->indexOf(dock), -1);
 
-    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection,
-        Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
+    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection, Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
     QCoreApplication::processEvents();
     EXPECT_EQ(tabWidget->indexOf(dock), 0);
     EXPECT_TRUE(SettingsManager::instance().showTerminalPanel());
 
     // Toggle again -> removed from tab
-    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection,
-        Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
+    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection, Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
     QCoreApplication::processEvents();
     EXPECT_EQ(tabWidget->indexOf(dock), -1);
     EXPECT_FALSE(SettingsManager::instance().showTerminalPanel());
@@ -667,16 +714,14 @@ TEST_F(MainWindowTest, TerminalPositionSwitchingTabToDock)
     // Add as tab first
     SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Tab);
     SettingsManager::instance().setShowTerminalPanel(true);
-    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection,
-        Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
+    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection, Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
     QCoreApplication::processEvents();
     EXPECT_EQ(tabWidget->indexOf(dock), 0);
 
     // Switch to Bottom position -> removed from tab, docked
     SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Bottom);
-    QMetaObject::invokeMethod(dock, "applyPosition", Qt::DirectConnection,
-        Q_ARG(int, static_cast<int>(TerminalPanelPosition::Bottom)),
-        Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
+    QMetaObject::invokeMethod(dock, "applyPosition", Qt::DirectConnection, Q_ARG(int, static_cast<int>(TerminalPanelPosition::Bottom)),
+                              Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
     QCoreApplication::processEvents();
     EXPECT_EQ(tabWidget->indexOf(dock), -1);
 }
@@ -699,11 +744,9 @@ TEST_F(MainWindowTest, DebugSessionClearedWhenPluginDisabled)
     window.openFileFromPath(filePath);
     ASSERT_NE(window.findChild<CodeEditor*>(), nullptr);
 
-    bool invoked = QMetaObject::invokeMethod(object, "startDebugging", Qt::DirectConnection,
-        Q_ARG(QString, lsp::uriFromPath(filePath)),
-        Q_ARG(QString, QStringLiteral("unknownlang")),
-        Q_ARG(QString, QString()),
-        Q_ARG(QStringList, QStringList()));
+    bool invoked =
+        QMetaObject::invokeMethod(object, "startDebugging", Qt::DirectConnection, Q_ARG(QString, lsp::uriFromPath(filePath)),
+                                  Q_ARG(QString, QStringLiteral("unknownlang")), Q_ARG(QString, QString()), Q_ARG(QStringList, QStringList()));
     EXPECT_TRUE(invoked);
 
     QCoreApplication::processEvents();

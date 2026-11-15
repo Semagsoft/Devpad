@@ -1,7 +1,7 @@
 #include "findsymbolsdialog.h"
 
-#include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
+#include "plugins/lspinterface.h"
 
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -17,7 +17,7 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
-FindSymbolsDialog::FindSymbolsDialog(lsp::LspServerManager* lspManager, QWidget* parent) : QDialog(parent), m_lspManager(lspManager)
+FindSymbolsDialog::FindSymbolsDialog(lsp::ILspService* lspService, QWidget* parent) : QDialog(parent), m_lspService(lspService)
 {
     setWindowTitle(tr("Find Symbol"));
     setMinimumSize(400, 300);
@@ -29,7 +29,8 @@ FindSymbolsDialog::FindSymbolsDialog(lsp::LspServerManager* lspManager, QWidget*
     m_debounceTimer->setInterval(300);
     connect(m_debounceTimer, &QTimer::timeout, this, &FindSymbolsDialog::performSearch);
 
-    connect(m_lspManager, &lsp::LspServerManager::workspaceSymbolsReady, this, &FindSymbolsDialog::onSymbolsReady);
+    if (m_lspService)
+        connect(m_lspService, &lsp::ILspService::workspaceSymbolsReady, this, &FindSymbolsDialog::onSymbolsReady);
 }
 
 FindSymbolsDialog::~FindSymbolsDialog() = default;
@@ -97,13 +98,11 @@ void FindSymbolsDialog::performSearch()
     m_statusLabel->setText(tr("Searching..."));
     m_model->removeRows(0, m_model->rowCount());
 
-    // Search across all languages
-    for (const QString& lang : m_lspManager->languages())
-    {
-        auto* client = m_lspManager->clientForLanguage(lang);
-        if (client)
-            client->requestWorkspaceSymbols(query);
-    }
+    if (!m_lspService)
+        return;
+
+    // The service fans the request out to every running language server.
+    m_lspService->requestWorkspaceSymbols(query);
 }
 
 void FindSymbolsDialog::onSymbolsReady(const QString& query, const QJsonArray& symbols)

@@ -60,11 +60,11 @@ void DialogCoordinator::findInFiles()
     m_findInFilesDialog->activateWindow();
 }
 
-void DialogCoordinator::findSymbols(lsp::LspServerManager* lspManager)
+void DialogCoordinator::findSymbols(lsp::ILspService* lspService)
 {
     if (!m_findSymbolsDialog)
     {
-        m_findSymbolsDialog = new FindSymbolsDialog(lspManager, parentWidget());
+        m_findSymbolsDialog = new FindSymbolsDialog(lspService, parentWidget());
         connect(m_findSymbolsDialog, &FindSymbolsDialog::navigateToSymbol, this, &DialogCoordinator::navigateToResult);
         connect(m_findSymbolsDialog, &QDialog::finished, this,
                 [this]()

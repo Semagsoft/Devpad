@@ -19,14 +19,15 @@
 #ifndef CODEEDITOR_H
 #define CODEEDITOR_H
 
-#include "lsp/lspeditorintegration.h"
 #include "lsp/lsptypes.h"
+#include "plugins/lspinterface.h"
 #include "settingsmanager.h"
 #include "snippet.h"
 #include "snippetengine.h"
 #include "theme.h"
 
 #include <QDateTime>
+#include <QPointer>
 #include <QScopedPointer>
 #include <QTimer>
 
@@ -148,10 +149,9 @@ public:
         return m_snippetEngine;
     }
 
-    // LSP support
-    void setLspServerManager(lsp::LspServerManager* manager);
-    void setLspLanguage(const QString& language);
-    lsp::LspServerManager* lspServerManager() const;
+    // LSP support (served by the LSP plugin via its session interface)
+    void setLspSession(lsp::ILspEditorSession* session);
+    lsp::ILspEditorSession* lspSession() const;
     bool lspActive() const;
     void goToDefinition();
     void goToTypeDefinition();
@@ -174,11 +174,7 @@ public:
     void sendDidOpen();
     int documentVersion() const;
     void setDocumentVersion(int v);
-
-    lsp::LspEditorIntegration* lspIntegration() const
-    {
-        return m_lspIntegration;
-    }
+    int wordCharCountBeforeCursor() const;
 
     QObject* dapIntegration() const
     {
@@ -201,7 +197,6 @@ public:
     void setLinkedEditingRanges(const QJsonObject& result);
     void clearLinkedRanges();
     void applySemanticTokens(const QString& uri, const QJsonArray& tokenData);
-    void setSelectionRanges(const QJsonArray& ranges);
 
 signals:
     void fileDropped(const QString& filePath);
@@ -266,8 +261,12 @@ private:
 
     SnippetEngine* m_snippetEngine = nullptr;
 
-    // LSP integration
-    lsp::LspEditorIntegration* m_lspIntegration = nullptr;
+    // LSP support (session owned by the LSP plugin)
+    QPointer<lsp::ILspEditorSession> m_lspSession;
+    QList<lsp::CompletionItem> m_lspCompletionItems;
+    QList<lsp::Range> m_linkedRanges;
+    bool m_isApplyingLinkedEdit = false;
+    QString m_semanticTokensUri;
 
     // DAP / debugger integration (owned by plugin, stored as QObject* to avoid
     // compile-time dependency on plugin headers).

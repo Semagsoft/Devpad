@@ -472,6 +472,9 @@ public:
     // Shows/hides all debugger UI (Debug menu + View->Debug Panel action).
     // Called by MainWindow depending on whether the DAP plugin is enabled.
     void setDebugUiVisible(bool visible);
+    // Show/hide every action, menu, and status-bar button that is only
+    // meaningful with the LSP plugin loaded.
+    void setLspUiVisible(bool visible);
     bool isDebugUiVisible() const
     {
         return m_debugPanelAct->isVisible();
@@ -726,6 +729,7 @@ private:
     QToolButton* m_referencesPanelButton = nullptr;
     QAction* m_debugPanelAct = nullptr;
     QMenu* m_debugMenu = nullptr;
+    QMenu* m_lspMenu = nullptr;
     QAction* m_startDebuggingAct = nullptr;
     QAction* m_stopDebuggingAct = nullptr;
     QAction* m_continueAct = nullptr;

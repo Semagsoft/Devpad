@@ -18,13 +18,12 @@
  */
 #include "lspworkspaceedit.h"
 
-#include "lsptypes.h"
+#include "lsp/lsptypes.h"
 
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QVector>
-
 #include <algorithm>
 
 namespace lsp

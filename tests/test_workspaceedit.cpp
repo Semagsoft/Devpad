@@ -1,4 +1,4 @@
-#include "lsp/lspworkspaceedit.h"
+#include "plugins/lsp_plugin/lspworkspaceedit.h"
 
 #include <QFile>
 #include <QJsonObject>

@@ -12,7 +12,7 @@ class QPushButton;
 
 namespace lsp
 {
-class LspServerManager;
+class ILspService;
 }
 
 class FindSymbolsDialog : public QDialog
@@ -20,7 +20,7 @@ class FindSymbolsDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit FindSymbolsDialog(lsp::LspServerManager* lspManager, QWidget* parent = nullptr);
+    explicit FindSymbolsDialog(lsp::ILspService* lspService, QWidget* parent = nullptr);
     ~FindSymbolsDialog() override;
 
 signals:
@@ -37,7 +37,7 @@ private:
     void setupUI();
     void populateResults(const QJsonArray& symbols);
 
-    lsp::LspServerManager* m_lspManager = nullptr;
+    lsp::ILspService* m_lspService = nullptr;
     QLineEdit* m_searchEdit = nullptr;
     QTreeView* m_treeView = nullptr;
     QStandardItemModel* m_model = nullptr;

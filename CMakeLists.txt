@@ -242,6 +242,7 @@ add_library(Devpad_editor STATIC
     src/codeeditor.cpp
     src/keywords.cpp
     src/languageinfo.cpp
+    src/lsp/lspeditorbridge.cpp
     src/palettechangefilter.h
     src/snippet.cpp
     src/snippetengine.cpp
@@ -274,16 +275,17 @@ target_include_directories(Devpad_editor PUBLIC
 )
 
 # ── LSP library ──────────────────────────────────────────────────────────
-# JSON-RPC transport, language client, server manager and editor integration.
+# DTOs plus the JSON-RPC transport, language client, server manager and
+# workspace-edit helper. Shared by the host (link-time) and by tests; the LSP
+# plugin itself ships only its own UI/session glue and resolves both this
+# library's and the host's symbols from the main executable at load time.
 add_library(Devpad_lsp STATIC
-    src/lsp/lspjsonrpc.cpp
     src/lsp/lsptypes.cpp
-    src/lsp/lspclient.cpp
-    src/lsp/lspservermanager.cpp
-    src/lsp/lspeditorintegration.cpp
-    src/lsp/lspindicators.h
-    src/lsp/lspworkspaceedit.cpp
-    src/lsp/lspworkspaceedit.h
+    src/plugins/lsp_plugin/lspjsonrpc.cpp
+    src/plugins/lsp_plugin/lspclient.cpp
+    src/plugins/lsp_plugin/lspservermanager.cpp
+    src/plugins/lsp_plugin/lspworkspaceedit.cpp
+    src/plugins/lsp_plugin/lspworkspaceedit.h
 )
 target_compile_options(Devpad_lsp PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_lsp PUBLIC
@@ -294,7 +296,7 @@ target_link_libraries(Devpad_lsp PRIVATE
     Qt6::Gui
     Qt6::Widgets
 )
-# Position-independent code: Devpad_lsp is linked into plugin modules.
+# Position-independent code: Devpad_lsp objects may be linked into tests.
 set_target_properties(Devpad_lsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(Devpad_lsp PUBLIC
     src
@@ -443,6 +445,50 @@ if(BUILD_PLUGINS)
     endif()
 endif()
 
+# ── LSP plugin ───────────────────────────────────────────────────────────
+# First-party plugin: provides the whole Language Server Protocol stack
+# (JSON-RPC client, server manager, per-editor sessions). Host code talks to
+# it through the ILspService / ILspEditorSession / IEditorLspBridge
+# interfaces in src/plugins/lspinterface.h; Devpad never links the plugin.
+if(BUILD_PLUGINS)
+    add_library(lsp_plugin MODULE
+        src/plugins/lsp_plugin/lspplugin.cpp
+        src/plugins/lsp_plugin/lspeditorsession.cpp
+        src/plugins/lsp_plugin/lspconnectionhelper.cpp
+    )
+    target_compile_options(lsp_plugin PRIVATE -Wall -Wextra -Wpedantic)
+    target_include_directories(lsp_plugin PRIVATE
+        src
+        src/managers
+        src/panels
+    )
+    target_link_libraries(lsp_plugin PRIVATE
+        # Host symbols (SettingsManager, Logger, lsptypes helpers, ...) are
+        # resolved from the main executable (ENABLE_EXPORTS) at load time,
+        # same as the DAP plugin. Qt modules provide the rest.
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+    )
+    if(APPLE)
+        # Allow undefined symbols resolved from the host executable at load.
+        target_link_options(lsp_plugin PRIVATE -Wl,-undefined,dynamic_lookup)
+    endif()
+    set_target_properties(lsp_plugin PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX "lib"
+        SUFFIX ".so"
+        OUTPUT_NAME lsp_plugin
+    )
+    # Copy the plugin manifest next to the shared library.
+    configure_file(
+        src/plugins/lsp_plugin/lsp_plugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/lsp_plugin.plugin.json
+        COPYONLY
+    )
+endif()
+
 # ── App / coordinator static library (slimmed Devpad_lib) ────────────────
 # Holds MainWindow, EditorController, the remaining managers/dialogs/TUI and
 # the plugin host. Keeps the historic Devpad_lib name so the Devpad executable
@@ -471,6 +517,8 @@ add_library(Devpad_lib STATIC
     src/managers/updateservicecoordinator.cpp
     src/managers/remoteservicecoordinator.cpp
     src/managers/terminalpanelcoordinator.cpp
+    src/managers/lsphostcoordinator.cpp
+    src/plugins/lspinterface.h
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/findsymbolsdialog.cpp
     src/dialogs/dialogcoordinator.cpp
@@ -479,7 +527,6 @@ add_library(Devpad_lib STATIC
     src/dialogs/optionsdialog.cpp
     src/dialogs/externaltoolsdialog.cpp
     src/dialogs/updatedialog.cpp
-    src/lsp/lspconnectionhelper.cpp
     src/tui/tuisession.cpp
     src/tui/tuicommand.cpp
     src/tui/tuiinput.cpp
@@ -491,7 +538,6 @@ target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_lib PUBLIC
     Devpad_core
     Devpad_editor
-    Devpad_lsp
     Devpad_panels
     Qt6::PrintSupport
     Qt6::Multimedia
@@ -579,6 +625,7 @@ if(BUILD_NEXTGEN)
         Qt6::Quick
         Qt6::Qml
         Qt6::QuickControls2
+        Devpad_lsp
     )
 endif()
 
@@ -612,6 +659,8 @@ if(BUILD_PLUGINS)
         ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
         ${CMAKE_BINARY_DIR}/plugins/libdap_plugin.so
         ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/liblsp_plugin.so
+        ${CMAKE_BINARY_DIR}/plugins/lsp_plugin.plugin.json
         DESTINATION lib/devpad/plugins
         OPTIONAL
     )
@@ -766,6 +815,7 @@ if(BUILD_TESTS)
         Qt6::Network
         Qt6::Test
         Devpad_lib
+        Devpad_lsp
     )
     target_link_qscintilla(Devpad_tests)
 

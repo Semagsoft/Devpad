@@ -18,6 +18,7 @@
  */
 #include "lspservermanager.h"
 
+#include "lsp/lspdefaults.h"
 #include "settingsmanager.h"
 
 #include <QDir>
@@ -135,11 +136,7 @@ LspClient* LspServerManager::clientForLanguage(const QString& language)
     // Replay open documents when the server crashes and restarts (the fresh
     // server starts with no document state, so hover/diagnostics/completion
     // would silently fail until the next keystroke).
-    connect(client, &LspClient::serverCrashed, this,
-            [this, language, client]()
-            {
-                replayDocuments(language, client);
-            });
+    connect(client, &LspClient::serverCrashed, this, [this, language, client]() { replayDocuments(language, client); });
 
     // Forward signals
     connect(client, &LspClient::completionReady, this, &LspServerManager::completionReady);
@@ -290,32 +287,12 @@ bool LspServerManager::hasCapability(const QString& uri, const QString& capabili
 
 QHash<QString, QString> LspServerManager::defaultServerCommands()
 {
-    return {
-        {"python", "pylsp"},
-        {"cpp", "clangd"},
-        {"c", "clangd"},
-        {"rust", "rust-analyzer"},
-        {"go", "gopls"},
-        {"javascript", "typescript-language-server"},
-        {"typescript", "typescript-language-server"},
-        {"bash", "bash-language-server"},
-        {"html", "vscode-langservers-extracted"},
-        {"css", "vscode-langservers-extracted"},
-        {"json", "vscode-langservers-extracted"},
-        {"jsonc", "vscode-langservers-extracted"},
-        {"cmake", "cmake-language-server"},
-    };
+    return lsp::defaultServerCommands();
 }
 
 QStringList LspServerManager::defaultServerArgs(const QString& language)
 {
-    if (language == "javascript" || language == "typescript")
-        return {"--stdio"};
-    if (language == "bash")
-        return {"start"};
-    if (language == "html" || language == "css" || language == "json" || language == "jsonc")
-        return {"--stdio"};
-    return {};
+    return lsp::defaultServerArgs(language);
 }
 
 void LspServerManager::registerPluginServer(const QString& language, const QString& command, const QStringList& args)

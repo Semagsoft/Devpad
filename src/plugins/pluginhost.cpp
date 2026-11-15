@@ -24,7 +24,7 @@
 #include "editorcontroller.h"
 #include "encodingutils.h"
 #include "languageinfo.h"
-#include "lsp/lspservermanager.h"
+#include "lspinterface.h"
 #include "mainwindow.h"
 #include "managers/filewatchermanager.h"
 #include "managers/settingsmanager.h"
@@ -43,7 +43,6 @@ PluginHost::PluginHost(MainWindow* mainWindow, QObject* parent) : QObject(parent
         m_settingsManager = &SettingsManager::instance();
         m_editorController = m_mainWindow->findChild<EditorController*>();
         m_tabManager = m_mainWindow->findChild<TabManager*>();
-        m_lspServerManager = m_mainWindow->findChild<lsp::LspServerManager*>();
         m_fileWatcherManager = m_mainWindow->findChild<FileWatcherManager*>();
 
         forwardEditorSignals();
@@ -82,7 +81,10 @@ QObject* PluginHost::tabManager() const
 
 QObject* PluginHost::lspServerManager() const
 {
-    return m_lspServerManager;
+    // Deprecated: kept to preserve the IPluginHost vtable layout. The LSP
+    // manager is owned by the LSP plugin; look it up as the "lsp_service"
+    // object instead (see lspinterface.h).
+    return nullptr;
 }
 
 void PluginHost::forwardEditorSignals()
@@ -412,8 +414,11 @@ QStringList PluginHost::pluginKeys(const QString& pluginId) const
 
 void PluginHost::registerLspServer(const QString& language, const QString& command, const QStringList& args)
 {
-    if (m_lspServerManager)
-        m_lspServerManager->registerPluginServer(language, command, args);
+    // The LSP plugin owns the language server registry; forward to it when
+    // loaded. When the plugin is absent the registration is dropped, which
+    // matches the plugin-owned-LSP model (no servers, no LSP features).
+    if (auto* service = qobject_cast<lsp::ILspService*>(object(lsp::LspServiceObjectId)))
+        service->registerServer(language, command, args);
 }
 
 bool PluginHost::registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory)

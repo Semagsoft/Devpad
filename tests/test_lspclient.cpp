@@ -1,5 +1,5 @@
-#include "lsp/lspclient.h"
-#include "lsp/lspservermanager.h"
+#include "plugins/lsp_plugin/lspclient.h"
+#include "plugins/lsp_plugin/lspservermanager.h"
 
 #include <QSignalSpy>
 #include <QTemporaryDir>

@@ -33,6 +33,7 @@ class QTableWidget;
 
 class ActionManager;
 class CustomThemeDialog;
+class QGroupBox;
 class ThemePreviewWidget;
 
 class OptionsDialog : public QDialog
@@ -91,6 +92,8 @@ private:
     QComboBox* tabDisplayComboBox = nullptr;
     QComboBox* cursorStyleComboBox = nullptr;
     QComboBox* tabBarPositionComboBox = nullptr;
+    QGroupBox* lspGeneralGroup = nullptr;
+    QGroupBox* lspServerGroup = nullptr;
     QComboBox* terminalPanelPositionComboBox = nullptr;
     QSpinBox* terminalPanelMinWidthSpin = nullptr;
     QComboBox* terminalFontFaceComboBox = nullptr;

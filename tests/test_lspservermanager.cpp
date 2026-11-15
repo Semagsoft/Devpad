@@ -1,4 +1,4 @@
-#include "lsp/lspservermanager.h"
+#include "plugins/lsp_plugin/lspservermanager.h"
 #include "settingsmanager.h"
 
 #include <gtest/gtest.h>

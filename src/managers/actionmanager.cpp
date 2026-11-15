@@ -912,6 +912,7 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     editMenu->addSeparator();
     QMenu* lspMenu = editMenu->addMenu(tr("Language Server"));
     lspMenu->setIcon(QIcon(":/icons/Tools/options.svg"));
+    m_lspMenu = lspMenu;
     lspMenu->addAction(m_goToDefinitionAct);
     lspMenu->addAction(m_goToTypeDefinitionAct);
     lspMenu->addAction(m_goToDeclarationAct);
@@ -945,6 +946,26 @@ void ActionManager::setDebugUiVisible(bool visible)
         m_debugMenu->menuAction()->setVisible(visible);
     if (m_debugPanelAct)
         m_debugPanelAct->setVisible(visible);
+}
+
+void ActionManager::setLspUiVisible(bool visible)
+{
+    if (m_lspMenu)
+        m_lspMenu->menuAction()->setVisible(visible);
+    const QList<QAction*> lspActions = {m_formatSelectionAct, m_goToDefinitionAct,    m_goToTypeDefinitionAct, m_goToDeclarationAct,
+                                        m_findReferencesAct,  m_triggerCompletionAct, m_renameSymbolAct,       m_codeActionAct,
+                                        m_findSymbolsAct,     m_expandSelectionAct,   m_shrinkSelectionAct};
+    for (QAction* action : lspActions)
+        if (action)
+            action->setVisible(visible);
+    if (m_errorListPanelAct)
+        m_errorListPanelAct->setVisible(visible);
+    if (m_referencesPanelAct)
+        m_referencesPanelAct->setVisible(visible);
+    if (m_errorListPanelButton)
+        m_errorListPanelButton->setVisible(visible);
+    if (m_referencesPanelButton)
+        m_referencesPanelButton->setVisible(visible);
 }
 
 void ActionManager::buildViewMenu(QMenu* viewMenu)

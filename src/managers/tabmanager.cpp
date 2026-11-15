@@ -61,6 +61,23 @@ CodeEditor* TabManager::editorAt(int index) const
     return nullptr;
 }
 
+QList<CodeEditor*> TabManager::editors() const
+{
+    QList<CodeEditor*> result;
+    for (QTabWidget* pane : m_panes)
+    {
+        for (int i = 0; i < pane->count(); ++i)
+        {
+            if (auto* editor = qobject_cast<CodeEditor*>(pane->widget(i)))
+                result.append(editor);
+            else if (auto* container = pane->widget(i))
+                if (auto* editor = container->findChild<CodeEditor*>())
+                    result.append(editor);
+        }
+    }
+    return result;
+}
+
 CodeEditor* TabManager::findEditorByFileName(const QString& fileName) const
 {
     QFileInfo targetInfo(fileName);

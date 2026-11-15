@@ -116,7 +116,8 @@ static bool handOffToRunningInstance(const QStringList& paths)
 
     QProcess pgrep;
     // -U: only our own uid; do not push file paths into other users' editors.
-    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("-U") << QString::number(static_cast<qint64>(geteuid())) << QStringLiteral("Devpad"));
+    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("-U")
+                                                       << QString::number(static_cast<qint64>(geteuid())) << QStringLiteral("Devpad"));
     if (!pgrep.waitForFinished(2000))
         return false;
 
@@ -317,8 +318,15 @@ int main(int argc, char* argv[])
     parser.addOption(tuiOpt);
     QCommandLineOption nextgenOpt(QStringList() << "nextgen" << "n", QStringLiteral("Run in next-gen QML/high-perf mode (primoEditor)"));
     parser.addOption(nextgenOpt);
+    // Internal marker set on instances spawned by the shell-open helper below.
+    // A spawned instance must open the path locally instead of spawning yet
+    // another detached copy (otherwise every launch forks an unbounded chain).
+    QCommandLineOption shellSpawnOpt(QStringList() << "shell-spawn", QStringLiteral("Internal: opened via shell handoff"));
+    shellSpawnOpt.setFlags(QCommandLineOption::HiddenFromHelp);
+    parser.addOption(shellSpawnOpt);
     parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
     parser.process(app);
+    const bool shellSpawned = parser.isSet(shellSpawnOpt);
 
     initThemeSystem();
 
@@ -393,10 +401,10 @@ int main(int argc, char* argv[])
     // CurrentWindow opens in the existing window.
     const auto openFileFromShell = [&](const QString& path)
     {
-        if (SettingsManager::instance().shellOpenModeFiles() == ShellOpenMode::NewWindow)
+        if (!shellSpawned && SettingsManager::instance().shellOpenModeFiles() == ShellOpenMode::NewWindow)
         {
             const QString appPath = QApplication::applicationFilePath();
-            if (!QProcess::startDetached(appPath, QStringList() << path))
+            if (!QProcess::startDetached(appPath, QStringList() << QStringLiteral("--shell-spawn") << path))
             {
                 Logger::instance().error(QString("Failed to start detached process for: %1").arg(path));
             }
@@ -408,10 +416,10 @@ int main(int argc, char* argv[])
     };
     const auto openFolderFromShell = [&](const QString& path)
     {
-        if (SettingsManager::instance().shellOpenModeFolders() == ShellOpenMode::NewWindow)
+        if (!shellSpawned && SettingsManager::instance().shellOpenModeFolders() == ShellOpenMode::NewWindow)
         {
             const QString appPath = QApplication::applicationFilePath();
-            if (!QProcess::startDetached(appPath, QStringList() << path))
+            if (!QProcess::startDetached(appPath, QStringList() << QStringLiteral("--shell-spawn") << path))
             {
                 Logger::instance().error(QString("Failed to start detached process for folder: %1").arg(path));
             }

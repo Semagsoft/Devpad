@@ -32,18 +32,15 @@
 #include "filemanager.h"
 #include "filewatchermanager.h"
 #include "logger.h"
-#include "lsp/lspclient.h"
-#include "lsp/lspconnectionhelper.h"
-#include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
 #include "managers/externalchangecoordinator.h"
+#include "managers/lsphostcoordinator.h"
 #include "managers/remoteopencoordinator.h"
 #include "managers/remoteservicecoordinator.h"
 #include "managers/terminalpanelcoordinator.h"
-#include <QDateTime>
-
 #include "managers/updateservicecoordinator.h"
 #include "optionsdialog.h"
+#include "plugins/lspinterface.h"
 #include "printmanager.h"
 #include "projectpanel.h"
 #include "referencespanel.h"
@@ -57,10 +54,12 @@
 #include "theme.h"
 #include "themeapplier.h"
 
+#include <QDateTime>
+
 #ifdef Q_OS_UNIX
-#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 #endif
 #include "palettechangefilter.h"
 #include "theme.h"
@@ -134,7 +133,7 @@ bool isLocalPeerSameUser(QLocalSocket* socket)
         pid_t pid;
         uid_t uid;
         gid_t gid;
-    } cred {};
+    } cred{};
 #ifndef SO_PEERCRED
 #define SO_PEERCRED 17
 #endif
@@ -274,8 +273,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                     // remove the transfer temp file it would have carried.
                     if (!filePath.isEmpty() && filePath[0] == QChar(1))
                         QFile::remove(filePath.mid(1));
-                    QMessageBox::warning(this, tr("Detach Failed"),
-                                         tr("Could not open a new Devpad window.\nThe tab was kept in this window."));
+                    QMessageBox::warning(this, tr("Detach Failed"), tr("Could not open a new Devpad window.\nThe tab was kept in this window."));
                 }
             });
 
@@ -293,10 +291,23 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     applyInitialSettings();
 
     setupEditorConnections();
-    setupLspConnections();
 
 #ifdef BUILD_PLUGINS
     m_pluginManager->loadAll();
+
+    // Attach every already-open editor to the LSP plugin's session factory.
+    m_lspCoordinator->attachAll();
+    const bool lspEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"));
+    m_actionManager->setLspUiVisible(lspEnabled);
+    if (!lspEnabled)
+    {
+        m_errorListPanel->hide();
+        m_referencesPanel->hide();
+        m_actionManager->errorListPanelAct()->setChecked(false);
+        m_actionManager->referencesPanelAct()->setChecked(false);
+        m_actionManager->errorListPanelButton()->setChecked(false);
+        m_actionManager->referencesPanelButton()->setChecked(false);
+    }
 
     // The Terminal plugin creates TerminalPanel and registers it with the host.
     // Locate it here so MainWindow can connect signals and apply settings.
@@ -316,6 +327,28 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                     if (!enabled)
                         m_debugSessionKey.clear();
                 }
+                else if (pluginId == QStringLiteral("org.semagsoft.devpad.lsp"))
+                {
+                    m_actionManager->setLspUiVisible(enabled);
+                    if (enabled)
+                    {
+                        m_lspCoordinator->attachAll();
+                        const bool showErrorList = SettingsManager::instance().lspShowErrorList();
+                        m_errorListPanel->setVisible(showErrorList);
+                        m_actionManager->errorListPanelAct()->setChecked(showErrorList);
+                        m_actionManager->errorListPanelButton()->setChecked(showErrorList);
+                    }
+                    else
+                    {
+                        m_lspCoordinator->detachAll();
+                        m_errorListPanel->hide();
+                        m_referencesPanel->hide();
+                        m_actionManager->errorListPanelAct()->setChecked(false);
+                        m_actionManager->referencesPanelAct()->setChecked(false);
+                        m_actionManager->errorListPanelButton()->setChecked(false);
+                        m_actionManager->referencesPanelButton()->setChecked(false);
+                    }
+                }
                 else if (pluginId == QStringLiteral("org.semagsoft.devpad.terminal"))
                 {
                     if (enabled)
@@ -333,6 +366,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     // No plugin support compiled in: the debug actions would no-op (and the
     // slots below would deref a null manager), so hide the debug UI entirely.
     m_actionManager->setDebugUiVisible(false);
+    m_actionManager->setLspUiVisible(false);
+    m_errorListPanel->hide();
+    m_referencesPanel->hide();
 #endif
 
     applyAutoSaveSettings();
@@ -373,10 +409,7 @@ void MainWindow::createManagers()
     m_themeApplier = new ThemeApplier(this);
     if (auto* filter = systemThemeChangeFilter())
     {
-        connect(filter, &PaletteChangeFilter::systemThemeChanged, this, [this]()
-                {
-                    applySettings();
-                });
+        connect(filter, &PaletteChangeFilter::systemThemeChanged, this, [this]() { applySettings(); });
     }
     m_printManager = new PrintManager(this);
     m_fileManager = new FileManager(this);
@@ -396,7 +429,6 @@ void MainWindow::createManagers()
     m_fileManager->setRemoteFileService(m_remoteFileService);
     m_updateChecker = new UpdateChecker(this);
 
-    m_lspServerManager = new lsp::LspServerManager(this);
 #ifdef BUILD_PLUGINS
     m_pluginManager = new PluginManager(this);
 #endif
@@ -409,6 +441,10 @@ void MainWindow::createManagers()
     addDockWidget(Qt::BottomDockWidgetArea, m_referencesPanel);
     m_referencesPanel->hide();
     connect(m_referencesPanel, &ReferencesPanel::navigateToLocation, this, &MainWindow::onNavigateToLocation);
+
+    m_lspCoordinator = new LspHostCoordinator(
+        m_tabManager, m_errorListPanel, m_referencesPanel, m_pluginManager,
+        [this](const QString& filePath, int line, int column) { onNavigateToLocation(filePath, line, column); }, this);
 
     m_dialogCoordinator = new DialogCoordinator(m_tabManager, m_projectPanel, this);
     connect(m_dialogCoordinator, &DialogCoordinator::navigateToResult, this, &MainWindow::onNavigateToLocation);
@@ -610,7 +646,8 @@ void MainWindow::connectPanelSignals()
                 if (!filePath.isEmpty() && filePath != Strings::untitled())
                 {
                     const QString uri = lsp::uriFromPath(filePath);
-                    m_lspServerManager->closeDocument(uri);
+                    if (auto* service = lspService())
+                        service->closeDocument(uri);
                     // Drop this document's diagnostics so they don't linger
                     // pointing at a file no longer open.
                     m_errorListPanel->clearDiagnostics(uri);
@@ -658,38 +695,11 @@ void MainWindow::connectPanelSignals()
 void MainWindow::setupEditorConnections()
 {
     connect(m_tabManager, &TabManager::currentChanged, this, &MainWindow::onTabChanged);
-    connect(m_editorController, &EditorController::editorConnected, this,
-            [this](CodeEditor* editor)
-            {
-                connect(editor, &QsciScintilla::textChanged, this, &MainWindow::updateStatusBar);
-                connect(editor, &QsciScintilla::cursorPositionChanged, this, [this]() { updateStatusBar(); });
-                connect(editor, &CodeEditor::findRequested, this, &MainWindow::find);
-                connect(editor, &CodeEditor::replaceRequested, this, &MainWindow::replace);
-                connect(editor, &CodeEditor::goToLineRequested, this, &MainWindow::goToLine);
-                connect(editor, &CodeEditor::insertSnippetRequested, m_editorController, &EditorController::insertSnippet);
-                connect(editor, &CodeEditor::fileDropped, this, [this](const QString& path) { loadFile(path); });
-                connect(editor, &CodeEditor::navigateToLocation, this, &MainWindow::onNavigateToLocation);
-                connect(editor, &CodeEditor::diagnosticsChanged, this,
-                        [this](const QString& uri, const QList<lsp::Diagnostic>& diags) { m_errorListPanel->updateDiagnostics(uri, diags); });
-
-                QString filePath = editor->fileName();
-                if (!filePath.isEmpty() && filePath != Strings::untitled())
-                {
-                    QString syntax = SettingsManager::instance().syntaxForFile(filePath);
-                    if (!syntax.isEmpty())
-                    {
-                        editor->setLspLanguage(syntax);
-                        editor->setLspServerManager(m_lspServerManager);
-                        QPointer<CodeEditor> guard(editor);
-                        QTimer::singleShot(200, this,
-                                           [guard]()
-                                           {
-                                               if (guard)
-                                                   guard->sendDidOpen();
-                                           });
-                    }
-                }
-            });
+    // Newly created editors are wired here; editors that already exist (e.g.
+    // session-restored before this point) are wired just below.
+    connect(m_editorController, &EditorController::editorConnected, this, &MainWindow::wireEditor);
+    for (CodeEditor* editor : m_tabManager->editors())
+        wireEditor(editor);
 
     connect(m_editorController, &EditorController::fileSaved, this,
             [this](const QString& fileName)
@@ -700,24 +710,12 @@ void MainWindow::setupEditorConnections()
 
                 if (!editor->lspActive())
                 {
-                    QString syntax = SettingsManager::instance().syntaxForFile(fileName);
-                    if (!syntax.isEmpty())
-                    {
-                        editor->setLspLanguage(syntax);
-                        editor->setLspServerManager(m_lspServerManager);
-                        QPointer<CodeEditor> guard(editor);
-                        QTimer::singleShot(200, this,
-                                           [guard]()
-                                           {
-                                               if (guard)
-                                                   guard->sendDidOpen();
-                                           });
-                    }
+                    // Not attached yet or no language known: (re)detect and attach.
+                    m_lspCoordinator->refreshEditor(editor);
                 }
-                else
+                else if (auto* service = lspService())
                 {
-                    QString uri = lsp::uriFromPath(fileName);
-                    m_lspServerManager->saveDocument(uri);
+                    service->saveDocument(lsp::uriFromPath(fileName));
                 }
             });
 
@@ -725,10 +723,36 @@ void MainWindow::setupEditorConnections()
     connect(m_autoSaveTimer, &QTimer::timeout, m_editorController, &EditorController::autoSave);
 }
 
-void MainWindow::setupLspConnections()
+void MainWindow::wireEditor(CodeEditor* editor)
 {
-    lsp::setupLspConnections(m_lspServerManager, m_tabManager, m_errorListPanel, m_referencesPanel, m_actionManager,
-                             [this](const QString& filePath, int line, int column) { onNavigateToLocation(filePath, line, column); });
+    if (!editor)
+        return;
+
+    connect(editor, &QsciScintilla::textChanged, this, &MainWindow::updateStatusBar);
+    connect(editor, &QsciScintilla::cursorPositionChanged, this, [this]() { updateStatusBar(); });
+    connect(editor, &CodeEditor::findRequested, this, &MainWindow::find);
+    connect(editor, &CodeEditor::replaceRequested, this, &MainWindow::replace);
+    connect(editor, &CodeEditor::goToLineRequested, this, &MainWindow::goToLine);
+    connect(editor, &CodeEditor::insertSnippetRequested, m_editorController, &EditorController::insertSnippet);
+    connect(editor, &CodeEditor::fileDropped, this, [this](const QString& path) { loadFile(path); });
+    connect(editor, &CodeEditor::navigateToLocation, this, &MainWindow::onNavigateToLocation);
+    connect(editor, &CodeEditor::diagnosticsChanged, this,
+            [this](const QString& uri, const QList<lsp::Diagnostic>& diags) { m_errorListPanel->updateDiagnostics(uri, diags); });
+
+    // Attach the LSP session (no-op until the LSP plugin is loaded).
+    m_lspCoordinator->attachEditor(editor);
+}
+
+lsp::ILspService* MainWindow::lspService() const
+{
+#ifdef BUILD_PLUGINS
+    if (m_pluginManager)
+    {
+        if (auto* host = m_pluginManager->host())
+            return qobject_cast<lsp::ILspService*>(host->object(QString::fromLatin1(lsp::LspServiceObjectId)));
+    }
+#endif
+    return nullptr;
 }
 
 void MainWindow::applyCloseButtonPosition()
@@ -1354,7 +1378,7 @@ void MainWindow::toggleReferencesPanel()
 
 void MainWindow::findSymbols()
 {
-    m_dialogCoordinator->findSymbols(m_lspServerManager);
+    m_dialogCoordinator->findSymbols(lspService());
 }
 
 void MainWindow::expandSelection()
@@ -1404,7 +1428,8 @@ bool MainWindow::signalOtherInstancesToQuit()
     QProcess pgrep;
     // -U: only our own uid. Every user on the machine may run their own
     // Devpad; sending save_and_quit to theirs would close their windows.
-    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("-U") << QString::number(geteuid()) << QStringLiteral("Devpad"));
+    pgrep.start(QStringLiteral("pgrep"),
+                QStringList() << QStringLiteral("-ix") << QStringLiteral("-U") << QString::number(geteuid()) << QStringLiteral("Devpad"));
     if (!pgrep.waitForFinished(2000))
         return true;
 
@@ -1540,7 +1565,7 @@ void MainWindow::handleQuitRequest()
                 QString termDir;
                 if (m_terminalCoordinator->dock())
                     QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection,
-                                          Q_RETURN_ARG(QString, termDir));
+                                              Q_RETURN_ARG(QString, termDir));
                 m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
                 client->disconnectFromServer();
                 QApplication::quit();

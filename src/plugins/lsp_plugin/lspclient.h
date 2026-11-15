@@ -19,8 +19,8 @@
 #ifndef LSPCLIENT_H
 #define LSPCLIENT_H
 
+#include "lsp/lsptypes.h"
 #include "lspjsonrpc.h"
-#include "lsptypes.h"
 
 #include <QObject>
 #include <QProcess>

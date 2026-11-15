@@ -231,9 +231,22 @@ Backups and logs are stored in `~/.local/share/devpad/`.
 
 ## Plugins / extensions
 
-Devpad supports user-installed C++ plugins loaded at runtime. Plugins are shared
-libraries (`lib<id>.so` on Linux/macOS, `<id>.dll` on Windows) placed in the user
-plugins directory:
+Devpad ships several first-party plugins as runtime-loaded modules (see
+`src/plugins/`), all enabled by default and removable/disableable from
+Options → Plugins or at build time with `-DBUILD_PLUGINS=OFF`:
+
+- **Terminal** (`org.semagsoft.devpad.terminal`) — the embedded terminal panel
+  (libghostty-vt, or qtermwidget/KodoTerm as fallback backends).
+- **Debugger** (`org.semagsoft.devpad.dap`) — Debug Adapter Protocol support.
+- **Language Server Protocol** (`org.semagsoft.devpad.lsp`) — diagnostics,
+  completion, go-to-definition, hover, rename, etc. Host code talks to it only
+  through the interfaces in `src/plugins/lspinterface.h`; when the plugin is
+  disabled or absent, every LSP surface (menu, panels, options page) hides
+  automatically and the editor behaves as if LSP never existed.
+
+Devpad also supports user-installed C++ plugins loaded at runtime. Plugins are
+shared libraries (`lib<id>.so` on Linux/macOS, `<id>.dll` on Windows) placed in
+the user plugins directory:
 
 - Linux/macOS: `~/.local/share/devpad/plugins/`
 - Windows: `%APPDATA%\devpad\plugins\`
