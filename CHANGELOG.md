@@ -20,6 +20,30 @@ Bug fixes for version 1.10:
 - Startup-restored editors were never wired for editor events (status bar,
   find/go-to/snippet actions, LSP): they are now wired identically to editors
   opened after startup. SHA: e69db8824327c2640f211f9b3dd656705391f746
+- Fix LSP completion kinds being read out of bounds and shifted by one
+  (CompletionItemKind is 1-based). SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix diagnostics clearing wiping the stored diagnostic list, breaking
+  scrollbar ticks and double-emitting diagnosticsChanged. SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix uncommenting corrupting lines that were not commented. SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix removing the primary split pane leaving MainWindow and TabManager with
+  dangling primary-pane pointers; a remaining pane is now promoted.
+  SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix WindowsFrameBridge never uninstalling its native event filter in the
+  destructor. SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix use-after-free in the external-change prompt when the editor is closed
+  inside the modal dialog. SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix snippet mirror edits using code-unit offsets against byte positions,
+  corrupting text containing non-ASCII characters. SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix remote saves clearing the modified flag before the upload completed.
+  SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix saving a file with characters the target encoding cannot represent
+  silently writing '?'; saving now fails with a clear message.
+  SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix tearing a tab off into a new window bypassing tab bookkeeping (pinned
+  state, editorClosed); pinned tabs can no longer be detached.
+  SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
+- Fix the check-for-updates error dialog dropping the failure details.
+  SHA: ba1579800e6c7e34caa18f1d34d60e2702ebd2bb
 
 ## [1.09] - 2026-11-09
 
