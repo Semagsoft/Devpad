@@ -4,7 +4,7 @@ project(Devpad VERSION 1.10 LANGUAGES CXX)
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
 option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)
-option(BUILD_NEXTGEN "Build next-gen QML/high-perf mode (primoEditor)" OFF)
+option(BUILD_NEXTGEN "Build next-gen QML/high-perf mode (primoEditor, experimental; not shipped)" OFF)
 option(BUILD_PLUGINS "Build the C++ plugin/extension system" ON)
 
 set(CMAKE_CXX_STANDARD 17)

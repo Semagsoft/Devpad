@@ -71,7 +71,8 @@ modules:
     config-opts:
       - -DCMAKE_BUILD_TYPE=Release
       - -DBUILD_TESTS=OFF
-      - -DBUILD_NEXTGEN=ON
+      # Experimental frontend (next-gen QML): not shipped while experimental.
+      - -DBUILD_NEXTGEN=OFF
       # The libghostty-vt backend needs Zig (not available in the KDE runtime);
       # keep the QTermWidget fallback inside the Flatpak build.
       - -DBUILD_GHOSTTY=OFF

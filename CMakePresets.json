@@ -49,8 +49,8 @@
         },
         {
             "name": "nextgen",
-            "displayName": "Nextgen (QML)",
-            "description": "Release build with next-gen QML/primoEditor",
+            "displayName": "Nextgen (QML, experimental)",
+            "description": "Experimental release build with next-gen QML/primoEditor (not shipped)",
             "binaryDir": "${sourceDir}/build-nextgen",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
