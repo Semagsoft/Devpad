@@ -10,16 +10,16 @@ What's new in Devpad 1.10:
   ILspEditorSession / ILspService). The plugin can be disabled at runtime in
   Options → Plugins; all LSP UI (Language Server menu, Diagnostics/References
   panels, options page, status bar buttons) hides automatically and sessions
-  detach/reattach live. SHA: TBD
+  detach/reattach live. SHA: e69db8824327c2640f211f9b3dd656705391f746
 
 Bug fixes for version 1.10:
 
 - Fix shell-open "New window" mode spawning an unbounded chain of detached
   Devpad instances; spawned instances now open the file locally instead of
-  forking another copy. SHA: TBD
+  forking another copy. SHA: e69db8824327c2640f211f9b3dd656705391f746
 - Startup-restored editors were never wired for editor events (status bar,
   find/go-to/snippet actions, LSP): they are now wired identically to editors
-  opened after startup. SHA: TBD
+  opened after startup. SHA: e69db8824327c2640f211f9b3dd656705391f746
 
 ## [1.09] - 2026-11-09
 
