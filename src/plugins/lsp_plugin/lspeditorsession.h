@@ -81,6 +81,7 @@ public:
     void expandSelection() override;
     void shrinkSelection() override;
     void handleSelectionRanges(const QJsonArray& ranges) override;
+    void selectStackEntry(int index);
     void requestDocumentHighlight() override;
     void startCompletionTimer() override;
     void startDiagnosticsTimer() override;

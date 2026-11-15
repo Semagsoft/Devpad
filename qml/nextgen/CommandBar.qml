@@ -36,7 +36,7 @@ Pane {
                 onAccepted: {
                     var c = cmdField.text.trimmed()
                     if (c.startsWith(":"))
-                        c = c.mid(1)
+                        c = c.substring(1)
                     root.commandEntered(c)
                     hideBar()
                 }

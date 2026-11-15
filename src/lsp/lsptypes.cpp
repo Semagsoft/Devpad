@@ -60,6 +60,23 @@ Location Location::fromJson(const QJsonObject& obj)
     return loc;
 }
 
+Location Location::fromAnyJson(const QJsonObject& obj)
+{
+    if (obj.contains(QStringLiteral("targetUri")))
+    {
+        Location loc;
+        loc.uri = obj["targetUri"].toString();
+        // LocationLink ranges: targetSelectionRange is the interesting part
+        // for navigation; fall back to targetRange when absent.
+        const QJsonObject rangeObj = obj.contains(QStringLiteral("targetSelectionRange"))
+                                         ? obj["targetSelectionRange"].toObject()
+                                         : obj["targetRange"].toObject();
+        loc.range = Range::fromJson(rangeObj);
+        return loc;
+    }
+    return Location::fromJson(obj);
+}
+
 Diagnostic Diagnostic::fromJson(const QJsonObject& obj)
 {
     Diagnostic d;

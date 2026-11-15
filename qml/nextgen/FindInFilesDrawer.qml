@@ -9,6 +9,8 @@ Drawer {
     property var editor: null
     property string folder: ""
     property var finder: null // PrimoFindInFiles instance
+    // JS-array model for the ListView (plain arrays use the modelData role)
+    property var searchResults: []
 
     edge: Qt.BottomEdge
     width: parent ? parent.width : 800
@@ -75,20 +77,17 @@ Drawer {
             Label { text: ".gitignore respected"; opacity: 0.5; font.pixelSize: 10; ToolTip.text: "Search respects .gitignore and showHidden setting" }
         }
 
-        ListModel { id: resultModel }
-
         ScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             ListView {
                 id: resultView
-                width: parent.width
-                height: contentHeight
-                model: resultModel
+                anchors.fill: parent
+                model: root.searchResults
                 delegate: ItemDelegate {
                     width: resultView.width
-                    text: modelData.display ? modelData.display : (modelData.filePath + ":" + (modelData.line+1) + ": " + modelData.lineText)
+                    text: modelData.display ? modelData.display : (modelData.filePath + ":" + (modelData.line + 1) + ": " + modelData.lineText)
                     onClicked: {
                         if (editor) {
                             editor.loadFile(modelData.filePath)
@@ -110,9 +109,7 @@ Drawer {
             }
             statusLabel.text = "Searching..."
             var res = finder.search(pat, rootPath, globField.text, caseBox.checked, wordBox.checked, regexBox.checked)
-            resultModel.clear()
-            for (var i=0;i<res.length;i++) resultModel.append(res[i])
-            resultView.model = resultModel
+            root.searchResults = res
             statusLabel.text = res.length + " results in " + rootPath
         }
 

@@ -356,23 +356,25 @@ void LspEditorSession::expandSelection()
 {
     if (!m_lspActive || !m_lspManager || !m_bridge)
         return;
+
+    if (!m_selectionRangeStack.isEmpty())
+    {
+        // Reuse the cached ranges; expand moves outward (toward the outermost
+        // range at the back of the innermost-first stack).
+        if (m_selectionRangeDepth < static_cast<int>(m_selectionRangeStack.size()) - 1)
+        {
+            ++m_selectionRangeDepth;
+            selectStackEntry(m_selectionRangeDepth);
+        }
+        return;
+    }
+
     const QString filePath = m_bridge->fileName();
     if (filePath.isEmpty())
         return;
 
     int line, col;
     m_bridge->getCursorPosition(&line, &col);
-
-    if (!m_selectionRangeStack.isEmpty() && m_selectionRangeDepth > 0)
-    {
-        m_selectionRangeDepth--;
-        const auto& r = m_selectionRangeStack[m_selectionRangeDepth];
-        const QString startLineText = m_bridge->lineText(r.start.line);
-        const QString endLineText = m_bridge->lineText(r.end.line);
-        m_bridge->setSelection(r.start.line, utf16ColToCharIndex(startLineText, r.start.character), r.end.line,
-                               utf16ColToCharIndex(endLineText, r.end.character));
-        return;
-    }
 
     const QString uri = currentUri();
     if (uri.isEmpty())
@@ -389,11 +391,18 @@ void LspEditorSession::shrinkSelection()
 {
     if (!m_bridge)
         return;
-    if (m_selectionRangeStack.isEmpty() || m_selectionRangeDepth >= static_cast<int>(m_selectionRangeStack.size()) - 1)
+    if (m_selectionRangeStack.isEmpty() || m_selectionRangeDepth <= 0)
         return;
 
-    m_selectionRangeDepth++;
-    const auto& r = m_selectionRangeStack[m_selectionRangeDepth];
+    --m_selectionRangeDepth;
+    selectStackEntry(m_selectionRangeDepth);
+}
+
+void LspEditorSession::selectStackEntry(int index)
+{
+    if (!m_bridge || index < 0 || index >= m_selectionRangeStack.size())
+        return;
+    const auto& r = m_selectionRangeStack.at(index);
     const QString startLineText = m_bridge->lineText(r.start.line);
     const QString endLineText = m_bridge->lineText(r.end.line);
     m_bridge->setSelection(r.start.line, utf16ColToCharIndex(startLineText, r.start.character), r.end.line,
@@ -408,29 +417,28 @@ void LspEditorSession::handleSelectionRanges(const QJsonArray& ranges)
     if (!m_bridge)
         return;
 
-    std::function<void(const QJsonObject&, QList<Range>&)> flattenSelectionRanges = [&](const QJsonObject& node, QList<Range>& out)
+    // Flatten post-order: children (innermost) first, the node's own range
+    // last, so the stack is ordered innermost → outermost and depth 0 is the
+    // innermost selection.
+    std::function<void(const QJsonObject&)> flattenSelectionRanges = [this, &flattenSelectionRanges](const QJsonObject& node)
     {
-        if (node.contains(QStringLiteral("range")))
-            out.append(Range::fromJson(node[QStringLiteral("range")].toObject()));
         const QJsonArray children = node[QStringLiteral("children")].toArray();
         for (const auto& child : children)
-            flattenSelectionRanges(child.toObject(), out);
+            flattenSelectionRanges(child.toObject());
+        if (node.contains(QStringLiteral("range")))
+            m_selectionRangeStack.append(Range::fromJson(node[QStringLiteral("range")].toObject()));
     };
 
     if (ranges.isEmpty())
         return;
 
     QJsonObject root = ranges.first().toObject();
-    flattenSelectionRanges(root, m_selectionRangeStack);
+    flattenSelectionRanges(root);
 
     if (m_selectionRangeStack.isEmpty())
         return;
 
-    const auto& r = m_selectionRangeStack.first();
-    const QString startLineText = m_bridge->lineText(r.start.line);
-    const QString endLineText = m_bridge->lineText(r.end.line);
-    m_bridge->setSelection(r.start.line, utf16ColToCharIndex(startLineText, r.start.character), r.end.line,
-                           utf16ColToCharIndex(endLineText, r.end.character));
+    selectStackEntry(m_selectionRangeDepth);
 }
 
 void LspEditorSession::startCompletionTimer()

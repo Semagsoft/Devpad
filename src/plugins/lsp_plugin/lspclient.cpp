@@ -200,7 +200,10 @@ void LspClient::sendInitialize()
     QJsonObject completion;
     completion["completionItem"] = completionItem;
     textDocument["completion"] = completion;
-    textDocument["definition"] = QJsonObject();
+    // linkSupport=false asks the server for Location/Location[] instead of
+    // LocationLink[], which is what requestLocation() parses today.
+    const QJsonObject linkSupportDisabled{{"linkSupport", false}};
+    textDocument["definition"] = linkSupportDisabled;
     textDocument["references"] = QJsonObject();
     textDocument["hover"] = QJsonObject();
     textDocument["documentSymbol"] = QJsonObject();
@@ -216,8 +219,8 @@ void LspClient::sendInitialize()
     QJsonObject workspace;
     workspace["symbol"] = QJsonObject();
     capabilities["workspace"] = workspace;
-    textDocument["typeDefinition"] = QJsonObject();
-    textDocument["declaration"] = QJsonObject();
+    textDocument["typeDefinition"] = linkSupportDisabled;
+    textDocument["declaration"] = linkSupportDisabled;
     capabilities["textDocument"] = textDocument;
 
     QJsonObject diagnosticOpts;
@@ -336,8 +339,9 @@ void LspClient::saveDocument(const QString& uri)
 
     QJsonObject params;
     QJsonObject textDoc;
+    // LSP makes `text` optional; send only the URI. Sending an empty string
+    // misrepresents the buffer contents to the server.
     textDoc["uri"] = uri;
-    textDoc["text"] = QString(); // optional; server may ignore
     params["textDocument"] = textDoc;
 
     QByteArray notification = m_jsonRpc->createNotification("textDocument/didSave", params);
@@ -478,23 +482,24 @@ void LspClient::prepareCallHierarchy(const QString& uri, const Position& pos)
                 [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit callHierarchyReady(uri, result.toArray()); });
 }
 
-void LspClient::incomingCalls(const QString& uri, const QString& itemId)
+void LspClient::incomingCalls(const QString& uri, const QJsonObject& item)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.callHierarchyProvider)
         return;
 
-    QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
-    sendRequest("callHierarchy/incomingCalls", params,
+    // The caller must pass the full CallHierarchyItem as returned by
+    // textDocument/prepareCallHierarchy (uri, range, selectionRange, data);
+    // fabricating it from a name is rejected by real servers.
+    sendRequest("callHierarchy/incomingCalls", QJsonObject{{"item", item}},
                 [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit incomingCallsReady(uri, result.toArray()); });
 }
 
-void LspClient::outgoingCalls(const QString& uri, const QString& itemId)
+void LspClient::outgoingCalls(const QString& uri, const QJsonObject& item)
 {
     if (!isRunning() || !m_initialized || !m_capabilities.callHierarchyProvider)
         return;
 
-    QJsonObject params{{"item", QJsonObject{{"kind", 12}, {"name", itemId}}}};
-    sendRequest("callHierarchy/outgoingCalls", params,
+    sendRequest("callHierarchy/outgoingCalls", QJsonObject{{"item", item}},
                 [this, uri](const QJsonValue& result, const QJsonObject& /*error*/) { emit outgoingCallsReady(uri, result.toArray()); });
 }
 
@@ -755,10 +760,10 @@ void LspClient::requestLocation(const QString& method, const QString& uri, const
                 [this, uri, method](const QJsonValue& result, const QJsonObject& /*error*/)
                 {
                     Location loc;
-                    if (result.isObject() && result.toObject().contains("range"))
-                        loc = Location::fromJson(result.toObject());
+                    if (result.isObject() && (result.toObject().contains("range") || result.toObject().contains("targetUri")))
+                        loc = Location::fromAnyJson(result.toObject());
                     else if (result.isArray() && !result.toArray().isEmpty())
-                        loc = Location::fromJson(result.toArray().first().toObject());
+                        loc = Location::fromAnyJson(result.toArray().first().toObject());
                     if (loc.uri.isEmpty())
                         return;
                     if (method == QLatin1String("textDocument/definition"))
@@ -818,7 +823,18 @@ void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
 
     emit serverStopped();
 
-    if (status == QProcess::CrashExit && m_retryCount < MAX_RETRIES)
+    const bool crashed = status == QProcess::CrashExit && m_retryCount < MAX_RETRIES;
+
+    // Detach the dead process now: disconnect and delete it so tryRestart()
+    // does not overwrite m_process and orphan the dead instance (and so a
+    // later cleanupProcess() does not double-emit serverStopped()).
+    m_process->disconnect();
+    m_process->deleteLater();
+    m_process = nullptr;
+    m_starting = false;
+    m_stopping = false;
+
+    if (crashed)
     {
         m_retryCount++;
         // Let managers replay open documents against the fresh server once

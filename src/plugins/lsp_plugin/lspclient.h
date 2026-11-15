@@ -88,8 +88,8 @@ public:
     void requestSelectionRanges(const QString& uri, const QList<Position>& positions);
     void requestLinkedEditingRange(const QString& uri, const Position& pos);
     void prepareCallHierarchy(const QString& uri, const Position& pos);
-    void incomingCalls(const QString& uri, const QString& itemId);
-    void outgoingCalls(const QString& uri, const QString& itemId);
+    void incomingCalls(const QString& uri, const QJsonObject& item);
+    void outgoingCalls(const QString& uri, const QJsonObject& item);
     void requestSemanticTokensFull(const QString& uri);
     void sendDidChangeConfiguration(const QJsonObject& settings);
 

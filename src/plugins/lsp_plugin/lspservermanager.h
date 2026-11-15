@@ -56,6 +56,12 @@ public:
 
     bool hasCapability(const QString& uri, const QString& capability) const;
     QString rootUriForFile(const QString& filePath) const;
+    QString rootUriForLanguage(const QString& language) const;
+    // Command/args precedence: plugin-registered server, then user settings,
+    // then built-in defaults. Shared by client creation, startup and replay.
+    QString serverCommandForLanguage(const QString& language) const;
+    QStringList serverArgsForLanguage(const QString& language) const;
+    void startClientIfNeeded(LspClient* client, const QString& language, const QString& rootUri);
 
     // Returns (uri, (text, version)) for documents to re-open after a crash.
     // Exposed for testing the replay selection logic.

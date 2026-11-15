@@ -170,7 +170,6 @@ public:
     void requestCodeActions();
     void expandSelection();
     void shrinkSelection();
-    void requestSelectionRanges();
     void sendDidChange();
     void sendDidOpen();
     int documentVersion() const;

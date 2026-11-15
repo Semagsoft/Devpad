@@ -1244,12 +1244,6 @@ void CodeEditor::shrinkSelection()
         m_lspSession->shrinkSelection();
 }
 
-void CodeEditor::requestSelectionRanges()
-{
-    if (m_lspSession)
-        m_lspSession->expandSelection();
-}
-
 void CodeEditor::requestRename()
 {
     if (m_lspSession)

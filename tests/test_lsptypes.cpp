@@ -370,3 +370,83 @@ TEST(LspTypesTest, ByteOffsetToUtf16EdgeCases)
     EXPECT_EQ(byteOffsetToUtf16(empty, 0), 0);
     EXPECT_EQ(utf16ToByteOffset(empty, 0), 0);
 }
+
+TEST(LspTypesTest, LocationFromAnyJsonParsesLocationShape)
+{
+    QJsonObject rangeObj;
+    rangeObj["start"] = QJsonObject{{"line", 41}, {"character", 5}};
+    rangeObj["end"] = QJsonObject{{"line", 41}, {"character", 12}};
+    QJsonObject obj;
+    obj["uri"] = "file:///tmp/sample.cpp";
+    obj["range"] = rangeObj;
+
+    Location loc = Location::fromAnyJson(obj);
+    EXPECT_EQ(loc.uri, "file:///tmp/sample.cpp");
+    EXPECT_EQ(loc.range.start.line, 41);
+    EXPECT_EQ(loc.range.start.character, 5);
+    EXPECT_EQ(loc.range.end.character, 12);
+}
+
+TEST(LspTypesTest, LocationFromAnyJsonParsesLocationLinkShape)
+{
+    QJsonObject targetRange;
+    targetRange["start"] = QJsonObject{{"line", 7}, {"character", 0}};
+    targetRange["end"] = QJsonObject{{"line", 9}, {"character", 0}};
+    QJsonObject selectionRange;
+    selectionRange["start"] = QJsonObject{{"line", 7}, {"character", 4}};
+    selectionRange["end"] = QJsonObject{{"line", 7}, {"character", 9}};
+    QJsonObject link;
+    link["targetUri"] = "file:///tmp/other.cpp";
+    link["targetRange"] = targetRange;
+    link["targetSelectionRange"] = selectionRange;
+
+    Location loc = Location::fromAnyJson(link);
+    EXPECT_EQ(loc.uri, "file:///tmp/other.cpp");
+    // The selection range is preferred for navigation; the full statement
+    // range is the fallback only when the selection range is absent.
+    EXPECT_EQ(loc.range.start.character, 4);
+    EXPECT_EQ(loc.range.end.character, 9);
+}
+
+TEST(LspTypesTest, LocationFromAnyJsonLocationLinkWithoutSelectionRange)
+{
+    QJsonObject targetRange;
+    targetRange["start"] = QJsonObject{{"line", 3}, {"character", 1}};
+    targetRange["end"] = QJsonObject{{"line", 5}, {"character", 2}};
+    QJsonObject link;
+    link["targetUri"] = "file:///tmp/plain.cpp";
+    link["targetRange"] = targetRange;
+
+    Location loc = Location::fromAnyJson(link);
+    EXPECT_EQ(loc.uri, "file:///tmp/plain.cpp");
+    EXPECT_EQ(loc.range.start.line, 3);
+    EXPECT_EQ(loc.range.end.line, 5);
+}
+
+TEST(LspTypesTest, CompletionItemKindUsesOneBasedMapping)
+{
+    const char* labels[] = {"Text",      "Method", "Function", "Constructor",  "Field",       "Variable", "Class",
+                           "Interface", "Module", "Property", "Unit",         "Value",       "Enum",     "Keyword",
+                           "Snippet",   "Color",  "File",     "Reference",    "Folder",      "EnumMember", "Constant",
+                           "Struct",    "Event",  "Operator", "TypeParameter"};
+    for (int k = 1; k <= 25; ++k)
+    {
+        QJsonObject obj;
+        obj["label"] = QString("item%1").arg(k);
+        obj["kind"] = k;
+        CompletionItem item = CompletionItem::fromJson(obj);
+        EXPECT_EQ(item.kind, QString::fromLatin1(labels[k - 1])) << "kind=" << k;
+    }
+}
+
+TEST(LspTypesTest, CompletionItemKindOutOfRangeLeavesKindEmpty)
+{
+    for (int k : {0, -1, 26, 1000})
+    {
+        QJsonObject obj;
+        obj["label"] = QStringLiteral("item");
+        obj["kind"] = k;
+        CompletionItem item = CompletionItem::fromJson(obj);
+        EXPECT_TRUE(item.kind.isEmpty()) << "kind=" << k;
+    }
+}

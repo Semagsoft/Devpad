@@ -32,8 +32,10 @@ namespace lsp
 // structural problems (e.g. edits outside the document).
 QString applyTextEditsToText(const QString& text, const QList<QJsonObject>& edits, bool* ok, QString* error = nullptr);
 
-// Apply LSP TextEdits to the file on disk. Writes atomically. The file is
-// decoded as UTF-8. Returns true on success.
+// Apply LSP TextEdits to the file on disk. Writes atomically. The file's
+// BOM/encoding is detected and preserved; a file without a BOM must be valid
+// UTF-8 (anything else is refused rather than mangled). Returns true on
+// success.
 bool applyTextEditsToFile(const QString& filePath, const QList<QJsonObject>& edits, QString* error = nullptr);
 
 } // namespace lsp

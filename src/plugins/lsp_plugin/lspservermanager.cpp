@@ -85,6 +85,48 @@ QString LspServerManager::rootUriForFile(const QString& filePath) const
     return uriFromPath(QFileInfo(filePath).absolutePath());
 }
 
+QString LspServerManager::serverCommandForLanguage(const QString& language) const
+{
+    const auto& s = SettingsManager::instance();
+    if (m_pluginServerCommands.contains(language))
+        return m_pluginServerCommands.value(language);
+    QString serverCommand = s.lspServerCommand(language);
+    if (serverCommand.isEmpty())
+        serverCommand = defaultServerCommands().value(language);
+    return serverCommand;
+}
+
+QStringList LspServerManager::serverArgsForLanguage(const QString& language) const
+{
+    const auto& s = SettingsManager::instance();
+    if (m_pluginServerArgs.contains(language))
+        return m_pluginServerArgs.value(language);
+    QStringList serverArgs = s.lspServerArgs(language);
+    if (serverArgs.isEmpty())
+        serverArgs = defaultServerArgs(language);
+    return serverArgs;
+}
+
+void LspServerManager::startClientIfNeeded(LspClient* client, const QString& language, const QString& rootUri)
+{
+    if (!client || client->isRunning())
+        return;
+    const QString command = serverCommandForLanguage(language);
+    if (command.isEmpty())
+        return;
+    client->startServer(command, serverArgsForLanguage(language), rootUri);
+}
+
+QString LspServerManager::rootUriForLanguage(const QString& language) const
+{
+    for (auto it = m_documentLanguages.constBegin(); it != m_documentLanguages.constEnd(); ++it)
+    {
+        if (it.value() == language)
+            return rootUriForFile(pathFromUri(it.key()));
+    }
+    return QString();
+}
+
 LspClient* LspServerManager::clientForLanguage(const QString& language)
 {
     if (language.isEmpty() || language == "text")
@@ -93,21 +135,12 @@ LspClient* LspServerManager::clientForLanguage(const QString& language)
     if (m_clients.contains(language))
         return m_clients[language];
 
-    const auto& s = SettingsManager::instance();
-    if (!s.lspEnabled())
+    if (!SettingsManager::instance().lspEnabled())
         return nullptr;
 
     // Plugin-registered servers take precedence, then user settings, then
     // built-in defaults.
-    QString serverCommand;
-    if (m_pluginServerCommands.contains(language))
-        serverCommand = m_pluginServerCommands.value(language);
-    else
-    {
-        serverCommand = s.lspServerCommand(language);
-        if (serverCommand.isEmpty())
-            serverCommand = defaultServerCommands().value(language);
-    }
+    const QString serverCommand = serverCommandForLanguage(language);
     if (serverCommand.isEmpty())
         return nullptr;
 
@@ -118,16 +151,6 @@ LspClient* LspServerManager::clientForLanguage(const QString& language)
         qDebug().noquote() << QString("LSP server '%1' not found in PATH for %2").arg(serverCommand, language);
 #endif
         return nullptr;
-    }
-
-    QStringList serverArgs;
-    if (m_pluginServerArgs.contains(language))
-        serverArgs = m_pluginServerArgs.value(language);
-    else
-    {
-        serverArgs = s.lspServerArgs(language);
-        if (serverArgs.isEmpty())
-            serverArgs = defaultServerArgs(language);
     }
 
     auto* client = new LspClient(language, this);
@@ -190,16 +213,7 @@ void LspServerManager::openDocument(const QString& language, const QString& uri,
     if (!client)
         return;
 
-    if (!client->isRunning())
-    {
-        QString command = SettingsManager::instance().lspServerCommand(language);
-        if (command.isEmpty())
-            command = defaultServerCommands().value(language);
-        QStringList args = SettingsManager::instance().lspServerArgs(language);
-        if (args.isEmpty())
-            args = defaultServerArgs(language);
-        client->startServer(command, args, rootUri);
-    }
+    startClientIfNeeded(client, language, rootUri);
 
     client->openDocument(uri, text, version);
 }
@@ -302,9 +316,20 @@ void LspServerManager::registerPluginServer(const QString& language, const QStri
     m_pluginServerCommands.insert(language, command);
     m_pluginServerArgs.insert(language, args);
 
-    // If a client is already cached for this language, rebuild it so the new
-    // command takes effect on the next document open.
-    m_clients.remove(language);
+    // If a client is already cached for this language, replace it cleanly so
+    // the new command takes effect: stop and delete the old client (like
+    // unregisterPluginServer does), then replay tracked documents onto a
+    // fresh client built from the new registration and start it.
+    if (auto* client = m_clients.take(language))
+    {
+        client->stopServer();
+        delete client;
+        if (LspClient* fresh = clientForLanguage(language))
+        {
+            startClientIfNeeded(fresh, language, rootUriForLanguage(language));
+            replayDocuments(language, fresh);
+        }
+    }
 }
 
 void LspServerManager::unregisterPluginServer(const QString& language)

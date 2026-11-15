@@ -99,6 +99,9 @@ public:
     }
 
     static Location fromJson(const QJsonObject& obj);
+    // Accepts either a Location object ({uri, range}) or a LocationLink object
+    // ({targetUri, targetRange, targetSelectionRange}) and normalizes it.
+    static Location fromAnyJson(const QJsonObject& obj);
 };
 
 struct Diagnostic

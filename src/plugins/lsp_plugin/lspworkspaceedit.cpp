@@ -19,10 +19,13 @@
 #include "lspworkspaceedit.h"
 
 #include "lsp/lsptypes.h"
+#include "encodingutils.h"
 
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
+#include <QStringDecoder>
+#include <QStringEncoder>
 #include <QVector>
 #include <algorithm>
 
@@ -123,8 +126,31 @@ bool applyTextEditsToFile(const QString& filePath, const QList<QJsonObject>& edi
             *error = QStringLiteral("Cannot open file: %1").arg(filePath);
         return false;
     }
-    const QString text = QString::fromUtf8(file.readAll());
+    const QByteArray raw = file.readAll();
     file.close();
+
+    // Decode in place instead of assuming UTF-8: BOM-marked files are
+    // round-tripped through their own encoding (UTF-16/32, ISO-8859-1, ...)
+    // and genuinely non-UTF-8 files without a BOM are refused rather than
+    // mangled into question marks.
+    const BomResult bom = detectBom(raw);
+    QString text;
+    if (bom.size > 0)
+    {
+        QStringDecoder decoder(encodingFromName(bom.encodingName));
+        text = decoder(raw.mid(bom.size));
+    }
+    else
+    {
+        QStringDecoder decoder(QStringConverter::Utf8);
+        text = decoder(raw);
+        if (decoder.hasError())
+        {
+            if (error)
+                *error = QStringLiteral("File is not valid UTF-8 and has no BOM; refusing to rewrite it: %1").arg(filePath);
+            return false;
+        }
+    }
 
     bool ok = false;
     const QString updated = applyTextEditsToText(text, edits, &ok, error);
@@ -138,7 +164,17 @@ bool applyTextEditsToFile(const QString& filePath, const QList<QJsonObject>& edi
             *error = QStringLiteral("Cannot write file: %1").arg(filePath);
         return false;
     }
-    out.write(updated.toUtf8());
+    if (bom.size > 0)
+        out.write(raw.left(bom.size)); // re-emit the original BOM bytes
+    QStringEncoder encoder(bom.size > 0 ? encodingFromName(bom.encodingName) : QStringConverter::Utf8);
+    const QByteArray encoded = encoder.encode(updated);
+    if (encoder.hasError())
+    {
+        if (error)
+            *error = QStringLiteral("File contains characters the original encoding cannot represent: %1").arg(filePath);
+        return false;
+    }
+    out.write(encoded);
     if (!out.commit())
     {
         if (error)
