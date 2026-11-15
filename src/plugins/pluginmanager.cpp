@@ -46,6 +46,12 @@ PluginManager::PluginManager(MainWindow* mainWindow, QObject* parent) : QObject(
         base = QDir::homePath() + QLatin1String("/.local/share");
     setPluginsDir(base + QLatin1String("/devpad/plugins"));
 
+    // Optional environment override for the plugins directory. Takes
+    // precedence over the user and system directories. Used by the test
+    // suite to load the plugins from the build tree instead of a possibly
+    // stale system-wide installation; also handy for portable installs.
+    m_envPluginsDir = qEnvironmentVariable("DEVPAD_PLUGINS_DIR");
+
     // System plugins directory (shipped with the app, read-only).
 #ifdef DEVPAD_SYSTEM_PLUGINS_DIR
     m_systemPluginsDir = QStringLiteral(DEVPAD_SYSTEM_PLUGINS_DIR);
@@ -86,11 +92,13 @@ QList<PluginInfo> PluginManager::discoveredPlugins() const
 {
     QHash<QString, PluginInfo> byId;
 
-    // System plugins first, then user plugins. User-installed plugins take
-    // priority: if a plugin ID appears in both directories, the user's copy
-    // overrides the system one.
+    // Environment override directory (highest priority), the system plugins
+    // directory (shipped with the app), then the user plugins directory.
+    // User-installed plugins take priority over system ones; the environment
+    // override takes priority over both.
     appendDiscoveredFromDir(m_systemPluginsDir, byId);
     appendDiscoveredFromDir(m_pluginsDir, byId);
+    appendDiscoveredFromDir(m_envPluginsDir, byId);
 
     return byId.values();
 }
@@ -98,7 +106,7 @@ QList<PluginInfo> PluginManager::discoveredPlugins() const
 void PluginManager::appendDiscoveredFromDir(const QString& dirPath, QHash<QString, PluginInfo>& byId) const
 {
     QDir dir(dirPath);
-    if (!dir.exists())
+    if (dirPath.isEmpty() || !dir.exists())
         return;
 
 #ifdef Q_OS_WIN
@@ -116,8 +124,11 @@ void PluginManager::appendDiscoveredFromDir(const QString& dirPath, QHash<QStrin
 
 QString PluginManager::pluginFilePath(const QString& pluginId) const
 {
-    // User-installed plugins take priority over system plugins.
-    QString path = findPluginFileInDir(m_pluginsDir, pluginId);
+    // Environment override takes priority, then the user directory, then the system one.
+    QString path = findPluginFileInDir(m_envPluginsDir, pluginId);
+    if (!path.isEmpty())
+        return path;
+    path = findPluginFileInDir(m_pluginsDir, pluginId);
     if (!path.isEmpty())
         return path;
     return findPluginFileInDir(m_systemPluginsDir, pluginId);
@@ -126,7 +137,7 @@ QString PluginManager::pluginFilePath(const QString& pluginId) const
 QString PluginManager::findPluginFileInDir(const QString& dirPath, const QString& pluginId) const
 {
     QDir dir(dirPath);
-    if (!dir.exists())
+    if (dirPath.isEmpty() || !dir.exists())
         return QString();
 
 #ifdef Q_OS_WIN
@@ -180,17 +191,18 @@ PluginInfo PluginManager::readPluginManifest(const QString& filePath)
 
 void PluginManager::loadAll()
 {
-    // Scan system plugins directory first (shipped with the app), then the
-    // user plugins directory (user-installed plugins take priority for
-    // plugins with the same id).
-    loadPluginsFromDir(m_systemPluginsDir);
+    // Later directories do not override already-loaded plugins, so scan in
+    // reverse priority: the environment override wins, then the user plugins
+    // directory, then the system one.
+    loadPluginsFromDir(m_envPluginsDir);
     loadPluginsFromDir(m_pluginsDir);
+    loadPluginsFromDir(m_systemPluginsDir);
 }
 
 void PluginManager::loadPluginsFromDir(const QString& dirPath)
 {
     QDir dir(dirPath);
-    if (!dir.exists())
+    if (dirPath.isEmpty() || !dir.exists())
         return;
 
 #ifdef Q_OS_WIN

@@ -48,6 +48,11 @@ class PluginHost;
  * factory function devpadCreatePlugin(). They do not link against Devpad_lib;
  * they only include the plugin interface headers and link Qt.
  *
+ * Optional environment override: setting DEVPAD_PLUGINS_DIR makes the manager
+ * load plugins from that directory instead of the user/system locations
+ * (highest priority). Used by the test suite to load the plugins from the
+ * build tree; also useful for portable installs.
+ *
  * The manager is owned by MainWindow and lives for the application lifetime.
  */
 class PluginManager : public QObject
@@ -135,6 +140,7 @@ private:
     std::unique_ptr<PluginHost> m_host;
     QString m_pluginsDir;       // user-installed plugins directory
     QString m_systemPluginsDir; // system plugins directory (shipped with app)
+    QString m_envPluginsDir;    // optional DEVPAD_PLUGINS_DIR override (highest priority)
 
     // Enabled state persisted via SettingsManager under Plugins/<id>/Enabled.
     QHash<QString, bool> m_enabled;

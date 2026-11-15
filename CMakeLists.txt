@@ -782,7 +782,10 @@ if(BUILD_TESTS)
         $<$<BOOL:${BUILD_PLUGINS}>:DEVPAD_BUILD_PLUGINS=1>
     )
 
+    # Point the tests at the plugins built in this build tree so the suite
+    # never loads a stale system-wide installation (plugins share the
+    # application's data layout; a mismatched copy corrupts memory).
     gtest_discover_tests(Devpad_tests
         DISCOVERY_MODE PRE_TEST
-        PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DEVPAD_PLUGINS_DIR=${CMAKE_BINARY_DIR}/plugins")
 endif()
