@@ -21,6 +21,7 @@
 
 #include "dialogsettings.h"
 
+#include <QColor>
 #include <QDialog>
 
 class QComboBox;
@@ -78,6 +79,11 @@ private:
         int data;
     };
     QVector<ThemeItem> m_themeItems;
+    // Snapshot of the theme-related settings taken when the dialog opens;
+    // reject() restores them so Cancel undoes live theme/accent edits.
+    int m_originalThemeId = 0;
+    QString m_originalCustomTheme;
+    QColor m_originalAccent;
 
     QTabWidget* tabWidget = nullptr;
 

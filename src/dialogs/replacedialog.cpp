@@ -26,6 +26,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QVBoxLayout>
 
 ReplaceDialog::ReplaceDialog(QWidget* parent) : QDialog(parent), editor(nullptr), m_settings("Replace")
@@ -152,10 +153,28 @@ void ReplaceDialog::findNext()
     emit searchFinished(found);
 }
 
+namespace
+{
+// Replacement text looks like it contains regex back references (\1..\9, $1..$9).
+bool replacementHasBackrefs(const QString& replacement)
+{
+    static const QRegularExpression re(QStringLiteral(R"(\\[1-9]|\$[1-9])"));
+    return re.match(replacement).hasMatch();
+}
+} // namespace
+
 void ReplaceDialog::replace()
 {
     if (!editor)
         return;
+
+    if (useRegex() && replacementHasBackrefs(replaceText()) && !m_warnedAboutBackrefs)
+    {
+        m_warnedAboutBackrefs = true;
+        QMessageBox::information(this, tr("Replace"),
+                                 tr("Regular-expression back references (e.g. \\1 or $1) in the replacement are inserted literally; "
+                                    "they are not expanded. Disable “Use regular expressions” if back references are what you want."));
+    }
 
     if (editor->hasSelectedText())
     {
@@ -177,6 +196,15 @@ void ReplaceDialog::replaceAll()
 {
     if (!editor)
         return;
+
+    if (useRegex() && replacementHasBackrefs(replaceText()) && !m_warnedAboutBackrefs)
+    {
+        m_warnedAboutBackrefs = true;
+        QMessageBox::information(this, tr("Replace All"),
+                                 tr("Regular-expression back references (e.g. \\1 or $1) in the replacement are inserted literally; "
+                                    "they are not expanded. Disable “Use regular expressions” if back references are what you want."));
+    }
+
     editor->beginUndoAction();
     editor->setCursorPosition(0, 0);
     int count = 0;

@@ -140,6 +140,10 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent), m_geometrySetti
     resize(850, 600);
     setupUI();
     loadSettings();
+    // Snapshot the theme-related settings so reject() can revert live edits.
+    m_originalThemeId = static_cast<int>(SettingsManager::instance().theme());
+    m_originalCustomTheme = SettingsManager::instance().customTheme();
+    m_originalAccent = SettingsManager::instance().accentColor();
     m_geometrySettings.restoreGeometry(this);
 }
 
@@ -901,7 +905,7 @@ void OptionsDialog::filterThemes(const QString& text)
         themeComboBox->insertSeparator(insertPos);
     }
 
-    themeComboBox->blockSignals(false);
+    themeComboBox->blockSignals(true); // keep blocked through the restore below; unblock at the end of the function
 
     // Restore selection if the previously selected theme is still visible;
     // otherwise fall back to the first visible item so the combo is never
@@ -936,6 +940,7 @@ void OptionsDialog::filterThemes(const QString& text)
     if (!restored && themeComboBox->count() > 0)
         themeComboBox->setCurrentIndex(0);
 
+    themeComboBox->blockSignals(false);
     updateThemePreview();
 }
 
@@ -1012,6 +1017,9 @@ void OptionsDialog::loadSettings()
     }
     ThemeId savedThemeId = s.theme();
     bool found = false;
+    // Block signals: setCurrentIndex fires currentIndexChanged, which would
+    // persist the just-loaded theme and emit themeChanged during load.
+    const QSignalBlocker blocker(themeComboBox);
     for (int i = 0; i < themeComboBox->count(); ++i)
     {
         if (themeComboBox->itemData(i).toInt() == static_cast<int>(savedThemeId))
@@ -1220,6 +1228,15 @@ void OptionsDialog::accept()
 
 void OptionsDialog::reject()
 {
+    // Restore the theme-related settings that were applied live while the
+    // dialog was open, so Cancel reverts them like every other setting.
+    SettingsManager::instance().setTheme(static_cast<ThemeId>(m_originalThemeId));
+    SettingsManager::instance().setCustomTheme(m_originalCustomTheme);
+    if (m_originalAccent.isValid())
+        SettingsManager::instance().setAccentColor(m_originalAccent);
+    else
+        SettingsManager::instance().clearAccentColor();
+    emit themeChanged();
     m_geometrySettings.saveGeometry(this);
     QDialog::reject();
 }

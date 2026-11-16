@@ -61,6 +61,7 @@ private:
     void pickColor(QPushButton* swatch);
     void updatePreview();
     bool writeThemeJson(const ThemeColors& colors, const QString& filePath) const;
+    static bool readThemeNameFromFile(const QString& filePath, QString* name);
     static QString themeFileName(const QString& name);
 };
 

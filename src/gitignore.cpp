@@ -39,7 +39,7 @@ void GitIgnore::scanDirectory(const QString& dirPath)
         return;
 
     QString absDir = QFileInfo(dirPath).absoluteFilePath();
-    if (!absDir.startsWith(m_rootPath))
+    if (absDir != m_rootPath && !absDir.startsWith(m_rootPath + '/'))
         return;
 
     if (m_patterns.contains(absDir))
@@ -131,6 +131,8 @@ QRegularExpression GitIgnore::patternToRegex(const QString& pattern, bool anchor
 
     if (anchored)
         regex += '^';
+    else
+        regex += QStringLiteral("(?:^|/)");
 
     while (i < pattern.size())
     {
