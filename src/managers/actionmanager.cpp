@@ -717,6 +717,11 @@ void ActionManager::registerAction(QAction* action, const QString& actionId)
 
     m_actionIds.insert(action, actionId);
     m_actionsById.insert(actionId, action);
+
+    // Seed the default shortcut for actions not created via createIconAction(),
+    // so resetShortcut() can restore it instead of leaving the action bare.
+    if (!m_defaultShortcuts.contains(actionId) && !action->shortcut().isEmpty())
+        m_defaultShortcuts.insert(actionId, action->shortcut());
 }
 
 void ActionManager::applyStoredShortcuts()

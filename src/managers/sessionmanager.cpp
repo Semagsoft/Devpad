@@ -85,13 +85,29 @@ void SessionManager::pruneDeadSessionGroups(const QString& ownGroup)
     }
 }
 
+QVariant SessionManager::sessionValue(const QString& group, const QString& key, const QString& legacyKey)
+{
+    if (m_sessionSettings.childGroups().contains(group))
+    {
+        m_sessionSettings.beginGroup(group);
+        const bool has = m_sessionSettings.contains(key);
+        const QVariant v = has ? m_sessionSettings.value(key) : QVariant();
+        m_sessionSettings.endGroup();
+        if (has)
+            return v;
+    }
+    return m_sessionSettings.value(legacyKey);
+}
+
 SessionManager::SessionData SessionManager::loadSessionData()
 {
+    m_lastLoadFailed = false;
     SessionData data;
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in loadSessionData");
         data.lockFailed = true;
+        m_lastLoadFailed = true;
         return data;
     }
     // Pick up changes written by other instances before reading.
@@ -105,26 +121,12 @@ SessionManager::SessionData SessionManager::loadSessionData()
     // groups are pruned below instead of being loaded.
     QVariantMap bookmarkMap;
     QVariantMap cursorMap;
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        data.files = m_sessionSettings.value(QStringLiteral("Files")).toStringList();
-        data.activeIndex = m_sessionSettings.value(QStringLiteral("ActiveIndex"), 0).toInt();
-        data.projectPath = m_sessionSettings.value(QStringLiteral("ProjectPath")).toString();
-        data.terminalWorkingDir = m_sessionSettings.value(QStringLiteral("TerminalWorkingDir")).toString();
-        bookmarkMap = m_sessionSettings.value(QStringLiteral("Bookmarks")).toMap();
-        cursorMap = m_sessionSettings.value(QStringLiteral("Cursors")).toMap();
-        m_sessionSettings.endGroup();
-    }
-    else
-    {
-        data.files = m_sessionSettings.value(QStringLiteral("Session_Files")).toStringList();
-        data.activeIndex = m_sessionSettings.value(QStringLiteral("Session_ActiveIndex"), 0).toInt();
-        data.projectPath = m_sessionSettings.value(QStringLiteral("Session_ProjectPath")).toString();
-        data.terminalWorkingDir = m_sessionSettings.value(QStringLiteral("Session_TerminalWorkingDir")).toString();
-        bookmarkMap = m_sessionSettings.value(QStringLiteral("Session_Bookmarks")).toMap();
-        cursorMap = m_sessionSettings.value(QStringLiteral("Session_Cursors")).toMap();
-    }
+    data.files = sessionValue(group, QStringLiteral("Files"), QStringLiteral("Session_Files")).toStringList();
+    data.activeIndex = sessionValue(group, QStringLiteral("ActiveIndex"), QStringLiteral("Session_ActiveIndex")).toInt();
+    data.projectPath = sessionValue(group, QStringLiteral("ProjectPath"), QStringLiteral("Session_ProjectPath")).toString();
+    data.terminalWorkingDir = sessionValue(group, QStringLiteral("TerminalWorkingDir"), QStringLiteral("Session_TerminalWorkingDir")).toString();
+    bookmarkMap = sessionValue(group, QStringLiteral("Bookmarks"), QStringLiteral("Session_Bookmarks")).toMap();
+    cursorMap = sessionValue(group, QStringLiteral("Cursors"), QStringLiteral("Session_Cursors")).toMap();
 
     data.activeIndex = qMin(data.activeIndex, qMax(data.files.size() - 1, 0));
 
@@ -262,18 +264,11 @@ QStringList SessionManager::sessionFiles()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in sessionFiles");
+        m_lastLoadFailed = true;
         return {};
     }
     QString group = sessionGroupPrefix();
-    QStringList files;
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        files = m_sessionSettings.value(QStringLiteral("Files")).toStringList();
-        m_sessionSettings.endGroup();
-    }
-    if (files.isEmpty())
-        files = m_sessionSettings.value(QStringLiteral("Session_Files")).toStringList();
+    const QStringList files = sessionValue(group, QStringLiteral("Files"), QStringLiteral("Session_Files")).toStringList();
     m_sessionLock.unlock();
     return files;
 }
@@ -283,20 +278,11 @@ int SessionManager::sessionActiveIndex()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in sessionActiveIndex");
+        m_lastLoadFailed = true;
         return 0;
     }
     QString group = sessionGroupPrefix();
-    int idx = 0;
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        idx = m_sessionSettings.value(QStringLiteral("ActiveIndex"), 0).toInt();
-        m_sessionSettings.endGroup();
-    }
-    else
-    {
-        idx = m_sessionSettings.value(QStringLiteral("Session_ActiveIndex"), 0).toInt();
-    }
+    const int idx = sessionValue(group, QStringLiteral("ActiveIndex"), QStringLiteral("Session_ActiveIndex")).toInt();
     m_sessionLock.unlock();
     return idx;
 }
@@ -306,18 +292,11 @@ QString SessionManager::sessionProjectPath()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in sessionProjectPath");
+        m_lastLoadFailed = true;
         return {};
     }
     QString group = sessionGroupPrefix();
-    QString path;
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        path = m_sessionSettings.value(QStringLiteral("ProjectPath")).toString();
-        m_sessionSettings.endGroup();
-    }
-    if (path.isEmpty())
-        path = m_sessionSettings.value(QStringLiteral("Session_ProjectPath")).toString();
+    const QString path = sessionValue(group, QStringLiteral("ProjectPath"), QStringLiteral("Session_ProjectPath")).toString();
     m_sessionLock.unlock();
     return path;
 }
@@ -327,18 +306,11 @@ QString SessionManager::sessionTerminalWorkingDir()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in sessionTerminalWorkingDir");
+        m_lastLoadFailed = true;
         return {};
     }
     QString group = sessionGroupPrefix();
-    QString dir;
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        dir = m_sessionSettings.value(QStringLiteral("TerminalWorkingDir")).toString();
-        m_sessionSettings.endGroup();
-    }
-    if (dir.isEmpty())
-        dir = m_sessionSettings.value(QStringLiteral("Session_TerminalWorkingDir")).toString();
+    const QString dir = sessionValue(group, QStringLiteral("TerminalWorkingDir"), QStringLiteral("Session_TerminalWorkingDir")).toString();
     m_sessionLock.unlock();
     return dir;
 }
@@ -374,20 +346,13 @@ QHash<QString, QList<int>> SessionManager::loadSessionBookmarks()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in loadSessionBookmarks");
+        m_lastLoadFailed = true;
         return {};
     }
 
     QHash<QString, QList<int>> result;
-    QVariantMap map;
-    QString group = sessionGroupPrefix();
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        map = m_sessionSettings.value(QStringLiteral("Bookmarks")).toMap();
-        m_sessionSettings.endGroup();
-    }
-    if (map.isEmpty())
-        map = m_sessionSettings.value(QStringLiteral("Session_Bookmarks")).toMap();
+    const QString group = sessionGroupPrefix();
+    const QVariantMap map = sessionValue(group, QStringLiteral("Bookmarks"), QStringLiteral("Session_Bookmarks")).toMap();
 
     m_sessionLock.unlock();
 
@@ -433,20 +398,13 @@ QHash<QString, QList<int>> SessionManager::loadSessionCursors()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("Failed to acquire session lock in loadSessionCursors");
+        m_lastLoadFailed = true;
         return {};
     }
 
     QHash<QString, QList<int>> result;
-    QVariantMap map;
-    QString group = sessionGroupPrefix();
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        map = m_sessionSettings.value(QStringLiteral("Cursors")).toMap();
-        m_sessionSettings.endGroup();
-    }
-    if (map.isEmpty())
-        map = m_sessionSettings.value(QStringLiteral("Session_Cursors")).toMap();
+    const QString group = sessionGroupPrefix();
+    const QVariantMap map = sessionValue(group, QStringLiteral("Cursors"), QStringLiteral("Session_Cursors")).toMap();
 
     m_sessionLock.unlock();
 
@@ -484,19 +442,12 @@ QStringList SessionManager::loadSessionPinnedFiles()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in loadSessionPinnedFiles");
+        m_lastLoadFailed = true;
         return {};
     }
 
-    QStringList files;
-    QString group = sessionGroupPrefix();
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        files = m_sessionSettings.value(QStringLiteral("PinnedFiles")).toStringList();
-        m_sessionSettings.endGroup();
-    }
-    if (files.isEmpty())
-        files = m_sessionSettings.value(QStringLiteral("Session_PinnedFiles")).toStringList();
+    const QString group = sessionGroupPrefix();
+    const QStringList files = sessionValue(group, QStringLiteral("PinnedFiles"), QStringLiteral("Session_PinnedFiles")).toStringList();
 
     m_sessionLock.unlock();
 
@@ -529,22 +480,13 @@ SessionManager::SplitSessionState SessionManager::loadSessionSplitState()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("Failed to acquire session lock in loadSessionSplitState");
+        m_lastLoadFailed = true;
         return state;
     }
 
-    QString group = sessionGroupPrefix();
-    if (m_sessionSettings.childGroups().contains(group))
-    {
-        m_sessionSettings.beginGroup(group);
-        state.splitVisible = m_sessionSettings.value(QStringLiteral("SplitVisible"), false).toBool();
-        state.tabPanes = m_sessionSettings.value(QStringLiteral("TabPanes")).toList();
-        m_sessionSettings.endGroup();
-    }
-    if (state.tabPanes.isEmpty())
-    {
-        state.splitVisible = m_sessionSettings.value(QStringLiteral("Session_SplitVisible"), false).toBool();
-        state.tabPanes = m_sessionSettings.value(QStringLiteral("Session_TabPanes")).toList();
-    }
+    const QString group = sessionGroupPrefix();
+    state.splitVisible = sessionValue(group, QStringLiteral("SplitVisible"), QStringLiteral("Session_SplitVisible")).toBool();
+    state.tabPanes = sessionValue(group, QStringLiteral("TabPanes"), QStringLiteral("Session_TabPanes")).toList();
 
     m_sessionLock.unlock();
 

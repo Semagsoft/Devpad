@@ -80,6 +80,7 @@ const LanguageInfo* findLanguage(const QString& name);
 using PluginLexerFactory = std::function<QObject*(QObject* parent)>;
 bool registerPluginLanguage(const QString& languageId, const QString& lexerClassName, PluginLexerFactory factory);
 bool unregisterPluginLanguage(const QString& languageId);
+bool unregisterPluginLanguageKeywords(const QString& languageId);
 bool registerPluginLanguageKeywords(const QString& languageId, const QStringList& keywords);
 
 const CommentSyntax* commentSyntaxForLanguage(const QString& language);

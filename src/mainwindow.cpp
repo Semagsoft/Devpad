@@ -1112,10 +1112,11 @@ void MainWindow::applyStartupMode()
     else if (mode == StartupMode::RestoreSession)
     {
         auto sessionData = m_sessionManager->restoreSession([this](const QString& filePath) { loadFile(filePath); }, m_splitView, m_projectPanel);
-        if (sessionData.lockFailed)
+        QStringList pinnedFiles = m_sessionManager->loadSessionPinnedFiles();
+        if (sessionData.lockFailed || m_sessionManager->lastLoadFailed())
             QMessageBox::warning(this, tr("Session Not Restored"),
-                                 tr("Devpad could not lock the session file (another instance may be holding it). Your previous session was not restored."));
-        m_tabManager->setPinnedFiles(m_sessionManager->loadSessionPinnedFiles());
+                                 tr("Devpad could not lock the session file (another instance may be holding it). Your previous session was not fully restored."));
+        m_tabManager->setPinnedFiles(pinnedFiles);
 
         QString terminalDir = sessionData.terminalWorkingDir;
         if (terminalDir.isEmpty())

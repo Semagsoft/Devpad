@@ -60,6 +60,10 @@ public:
     // True when the most recent saveSession() call could not acquire the
     // session lock and some state was dropped instead of persisted.
     bool lastSaveFailed() const { return m_lastSaveFailed; }
+    // True when the most recent read could not acquire the session lock and
+    // returned an empty/stale default instead of stored data.
+    bool lastLoadFailed() const { return m_lastLoadFailed; }
+    bool lastOperationFailed() const { return m_lastSaveFailed || m_lastLoadFailed; }
 
     // ── Persistence ────────────────────────────────────────────
     void saveSessionData(const QStringList& files, int activeIndex, const QString& projectPath, const QString& terminalWorkingDir = {});
@@ -91,10 +95,16 @@ signals:
 private:
     QString sessionGroupPrefix() const;
     void pruneDeadSessionGroups(const QString& ownGroup);
+    // Per-key fallback: return the value for `key` from this instance's own
+    // PID group when the key EXISTS there (even if empty); otherwise the
+    // legacy flat key `legacyKey`. Prevents a partially written own-PID
+    // group from shadowing the legacy snapshot with empty values.
+    QVariant sessionValue(const QString& group, const QString& key, const QString& legacyKey);
 
     QSettings m_sessionSettings;
     QLockFile m_sessionLock;
     bool m_lastSaveFailed = false;
+    bool m_lastLoadFailed = false;
 };
 
 #endif

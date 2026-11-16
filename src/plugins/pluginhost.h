@@ -177,6 +177,10 @@ private:
     struct PluginRegistrations
     {
         QStringList languageIds;
+        // Languages whose keywords the plugin registered WITHOUT registering
+        // the language. Unregistering those must only drop the keywords,
+        // never the language itself (which may be a built-in).
+        QStringList keywordOnlyLanguageIds;
         QStringList encodingNames;
         QStringList extensions;
         QStringList fileNames;

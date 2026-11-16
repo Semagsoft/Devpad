@@ -21,6 +21,8 @@
 #include "keywords.h"
 #include "theme.h"
 
+#include <memory>
+
 namespace
 {
 QHash<QString, LanguageInfo>& pluginLanguageTable();
@@ -567,6 +569,14 @@ QHash<QString, LanguageInfo>& pluginLanguageTable()
     static QHash<QString, LanguageInfo> table;
     return table;
 }
+
+// Keyword providers are kept alive as shared_ptr copies captured by the
+// LanguageInfo::keywords lambda; removing the entry here drops the provider.
+QHash<QString, std::shared_ptr<const QStringList>>& pluginKeywordStorage()
+{
+    static QHash<QString, std::shared_ptr<const QStringList>> storage;
+    return storage;
+}
 } // namespace
 
 bool registerPluginLanguage(const QString& languageId, const QString& lexerClassName, PluginLexerFactory factory)
@@ -603,11 +613,26 @@ bool registerPluginLanguageKeywords(const QString& languageId, const QStringList
     auto it = table.find(languageId);
     if (it == table.end())
         return false;
-    // Store keywords in a stable location so the KeywordProvider reference
-    // remains valid.
-    static QHash<QString, QStringList> keywordStorage;
-    QStringList& storage = keywordStorage[languageId];
-    storage = keywords;
-    it->keywords = [&storage]() -> const QStringList& { return storage; };
+    // Store keywords in shared_ptr ownership so the KeywordProvider reference
+    // stays valid regardless of how the storage hash rehashes.
+    auto storage = std::make_shared<QStringList>(keywords);
+    pluginKeywordStorage().insert(languageId, storage);
+    it->keywords = [storage]() -> const QStringList& { return *storage; };
+    return true;
+}
+
+bool unregisterPluginLanguageKeywords(const QString& languageId)
+{
+    pluginKeywordStorage().remove(languageId);
+    auto& table = pluginLanguageTable();
+    auto it = table.find(languageId);
+    if (it != table.end())
+    {
+        it->keywords = []() -> const QStringList&
+        {
+            static const QStringList empty;
+            return empty;
+        };
+    }
     return true;
 }

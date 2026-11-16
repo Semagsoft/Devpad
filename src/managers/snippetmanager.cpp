@@ -196,32 +196,37 @@ bool SnippetManager::removeSnippet(const QString& name)
     if (name.isEmpty())
         return false;
 
-    // Remove from global snippets.
-    for (int i = 0; i < m_globalSnippets.size(); ++i)
+    bool removed = false;
+
+    // Remove from global snippets (all occurrences).
+    for (int i = m_globalSnippets.size() - 1; i >= 0; --i)
     {
         if (m_globalSnippets[i].name == name)
         {
             m_globalSnippets.removeAt(i);
-            return true;
+            removed = true;
         }
     }
 
-    // Remove from per-language snippets.
-    for (auto it = m_snippets.begin(); it != m_snippets.end(); ++it)
+    // Remove from EVERY per-language list (a snippet with scope "cpp,python"
+    // is registered in both; previously only the first match was removed).
+    for (auto it = m_snippets.begin(); it != m_snippets.end();)
     {
         auto& list = it.value();
-        for (int i = 0; i < list.size(); ++i)
+        for (int i = list.size() - 1; i >= 0; --i)
         {
             if (list[i].name == name)
             {
                 list.removeAt(i);
-                if (list.isEmpty())
-                    m_snippets.erase(it);
-                return true;
+                removed = true;
             }
         }
+        if (list.isEmpty())
+            it = m_snippets.erase(it);
+        else
+            ++it;
     }
-    return false;
+    return removed;
 }
 
 void SnippetManager::loadUserSnippets()

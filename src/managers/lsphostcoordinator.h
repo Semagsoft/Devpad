@@ -82,6 +82,7 @@ public:
 
 private:
     void ensureServiceSignals(lsp::ILspService* svc);
+    void scheduleDidOpen(CodeEditor* editor);
 
     TabManager* m_tabManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
@@ -89,6 +90,8 @@ private:
     PluginManager* m_pluginManager = nullptr;
     std::function<void(const QString& filePath, int line, int column)> m_navigate;
     QHash<CodeEditor*, QPointer<LspEditorBridge>> m_bridges;
+    QHash<CodeEditor*, int> m_didOpenGenerations;
+    QMetaObject::Connection m_referencesConnection;
     bool m_serviceSignalsConnected = false;
 };
 

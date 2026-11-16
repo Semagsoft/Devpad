@@ -117,6 +117,8 @@ void PluginHost::endPluginSession(const QString& pluginId)
         const PluginRegistrations& reg = regIt.value();
         for (const auto& langId : reg.languageIds)
             unregisterPluginLanguage(langId);
+        for (const auto& langId : reg.keywordOnlyLanguageIds)
+            unregisterPluginLanguageKeywords(langId);
         for (const auto& encName : reg.encodingNames)
             unregisterPluginEncoding(encName);
         for (const auto& ext : reg.extensions)
@@ -494,7 +496,13 @@ bool PluginHost::registerLanguageKeywords(const QString& languageId, const QStri
         return false;
     if (!registerPluginLanguageKeywords(languageId, keywords))
         return false;
-    m_pluginRegistrations[m_currentPluginId].languageIds.append(languageId);
+    // Keyword-only registration: at unload, drop ONLY the keywords, not the
+    // language (it may be a built-in or another plugin's language).
+    // The language was registered via registerLanguage() if it is in languageIds;
+    // only record as keyword-only when we did not register the language itself.
+    PluginRegistrations& reg = m_pluginRegistrations[m_currentPluginId];
+    if (!reg.languageIds.contains(languageId))
+        reg.keywordOnlyLanguageIds.append(languageId);
     return true;
 }
 

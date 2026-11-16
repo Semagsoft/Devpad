@@ -70,6 +70,25 @@ void LspHostCoordinator::attachAll()
         attachEditor(editor);
 }
 
+void LspHostCoordinator::scheduleDidOpen(CodeEditor* editor)
+{
+    // Both attachEditor and refreshEditor can re-detect the language of the
+    // same editor within a short window; only the latest request may send
+    // didOpen, or the server may get a duplicate didOpen (protocol error).
+    const int generation = ++m_didOpenGenerations[editor];
+    QPointer<CodeEditor> guard(editor);
+    QTimer::singleShot(200, this,
+                       [this, guard, generation]()
+                       {
+                           if (!guard)
+                               return;
+                           if (m_didOpenGenerations.value(guard.data(), 0) != generation)
+                               return; // superseded by a newer didOpen request
+                           if (guard->lspSession())
+                               guard->lspSession()->sendDidOpen();
+                       });
+}
+
 void LspHostCoordinator::ensureServiceSignals(lsp::ILspService* svc)
 {
     if (!svc || m_serviceSignalsConnected)
@@ -78,9 +97,9 @@ void LspHostCoordinator::ensureServiceSignals(lsp::ILspService* svc)
     // One-time wiring of the navigation callback and service signals so
     // references land in the references panel.
     svc->setNavigateCallback(m_navigate);
-    if (m_referencesPanel)
-        connect(svc, &lsp::ILspService::referencesReady, this,
-                [this](const QString&, const QList<lsp::Location>& locations) { m_referencesPanel->setReferences(locations); });
+    if (m_referencesPanel && !m_referencesConnection)
+        m_referencesConnection = connect(svc, &lsp::ILspService::referencesReady, this,
+                                         [this](const QString&, const QList<lsp::Location>& locations) { m_referencesPanel->setReferences(locations); });
     m_serviceSignalsConnected = true;
 }
 
@@ -110,17 +129,16 @@ void LspHostCoordinator::attachEditor(CodeEditor* editor)
     if (session && !syntax.isEmpty())
     {
         session->setLanguage(syntax);
-
-        QTimer::singleShot(200, this,
-                           [guard]()
-                           {
-                               if (guard && guard->lspSession())
-                                   guard->lspSession()->sendDidOpen();
-                           });
+        scheduleDidOpen(editor);
     }
 
     m_bridges.insert(editor, bridge);
-    connect(editor, &QObject::destroyed, this, [this, editor]() { m_bridges.remove(editor); });
+    connect(editor, &QObject::destroyed, this,
+            [this, editor]()
+            {
+                m_bridges.remove(editor);
+                m_didOpenGenerations.remove(editor);
+            });
 }
 
 void LspHostCoordinator::refreshEditor(CodeEditor* editor)
@@ -148,13 +166,7 @@ void LspHostCoordinator::refreshEditor(CodeEditor* editor)
         return;
 
     session->setLanguage(syntax);
-    QPointer<CodeEditor> guard(editor);
-    QTimer::singleShot(200, this,
-                       [guard]()
-                       {
-                           if (guard && guard->lspSession())
-                               guard->lspSession()->sendDidOpen();
-                       });
+    scheduleDidOpen(editor);
 }
 
 void LspHostCoordinator::detachAll()
@@ -163,12 +175,18 @@ void LspHostCoordinator::detachAll()
     // QPointer entries); the plugin's sessions died with the plugin.
     const auto bridges = std::move(m_bridges); // take ownership of the list; bridges die below
     m_bridges.clear();
+    m_didOpenGenerations.clear();
     for (const QPointer<LspEditorBridge>& bridge : bridges)
     {
         if (bridge)
             bridge->deleteLater();
     }
     m_serviceSignalsConnected = false;
+    if (m_referencesConnection)
+    {
+        disconnect(m_referencesConnection);
+        m_referencesConnection = QMetaObject::Connection();
+    }
 
     // Clear per-editor diagnostic state and the diagnostic surfaces.
     if (m_tabManager)

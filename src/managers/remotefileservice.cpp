@@ -326,12 +326,13 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
         if (!guard)
             return;
         QString err = QString::fromUtf8(*stderrBuf).trimmed();
+        // A listing failure is not a download failure; routing it to
+        // downloadFailed pops the wrong "Download Failed" modal.
         emit remoteListingFailed(urlStr, remotePath, err.isEmpty() ? fallback : err);
-        emit downloadFailed(urlStr, err.isEmpty() ? fallback : err);
     };
 
     connect(ssh, &QProcess::readyReadStandardOutput, this,
-            [ssh, procGuard, guard, processed, stdoutBuf, urlStr, remotePath]()
+            [ssh, procGuard, guard, processed, stdoutBuf, urlStr, remotePath, finishProcess]()
             {
                 if (!guard || !procGuard || *processed)
                     return;
@@ -339,11 +340,11 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
                 if (stdoutBuf->size() > kMaxListingBytes)
                 {
                     *processed = true;
-                    ssh->disconnect();
-                    ssh->kill();
+                    if (ssh->state() != QProcess::NotRunning)
+                        ssh->kill();
+                    finishProcess();
                     QString msg = tr("Directory listing too large.");
                     emit guard->remoteListingFailed(urlStr, remotePath, msg);
-                    emit guard->downloadFailed(urlStr, msg);
                 }
             });
 
@@ -409,17 +410,16 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
     auto* killTimer = new QTimer(ssh);
     killTimer->setSingleShot(true);
     connect(killTimer, &QTimer::timeout, ssh,
-            [ssh, guard, processed]()
+            [ssh, guard, processed, finishProcess]()
             {
                 if (!guard || *processed)
                     return;
                 *processed = true;
-                ssh->disconnect();
                 if (ssh->state() != QProcess::NotRunning)
                     ssh->kill();
+                finishProcess();
                 QString msg = tr("Directory listing timed out.");
                 emit guard->remoteListingFailed(ssh->property("remoteUrl").toString(), ssh->property("remotePath").toString(), msg);
-                emit guard->downloadFailed(ssh->property("remoteUrl").toString(), msg);
             });
 
     ssh->start();
@@ -878,7 +878,7 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     auto* pollTimer = new QTimer(scp);
     pollTimer->setInterval(500);
     auto lastSize = std::make_shared<qint64>(0);
-    connect(pollTimer, &QTimer::timeout, scp, [scp, guard, processed, tmpFileShared, lastProgress, lastSize, urlStr]()
+    connect(pollTimer, &QTimer::timeout, scp, [scp, guard, processed, tmpFileShared, lastProgress, lastSize, urlStr, finishProcess]()
             {
                 if (!guard || *processed)
                     return;
@@ -893,18 +893,18 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
                 if (sz > kMaxRemoteFileSize)
                 {
                     *processed = true;
-                    scp->disconnect();
                     if (scp->state() != QProcess::NotRunning)
                         scp->kill();
+                    finishProcess();
                     emit guard->downloadFailed(urlStr, tr("Remote file too large (limit %1 MB)").arg(kMaxRemoteFileSize / (1024LL * 1024)));
                     return;
                 }
                 if (now - *lastProgress > kSshStallTimeoutMs)
                 {
                     *processed = true;
-                    scp->disconnect();
                     if (scp->state() != QProcess::NotRunning)
                         scp->kill();
+                    finishProcess();
                     emit guard->downloadFailed(urlStr, tr("SCP transfer timed out."));
                 }
             });
@@ -1031,14 +1031,14 @@ void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList&
     auto* killTimer = new QTimer(scp);
     killTimer->setSingleShot(true);
     connect(killTimer, &QTimer::timeout, scp,
-            [scp, guard, processed]()
+            [scp, guard, processed, finishProcess]()
             {
                 if (!guard || *processed)
                     return;
                 *processed = true;
-                scp->disconnect();
                 if (scp->state() != QProcess::NotRunning)
                     scp->kill();
+                finishProcess();
                 emit guard->uploadFailed(scp->property("remoteUrl").toString(), tr("SCP transfer timed out."));
             });
 
