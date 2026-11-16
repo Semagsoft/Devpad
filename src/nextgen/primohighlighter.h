@@ -17,6 +17,9 @@
 #include <QThread>
 #include <QVector>
 
+#include <atomic>
+#include <memory>
+
 struct PrimoToken
 {
     int start = 0;
@@ -49,10 +52,19 @@ private:
 class PrimoHighlighterWorker : public QObject
 {
     Q_OBJECT
+public:
+    void setCancelToken(const std::shared_ptr<std::atomic<int>>& token)
+    {
+        m_cancelToken = token;
+    }
+
 public slots:
     void doHighlight(int version, int firstLine, QStringList lines, QString language, ThemeColors colors);
 signals:
     void done(int version, int firstLine, QVector<QVector<QTextLayout::FormatRange>> formats);
+
+private:
+    std::shared_ptr<std::atomic<int>> m_cancelToken;
 };
 
 class PrimoHighlighterController : public QObject
@@ -73,6 +85,7 @@ private:
     QThread* m_thread = nullptr;
     PrimoHighlighterWorker* m_worker = nullptr;
     int m_lastVersion = -1;
+    std::shared_ptr<std::atomic<int>> m_cancelToken;
 };
 
 #endif // PRIMOHIGHLIGHTER_H

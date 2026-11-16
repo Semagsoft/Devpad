@@ -83,7 +83,7 @@ Pane {
                         ed.loadFile(path)
                         ed.setCursorPosition(loc.range.start.line, loc.range.start.character)
                         ed.forceActiveFocus()
-                        root.close()
+                        root.closeRequested()
                     }
                 }
             }

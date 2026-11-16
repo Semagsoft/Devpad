@@ -77,20 +77,21 @@ void FileTreeModel::setUseGitIgnore(bool v)
     emit useGitIgnoreChanged();
 }
 
-void FileTreeModel::loadChildren(FileTreeModel::Node* n)
+// Scan  n's directory and return new child nodes (not yet attached).
+QList<FileTreeModel::Node*> FileTreeModel::collectChildren(FileTreeModel::Node* n)
 {
-    if (!n || n->loaded)
-        return;
-    n->loaded = true;
+    QList<FileTreeModel::Node*> kids;
     QDir dir(n->path.isEmpty() ? m_rootPath : n->path);
     if (n->path.isEmpty())
         dir = QDir(m_rootPath);
-    dir.setFilter(QDir::AllEntries | QDir::NoDotAndDotDot);
     QStringList files = dir.entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
     std::sort(files.begin(), files.end(),
-              [](const QString& a, const QString& b)
+              [&dir](const QString& a, const QString& b)
               {
-                  QFileInfo fa(a), fb(b);
+                  // Compare directories-first using ABSOLUTE paths; QFileInfo on
+                  // a bare name always reports isDir() == false, which used to
+                  // sort directories into the file list.
+                  QFileInfo fa(dir.absoluteFilePath(a)), fb(dir.absoluteFilePath(b));
                   if (fa.isDir() && !fb.isDir())
                       return true;
                   if (!fa.isDir() && fb.isDir())
@@ -111,8 +112,17 @@ void FileTreeModel::loadChildren(FileTreeModel::Node* n)
         c->isDir = fi.isDir();
         c->parent = n;
         c->loaded = false;
-        n->children.append(c);
+        kids.append(c);
     }
+    return kids;
+}
+
+void FileTreeModel::loadChildren(FileTreeModel::Node* n)
+{
+    if (!n || n->loaded)
+        return;
+    n->children = collectChildren(n);
+    n->loaded = true;
 }
 
 QModelIndex FileTreeModel::index(int row, int column, const QModelIndex& parent) const
@@ -208,12 +218,19 @@ void FileTreeModel::fetchMore(const QModelIndex& parent)
         n->name = QFileInfo(m_rootPath).fileName();
     }
     int before = n->children.size();
-    loadChildren(n);
-    int after = n->children.size();
-    if (after > before)
+    QList<FileTreeModel::Node*> kids = collectChildren(n);
+    if (!kids.isEmpty())
     {
-        beginInsertRows(parent, before, after - 1);
+        // Announce the rows BEFORE inserting them (model contract); previously
+        // the children were appended first, corrupting view state.
+        beginInsertRows(parent, before, before + static_cast<int>(kids.size()) - 1);
+        n->children.append(kids);
+        n->loaded = true;
         endInsertRows();
+    }
+    else
+    {
+        n->loaded = true;
     }
 }
 
@@ -332,6 +349,23 @@ bool FileTreeModel::renamePath(const QString& oldPath, const QString& newPath)
     if (oldPath.isEmpty() || newPath.isEmpty() || !fi.exists())
         return false;
     bool ok = QFile::rename(oldPath, newPath);
+    if (ok)
+        refresh();
+    return ok;
+}
+
+bool FileTreeModel::removePath(const QString& path)
+{
+    if (path.isEmpty())
+        return false;
+    QFileInfo fi(path);
+    if (!fi.exists())
+        return false;
+    bool ok = QFile::moveToTrash(path);
+    if (!ok && fi.isDir())
+        ok = QDir(path).removeRecursively();
+    if (!ok && !fi.isDir())
+        ok = QFile::remove(path);
     if (ok)
         refresh();
     return ok;

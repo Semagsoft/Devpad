@@ -1235,36 +1235,41 @@ QString NextgenActions::generateHighlightedHtml(PrimoEditor* editor) const
             continue;
         }
         auto formats = PrimoHighlighter::formatsForLine(line, lang, colors);
-        // Build HTML segments from format ranges
-        QString escaped = line.toHtmlEscaped();
-        // Apply formats: sort by start position
+        // Build HTML segments from the RAW line using the format ranges' raw
+        // offsets; escaping each segment individually keeps the offsets valid
+        // (escaping changes string length: & -> &amp;).
         QVector<QTextLayout::FormatRange> sorted = formats;
         std::sort(sorted.begin(), sorted.end(),
                   [](const QTextLayout::FormatRange& a, const QTextLayout::FormatRange& b) { return a.start < b.start; });
-        int htmlPos = 0;
+        const int lineLen = line.size();
+        int rawPos = 0;
         for (const auto& fmt : sorted)
         {
-            int fmtStart = fmt.start;
-            int fmtEnd = fmt.start + fmt.length;
-            if (fmtStart > htmlPos)
+            const int fmtStart = qBound(0, fmt.start, lineLen);
+            const int fmtEnd = qBound(fmtStart, fmt.start + fmt.length, lineLen);
+            if (fmtEnd <= fmtStart && fmtStart < rawPos)
+                continue; // stale/overlapping range; skip
+            if (fmtStart > rawPos)
             {
                 // Plain text before this format
                 html += QStringLiteral("<span style=\"color: %1;\">%2</span>")
                             .arg(colors.foreground.name())
-                            .arg(escaped.mid(htmlPos, fmtStart - htmlPos));
+                            .arg(line.mid(rawPos, fmtStart - rawPos).toHtmlEscaped());
             }
-            QString segment = escaped.mid(fmtStart, fmtEnd - fmtStart);
+            QString segment = line.mid(fmtStart, fmtEnd - fmtStart).toHtmlEscaped();
             QString style = QStringLiteral("color: %1;").arg(fmt.format.foreground().color().name());
             if (fmt.format.fontWeight() > QFont::Normal)
                 style += QStringLiteral(" font-weight: bold;");
             if (fmt.format.fontItalic())
                 style += QStringLiteral(" font-style: italic;");
             html += QStringLiteral("<span style=\"%1\">%2</span>").arg(style, segment);
-            htmlPos = fmtEnd;
+            rawPos = qMax(rawPos, fmtEnd);
         }
-        if (htmlPos < escaped.size())
+        if (rawPos < lineLen)
         {
-            html += QStringLiteral("<span style=\"color: %1;\">%2</span>").arg(colors.foreground.name()).arg(escaped.mid(htmlPos));
+            html += QStringLiteral("<span style=\"color: %1;\">%2</span>")
+                        .arg(colors.foreground.name())
+                        .arg(line.mid(rawPos).toHtmlEscaped());
         }
         if (i < lines.size() - 1)
             html += QStringLiteral("<br>");
@@ -1365,6 +1370,9 @@ void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QSt
     m_currentReply = nullptr;
     m_remoteLoading = false;
 
+    if (!reply)
+        return;
+
     QString error;
     QString localPath;
 
@@ -1410,12 +1418,9 @@ void NextgenActions::onRemoteDownloadError(QNetworkReply::NetworkError code)
 {
     Q_UNUSED(code);
     m_remoteLoading = false;
+    // errorOccurred() is followed by finished(); do NOT touch m_currentReply
+    // or delete the reply here, or finished() would dereference a freed pointer.
+    // Record the message only; onRemoteDownloadFinished() reports it.
     if (m_currentReply)
-    {
         m_remoteLoadError = m_currentReply->errorString();
-        emit remoteLoadFinished(m_currentReply->url().toString(), QString(), false, m_remoteLoadError);
-        emit showMessage(QStringLiteral("Remote download error: ") + m_remoteLoadError);
-        m_currentReply->deleteLater();
-        m_currentReply = nullptr;
-    }
 }

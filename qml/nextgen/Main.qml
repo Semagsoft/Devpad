@@ -211,6 +211,8 @@ ApplicationWindow {
 
                     PrimoEditor {
                         id: primo
+                        // LSP document version: monotonically increasing, sent with every change.
+                        property int docVersion: 1
                         width: flick.width
                         height: contentHeight
                         focus: true
@@ -259,12 +261,14 @@ ApplicationWindow {
                             minimap.requestPaint()
                             if (lspClient) {
                                 var uri = "file://" + primo.filePath
-                                lspClient.changeDocument(uri, primo.text, 1)
+                                primo.docVersion += 1
+                                lspClient.changeDocument(uri, primo.text, primo.docVersion)
                             }
                         }
                         onFileLoaded: (ok, error) => {
                             if (!ok) console.warn("load failed:", error)
                             else {
+                                primo.docVersion = 1
                                 flick.contentY = 0
                                 if (lspClient && primo.filePath) {
                                     var uri = "file://" + primo.filePath

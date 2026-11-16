@@ -179,6 +179,7 @@ public:
     // Diagnostics for minimap
     Q_INVOKABLE void setDiagnostics(const QList<int>& linesWithError);
     Q_INVOKABLE void clearDiagnostics();
+    Q_INVOKABLE QList<int> diagnostics() const;
 
     // Undo/Clipboard (incremental disabled >50MB)
     bool canUndo() const;
@@ -252,6 +253,7 @@ private:
         int startCol = 0;
         int len = 0;
     };
+    int wrapAvailColumns() const;
     QList<WrapInfo> buildWrapInfos(int availGlobal, int* outCursorVisualRow = nullptr);
 
     // ── Auto-close brackets / bracket context ──
@@ -270,7 +272,7 @@ private:
     QString whitespaceDisplayString(const QString& disp) const;
 
     // ── Snippet mode ──
-    void enterSnippetMode(const QString& text, int insertPos, const QStringList& tabStopNumbers, const QList<int>& tabStopLengths);
+    void enterSnippetMode(const QString& text, int insertPos, const QStringList& tabStopNumbers, const QList<int>& tabStopPositions);
     void advanceSnippetTabStop();
     void retreatSnippetTabStop();
     void clearSnippetMarkers();

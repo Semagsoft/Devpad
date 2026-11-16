@@ -142,7 +142,13 @@ Item {
     Connections {
         target: editor
         function onDiagnosticsChanged() {
-            root.diagSet = {};
+            var set = {};
+            if (editor && editor.diagnostics) {
+                var lines = editor.diagnostics();
+                for (var i = 0; i < lines.length; i++)
+                    set[lines[i]] = true;
+            }
+            root.diagSet = set;
             canvas.requestPaint();
         }
     }

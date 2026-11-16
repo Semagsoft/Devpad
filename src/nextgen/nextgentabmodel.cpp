@@ -94,6 +94,7 @@ void NextgenTabModel::addTab(const QString& filePath)
     {
         m_tabs.append(filePath);
         m_tabPanes.append(0); // new tabs go to left pane by default
+        m_tabCursors.append(QList<int>{}); // keep panes/cursors index-aligned with tabs
         m_current = m_tabs.size() - 1;
     }
     emit tabsChanged();
@@ -107,6 +108,8 @@ void NextgenTabModel::closeTab(int idx)
     m_tabs.removeAt(idx);
     if (m_tabPanes.size() > idx)
         m_tabPanes.removeAt(idx);
+    if (m_tabCursors.size() > idx)
+        m_tabCursors.removeAt(idx);
     if (m_tabs.isEmpty())
         m_tabs.append(QString());
     if (m_current >= m_tabs.size())
@@ -124,6 +127,10 @@ void NextgenTabModel::moveTab(int from, int to)
     if (from < 0 || from >= m_tabs.size() || to < 0 || to >= m_tabs.size() || from == to)
         return;
     m_tabs.move(from, to);
+    if (m_tabPanes.size() > from && m_tabPanes.size() > to)
+        m_tabPanes.move(from, to);
+    if (m_tabCursors.size() > from && m_tabCursors.size() > to)
+        m_tabCursors.move(from, to);
     // adjust current indices
     if (m_current == from)
         m_current = to;

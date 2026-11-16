@@ -181,7 +181,7 @@ Pane {
         text: qsTr("Delete %1?").arg(root.deletePath.split("/").pop())
         buttons: MessageDialog.Yes | MessageDialog.No
         onAccepted: {
-            if (root.deletePath && fileModel) fileModel.remove(root.deletePath)
+            if (root.deletePath && fileModel) fileModel.removePath(root.deletePath)
             root.deletePath = ""
         }
         onRejected: root.deletePath = ""
