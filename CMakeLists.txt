@@ -861,8 +861,10 @@ if(BUILD_TESTS)
 
     # Point the tests at the plugins built in this build tree so the suite
     # never loads a stale system-wide installation (plugins share the
-    # application's data layout; a mismatched copy corrupts memory).
+    # application's data layout; a mismatched copy corrupts memory). The
+    # DEVPAD_PLUGINS_DIR environment variable itself is set by tests/main.cpp,
+    # because the ENVIRONMENT property cannot reliably carry a
+    # semicolon-separated value through gtest_discover_tests.
     gtest_discover_tests(Devpad_tests
-        DISCOVERY_MODE PRE_TEST
-        PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DEVPAD_PLUGINS_DIR=${CMAKE_BINARY_DIR}/plugins")
+        DISCOVERY_MODE PRE_TEST)
 endif()

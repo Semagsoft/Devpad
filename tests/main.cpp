@@ -8,6 +8,12 @@ int main(int argc, char** argv)
 {
     qputenv("QT_QPA_PLATFORM", "offscreen");
 
+    // Point the tests at the plugins built in this build tree. Passing this
+    // through the ctest ENVIRONMENT property does not work reliably with
+    // gtest_discover_tests (the property's value is split on ';' and the
+    // DEVPAD_PLUGINS_DIR half is silently dropped), so keep it here.
+    qputenv("DEVPAD_PLUGINS_DIR", QByteArray(DEVPAD_BUILD_DIR "/plugins"));
+
     // Isolate all default-constructed QSettings (and QStandardPaths lookups)
     // from the real user configuration. SettingsManager redirects through
     // setTestingInstance()/createForTesting(); every feature-scoped store
