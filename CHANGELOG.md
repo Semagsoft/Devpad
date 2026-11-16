@@ -33,6 +33,15 @@ Bug fixes for version 1.10:
   silently dropping it. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
 - Fix Find Symbols duplicating workspace-symbol results fanned out from
   multiple language servers. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Make BUILD_NEXTGEN=ON link: AUTOMOC could not discover the next-gen
+  Q_OBJECT sources behind generator expressions; they are listed explicitly.
+  SHA: 116020696023d14328d9e805b59ce6a4c9f3af79
+- Fix DAP session ordering against live adapters (verified against
+  debugpy): configuration requests now wait for the adapter's initialized
+  event or launch/attach acceptance, initialize sends a required adapterID,
+  breakpoints are pushed and configurationDone sent at session start, and
+  failed setBreakpoints no longer reports an empty verified set.
+  SHA: b85f222b1a6c423f9085ce74349ee85528973ca4
 
 
 
