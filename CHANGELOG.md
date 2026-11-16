@@ -63,6 +63,12 @@ Bug fixes for version 1.10:
   collisions; replace dialog warns on regex back references; .gitignore no
   longer matches substrings; theme QSS failures clear stale style sheets.
   SHA: 44668a09db937f651adef15772287bfa1954883e
+- Make BUILD_GHOSTTY default to OFF: the libghostty-vt backend requires
+  Zig ≥ 0.17 (not packaged on Ubuntu 24.04), which left every CI job that
+  configures with the default failing at 'Could not find ZIG_EXECUTABLE';
+  CI, Flatpak and fresh builds now use the qtermwidget/KodoTerm fallback,
+  matching the Flatpak and README. Pass -DBUILD_GHOSTTY=ON to opt in.
+  SHA: PENDING
 
 
 

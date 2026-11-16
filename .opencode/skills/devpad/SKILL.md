@@ -160,7 +160,7 @@ All managers are singletons or parented to `MainWindow`. The `EditorController` 
 | Qt6 Multimedia | Sound effects |
 | Qt6 Network | Remote file download |
 | Qt6 LinguistTools | TS compilation |
-| libghostty-vt | Embedded terminal backend (via FetchContent + Zig; `-DBUILD_GHOSTTY=OFF` falls back to qtermwidget6/KodoTerm) |
+| libghostty-vt | Experimental terminal backend (opt-in `-DBUILD_GHOSTTY=ON`; fetched via FetchContent + Zig >= 0.17; default OFF, qtermwidget6/KodoTerm fallback is what CI and Flatpak build) |
 | QScintilla (qt6) | Syntax highlighting |
 | CMake 3.23+ | Build system |
 | C++17 compiler | g++ or clang++ |

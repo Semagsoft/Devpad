@@ -49,7 +49,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 - QScintilla (qt6 variant, e.g. `qscintilla2-qt6`)
 - CMake 3.23 or higher
 - C++17 compatible compiler
-- libghostty-vt (fetched automatically via CMake FetchContent; building it from source requires Zig ≥ 0.17 — or pass `-DBUILD_GHOSTTY=OFF` to use the QTermWidget/KodoTerm fallback)
+- libqtermwidget-qt6 (or KodoTerm) for the default terminal backend; the experimental libghostty-vt backend is opt-in via `-DBUILD_GHOSTTY=ON` (fetched automatically via CMake FetchContent; building it from source requires Zig ≥ 0.17)
 
 ### Installing dependencies
 
@@ -58,7 +58,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 sudo apt install qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev libqscintilla2-qt6-dev cmake g++
 ```
 
-(The `libqtermwidget6-1-dev` package is only needed when building with `-DBUILD_GHOSTTY=OFF`; the default backend (libghostty-vt) is fetched via CMake FetchContent and built with Zig.)
+(The `libqtermwidget6-1-dev` package is only needed when building with the default terminal backend; it is built automatically from source if not found. The experimental libghostty-vt backend is opt-in via `-DBUILD_GHOSTTY=ON` and fetched via CMake FetchContent (requires Zig ≥ 0.17).)
 
 **Arch Linux:**
 ```bash
@@ -108,7 +108,7 @@ brew install qt cmake librsvg
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(sysctl -n hw.logicalcpu)
 ```
-QScintilla and qtermwidget6 are built automatically from source if not found; the libghostty-vt terminal backend is fetched via CMake FetchContent (requires Zig).
+QScintilla and qtermwidget6 are built automatically from source if not found; the experimental libghostty-vt terminal backend is opt-in via CMake FetchContent (requires Zig ≥ 0.17).
 
 ## Building
 

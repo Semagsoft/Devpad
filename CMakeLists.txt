@@ -28,7 +28,7 @@ else()
     message(STATUS "Qt6 DBus not found; portal-based dark-mode detection disabled")
 endif()
 # ── Terminal backend: libghostty-vt (default) ─────────────────────
-option(BUILD_GHOSTTY "Build the libghostty-vt terminal backend via FetchContent (Zig)" ON)
+option(BUILD_GHOSTTY "Build the libghostty-vt terminal backend via FetchContent (Zig >= 0.17, not packaged in most distros). OFF by default: the QTermWidget/KodoTerm fallback needs no Zig and is what CI and Flatpak build. Pass -DBUILD_GHOSTTY=ON to opt in." OFF)
 if(BUILD_GHOSTTY)
     include(FetchContent)
     message(STATUS "Fetching libghostty-vt (ghostty) via FetchContent...")
