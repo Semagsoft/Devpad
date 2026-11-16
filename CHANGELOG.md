@@ -68,7 +68,7 @@ Bug fixes for version 1.10:
   configures with the default failing at 'Could not find ZIG_EXECUTABLE';
   CI, Flatpak and fresh builds now use the qtermwidget/KodoTerm fallback,
   matching the Flatpak and README. Pass -DBUILD_GHOSTTY=ON to opt in.
-  SHA: PENDING
+  SHA: 34c58ebee7e1109d8a47efdde7ab428b649e97e6
 
 
 
