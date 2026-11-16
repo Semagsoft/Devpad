@@ -11,21 +11,21 @@ if(DEVPAD_HAS_SFINAE_INCOMPLETE_FLAG)
 endif()
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
-# Host libraries linked by plugins on Windows (see above); empty elsewhere.
+# On Windows, plugins must resolve host symbols at link time (PE has no
+# load-time resolution for undefined symbols). The host code is therefore
+# merged into one aggregate DLL that exports everything and is linked by
+# the app and its plugins; elsewhere plugins resolve host symbols from the
+# executable at load time (ENABLE_EXPORTS).
 if(WIN32)
-    set(DEVPAD_HOST_LINKS Devpad_core Devpad_editor Devpad_lsp Devpad_panels Devpad_lib)
+    set(DEVPAD_HOST_LINKS Devpad_host)
+    set(DEVPAD_HOST_APP Devpad_host)
+    set(DEVPAD_HOST_TEST Devpad_host)
+    set(DEVPAD_NEXTGEN_HOST "")
 else()
     set(DEVPAD_HOST_LINKS "")
-endif()
-# On Windows, plugins must resolve host symbols at link time (PE has no
-# load-time resolution for undefined symbols), so the host libraries are
-# shared libraries: one copy of every host symbol is shared by the app and
-# its plugins. Static libraries are kept elsewhere (plugins then resolve
-# host symbols from the exe, and install stays unchanged).
-if(WIN32)
-    set(DEVPAD_HOST_LIB_TYPE SHARED)
-else()
-    set(DEVPAD_HOST_LIB_TYPE STATIC)
+    set(DEVPAD_HOST_APP Devpad_lib Devpad_core)
+    set(DEVPAD_HOST_TEST Devpad_lib Devpad_lsp)
+    set(DEVPAD_NEXTGEN_HOST Devpad_lsp)
 endif()
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
 option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)
@@ -232,7 +232,7 @@ configure_file(
 )
 
 # ── Core static library (headless, no Widgets) ──────────────
-add_library(Devpad_core ${DEVPAD_HOST_LIB_TYPE}
+add_library(Devpad_core STATIC
     src/logger.cpp
     src/encodingutils.cpp
     src/gitignore.cpp
@@ -264,7 +264,7 @@ target_include_directories(Devpad_core PUBLIC
 # Holds the editing core: QScintilla editor, themes, languages, snippets,
 # and the lightweight editor widgets. SettingsManager lives here because its
 # implementation includes codeeditor.h / QScintilla.
-add_library(Devpad_editor ${DEVPAD_HOST_LIB_TYPE}
+add_library(Devpad_editor STATIC
     src/codeeditor.cpp
     src/languageinfo.cpp
     src/lsp/lspeditorbridge.cpp
@@ -304,7 +304,7 @@ target_include_directories(Devpad_editor PUBLIC
 # workspace-edit helper. Shared by the host (link-time) and by tests; the LSP
 # plugin itself ships only its own UI/session glue and resolves both this
 # library's and the host's symbols from the main executable at load time.
-add_library(Devpad_lsp ${DEVPAD_HOST_LIB_TYPE}
+add_library(Devpad_lsp STATIC
     src/lsp/lsptypes.cpp
     src/plugins/lsp_plugin/lspjsonrpc.cpp
     src/plugins/lsp_plugin/lspclient.cpp
@@ -342,7 +342,7 @@ endif()
 # ── Panels library ───────────────────────────────────────────────────────
 # Dockable panels: project tree, split view, tab bar, error list, references,
 # debugger panel, plus chrome widgets (title bar, window frame bridge).
-add_library(Devpad_panels ${DEVPAD_HOST_LIB_TYPE}
+add_library(Devpad_panels STATIC
     src/panels/projectpanel.cpp
     src/panels/splitview.cpp
     src/panels/draggabletabbar.cpp
@@ -524,7 +524,7 @@ endif()
 # Holds MainWindow, EditorController, the remaining managers/dialogs/TUI and
 # the plugin host. Keeps the historic Devpad_lib name so the Devpad executable
 # and Devpad_tests need no link/include changes.
-add_library(Devpad_lib ${DEVPAD_HOST_LIB_TYPE}
+add_library(Devpad_lib STATIC
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp
@@ -628,11 +628,24 @@ else()
     set(NEXTGEN_SOURCES "")
 endif()
 
-# Windows DLLs export no symbols unless told to; the host code has no
-# dllexport decorations, so export everything from the host libraries.
+# Windows DLLs export no symbols unless told to, and the host libraries
+# reference each other densely (generated moc output, cross-module headers,
+# e.g. Devpad_editor needs IEditorLspBridge's vtable from Devpad_lib and the
+# lsp:: helpers from Devpad_lsp). They therefore cannot be arranged into a
+# DLL dependency DAG; instead they are merged into one aggregate DLL that
+# exports everything. --whole-archive ensures no object is dropped.
 if(WIN32)
-    set_target_properties(Devpad_core Devpad_editor Devpad_lsp Devpad_panels Devpad_lib
-        PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    add_library(Devpad_host SHARED)
+    target_link_libraries(Devpad_host PUBLIC
+        -Wl,--whole-archive
+        Devpad_core
+        Devpad_editor
+        Devpad_lsp
+        Devpad_panels
+        Devpad_lib
+        -Wl,--no-whole-archive
+    )
+    target_link_options(Devpad_host PRIVATE -Wl,--export-all-symbols)
 endif()
 
 # ── Main executable ───────────────────────────────────────────
@@ -652,8 +665,7 @@ target_sources(Devpad PRIVATE
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad PRIVATE
-    Devpad_lib
-    Devpad_core
+    ${DEVPAD_HOST_APP}
 )
 target_link_qscintilla(Devpad)
 
@@ -679,7 +691,7 @@ if(BUILD_NEXTGEN)
         Qt6::Quick
         Qt6::Qml
         Qt6::QuickControls2
-        Devpad_lsp
+        ${DEVPAD_NEXTGEN_HOST}
     )
 endif()
 
@@ -688,8 +700,7 @@ install(TARGETS Devpad RUNTIME DESTINATION bin)
 # Windows host libraries are DLLs; they must sit next to the executable so
 # it (and the plugins) can load them at runtime.
 if(WIN32)
-    install(TARGETS Devpad_core Devpad_editor Devpad_lsp Devpad_panels Devpad_lib
-        RUNTIME DESTINATION bin)
+    install(TARGETS Devpad_host RUNTIME DESTINATION bin)
 endif()
 
 install(FILES resources/com.semagsoft.Devpad.desktop
@@ -875,8 +886,7 @@ if(BUILD_TESTS)
         Qt6::Widgets
         Qt6::Network
         Qt6::Test
-        Devpad_lib
-        Devpad_lsp
+        ${DEVPAD_HOST_TEST}
     )
     target_link_qscintilla(Devpad_tests)
 
