@@ -616,7 +616,17 @@ endif()
 add_executable(Devpad WIN32)
 # Export symbols so plugins can qobject_cast host objects (e.g. the shared
 # SettingsManager instance) across the DSO boundary.
-set_target_properties(Devpad PROPERTIES ENABLE_EXPORTS ON)
+set_target_properties(Devpad PROPERTIES
+    ENABLE_EXPORTS ON
+    # MinGW exports no symbols by default; without this the exe's import
+    # library (libDevpad.dll.a) is never created and plugins cannot link.
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
+# MinGW only writes libDevpad.dll.a when --out-implib is given; be explicit so
+# the plugins can always find it (CMake's target reference expands to this path).
+if(MINGW)
+    target_link_options(Devpad PRIVATE -Wl,--out-implib=libDevpad.dll.a)
+endif()
 
 target_sources(Devpad PRIVATE
     src/main.cpp
