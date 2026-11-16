@@ -86,6 +86,7 @@ void DapServerManager::startSession(const QString& sessionKey, const QString& la
     connect(client, &DapClient::serverError, this, [this, sessionKey](const QString& error) { emit clientError(sessionKey, error); });
     connect(client, &DapClient::initializeDone, this, [this, sessionKey](const Capabilities& caps) { emit initializeDone(sessionKey, caps); });
     connect(client, &DapClient::launchDone, this, [this, sessionKey]() { emit launchDone(sessionKey); });
+    connect(client, &DapClient::configurationReady, this, [this, sessionKey]() { emit configurationReady(sessionKey); });
     connect(client, &DapClient::attachDone, this, [this, sessionKey]() { emit attachDone(sessionKey); });
     connect(client, &DapClient::breakpointsSet, this,
             [this, sessionKey](const QString& path, const QList<Breakpoint>& bps) { emit breakpointsSet(sessionKey, path, bps); });
@@ -155,7 +156,9 @@ QHash<QString, QString> DapServerManager::defaultAdapterCommands()
         {"cpp", "lldb-vscode"},
         {"c", "lldb-vscode"},
         {"rust", "lldb-vscode"},
-        {"python", "debugpy"},
+        // debugpy-adapter speaks DAP over stdio; plain "debugpy" is the
+        // debuggee CLI and answers no DAP messages.
+        {"python", "debugpy-adapter"},
         {"javascript", "vscode-chrome-debug-core"},
         {"typescript", "vscode-chrome-debug-core"},
         {"go", "dlv"},

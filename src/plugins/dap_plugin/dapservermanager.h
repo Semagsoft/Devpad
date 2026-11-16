@@ -57,6 +57,8 @@ signals:
     void initializeDone(const QString& sessionKey, const Capabilities& capabilities);
     void launchDone(const QString& sessionKey);
     void attachDone(const QString& sessionKey);
+    // Adapter is ready to accept configuration requests (see DapClient::configurationReady).
+    void configurationReady(const QString& sessionKey);
     void breakpointsSet(const QString& sessionKey, const QString& sourcePath, const QList<Breakpoint>& breakpoints);
     void exceptionBreakpointsSet(const QString& sessionKey);
     void stopped(const QString& sessionKey, const StoppedEvent& ev);

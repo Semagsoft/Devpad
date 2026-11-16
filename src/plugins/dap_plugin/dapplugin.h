@@ -47,6 +47,7 @@ public:
 
 private slots:
     void onInitializeDone(const QString& sessionKey, const dap::Capabilities& caps);
+    void onConfigurationReady(const QString& sessionKey);
     void onClientStopped(const QString& sessionKey);
 
 private:

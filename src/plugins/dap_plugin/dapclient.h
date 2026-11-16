@@ -75,6 +75,10 @@ signals:
 
     // initialize handshake
     void initializeDone(const Capabilities& capabilities);
+    // Adapter is ready to accept configuration requests (breakpoints,
+    // configurationDone): either it sent the "initialized" event, or it
+    // accepted launch/attach (two-stage adapters spawn their server then).
+    void configurationReady();
 
     // launch / attach
     void launchDone();
@@ -109,6 +113,7 @@ private slots:
 private:
     void sendInitializeHandshake();
     void sendTerminateIfStopping();
+    void checkConfigurationReady();
     // 0 means "resolve to the last thread the adapter stopped" (tracked from
     // stopped events); adapters assign thread ids, so a literal 0 is never valid.
     int resolveThreadId(int threadId) const;
@@ -122,7 +127,8 @@ private:
     QString m_command;
     QStringList m_args;
     Capabilities m_capabilities;
-    bool m_initialized = false;
+    bool m_initialized = false;      // initialize response received: launch/attach allowed
+    bool m_configurationReady = false; // initialized event OR launch/attach done: config requests allowed
     bool m_starting = false;
     bool m_stopping = false;
     int m_retryCount = 0;

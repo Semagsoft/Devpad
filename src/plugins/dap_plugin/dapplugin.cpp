@@ -86,6 +86,7 @@ bool DapPlugin::initialize(IPluginHost* host)
 
     // Connect DAP server manager signals for session lifecycle.
     connect(m_dapServerManager, &dap::DapServerManager::initializeDone, this, &DapPlugin::onInitializeDone);
+    connect(m_dapServerManager, &dap::DapServerManager::configurationReady, this, &DapPlugin::onConfigurationReady);
     connect(m_dapServerManager, &dap::DapServerManager::clientStopped, this, &DapPlugin::onClientStopped);
 
     qDebug("DapPlugin: initialized");
@@ -267,6 +268,23 @@ void DapPlugin::onInitializeDone(const QString& sessionKey, const dap::Capabilit
     }
 
     qDebug("DapPlugin: debugging session initialized");
+}
+
+void DapPlugin::onConfigurationReady(const QString& sessionKey)
+{
+    if (sessionKey != m_debugSessionKey)
+        return;
+
+    // DAP ordering: after the adapter signals it is ready, push the current
+    // breakpoint set, then tell it configuration is done. debugpy (two-stage)
+    // spawns its server on launch and only then accepts configuration requests.
+    for (auto* integration : m_editorIntegrations)
+        integration->syncBreakpoints();
+
+    if (auto* client = m_dapServerManager ? m_dapServerManager->clientForSession(sessionKey) : nullptr)
+        client->configurationDone();
+
+    qDebug("DapPlugin: configuration done sent");
 }
 
 void DapPlugin::onClientStopped(const QString& sessionKey)

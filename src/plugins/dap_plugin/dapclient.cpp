@@ -49,6 +49,7 @@ void DapClient::startServer(const QString& command, const QStringList& args)
     m_command = command;
     m_args = args;
     m_initialized = false;
+    m_configurationReady = false;
     m_starting = true;
     m_stopping = false;
     m_stoppedThreadId = 0;
@@ -146,6 +147,14 @@ bool DapClient::isRunning() const
     return m_process && m_process->state() == QProcess::Running;
 }
 
+void DapClient::checkConfigurationReady()
+{
+    if (m_configurationReady)
+        return;
+    m_configurationReady = true;
+    emit configurationReady();
+}
+
 int DapClient::resolveThreadId(int threadId) const
 {
     return threadId > 0 ? threadId : m_stoppedThreadId;
@@ -185,8 +194,8 @@ void DapClient::sendInitialize(const QString& clientName, const QString& adapter
             if (caps.contains(QStringLiteral("capabilities")) && caps[QStringLiteral("capabilities")].isObject())
                 caps = caps[QStringLiteral("capabilities")].toObject();
             m_capabilities = Capabilities::fromJson(caps);
-            m_initialized = true;
             m_retryCount = 0; // a successful session re-arms crash auto-restart
+            m_initialized = true;
             emit initializeDone(m_capabilities);
         });
     m_process->write(m_jsonRpc->createRequest(id, "initialize", params));
@@ -194,7 +203,10 @@ void DapClient::sendInitialize(const QString& clientName, const QString& adapter
 
 void DapClient::sendInitializeHandshake()
 {
-    sendInitialize();
+    // adapterID is optional in the DAP spec, but debugpy/pydevd (and other
+    // two-stage adapters that forward initialize to their server) reject an
+    // initialize request without one.
+    sendInitialize(QStringLiteral("Devpad"), QStringLiteral("devpad"));
 }
 
 // ── Session control ─────────────────────────────────────────────
@@ -210,10 +222,11 @@ void DapClient::launch(const QJsonObject& arguments)
         {
             if (!error.isEmpty())
             {
-                emit serverError(QStringLiteral("[%1] %2").arg(QString::number(error["code"].toInt(0)), error["message"].toString()));
+                emit serverError(QStringLiteral("[launch] %1").arg(error["message"].toString()));
                 return;
             }
             emit launchDone();
+            checkConfigurationReady();
         });
     m_process->write(m_jsonRpc->createRequest(id, "launch", arguments));
 }
@@ -229,10 +242,11 @@ void DapClient::attach(const QJsonObject& arguments)
         {
             if (!error.isEmpty())
             {
-                emit serverError(QStringLiteral("[%1] %2").arg(QString::number(error["code"].toInt(0)), error["message"].toString()));
+                emit serverError(QStringLiteral("[attach] %1").arg(error["message"].toString()));
                 return;
             }
             emit attachDone();
+            checkConfigurationReady();
         });
     m_process->write(m_jsonRpc->createRequest(id, "attach", arguments));
 }
@@ -261,7 +275,7 @@ void DapClient::terminate()
 
 void DapClient::setSourceBreakpoints(const QString& sourcePath, const QList<int>& lines, const QJsonObject& sourceParams)
 {
-    if (!isRunning() || !m_initialized)
+    if (!isRunning() || !m_configurationReady)
         return;
 
     QJsonObject source = sourceParams;
@@ -286,8 +300,13 @@ void DapClient::setSourceBreakpoints(const QString& sourcePath, const QList<int>
     QJsonObject params{{"source", source}, {"breakpoints", breakpointsArr}, {"sourceModified", false}};
     int id = m_jsonRpc->nextRequestSeq();
     m_jsonRpc->registerPendingRequest(id,
-                                      [this, sourcePath](const QJsonValue& result, const QJsonObject& /*error*/)
+                                      [this, sourcePath](const QJsonValue& result, const QJsonObject& error)
                                       {
+                                          if (!error.isEmpty())
+                                          {
+                                              emit serverError(QStringLiteral("[setBreakpoints] %1").arg(error["message"].toString()));
+                                              return;
+                                          }
                                           QList<Breakpoint> bps;
                                           if (result.isObject())
                                               for (const auto& v : result.toObject()["breakpoints"].toArray())
@@ -304,7 +323,7 @@ void DapClient::setSourceBreakpoints(const QString& sourcePath, const QList<int>
 
 void DapClient::setExceptionBreakpoints(const QStringList& filters, const QJsonObject& filterOptions)
 {
-    if (!isRunning() || !m_initialized)
+    if (!isRunning() || !m_configurationReady)
         return;
     QJsonArray filtersArr;
     for (const QString& f : filters)
@@ -319,7 +338,7 @@ void DapClient::setExceptionBreakpoints(const QStringList& filters, const QJsonO
 
 void DapClient::configurationDone()
 {
-    if (!isRunning() || !m_initialized)
+    if (!isRunning() || !m_configurationReady)
         return;
     int id = m_jsonRpc->nextRequestSeq();
     m_jsonRpc->registerPendingRequest(id, [](const QJsonValue& /*result*/, const QJsonObject& /*error*/) {}, 5000);
@@ -524,6 +543,7 @@ void DapClient::onReadyReadStderr()
 void DapClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
 {
     m_initialized = false;
+    m_configurationReady = false;
     m_jsonRpc->failPendingRequests(-32001, QStringLiteral("Debug adapter stopped"));
 
     if (m_stopping)
@@ -549,6 +569,7 @@ void DapClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
     dead->disconnect(this);
     dead->deleteLater();
     m_stoppedThreadId = 0;
+    m_configurationReady = false;
 
     const bool crashed = (status == QProcess::CrashExit && m_retryCount < 3);
     if (crashed)
@@ -601,7 +622,8 @@ void DapClient::handleEvent(const QString& event, const QJsonObject& body)
 {
     if (event == "initialized")
     {
-        // Handshake complete; adapter is ready for launch/attach.
+        // Adapter is ready to accept configuration requests.
+        checkConfigurationReady();
         return;
     }
     if (event == "stopped")
@@ -650,13 +672,16 @@ void DapClient::handleEvent(const QString& event, const QJsonObject& body)
 #endif
 }
 
-void DapClient::handleResponse(const QString& /*command*/, bool /*success*/, const QJsonValue& /*body*/, const QJsonObject& error)
+void DapClient::handleResponse(const QString& command, bool /*success*/, const QJsonValue& /*body*/, const QJsonObject& error)
 {
     if (!error.isEmpty())
     {
         QString msg = error["message"].toString();
         QString code = QString::number(error["code"].toInt());
-        emit serverError(QStringLiteral("[%1] %2").arg(code, msg));
+        if (command.isEmpty())
+            emit serverError(QStringLiteral("[%1] %2").arg(code, msg));
+        else
+            emit serverError(QStringLiteral("[%1] %2: %3").arg(code, command, msg));
     }
 }
 
