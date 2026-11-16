@@ -42,6 +42,27 @@ Bug fixes for version 1.10:
   breakpoints are pushed and configurationDone sent at session start, and
   failed setBreakpoints no longer reports an empty verified set.
   SHA: b85f222b1a6c423f9085ce74349ee85528973ca4
+- Fix next-gen defects: undo applied every edit twice (via redo() on push),
+  oversized documents rendered blank, snippet tab stops landed at the
+  insert position, remote-download error path dereferenced a freed reply,
+  project-tree delete used a QML/C++ signature mismatch, wrap-mode rows
+  were drawn at scrolled offsets, scene-graph side effects are deferred to
+  the event loop, and search-match/next-gen QML diagnostics are populated.
+  SHA: 11a69e4792a98066e16936282f3b8d0ed46faa6d
+- Fix manager/LSP lifecycle defects: session-lock failures are now
+  distinguished from 'no session' (with per-key legacy fallback), LSP
+  didOpen is deduplicated across rapid language re-detects, references are
+  not delivered multiple times after plugin reloads, plugin keyword
+  registrations are dropped independently of their languages, keyword
+  providers no longer dangle on QHash rehash, remote listing watchdogs
+  reclaim ssh processes, and register-only actions restore default shortcuts.
+  SHA: ad5bf239f8a931cc1fdeb796df564bf2691c775e
+- Fix Find in Files leaking its worker thread on stopped searches, double
+  searchFinished emission, and the misreported file count; Options Cancel
+  now reverts theme/accent edits; custom theme save refuses same-file-name
+  collisions; replace dialog warns on regex back references; .gitignore no
+  longer matches substrings; theme QSS failures clear stale style sheets.
+  SHA: 44668a09db937f651adef15772287bfa1954883e
 
 
 
