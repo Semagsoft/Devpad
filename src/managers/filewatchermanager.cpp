@@ -190,7 +190,7 @@ void FileWatcherManager::onFileChanged(const QString& path)
 
     if (knownMod.isValid() && currentMod > knownMod)
     {
-        m_modificationTimes[path] = currentMod;
+        m_modificationTimes[path] = std::move(currentMod);
 
         // A single external write often touches the file more than once (truncate then
         // write, save-as, formatter + compiler). Only surface the first of those bursts.
@@ -217,7 +217,7 @@ void FileWatcherManager::onFileChanged(const QString& path)
         // Reappeared with the same (or older) timestamp — still update state so
         // future polls have a valid baseline.
         m_deletedPaths.remove(path);
-        m_modificationTimes[path] = currentMod;
+        m_modificationTimes[path] = std::move(currentMod);
         m_lastReported[path] = QDateTime::currentDateTime();
         Logger::instance().info(QString("File re-created externally: %1").arg(path));
         emit fileModifiedExternally(path);

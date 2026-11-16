@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+
 using namespace lsp;
 
 TEST(LspTypesTest, UriFromPathConvertsLocalPath)
@@ -425,7 +427,7 @@ TEST(LspTypesTest, LocationFromAnyJsonLocationLinkWithoutSelectionRange)
 
 TEST(LspTypesTest, CompletionItemKindUsesOneBasedMapping)
 {
-    const char* labels[] = {"Text",     "Method",     "Function", "Constructor", "Field",   "Variable", "Class",        "Interface", "Module",
+    const std::array<const char*, 25> labels = {"Text",     "Method",     "Function", "Constructor", "Field",   "Variable", "Class",    "Interface", "Module",
                             "Property", "Unit",       "Value",    "Enum",        "Keyword", "Snippet",  "Color",        "File",      "Reference",
                             "Folder",   "EnumMember", "Constant", "Struct",      "Event",   "Operator", "TypeParameter"};
     for (int k = 1; k <= 25; ++k)

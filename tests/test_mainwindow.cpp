@@ -606,13 +606,13 @@ TEST_F(MainWindowTest, DebugDockRemovedOnPluginDisable)
     ASSERT_NE(manager, nullptr);
 
     fprintf(stderr, "DBG before: enabled=%d loaded=%d plugin=%p\n", manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
-            manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")), (void*)manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")));
+            manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")), reinterpret_cast<void*>(manager->plugin(QStringLiteral("org.semagsoft.devpad.dap"))));
 
     manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), false);
 
     fprintf(stderr, "DBG after: enabled=%d loaded=%d plugin=%p panel=%p\n", manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
-            manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")), (void*)manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")),
-            (void*)manager->host()->panel(QStringLiteral("debug")));
+            manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")), reinterpret_cast<void*>(manager->plugin(QStringLiteral("org.semagsoft.devpad.dap"))),
+            reinterpret_cast<void*>(manager->host()->panel(QStringLiteral("debug"))));
 }
 
 TEST_F(MainWindowTest, DapPluginReenableRestoresDebugUi)

@@ -443,6 +443,6 @@ bool PrimoDocument::saveToFile(const QString& path, QString* error) const
     QString err;
     bool ok = FileService::save(path, m_text, QStringLiteral("UTF-8"), &err);
     if (!ok && error)
-        *error = err;
+        *error = std::move(err);
     return ok;
 }

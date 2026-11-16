@@ -658,7 +658,7 @@ void PrimoEditor::enterSnippetMode(const QString& text, int insertPos, const QSt
     for (int i = 0; i < tabStopNumbers.size(); ++i)
     {
         SnippetTabStop ts;
-        ts.number = tabStopNumbers.value(i, 0).toInt();
+        ts.number = tabStopNumbers.value(i, nullptr).toInt();
         ts.pos = insertPos + qMin(tabStopPositions.value(i, 0), text.size());
         ts.length = 0; // placeholder text is selected as zero-width here
         m_snippetTabStops.append(ts);
@@ -887,7 +887,7 @@ void PrimoEditor::nextBookmark()
 void PrimoEditor::prevBookmark()
 {
     QList<int> lines = m_bookmarks.values();
-    std::sort(lines.begin(), lines.end(), std::greater<int>());
+    std::sort(lines.begin(), lines.end(), std::greater<>());
     for (int l : lines)
     {
         if (l < m_cursorLine)
@@ -1183,9 +1183,7 @@ QStringList PrimoEditor::completionList(const QString& prefix) const
         return result;
     QString lang = m_doc->language().isEmpty() ? QStringLiteral("cpp") : m_doc->language();
     const QStringList* keywords = nullptr;
-    if (lang == QStringLiteral("cpp"))
-        keywords = &cppKeywords();
-    else if (lang == QStringLiteral("csharp"))
+    if (lang == QStringLiteral("csharp"))
         keywords = &csharpKeywords();
     else if (lang == QStringLiteral("java"))
         keywords = &javaKeywords();
@@ -1743,7 +1741,7 @@ void PrimoEditor::backspaceAtCursor()
             else
                 nb.insert(b);
         }
-        m_bookmarks = nb;
+        m_bookmarks = std::move(nb);
     }
     else
         return;
@@ -1813,7 +1811,7 @@ void PrimoEditor::ensureCursorVisibleHorizontally()
 int PrimoEditor::wrapAvailColumns() const
 {
     const qreal gutterW = m_gutterVisible ? m_gutterWidth : 0;
-    return qMax(1, int(boundingRect().width() - gutterW - 16));
+    return qMax(1, static_cast<int>(boundingRect().width() - gutterW - 16));
 }
 
 QList<PrimoEditor::WrapInfo> PrimoEditor::buildWrapInfos(int availGlobal, int* outCursorVisualRow)
@@ -2182,7 +2180,7 @@ void PrimoEditor::mousePressEvent(QMouseEvent* event)
     if (event->position().x() < gutterW)
     {
         // gutter click: toggle bookmark
-        int line = int((event->position().y() - 4) / m_lineHeight);
+        int line = static_cast<int>((event->position().y() - 4) / m_lineHeight);
         if (line >= 0 && m_doc && line < m_doc->lineCount())
             toggleBookmark(line);
         event->accept();
@@ -2194,7 +2192,7 @@ void PrimoEditor::mousePressEvent(QMouseEvent* event)
     // Word-wrap mode: hit-test against visual rows, honoring m_wrapScrollTop.
     if (m_wordWrap && m_doc)
     {
-        int vRow = int((event->position().y() - 4) / m_lineHeight);
+        int vRow = static_cast<int>((event->position().y() - 4) / m_lineHeight);
         if (vRow < 0)
             vRow = 0;
         int availGlobal = wrapAvailColumns();
@@ -2233,7 +2231,7 @@ void PrimoEditor::mousePressEvent(QMouseEvent* event)
         return;
     }
 
-    int line = int((event->position().y() - 4) / m_lineHeight);
+    int line = static_cast<int>((event->position().y() - 4) / m_lineHeight);
     if (line < 0)
         line = 0;
     QStringList ls = m_doc ? m_doc->text().split(QLatin1Char('\n')) : QStringList{QString()};
@@ -2357,8 +2355,8 @@ void PrimoEditor::scheduleHighlight(int firstLine, int lastLine)
             if (h <= 0)
                 h = 800;
         }
-        first = qMax(0, int(contentY / m_lineHeight) - 100);
-        last = qMin(total - 1, first + int(h / m_lineHeight) + 200);
+        first = qMax(0, static_cast<int>(contentY / m_lineHeight) - 100);
+        last = qMin(total - 1, first + static_cast<int>(h / m_lineHeight) + 200);
         // Also ensure cursor line highlighted
         first = qMin(first, qMax(0, m_cursorLine - 100));
         last = qMax(last, qMin(total - 1, m_cursorLine + 100));
@@ -2518,7 +2516,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
 
     // Determine visible range via Flickable contentY
     int firstLine = 0;
-    int lastLine = qMin(totalLines - 1, int(ceil(bounds.height() / m_lineHeight)) + 1);
+    int lastLine = qMin(totalLines - 1, static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 1);
     QQuickItem* flick = parentItem();
     qreal contentY = 0;
     if (flick)
@@ -2535,8 +2533,8 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
     }
     if (contentY > 0)
     {
-        firstLine = int(contentY / m_lineHeight);
-        lastLine = qMin(totalLines - 1, firstLine + int(ceil(bounds.height() / m_lineHeight)) + 2);
+        firstLine = static_cast<int>(contentY / m_lineHeight);
+        lastLine = qMin(totalLines - 1, firstLine + static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 2);
         if (firstLine < 0)
             firstLine = 0;
     }
@@ -2584,11 +2582,11 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
 
     // Determine visible range
     int firstVisualRow = 0;
-    int lastVisualRow = qMin(totalWrapRows - 1, int(ceil(bounds.height() / m_lineHeight)) + 1);
+    int lastVisualRow = qMin(totalWrapRows - 1, static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 1);
     if (m_wordWrap)
     {
-        firstVisualRow = int(m_wrapScrollTop / m_lineHeight);
-        lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+        firstVisualRow = static_cast<int>(m_wrapScrollTop / m_lineHeight);
+        lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 2);
         if (firstVisualRow < 0)
             firstVisualRow = 0;
         // Ensure cursor visual row is visible
@@ -2598,15 +2596,15 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             // Defer: may run on the scene-graph thread.
             QTimer::singleShot(0, this, [this, scrollTop]() { setWrapScrollTop(scrollTop); });
             firstVisualRow = cursorVisualRow;
-            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 2);
         }
     }
     else
     {
         if (contentY > 0)
         {
-            firstVisualRow = int(contentY / m_lineHeight);
-            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+            firstVisualRow = static_cast<int>(contentY / m_lineHeight);
+            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 2);
             if (firstVisualRow < 0)
                 firstVisualRow = 0;
         }

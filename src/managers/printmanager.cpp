@@ -37,7 +37,7 @@ int utf8CodePointSize(const QString& s, int i)
     QChar c = s.at(i);
     uint cp = c.unicode();
     if ((cp & 0xFC00u) == 0xD800u && i + 1 < s.size() && (s.at(i + 1).unicode() & 0xFC00u) == 0xDC00u)
-        cp = 0x10000u + ((cp - 0xD800u) << 10) + (s.at(i + 1).unicode() - 0xDC00u);
+        cp = 0x10000u + ((cp - 0xD800u) << 10u) + (s.at(i + 1).unicode() - 0xDC00u);
     return cp <= 0x7F ? 1 : (cp <= 0x7FF ? 2 : (cp <= 0xFFFF ? 3 : 4));
 }
 

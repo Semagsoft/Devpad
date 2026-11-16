@@ -1407,7 +1407,7 @@ void CodeEditor::setLinkedEditingRanges(const QJsonObject& result)
     {
         ranges.append(lsp::Range::fromJson(r.toObject()));
     }
-    m_linkedRanges = ranges;
+    m_linkedRanges = std::move(ranges);
 }
 
 void CodeEditor::clearLinkedRanges()

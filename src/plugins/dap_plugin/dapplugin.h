@@ -43,7 +43,7 @@ public:
 
     // ── Editor integration ────────────────────────────────────────
     // Called by PluginManager when a new editor is created.
-    void onEditorCreated(CodeEditor* editor);
+    void onEditorCreated(CodeEditor* editor) override;
 
 private slots:
     void onInitializeDone(const QString& sessionKey, const dap::Capabilities& caps);

@@ -678,7 +678,7 @@ void TuiBuffer::shiftBookmarksOnDelete(int atLine, int count)
             newMarks.append(b - count);
         // else b in deleted range -> drop
     }
-    m_bookmarks = newMarks;
+    m_bookmarks = std::move(newMarks);
 }
 
 TuiBuffer::ReplaceResult TuiBuffer::replaceNext(const QString& find, const QString& replace, const SearchOptions& opts, bool wrap)

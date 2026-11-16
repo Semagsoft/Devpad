@@ -315,7 +315,7 @@ TEST(LspJsonRpcTest, OversizedHeaderIsDroppedAndStreamResyncs)
     QSignalSpy spy(&rpc, &LspJsonRpc::notificationReceived);
 
     // Flood the buffer with bytes that never terminate the header.
-    rpc.handleData(QByteArray("X").repeated(32 * 1024));
+    rpc.handleData(QByteArray("X").repeated(qsizetype{32} * 1024));
 
     // The buffer must have been shed; a well-formed frame afterwards parses.
     QByteArray msg = rpc.createNotification(QStringLiteral("test/resync"), QJsonObject());

@@ -286,7 +286,7 @@ bool FileTreeModel::newFolder(const QString& name, const QModelIndex& parent)
         return false;
     // insert child
     FileTreeModel::Node* c = new FileTreeModel::Node();
-    c->path = path;
+    c->path = std::move(path);
     c->name = name;
     c->isDir = true;
     c->parent = p;
@@ -311,7 +311,7 @@ bool FileTreeModel::newFile(const QString& name, const QModelIndex& parent)
         return false;
     f.close();
     FileTreeModel::Node* c = new FileTreeModel::Node();
-    c->path = path;
+    c->path = std::move(path);
     c->name = name;
     c->isDir = false;
     c->parent = p;
@@ -336,7 +336,7 @@ bool FileTreeModel::rename(const QModelIndex& idx, const QString& newName)
     bool ok = QFile::rename(n->path, newPath);
     if (ok)
     {
-        n->path = newPath;
+        n->path = std::move(newPath);
         n->name = newName;
         emit dataChanged(idx, idx, {FileNameRole, FilePathRole, Qt::DisplayRole});
     }

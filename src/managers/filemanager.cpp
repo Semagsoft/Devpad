@@ -361,7 +361,7 @@ QString FileManager::detectEncoding(const QByteArray& buffer)
                 nullAt2or3++;
         }
 
-        if (c & 0x80)
+        if (c & 0x80u)
         {
             hasHighBytes = true;
         }
@@ -387,19 +387,19 @@ QString FileManager::detectEncoding(const QByteArray& buffer)
     {
         unsigned char c = static_cast<unsigned char>(buffer[i]);
         int expectedBytes = 0;
-        if ((c & 0x80) == 0)
+        if ((c & 0x80u) == 0)
         {
             expectedBytes = 1;
         }
-        else if ((c & 0xE0) == 0xC0)
+        else if ((c & 0xE0u) == 0xC0u)
         {
             expectedBytes = 2;
         }
-        else if ((c & 0xF0) == 0xE0)
+        else if ((c & 0xF0u) == 0xE0u)
         {
             expectedBytes = 3;
         }
-        else if ((c & 0xF8) == 0xF0)
+        else if ((c & 0xF8u) == 0xF0u)
         {
             expectedBytes = 4;
         }
@@ -410,7 +410,7 @@ QString FileManager::detectEncoding(const QByteArray& buffer)
         }
         for (int j = 1; j < expectedBytes; ++j)
         {
-            if (i + j >= buffer.size() || (static_cast<unsigned char>(buffer[i + j]) & 0xC0) != 0x80)
+            if (i + j >= buffer.size() || (static_cast<unsigned char>(buffer[i + j]) & 0xC0u) != 0x80u)
             {
                 validUtf8 = false;
                 break;

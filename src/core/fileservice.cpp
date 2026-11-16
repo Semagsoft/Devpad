@@ -52,7 +52,7 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
     {
         QString detectedEnc = detectEncoding(rawData);
         enc = encodingFromName(detectedEnc);
-        encDisplayName = detectedEnc;
+        encDisplayName = std::move(detectedEnc);
         // Normalize display name via encoding utils when possible
         if (encDisplayName.isEmpty())
             encDisplayName = encodingToDisplayName(enc);
@@ -83,7 +83,7 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
     }
 
     result.ok = true;
-    result.text = content;
+    result.text = std::move(content);
     result.encoding = encDisplayName.isEmpty() ? encodingToDisplayName(enc) : encDisplayName;
     Logger::instance().info(QStringLiteral("Loaded file: %1 (%2)").arg(filePath, result.encoding));
     return result;
@@ -104,7 +104,7 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
         QString msg = QStringLiteral("The text contains characters that cannot be represented in %1").arg(useEncoding);
         Logger::instance().error(msg);
         if (error)
-            *error = msg;
+            *error = std::move(msg);
         return false;
     }
 
@@ -114,7 +114,7 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
         QString msg = QStringLiteral("Cannot save file: %1").arg(filePath);
         Logger::instance().error(msg);
         if (error)
-            *error = msg;
+            *error = std::move(msg);
         return false;
     }
 
@@ -133,7 +133,7 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
         QString msg = QStringLiteral("Error writing to file: %1").arg(filePath);
         Logger::instance().error(msg);
         if (error)
-            *error = msg;
+            *error = std::move(msg);
         return false;
     }
 
@@ -142,7 +142,7 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
         QString msg = QStringLiteral("Error saving file: %1 - %2").arg(filePath, file.errorString());
         Logger::instance().error(msg);
         if (error)
-            *error = msg;
+            *error = std::move(msg);
         return false;
     }
 
@@ -181,7 +181,7 @@ QString FileService::detectEncoding(const QByteArray& buffer)
             else
                 nullAt2or3++;
         }
-        if (c & 0x80)
+        if (c & 0x80u)
             hasHighBytes = true;
     }
 
@@ -204,13 +204,13 @@ QString FileService::detectEncoding(const QByteArray& buffer)
     {
         unsigned char c = static_cast<unsigned char>(buffer[i]);
         int expectedBytes = 0;
-        if ((c & 0x80) == 0)
+        if ((c & 0x80u) == 0)
             expectedBytes = 1;
-        else if ((c & 0xE0) == 0xC0)
+        else if ((c & 0xE0u) == 0xC0u)
             expectedBytes = 2;
-        else if ((c & 0xF0) == 0xE0)
+        else if ((c & 0xF0u) == 0xE0u)
             expectedBytes = 3;
-        else if ((c & 0xF8) == 0xF0)
+        else if ((c & 0xF8u) == 0xF0u)
             expectedBytes = 4;
         else
         {
@@ -219,7 +219,7 @@ QString FileService::detectEncoding(const QByteArray& buffer)
         }
         for (int j = 1; j < expectedBytes; ++j)
         {
-            if (i + j >= buffer.size() || (static_cast<unsigned char>(buffer[i + j]) & 0xC0) != 0x80)
+            if (i + j >= buffer.size() || (static_cast<unsigned char>(buffer[i + j]) & 0xC0u) != 0x80u)
             {
                 validUtf8 = false;
                 break;

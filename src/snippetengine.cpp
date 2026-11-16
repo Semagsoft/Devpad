@@ -45,7 +45,7 @@ SnippetEngine::SnippetEngine(CodeEditor* editor) : QObject(editor), m_editor(edi
             {
                 if (!m_snippetActive)
                     return;
-                if (!(mtype & (QsciScintillaBase::SC_MOD_INSERTTEXT | QsciScintillaBase::SC_MOD_DELETETEXT)))
+                if (!(static_cast<unsigned>(mtype) & (static_cast<unsigned>(QsciScintillaBase::SC_MOD_INSERTTEXT) | static_cast<unsigned>(QsciScintillaBase::SC_MOD_DELETETEXT))))
                     return;
                 // Bookkeeping always runs (even for our own mirror edits):
                 // member positions must follow every edit. Only the text
@@ -434,16 +434,16 @@ void SnippetEngine::selectTabStopRange(int pos, int len)
 
 void SnippetEngine::adjustMemberPositionsForEdit(int pos, int mtype, int length)
 {
-    const bool isInsert = (mtype & QsciScintillaBase::SC_MOD_INSERTTEXT) != 0;
+    const bool isInsert = (static_cast<unsigned>(mtype) & static_cast<unsigned>(QsciScintillaBase::SC_MOD_INSERTTEXT)) != 0;
     for (auto& info : m_tabStopInfos)
     {
         if (isInsert)
         {
             const int end = info.pos + info.length;
-            if (info.length == 0 && info.pos == pos)
+            if ((info.length == 0 && info.pos == pos) || (info.pos < pos && end > pos))
             {
-                // Zero-width member exactly at the insertion point: it grows
-                // to cover the inserted text.
+                // Zero-width member exactly at the insertion point, or an
+                // insertion inside the member: it grows to cover the text.
                 info.length += length;
             }
             else if (info.pos >= pos)
@@ -451,15 +451,7 @@ void SnippetEngine::adjustMemberPositionsForEdit(int pos, int mtype, int length)
                 // Member lies at or after the insertion start: it shifts.
                 info.pos += length;
             }
-            else if (end <= pos)
-            {
-                // Member ends before the insertion point: unchanged.
-            }
-            else
-            {
-                // Insertion inside the member: it grows.
-                info.length += length;
-            }
+            // else: member ends before the insertion point; unchanged.
         }
         else // SC_MOD_DELETETEXT
         {

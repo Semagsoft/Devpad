@@ -241,7 +241,7 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
         QStringList triggers;
         if (hasCompletionTrigger(triggers))
         {
-            c.completionTriggerChars = triggers;
+            c.completionTriggerChars = std::move(triggers);
         }
         else
         {
@@ -307,7 +307,7 @@ static void countsAfterNCodePoints(const QString& lineText, int cpLimit, int* ut
         if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() &&
             (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
         {
-            cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
+            cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10u) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
             steps = 2;
         }
         utf16 += steps;
@@ -375,7 +375,7 @@ int byteOffsetToCharIndex(const QString& lineText, int byteOffset)
         if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() &&
             (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
         {
-            cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
+            cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10u) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
             steps = 2;
         }
         int cpBytes = cp <= 0x7F ? 1 : (cp <= 0x7FF ? 2 : (cp <= 0xFFFF ? 3 : 4));

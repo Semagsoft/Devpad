@@ -73,7 +73,7 @@ static bool saveCurrentHelper(TuiBuffer* buf, QString& statusMsg, QHash<QString,
         statusMsg = QStringLiteral("Saved %1").arg(path);
     }
     else
-        statusMsg = err;
+        statusMsg = std::move(err);
     return ok;
 }
 #endif
@@ -92,7 +92,7 @@ static bool saveAsHelper(TuiBuffer* buf, const QString& newPath, QString& status
         statusMsg = QStringLiteral("Saved as %1").arg(newPath);
     }
     else
-        statusMsg = err;
+        statusMsg = std::move(err);
     return ok;
 }
 

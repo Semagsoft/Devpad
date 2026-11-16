@@ -19,7 +19,6 @@ public:
     // Run TUI event loop. Returns exit code.
     static int run(QCoreApplication* app, const QCommandLineParser& parser, const QStringList& positionalFiles);
 
-private:
     TuiApp() = delete;
 };
 

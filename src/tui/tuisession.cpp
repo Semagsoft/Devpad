@@ -179,5 +179,5 @@ void TuiSession::pollFileTree(TuiFileTree& fileTree, qint64& lastPollMs, QDateTi
     int afterCount = fileTree.visibleNodes().size();
     if (beforeCount != afterCount)
         statusMsg = QStringLiteral("Tree refreshed (%1 items)").arg(afterCount);
-    lastDirMTime = curDirMod;
+    lastDirMTime = std::move(curDirMod);
 }

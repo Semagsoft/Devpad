@@ -81,7 +81,7 @@ void AboutDialog::setupUI()
     QPixmap pixmap(":/icons/devpad.svg");
     if (!pixmap.isNull())
     {
-        m_originalPixmap = pixmap;
+        m_originalPixmap = std::move(pixmap);
         iconLabel->setPixmap(m_originalPixmap.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     }
     iconLabel->setAlignment(Qt::AlignCenter);

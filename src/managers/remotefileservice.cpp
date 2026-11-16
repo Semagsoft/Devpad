@@ -60,13 +60,13 @@ constexpr int kHttpTransferTimeoutMs = 30000;
 // Inactivity watchdog for scp transfers. scp does not report byte-level
 // progress; a transfer with no destination-file growth (download) or no
 // output/exit for this long is considered stalled and is killed.
-constexpr qint64 kSshStallTimeoutMs = 60 * 1000;
+constexpr qint64 kSshStallTimeoutMs = 60LL * 1000;
 
 // Upload timeout budget: assume no better than 64 KB/s throughput.
 constexpr qint64 kUploadMinThroughputBytesPerSec = 64LL * 1024;
 // Base allowance for connection setup and protocol overhead on top of the
 // throughput-scaled part.
-constexpr qint64 kUploadBaseTimeoutMs = 30 * 1000;
+constexpr qint64 kUploadBaseTimeoutMs = 30LL * 1000;
 // Hard cap on the total upload timeout, regardless of payload size.
 constexpr qint64 kUploadMaxTimeoutMs = 30LL * 60 * 1000;
 } // namespace
