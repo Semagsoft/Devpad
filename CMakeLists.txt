@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.23)
+cmake_minimum_required(VERSION 3.23)
 project(Devpad VERSION 1.10 LANGUAGES CXX)
 
 # -Wsfinae-incomplete only exists in Clang and GCC >= 14. GCC rejects an
@@ -11,6 +11,22 @@ if(DEVPAD_HAS_SFINAE_INCOMPLETE_FLAG)
 endif()
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
+# Host libraries linked by plugins on Windows (see above); empty elsewhere.
+if(WIN32)
+    set(DEVPAD_HOST_LINKS Devpad_core Devpad_editor Devpad_lsp Devpad_panels Devpad_lib)
+else()
+    set(DEVPAD_HOST_LINKS "")
+endif()
+# On Windows, plugins must resolve host symbols at link time (PE has no
+# load-time resolution for undefined symbols), so the host libraries are
+# shared libraries: one copy of every host symbol is shared by the app and
+# its plugins. Static libraries are kept elsewhere (plugins then resolve
+# host symbols from the exe, and install stays unchanged).
+if(WIN32)
+    set(DEVPAD_HOST_LIB_TYPE SHARED)
+else()
+    set(DEVPAD_HOST_LIB_TYPE STATIC)
+endif()
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
 option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)
 option(BUILD_NEXTGEN "Build next-gen QML/high-perf mode (primoEditor, experimental; not shipped)" OFF)
@@ -216,7 +232,7 @@ configure_file(
 )
 
 # ── Core static library (headless, no Widgets) ──────────────
-add_library(Devpad_core STATIC
+add_library(Devpad_core ${DEVPAD_HOST_LIB_TYPE}
     src/logger.cpp
     src/encodingutils.cpp
     src/gitignore.cpp
@@ -247,7 +263,7 @@ target_include_directories(Devpad_core PUBLIC
 # Holds the editing core: QScintilla editor, themes, languages, snippets,
 # and the lightweight editor widgets. SettingsManager lives here because its
 # implementation includes codeeditor.h / QScintilla.
-add_library(Devpad_editor STATIC
+add_library(Devpad_editor ${DEVPAD_HOST_LIB_TYPE}
     src/codeeditor.cpp
     src/keywords.cpp
     src/languageinfo.cpp
@@ -288,7 +304,7 @@ target_include_directories(Devpad_editor PUBLIC
 # workspace-edit helper. Shared by the host (link-time) and by tests; the LSP
 # plugin itself ships only its own UI/session glue and resolves both this
 # library's and the host's symbols from the main executable at load time.
-add_library(Devpad_lsp STATIC
+add_library(Devpad_lsp ${DEVPAD_HOST_LIB_TYPE}
     src/lsp/lsptypes.cpp
     src/plugins/lsp_plugin/lspjsonrpc.cpp
     src/plugins/lsp_plugin/lspclient.cpp
@@ -326,7 +342,7 @@ endif()
 # ── Panels library ───────────────────────────────────────────────────────
 # Dockable panels: project tree, split view, tab bar, error list, references,
 # debugger panel, plus chrome widgets (title bar, window frame bridge).
-add_library(Devpad_panels STATIC
+add_library(Devpad_panels ${DEVPAD_HOST_LIB_TYPE}
     src/panels/projectpanel.cpp
     src/panels/splitview.cpp
     src/panels/draggabletabbar.cpp
@@ -389,16 +405,16 @@ if(BUILD_PLUGINS)
         src/panels
     )
     target_link_libraries(terminalplugin PRIVATE
-        # Plugins resolve Devpad's own classes/symbols from the main executable
-        # (which exports them via ENABLE_EXPORTS), so they share the app's
-        # singletons (SettingsManager, Logger, ...) instead of getting a
-        # private static copy.
+        # On Linux/macOS plugins resolve host symbols from the executable at
+        # load time (ENABLE_EXPORTS); on Windows they link the host DLLs so
+        # they share the app's singletons (SettingsManager, Logger, ...)
+        # instead of getting a private static copy.
         ${TERMINAL_TARGET}
         Qt6::Core
         Qt6::Widgets
-        # Windows needs the symbols to resolve at link time; the exe's import
-        # library (ENABLE_EXPORTS) provides them without copying code.
-        $<$<PLATFORM_ID:Windows>:Devpad>
+        # On Windows the host libraries are DLLs; linking them gives plugins
+        # the same single copy of host symbols the app uses.
+        ${DEVPAD_HOST_LINKS}
     )
     target_link_qscintilla(terminalplugin)
     set_target_properties(terminalplugin PROPERTIES
@@ -435,13 +451,12 @@ if(BUILD_PLUGINS)
             ${CMAKE_BINARY_DIR}/generated
         )
         target_link_libraries(dap_plugin PRIVATE
-            # Plugins resolve Devpad's own classes/symbols from the main executable
-            # (which exports them via ENABLE_EXPORTS), so they share the app's
-            # singletons (SettingsManager, Logger, ...) instead of getting a
-            # private static copy.
+            # On Linux/macOS plugins resolve host symbols from the executable
+            # at load time (ENABLE_EXPORTS); on Windows they link the host
+            # DLLs so they share the app's singletons.
             Qt6::Core
             Qt6::Widgets
-            $<$<PLATFORM_ID:Windows>:Devpad>
+            ${DEVPAD_HOST_LINKS}
         )
         target_link_qscintilla(dap_plugin)
         set_target_properties(dap_plugin PROPERTIES
@@ -478,13 +493,14 @@ if(BUILD_PLUGINS)
     )
     target_link_libraries(lsp_plugin PRIVATE
         # Host symbols (SettingsManager, Logger, lsptypes helpers, ...) are
-        # resolved from the main executable (ENABLE_EXPORTS) at load time,
-        # same as the DAP plugin. Qt modules provide the rest.
+        # resolved from the main executable (ENABLE_EXPORTS) at load time on
+        # Linux/macOS; on Windows the host DLLs are linked, same as the DAP
+        # plugin. Qt modules provide the rest.
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
         Qt6::Network
-        $<$<PLATFORM_ID:Windows>:Devpad>
+        ${DEVPAD_HOST_LINKS}
     )
     if(APPLE)
         # Allow undefined symbols resolved from the host executable at load.
@@ -508,7 +524,7 @@ endif()
 # Holds MainWindow, EditorController, the remaining managers/dialogs/TUI and
 # the plugin host. Keeps the historic Devpad_lib name so the Devpad executable
 # and Devpad_tests need no link/include changes.
-add_library(Devpad_lib STATIC
+add_library(Devpad_lib ${DEVPAD_HOST_LIB_TYPE}
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp
@@ -612,21 +628,18 @@ else()
     set(NEXTGEN_SOURCES "")
 endif()
 
+# Windows DLLs export no symbols unless told to; the host code has no
+# dllexport decorations, so export everything from the host libraries.
+if(WIN32)
+    set_target_properties(Devpad_core Devpad_editor Devpad_lsp Devpad_panels Devpad_lib
+        PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+
 # ── Main executable ───────────────────────────────────────────
 add_executable(Devpad WIN32)
 # Export symbols so plugins can qobject_cast host objects (e.g. the shared
 # SettingsManager instance) across the DSO boundary.
-set_target_properties(Devpad PROPERTIES
-    ENABLE_EXPORTS ON
-    # MinGW exports no symbols by default; without this the exe's import
-    # library (libDevpad.dll.a) is never created and plugins cannot link.
-    WINDOWS_EXPORT_ALL_SYMBOLS ON
-)
-# MinGW only writes libDevpad.dll.a when --out-implib is given; be explicit so
-# the plugins can always find it (CMake's target reference expands to this path).
-if(MINGW)
-    target_link_options(Devpad PRIVATE -Wl,--out-implib=libDevpad.dll.a)
-endif()
+set_target_properties(Devpad PROPERTIES ENABLE_EXPORTS ON)
 
 target_sources(Devpad PRIVATE
     src/main.cpp
@@ -672,6 +685,12 @@ endif()
 
 # ── Install rules ─────────────────────────────────────────────
 install(TARGETS Devpad RUNTIME DESTINATION bin)
+# Windows host libraries are DLLs; they must sit next to the executable so
+# it (and the plugins) can load them at runtime.
+if(WIN32)
+    install(TARGETS Devpad_core Devpad_editor Devpad_lsp Devpad_panels Devpad_lib
+        RUNTIME DESTINATION bin)
+endif()
 
 install(FILES resources/com.semagsoft.Devpad.desktop
     DESTINATION share/applications
