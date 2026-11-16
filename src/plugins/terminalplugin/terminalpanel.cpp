@@ -246,6 +246,7 @@ void TerminalPanel::stopTerminal()
 void TerminalPanel::setWorkingDirectory(const QString& path)
 {
     m_workingDirectory = path;
+#ifndef Q_OS_WIN
     // POSIX: single-quote the path (embedded single quotes escaped as '\'') so
     // shell metacharacters in directory names cannot inject commands.
     const auto shellQuote = [](const QString& s)
@@ -254,6 +255,7 @@ void TerminalPanel::setWorkingDirectory(const QString& path)
         quoted.replace(QLatin1Char('\''), QStringLiteral("'\\''"));
         return QLatin1Char('\'') + quoted + QLatin1Char('\'');
     };
+#endif
     if (m_backend && m_isRunning)
     {
         m_backend->setWorkingDirectory(path);
