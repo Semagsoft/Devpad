@@ -1,6 +1,15 @@
 ﻿cmake_minimum_required(VERSION 3.23)
 project(Devpad VERSION 1.10 LANGUAGES CXX)
 
+# -Wsfinae-incomplete only exists in Clang and GCC >= 14. GCC rejects an
+# unknown -Wno-error=<name> outright, so only add it when the compiler
+# supports it; keeps -Werror builds working on Ubuntu 24.04's GCC 13.
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-Wno-error=sfinae-incomplete" DEVPAD_HAS_SFINAE_INCOMPLETE_FLAG)
+if(DEVPAD_HAS_SFINAE_INCOMPLETE_FLAG)
+    add_compile_options(-Wno-error=sfinae-incomplete)
+endif()
+
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
 option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)

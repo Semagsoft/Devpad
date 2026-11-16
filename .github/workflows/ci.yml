@@ -132,7 +132,7 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER=${{ matrix.compiler == 'gcc' && 'g++' || 'clang++' }} \
-            -DCMAKE_CXX_FLAGS="-Werror -Wno-error=sfinae-incomplete" \
+            -DCMAKE_CXX_FLAGS="-Werror" \
             -DBUILD_TESTS=ON
 
       - name: Build
@@ -290,7 +290,7 @@ jobs:
           export CCACHE_BASEDIR=${{ github.workspace }}
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_FLAGS="-Werror -Wno-error=sfinae-incomplete" \
+            -DCMAKE_CXX_FLAGS="-Werror" \
             -DBUILD_TESTS=ON \
             -DBUILD_QSCINTILLA=OFF
         env:
@@ -562,7 +562,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
             -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_CXX_FLAGS="-Werror -Wno-error=sfinae-incomplete" \
+            -DCMAKE_CXX_FLAGS="-Werror" \
             -DBUILD_TESTS=ON
 
       - name: Build
@@ -622,7 +622,7 @@ jobs:
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -Werror -Wno-error=sfinae-incomplete" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -Werror" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
             -DBUILD_TESTS=ON
 
