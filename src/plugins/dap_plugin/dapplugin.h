@@ -17,7 +17,7 @@ namespace dap
 {
 class DapServerManager;
 class DapEditorIntegration;
-class Capabilities;
+struct Capabilities;
 } // namespace dap
 
 class DapPlugin : public QObject, public IPlugin
