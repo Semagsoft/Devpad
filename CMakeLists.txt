@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23)
+﻿cmake_minimum_required(VERSION 3.23)
 project(Devpad VERSION 1.10 LANGUAGES CXX)
 
 # -Wsfinae-incomplete only exists in Clang and GCC >= 14. GCC rejects an
@@ -245,6 +245,7 @@ add_library(Devpad_core ${DEVPAD_HOST_LIB_TYPE}
     src/tui/tuihighlighter.cpp
     src/tui/tuiviewstate.cpp
     src/tui/tuirenderer.cpp
+    src/keywords.cpp
 )
 target_compile_options(Devpad_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_core PUBLIC
@@ -265,7 +266,6 @@ target_include_directories(Devpad_core PUBLIC
 # implementation includes codeeditor.h / QScintilla.
 add_library(Devpad_editor ${DEVPAD_HOST_LIB_TYPE}
     src/codeeditor.cpp
-    src/keywords.cpp
     src/languageinfo.cpp
     src/lsp/lspeditorbridge.cpp
     src/palettechangefilter.h
