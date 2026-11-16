@@ -63,7 +63,7 @@ PluginInfo DapPlugin::info() const
     i.author = QStringLiteral("Semagsoft");
     i.description = QStringLiteral("Debug Adapter Protocol support for debugging via debug adapters (e.g. lldb-vscode, codelldb, debugpy).");
     i.apiVersion = 1; // must match PluginManager::HostApiVersion
-    i.library = QStringLiteral("libdap_plugin.so");
+    i.library = QStringLiteral("libdap_plugin" PLUGIN_SUFFIX);
     i.enabled = true;
     return i;
 }

@@ -172,7 +172,7 @@ PluginInfo LspPlugin::info() const
     i.author = QStringLiteral("Semagsoft");
     i.description = QStringLiteral("Language Server Protocol support: diagnostics, completion, navigation, and more.");
     i.apiVersion = 1; // must match PluginManager::HostApiVersion
-    i.library = QStringLiteral("liblsp_plugin.so");
+    i.library = QStringLiteral("liblsp_plugin" PLUGIN_SUFFIX);
     i.enabled = true;
     return i;
 }

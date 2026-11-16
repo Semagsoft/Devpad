@@ -52,7 +52,7 @@ public:
         i.author = QStringLiteral("Semagsoft");
         i.description = QStringLiteral("Embedded terminal panel.");
         i.apiVersion = 1; // must match PluginManager::HostApiVersion
-        i.library = QStringLiteral("libterminalplugin.so");
+        i.library = QStringLiteral("libterminalplugin" PLUGIN_SUFFIX);
         i.enabled = true;
         return i;
     }

@@ -75,7 +75,7 @@ TEST(PluginApi, DapManifestDeclaresSupportedApiVersion)
 TEST(PluginApi, BuiltTerminalPluginReportsSupportedApiVersion)
 {
 #if defined(DEVPAD_BUILD_DIR) && defined(DEVPAD_BUILD_PLUGINS)
-    const QString libraryPath = QStringLiteral(DEVPAD_BUILD_DIR "/plugins/libterminalplugin.so");
+    const QString libraryPath = QStringLiteral(DEVPAD_BUILD_DIR "/plugins/libterminalplugin" PLUGIN_SUFFIX);
     QLibrary library(libraryPath);
     ASSERT_TRUE(library.load()) << "Failed to load " << libraryPath.toStdString() << ": " << library.errorString().toStdString();
 
@@ -108,7 +108,7 @@ TEST(PluginApi, LspManifestDeclaresSupportedApiVersion)
 TEST(PluginApi, BuiltLspPluginReportsSupportedApiVersion)
 {
 #if defined(DEVPAD_BUILD_DIR) && defined(DEVPAD_BUILD_PLUGINS)
-    const QString libraryPath = QStringLiteral(DEVPAD_BUILD_DIR "/plugins/liblsp_plugin.so");
+    const QString libraryPath = QStringLiteral(DEVPAD_BUILD_DIR "/plugins/liblsp_plugin" PLUGIN_SUFFIX);
     QLibrary library(libraryPath);
     ASSERT_TRUE(library.load()) << "Failed to load " << libraryPath.toStdString() << ": " << library.errorString().toStdString();
 

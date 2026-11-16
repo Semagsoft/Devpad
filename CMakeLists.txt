@@ -17,9 +17,19 @@ set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
 # the app and its plugins; elsewhere plugins resolve host symbols from the
 # executable at load time (ENABLE_EXPORTS).
 if(WIN32)
+    set(DEVPAD_PLUGIN_SUFFIX ".dll")
+else()
+    set(DEVPAD_PLUGIN_SUFFIX ".so")
+endif()
+add_compile_definitions(PLUGIN_SUFFIX="${DEVPAD_PLUGIN_SUFFIX}")
+if(WIN32)
     set(DEVPAD_HOST_LINKS Devpad_host)
     set(DEVPAD_HOST_APP Devpad_host)
-    set(DEVPAD_HOST_TEST Devpad_host)
+    # The test binary links the host code statically (as on Linux): the
+    # per-module member-pointer registration table that QSignalSpy relies
+    # on is only complete in a single-image binary. The app and plugins
+    # still share Devpad_host.dll, so runtime semantics are unaffected.
+    set(DEVPAD_HOST_TEST Devpad_lib Devpad_lsp)
     set(DEVPAD_NEXTGEN_HOST "")
 else()
     set(DEVPAD_HOST_LINKS "")
@@ -420,14 +430,14 @@ if(BUILD_PLUGINS)
     set_target_properties(terminalplugin PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
         PREFIX "lib"
-        SUFFIX ".so"
+        SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
         OUTPUT_NAME terminalplugin
     )
     # Copy the plugin manifest next to the shared library.
     configure_file(
         src/plugins/terminalplugin/terminalplugin.plugin.json
         ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
-        COPYONLY
+        @ONLY
     )
 
     # ── DAP debugger plugin ──────────────────────────────────────────
@@ -462,14 +472,14 @@ if(BUILD_PLUGINS)
         set_target_properties(dap_plugin PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
             PREFIX "lib"
-            SUFFIX ".so"
+            SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
             OUTPUT_NAME dap_plugin
         )
         # Copy the plugin manifest next to the shared library.
         configure_file(
             src/plugins/dap_plugin/dap_plugin.plugin.json
             ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
-            COPYONLY
+            @ONLY
         )
     endif()
 endif()
@@ -509,14 +519,14 @@ if(BUILD_PLUGINS)
     set_target_properties(lsp_plugin PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
         PREFIX "lib"
-        SUFFIX ".so"
+        SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
         OUTPUT_NAME lsp_plugin
     )
     # Copy the plugin manifest next to the shared library.
     configure_file(
         src/plugins/lsp_plugin/lsp_plugin.plugin.json
         ${CMAKE_BINARY_DIR}/plugins/lsp_plugin.plugin.json
-        COPYONLY
+        @ONLY
     )
 endif()
 
@@ -753,11 +763,11 @@ install(FILES LICENSE
 # ~/.local/share/devpad/plugins/ and are scanned in addition.
 if(BUILD_PLUGINS)
     install(FILES
-        ${CMAKE_BINARY_DIR}/plugins/libterminalplugin.so
+        ${CMAKE_BINARY_DIR}/plugins/libterminalplugin${DEVPAD_PLUGIN_SUFFIX}
         ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
-        ${CMAKE_BINARY_DIR}/plugins/libdap_plugin.so
+        ${CMAKE_BINARY_DIR}/plugins/libdap_plugin${DEVPAD_PLUGIN_SUFFIX}
         ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
-        ${CMAKE_BINARY_DIR}/plugins/liblsp_plugin.so
+        ${CMAKE_BINARY_DIR}/plugins/liblsp_plugin${DEVPAD_PLUGIN_SUFFIX}
         ${CMAKE_BINARY_DIR}/plugins/lsp_plugin.plugin.json
         DESTINATION lib/devpad/plugins
         OPTIONAL

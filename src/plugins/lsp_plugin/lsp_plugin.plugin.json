@@ -5,7 +5,7 @@
     "author": "Semagsoft",
     "description": "Language Server Protocol support: diagnostics, completion, go-to-definition, hover, rename, and more.",
     "apiVersion": 1,
-    "library": "liblsp_plugin.so",
+    "library": "liblsp_plugin@DEVPAD_PLUGIN_SUFFIX@",
     "enabled": true,
     "depends": []
 }
