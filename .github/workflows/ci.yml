@@ -43,6 +43,13 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
+      - name: Build (for AUTOMOC/codegen)
+        # clang-tidy needs the AUTOMOC outputs (e.g. dapplugin.moc,
+        # lspplugin.moc) to exist; otherwise sources with
+        # #include "*.moc" fail with clang-diagnostic-error and
+        # xargs exits 123.
+        run: cmake --build build -j"$(nproc)"
+
       - name: Run clang-tidy on source
         run: |
           set -euo pipefail
