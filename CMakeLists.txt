@@ -636,7 +636,7 @@ endif()
 # exports everything. --whole-archive ensures no object is dropped.
 if(WIN32)
     add_library(Devpad_host SHARED)
-    target_link_libraries(Devpad_host PUBLIC
+    target_link_libraries(Devpad_host PRIVATE
         -Wl,--whole-archive
         Devpad_core
         Devpad_editor
@@ -644,6 +644,16 @@ if(WIN32)
         Devpad_panels
         Devpad_lib
         -Wl,--no-whole-archive
+    )
+    # Propagate the host libraries' usage requirements (Qt modules, includes,
+    # compile definitions) to consumers without linking the archives into
+    # them — consumers must use the DLL, not private static copies.
+    target_link_libraries(Devpad_host PUBLIC
+        $<LINK_ONLY:Devpad_core>
+        $<LINK_ONLY:Devpad_editor>
+        $<LINK_ONLY:Devpad_lsp>
+        $<LINK_ONLY:Devpad_panels>
+        $<LINK_ONLY:Devpad_lib>
     )
     target_link_options(Devpad_host PRIVATE -Wl,--export-all-symbols)
 endif()
