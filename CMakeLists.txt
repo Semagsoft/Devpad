@@ -531,6 +531,7 @@ add_library(Devpad_lib STATIC
     src/tui/tuisession.cpp
     src/tui/tuicommand.cpp
     src/tui/tuiinput.cpp
+    src/nextgen/primodocument.cpp
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginhost.cpp>
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginmanager.cpp>
 )
@@ -571,6 +572,30 @@ endif()
 if(BUILD_NEXTGEN)
     find_package(Qt6 6.6 REQUIRED COMPONENTS Quick Qml QuickControls2)
     message(STATUS "Building with NEXTGEN support (QML + primoEditor)")
+    # AUTOMOC does not reliably pick up Q_OBJECT headers hidden behind
+    # $<BOOL:${BUILD_NEXTGEN}> generator expressions; list them so moc runs.
+    set(NEXTGEN_SOURCES
+        src/nextgen/nextgenapp.cpp
+        src/nextgen/nextgenapp.h
+        src/nextgen/nextgenactions.cpp
+        src/nextgen/nextgenactions.h
+        src/nextgen/nextgentabmodel.cpp
+        src/nextgen/nextgentabmodel.h
+        src/nextgen/primoeditor.cpp
+        src/nextgen/primoeditor.h
+        src/nextgen/primohighlighter.cpp
+        src/nextgen/primohighlighter.h
+        src/nextgen/primoshader.cpp
+        src/nextgen/primoshader.h
+        src/nextgen/primoterminal.cpp
+        src/nextgen/primoterminal.h
+        src/nextgen/primofindinfiles.cpp
+        src/nextgen/primofindinfiles.h
+        src/nextgen/filetreemodel.cpp
+        src/nextgen/filetreemodel.h
+    )
+else()
+    set(NEXTGEN_SOURCES "")
 endif()
 
 # ── Main executable ───────────────────────────────────────────
@@ -584,16 +609,7 @@ target_sources(Devpad PRIVATE
     resources/resources.qrc
     $<$<PLATFORM_ID:Windows>:resources/appicon.rc>
     $<$<BOOL:${BUILD_TUI}>:src/tui/tuiapp.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgenapp.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoeditor.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primodocument.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primohighlighter.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoshader.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgenactions.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgentabmodel.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoterminal.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primofindinfiles.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/filetreemodel.cpp>
+    ${NEXTGEN_SOURCES}
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
@@ -796,6 +812,7 @@ if(BUILD_TESTS)
         tests/test_tuisearchengine.cpp
         tests/test_tuifiletree.cpp
         tests/test_tuihighlighter.cpp
+        tests/test_primodocument.cpp
         tests/test_tuifindinfiles.cpp
         tests/test_tuicommand.cpp
         tests/test_pluginapi.cpp
