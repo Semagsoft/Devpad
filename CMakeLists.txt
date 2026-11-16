@@ -645,16 +645,33 @@ if(WIN32)
         Devpad_lib
         -Wl,--no-whole-archive
     )
-    # Propagate the host libraries' usage requirements (Qt modules, includes,
-    # compile definitions) to consumers without linking the archives into
-    # them — consumers must use the DLL, not private static copies.
-    target_link_libraries(Devpad_host PUBLIC
-        $<LINK_ONLY:Devpad_core>
-        $<LINK_ONLY:Devpad_editor>
-        $<LINK_ONLY:Devpad_lsp>
-        $<LINK_ONLY:Devpad_panels>
-        $<LINK_ONLY:Devpad_lib>
+    # Carry the host libraries' usage requirements forward (Qt modules,
+    # includes, compile definitions) so consumers need nothing else —
+    # $<LINK_ONLY:> does not propagate usage requirements in practice.
+    target_include_directories(Devpad_host PUBLIC
+        src
+        src/managers
+        src/dialogs
+        src/panels
+        ${CMAKE_BINARY_DIR}/generated
     )
+    target_link_libraries(Devpad_host PUBLIC
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::PrintSupport
+        Qt6::Multimedia
+        Qt6::Svg
+    )
+    if(TARGET Qt6::DBus)
+        target_link_libraries(Devpad_host PUBLIC Qt6::DBus)
+        target_compile_definitions(Devpad_host PUBLIC HAVE_QT_DBUS)
+    endif()
+    if(BUILD_PLUGINS)
+        target_compile_definitions(Devpad_host PUBLIC BUILD_PLUGINS=1
+            "DEVPAD_SYSTEM_PLUGINS_DIR=\"${CMAKE_INSTALL_PREFIX}/lib/devpad/plugins\"")
+    endif()
     target_link_options(Devpad_host PRIVATE -Wl,--export-all-symbols)
 endif()
 
