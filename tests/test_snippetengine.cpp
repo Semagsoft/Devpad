@@ -211,7 +211,7 @@ TEST_F(SnippetEngineTest, MirrorSyncKeepsOtherStopPositionsCorrect)
     engine->handleKeyPress(Qt::Key_Tab, Qt::NoModifier); // -> stop 2
     int l, c, l2, c2;
     editor->getSelection(&l, &c, &l2, &c2);
-    EXPECT_EQ(c, 6);   // "more" now starts at col 6 in "foofoomore"
+    EXPECT_EQ(c, 6); // "more" now starts at col 6 in "foofoomore"
     EXPECT_EQ(c2, 10);
     int start = editor->positionFromLineIndex(l, c);
     int end = editor->positionFromLineIndex(l2, c2);
@@ -239,12 +239,12 @@ TEST_F(SnippetEngineTest, NumberedStopsVisitInAscendingOrderNotPosition)
     int l, c, l2, c2;
     editor->getSelection(&l, &c, &l2, &c2);
     EXPECT_EQ(l, 0);
-    EXPECT_EQ(c, 4);   // ${1} "one" spans columns 4..7
+    EXPECT_EQ(c, 4); // ${1} "one" spans columns 4..7
     EXPECT_EQ(c2, 7);
 
     engine->handleKeyPress(Qt::Key_Tab, Qt::NoModifier); // -> ${2}
     editor->getSelection(&l, &c, &l2, &c2);
-    EXPECT_EQ(c, 0);   // ${2} "two" spans columns 0..3
+    EXPECT_EQ(c, 0); // ${2} "two" spans columns 0..3
     EXPECT_EQ(c2, 3);
 
     engine->handleKeyPress(Qt::Key_Tab, Qt::NoModifier); // -> exit (past ${2})

@@ -5,8 +5,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
-#include <QUrl>
 #include <QTextStream>
+#include <QUrl>
 
 #include <gtest/gtest.h>
 

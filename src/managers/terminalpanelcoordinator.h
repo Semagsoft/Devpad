@@ -74,7 +74,6 @@ private slots:
     void handleTerminalStarted();
 
 private:
-
     ActionManager* m_actionManager;
     PluginManager* m_pluginManager;
     QTabWidget* m_tabWidget;

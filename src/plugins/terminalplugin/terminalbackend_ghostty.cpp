@@ -26,6 +26,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QColor>
+#include <QDateTime>
 #include <QDebug>
 #include <QDesktopServices>
 #include <QEvent>
@@ -34,16 +35,15 @@
 #include <QFontMetrics>
 #include <QInputMethodEvent>
 #include <QKeyEvent>
-#include <QMetaObject>
-#include <QMutex>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QMouseEvent>
+#include <QMutex>
 #include <QPainter>
 #include <QRect>
 #include <QRegularExpression>
 #include <QThread>
 #include <QUrl>
-#include <QDateTime>
 #include <QWheelEvent>
 #include <algorithm>
 #include <atomic>
@@ -239,7 +239,8 @@ TerminalBackendGhostty::TerminalBackendGhostty(QWidget* parent)
     m_scrollBar->setObjectName(QStringLiteral("terminalScrollBar"));
     m_scrollBar->setFixedWidth(12);
     m_scrollBar->setVisible(false);
-    connect(m_scrollBar, &QScrollBar::valueChanged, this, [this](int value)
+    connect(m_scrollBar, &QScrollBar::valueChanged, this,
+            [this](int value)
             {
                 if (!m_running || !m_terminal)
                     return;
@@ -1078,7 +1079,6 @@ QVariant TerminalBackendGhostty::inputMethodQuery(Qt::InputMethodQuery query) co
     }
 }
 
-
 void TerminalBackendGhostty::handlePtyData(const QByteArray& data)
 {
     QMutexLocker locker(&m_terminalMutex);
@@ -1094,7 +1094,7 @@ void TerminalBackendGhostty::handlePtyData(const QByteArray& data)
     m_urlCacheValid = false;
     updatePointerShape();
     m_needsRender = true; // Dirty rows only; renderFrame decides full vs dirty from m_fullRepaintPending.
-    update(); // Repaint so newly arrived PTY data is visible on the widget.
+    update();             // Repaint so newly arrived PTY data is visible on the widget.
 }
 
 void TerminalBackendGhostty::handlePtyEof()
@@ -1267,103 +1267,104 @@ void TerminalBackendGhostty::renderFrame()
         }
         else
         {
-        uint16_t rowY = 0;
-        bool rowHasValue = false;
-        while (true)
-        {
-            if (fullRepaint)
-                rowHasValue = ghostty_render_state_row_iterator_next(rowIterator);
-            else
-                rowHasValue = ghostty_render_state_row_iterator_next_dirty(rowIterator, &rowY);
-            if (!rowHasValue)
-                break;
-
-            // Clear the row strip so stale glyphs/backgrounds/cursors are erased.
-            if (!fullRepaint)
-                painter.fillRect(QRect(0, rowY * m_cellHeightPx, frameRect.width(), m_cellHeightPx), backgroundColor);
-
-            GhosttyRenderStateRowSelection rowSelection = GHOSTTY_INIT_SIZED(GhosttyRenderStateRowSelection);
-            bool rowSelected =
-                ghostty_render_state_row_get(rowIterator, GHOSTTY_RENDER_STATE_ROW_DATA_SELECTION, &rowSelection) == GHOSTTY_SUCCESS;
-
-            GhosttyResult cellsResult = ghostty_render_state_row_get(rowIterator, GHOSTTY_RENDER_STATE_ROW_DATA_CELLS, &cells);
-            if (cellsResult == GHOSTTY_SUCCESS)
+            uint16_t rowY = 0;
+            bool rowHasValue = false;
+            while (true)
             {
-                int column = 0;
-                while (ghostty_render_state_row_cells_next(cells))
+                if (fullRepaint)
+                    rowHasValue = ghostty_render_state_row_iterator_next(rowIterator);
+                else
+                    rowHasValue = ghostty_render_state_row_iterator_next_dirty(rowIterator, &rowY);
+                if (!rowHasValue)
+                    break;
+
+                // Clear the row strip so stale glyphs/backgrounds/cursors are erased.
+                if (!fullRepaint)
+                    painter.fillRect(QRect(0, rowY * m_cellHeightPx, frameRect.width(), m_cellHeightPx), backgroundColor);
+
+                GhosttyRenderStateRowSelection rowSelection = GHOSTTY_INIT_SIZED(GhosttyRenderStateRowSelection);
+                bool rowSelected =
+                    ghostty_render_state_row_get(rowIterator, GHOSTTY_RENDER_STATE_ROW_DATA_SELECTION, &rowSelection) == GHOSTTY_SUCCESS;
+
+                GhosttyResult cellsResult = ghostty_render_state_row_get(rowIterator, GHOSTTY_RENDER_STATE_ROW_DATA_CELLS, &cells);
+                if (cellsResult == GHOSTTY_SUCCESS)
                 {
-                    QRectF cellRect(QPointF(column * m_cellWidthPx, rowY * m_cellHeightPx), QSizeF(m_cellWidthPx, m_cellHeightPx));
-                    bool cellSelected = rowSelected && column >= rowSelection.start_x && column <= rowSelection.end_x;
-
-                    GhosttyStyle style;
-                    ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE, &style);
-
-                    // Fill the cell background first so it does not cover the text.
-                    GhosttyColorRgb cellBackground;
-                    if (ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_BG_COLOR, &cellBackground) == GHOSTTY_SUCCESS)
+                    int column = 0;
+                    while (ghostty_render_state_row_cells_next(cells))
                     {
-                        QColor backgroundCell(static_cast<int>(cellBackground.r), static_cast<int>(cellBackground.g),
-                                              static_cast<int>(cellBackground.b));
-                        painter.fillRect(cellRect, backgroundCell);
+                        QRectF cellRect(QPointF(column * m_cellWidthPx, rowY * m_cellHeightPx), QSizeF(m_cellWidthPx, m_cellHeightPx));
+                        bool cellSelected = rowSelected && column >= rowSelection.start_x && column <= rowSelection.end_x;
+
+                        GhosttyStyle style;
+                        ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE, &style);
+
+                        // Fill the cell background first so it does not cover the text.
+                        GhosttyColorRgb cellBackground;
+                        if (ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_BG_COLOR, &cellBackground) ==
+                            GHOSTTY_SUCCESS)
+                        {
+                            QColor backgroundCell(static_cast<int>(cellBackground.r), static_cast<int>(cellBackground.g),
+                                                  static_cast<int>(cellBackground.b));
+                            painter.fillRect(cellRect, backgroundCell);
+                        }
+
+                        // Selection overlay, on top of the cell background, under the text.
+                        if (cellSelected && m_selectionBg.isValid())
+                        {
+                            QColor overlay = m_selectionBg;
+                            overlay.setAlpha(160);
+                            painter.fillRect(cellRect, overlay);
+                        }
+
+                        uint32_t graphemesLen = 0;
+                        ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_LEN, &graphemesLen);
+
+                        if (graphemesLen > 0)
+                        {
+                            uint32_t codepoints[16];
+                            GhosttyCodepointBuffer graphemes;
+                            graphemes.ptr = codepoints;
+                            graphemes.cap = 16;
+                            graphemes.len = 0;
+                            ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_BUF, &graphemes);
+                            size_t codepointCount = graphemes.len < graphemes.cap ? graphemes.len : graphemes.cap;
+                            QString text = QString::fromUcs4(reinterpret_cast<const char32_t*>(codepoints), static_cast<qsizetype>(codepointCount));
+
+                            GhosttyColorRgb cellForeground = resolveStyleColor(style.fg_color, colors, colors.foreground);
+                            QColor foregroundColor(static_cast<int>(cellForeground.r), static_cast<int>(cellForeground.g),
+                                                   static_cast<int>(cellForeground.b));
+                            if (cellSelected && m_selectionFg.isValid())
+                                foregroundColor = m_selectionFg;
+                            QFont cellFont = m_cachedFont;
+                            if (style.flags & GHOSTTY_STYLE_FLAG_BOLD)
+                                cellFont.setBold(true);
+                            painter.setFont(cellFont);
+
+                            // Text is drawn with the pen, not the brush.
+                            painter.setPen(QPen(foregroundColor));
+                            QTextOption textOption;
+                            textOption.setAlignment(Qt::AlignTop | Qt::AlignLeft);
+                            painter.drawText(cellRect, text, textOption);
+                        }
+
+                        int underline = GHOSTTY_STYLE_UNDERLINE(style);
+                        if (underline != GHOSTTY_SGR_UNDERLINE_NONE)
+                        {
+                            GhosttyColorRgb cellForeground = resolveStyleColor(style.fg_color, colors, colors.foreground);
+                            GhosttyColorRgb underlineColor = resolveStyleColor(style.underline_color, colors, cellForeground);
+                            QColor underlineColorC(static_cast<int>(underlineColor.r), static_cast<int>(underlineColor.g),
+                                                   static_cast<int>(underlineColor.b));
+                            painter.setPen(QPen(underlineColorC));
+                            painter.drawLine(QPointF(cellRect.topLeft().x(), cellRect.top() + cellRect.height()),
+                                             QPointF(cellRect.topLeft().x() + cellRect.width(), cellRect.top() + cellRect.height()));
+                        }
+                        column++;
                     }
-
-                    // Selection overlay, on top of the cell background, under the text.
-                    if (cellSelected && m_selectionBg.isValid())
-                    {
-                        QColor overlay = m_selectionBg;
-                        overlay.setAlpha(160);
-                        painter.fillRect(cellRect, overlay);
-                    }
-
-                    uint32_t graphemesLen = 0;
-                    ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_LEN, &graphemesLen);
-
-                    if (graphemesLen > 0)
-                    {
-                        uint32_t codepoints[16];
-                        GhosttyCodepointBuffer graphemes;
-                        graphemes.ptr = codepoints;
-                        graphemes.cap = 16;
-                        graphemes.len = 0;
-                        ghostty_render_state_row_cells_get(cells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_BUF, &graphemes);
-                        size_t codepointCount = graphemes.len < graphemes.cap ? graphemes.len : graphemes.cap;
-                        QString text = QString::fromUcs4(reinterpret_cast<const char32_t*>(codepoints), static_cast<qsizetype>(codepointCount));
-
-                        GhosttyColorRgb cellForeground = resolveStyleColor(style.fg_color, colors, colors.foreground);
-                        QColor foregroundColor(static_cast<int>(cellForeground.r), static_cast<int>(cellForeground.g),
-                                               static_cast<int>(cellForeground.b));
-                        if (cellSelected && m_selectionFg.isValid())
-                            foregroundColor = m_selectionFg;
-                        QFont cellFont = m_cachedFont;
-                        if (style.flags & GHOSTTY_STYLE_FLAG_BOLD)
-                            cellFont.setBold(true);
-                        painter.setFont(cellFont);
-
-                        // Text is drawn with the pen, not the brush.
-                        painter.setPen(QPen(foregroundColor));
-                        QTextOption textOption;
-                        textOption.setAlignment(Qt::AlignTop | Qt::AlignLeft);
-                        painter.drawText(cellRect, text, textOption);
-                    }
-
-                    int underline = GHOSTTY_STYLE_UNDERLINE(style);
-                    if (underline != GHOSTTY_SGR_UNDERLINE_NONE)
-                    {
-                        GhosttyColorRgb cellForeground = resolveStyleColor(style.fg_color, colors, colors.foreground);
-                        GhosttyColorRgb underlineColor = resolveStyleColor(style.underline_color, colors, cellForeground);
-                        QColor underlineColorC(static_cast<int>(underlineColor.r), static_cast<int>(underlineColor.g),
-                                               static_cast<int>(underlineColor.b));
-                        painter.setPen(QPen(underlineColorC));
-                        painter.drawLine(QPointF(cellRect.topLeft().x(), cellRect.top() + cellRect.height()),
-                                         QPointF(cellRect.topLeft().x() + cellRect.width(), cellRect.top() + cellRect.height()));
-                    }
-                    column++;
                 }
+                if (fullRepaint)
+                    rowY++;
             }
-            if (fullRepaint)
-                rowY++;
-        }
-        ghostty_render_state_row_cells_free(cells);
+            ghostty_render_state_row_cells_free(cells);
         }
         ghostty_render_state_row_iterator_free(rowIterator);
     }
@@ -1470,8 +1471,8 @@ void TerminalBackendGhostty::paintEvent(QPaintEvent* event)
         indicatorFont.setBold(true);
         painter.setFont(indicatorFont);
         const QSize textSize = QFontMetrics(indicatorFont).size(Qt::TextSingleLine, text);
-        const QRect boxRect(rect().right() - textSize.width() - 28, rect().bottom() - textSize.height() - 16,
-                            textSize.width() + 14, textSize.height() + 8);
+        const QRect boxRect(rect().right() - textSize.width() - 28, rect().bottom() - textSize.height() - 16, textSize.width() + 14,
+                            textSize.height() + 8);
         painter.setPen(Qt::NoPen);
         painter.setBrush(QColor(0, 0, 0, 170));
         painter.drawRoundedRect(boxRect, 5, 5);
@@ -1654,8 +1655,7 @@ void TerminalBackendGhostty::handleBell()
 
 uint64_t TerminalBackendGhostty::nowNs() const
 {
-    return static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 
 void TerminalBackendGhostty::positionGestureEvents(const QPoint& pos)
@@ -1799,8 +1799,8 @@ void TerminalBackendGhostty::mousePressEvent(QMouseEvent* event)
     {
         positionGestureEvents(event->pos());
         GhosttySelection sel = {};
-        if (m_selectionGesture && m_selectPressEvent
-            && ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectPressEvent, &sel) == GHOSTTY_SUCCESS)
+        if (m_selectionGesture && m_selectPressEvent &&
+            ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectPressEvent, &sel) == GHOSTTY_SUCCESS)
         {
             m_selecting = true;
             ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &sel);
@@ -1851,8 +1851,8 @@ void TerminalBackendGhostty::mouseMoveEvent(QMouseEvent* event)
     {
         positionGestureEvents(event->pos());
         GhosttySelection sel = {};
-        if (m_selectionGesture && m_selectDragEvent
-            && ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectDragEvent, &sel) == GHOSTTY_SUCCESS)
+        if (m_selectionGesture && m_selectDragEvent &&
+            ghostty_selection_gesture_event(m_selectionGesture, m_terminal, m_selectDragEvent, &sel) == GHOSTTY_SUCCESS)
         {
             ghostty_terminal_set(m_terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &sel);
         }
@@ -2047,8 +2047,7 @@ GhosttyMods TerminalBackendGhostty::qtModsToGhostty(Qt::KeyboardModifiers mods) 
     return ghosttyMods;
 }
 
-void TerminalBackendGhostty::reportMouseEvent(GhosttyMouseAction action, GhosttyMouseButton button, const QPointF& pos,
-                                              Qt::KeyboardModifiers mods)
+void TerminalBackendGhostty::reportMouseEvent(GhosttyMouseAction action, GhosttyMouseButton button, const QPointF& pos, Qt::KeyboardModifiers mods)
 {
     if (!m_mouseEncoder || !m_mouseEvent || !m_terminal)
         return;
@@ -2152,8 +2151,7 @@ void TerminalBackendGhostty::rebuildUrlCache()
         return;
     }
 
-    static const QRegularExpression urlPattern(
-        QStringLiteral(R"((?:https?|ftp|ssh|git|file)://[^\s<>"'\)\]]+|www\.[^\s<>"'\)\]]+)"));
+    static const QRegularExpression urlPattern(QStringLiteral(R"((?:https?|ftp|ssh|git|file)://[^\s<>"'\)\]]+|www\.[^\s<>"'\)\]]+)"));
 
     while (ghostty_render_state_row_iterator_next(iterator))
     {

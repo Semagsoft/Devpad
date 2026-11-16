@@ -18,10 +18,10 @@
  */
 #include "updatedialog.h"
 
-#include <QDateTime>
 #include <QApplication>
 #include <QClipboard>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDebug>
 #include <QDesktopServices>
 #include <QFont>
@@ -63,9 +63,7 @@ bool UpdateDialog::showCheckFailed(QWidget* parent, const QString& friendlyMessa
 
 void UpdateDialog::showAlreadyChecked(QWidget* parent, const QDateTime& lastCheckTime)
 {
-    const QString lastCheckText = lastCheckTime.isValid()
-        ? lastCheckTime.toLocalTime().toString(QStringLiteral("yyyy-MM-dd hh:mm"))
-        : QString();
+    const QString lastCheckText = lastCheckTime.isValid() ? lastCheckTime.toLocalTime().toString(QStringLiteral("yyyy-MM-dd hh:mm")) : QString();
     UpdateDialog dialog(Mode::AlreadyChecked, lastCheckText, QString(), QString(), parent);
     dialog.exec();
 }

@@ -98,8 +98,8 @@ TEST_F(ActionManagerTest, ShortcutActionsHaveUniqueSequences)
         if (act->shortcut().isEmpty())
             continue;
         auto it = seen.constFind(act->shortcut());
-        ASSERT_EQ(it, seen.constEnd()) << "Shortcut " << act->shortcut().toString().toStdString() << " is claimed by both \"" << it.value().toStdString()
-                                       << "\" and \"" << act->text().toStdString() << "\"";
+        ASSERT_EQ(it, seen.constEnd()) << "Shortcut " << act->shortcut().toString().toStdString() << " is claimed by both \""
+                                       << it.value().toStdString() << "\" and \"" << act->text().toStdString() << "\"";
         seen.insert(act->shortcut(), act->text());
     }
 }

@@ -19,8 +19,8 @@
 
 #include "scrollbarannotation.h"
 
-#include <QPainter>
 #include <QPaintEvent>
+#include <QPainter>
 
 ScrollbarAnnotation::ScrollbarAnnotation(QWidget* parent) : QWidget(parent)
 {

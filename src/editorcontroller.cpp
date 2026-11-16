@@ -385,8 +385,7 @@ bool EditorController::onTabCloseRequested(int index)
         bool closed = m_tabManager->closeEditor(index);
         if (!closed && m_tabManager->isTabPinned(guard))
         {
-            QMessageBox::information(qobject_cast<QWidget*>(parent()), tr("Pinned Tab"),
-                                     tr("This tab is pinned. Unpin it before closing."));
+            QMessageBox::information(qobject_cast<QWidget*>(parent()), tr("Pinned Tab"), tr("This tab is pinned. Unpin it before closing."));
             return true; // Handled (user informed); tab stays open.
         }
         if (closed && fileName != Strings::untitled() && !fileName.isEmpty())

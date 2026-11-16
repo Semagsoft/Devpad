@@ -23,10 +23,11 @@
 #include "terminalbackend.h"
 #include "theme.h"
 
-#include <QEvent>
 #include <QClipboard>
-#include <QFont>
+#include <QContextMenuEvent>
+#include <QEvent>
 #include <QFocusEvent>
+#include <QFont>
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -40,7 +41,6 @@
 #include <QVariant>
 #include <QWheelEvent>
 #include <QWidget>
-#include <QContextMenuEvent>
 
 class QShowEvent;
 class QPaintEvent;
@@ -215,8 +215,8 @@ private:
 
     // Selection auto-scroll while dragging near the vertical edges.
     QTimer* m_autoScrollTimer = nullptr;
-    int m_autoScrollDir = 0;    // -1 = top edge, +1 = bottom edge, 0 = none
-    int m_lastMouseX = 0;       // mouse x, for extending the selection to the edge row
+    int m_autoScrollDir = 0; // -1 = top edge, +1 = bottom edge, 0 = none
+    int m_lastMouseX = 0;    // mouse x, for extending the selection to the edge row
 
     QMutex m_terminalMutex;
 };

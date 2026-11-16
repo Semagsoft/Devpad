@@ -21,9 +21,9 @@
 #include "codeeditor.h"
 
 #include <QKeyEvent>
+#include <QTimer>
 #include <algorithm>
 #include <limits>
-#include <QTimer>
 
 #include <Qsci/qsciscintilla.h>
 
@@ -38,7 +38,9 @@ inline int stopRank(int number)
 
 SnippetEngine::SnippetEngine(CodeEditor* editor) : QObject(editor), m_editor(editor)
 {
-    connect(m_editor, static_cast<void (QsciScintillaBase::*)(int, int, const char *, int, int, int, int, int, int, int)>(&QsciScintillaBase::SCN_MODIFIED), this,
+    connect(m_editor,
+            static_cast<void (QsciScintillaBase::*)(int, int, const char*, int, int, int, int, int, int, int)>(&QsciScintillaBase::SCN_MODIFIED),
+            this,
             [this](int pos, int mtype, const char*, int length, int, int, int, int, int, int)
             {
                 if (!m_snippetActive)
@@ -176,7 +178,7 @@ void SnippetEngine::enterSnippetMode(const Snippet::ExpandedSnippet& expanded, i
     }
 
     for (int i = 0; i < m_tabStopInfos.size(); ++i)
-    m_snippetActive = true;
+        m_snippetActive = true;
     m_currentTabStopIdx = 0;
     emit snippetModeChanged(true);
 

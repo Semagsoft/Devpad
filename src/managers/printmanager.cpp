@@ -87,8 +87,8 @@ QString PrintManager::generateHighlightedHtml(CodeEditor* editor) const
 
     // QScintilla works in UTF-8 byte offsets, the QString in code units;
     // track both so styles are read from the right bytes.
-    int pos = 0;       // code unit index
-    int bytePos = 0;   // byte offset for 'pos'
+    int pos = 0;     // code unit index
+    int bytePos = 0; // byte offset for 'pos'
     while (pos < length)
     {
         int style = editor->SendScintilla(SCI_GETSTYLEAT, bytePos);

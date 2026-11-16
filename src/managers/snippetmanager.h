@@ -3,10 +3,10 @@
 
 #include "snippet.h"
 
-#include <QPointer>
 #include <QHash>
 #include <QList>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <memory>
 

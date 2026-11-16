@@ -68,9 +68,8 @@ Location Location::fromAnyJson(const QJsonObject& obj)
         loc.uri = obj["targetUri"].toString();
         // LocationLink ranges: targetSelectionRange is the interesting part
         // for navigation; fall back to targetRange when absent.
-        const QJsonObject rangeObj = obj.contains(QStringLiteral("targetSelectionRange"))
-                                         ? obj["targetSelectionRange"].toObject()
-                                         : obj["targetRange"].toObject();
+        const QJsonObject rangeObj =
+            obj.contains(QStringLiteral("targetSelectionRange")) ? obj["targetSelectionRange"].toObject() : obj["targetRange"].toObject();
         loc.range = Range::fromJson(rangeObj);
         return loc;
     }
@@ -260,10 +259,10 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
 QString symbolKindName(int kind)
 {
     // LSP SymbolKind, 1-based.
-    static constexpr std::array<const char*, 26> names = {"File",        "Module",    "Namespace", "Package",    "Class",    "Method",   "Property",
-                                                          "Field",       "Constructor", "Enum",     "Interface",  "Function", "Variable", "Constant",
-                                                          "String",      "Number",    "Boolean",   "Array",      "Object",   "Key",      "Null",
-                                                          "EnumMember",  "Struct",    "Event",     "Operator",   "TypeParameter"};
+    static constexpr std::array<const char*, 26> names = {
+        "File",   "Module",    "Namespace", "Package",    "Class",    "Method", "Property", "Field",        "Constructor",
+        "Enum",   "Interface", "Function",  "Variable",   "Constant", "String", "Number",   "Boolean",      "Array",
+        "Object", "Key",       "Null",      "EnumMember", "Struct",   "Event",  "Operator", "TypeParameter"};
     if (kind >= 1 && kind <= static_cast<int>(names.size()))
         return QString::fromLatin1(names[kind - 1]);
     return QString();
@@ -305,7 +304,8 @@ static void countsAfterNCodePoints(const QString& lineText, int cpLimit, int* ut
         QChar c = lineText.at(i);
         uint cp = c.unicode();
         int steps = 1;
-        if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() && (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
+        if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() &&
+            (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
         {
             cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
             steps = 2;
@@ -332,7 +332,8 @@ int utf16ColToCharIndex(const QString& lineText, int utf16Col)
         if (units >= utf16Col)
             break;
         QChar c = lineText.at(i);
-        bool astral = (c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() && (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000);
+        bool astral = (c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() &&
+                      (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000);
         int step = astral ? 2 : 1;
         if (units + step > utf16Col)
             break; // Column lands inside an astral character; take its start.
@@ -371,7 +372,8 @@ int byteOffsetToCharIndex(const QString& lineText, int byteOffset)
         QChar c = lineText.at(i);
         uint cp = c.unicode();
         int steps = 1;
-        if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() && (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
+        if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() &&
+            (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
         {
             cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
             steps = 2;

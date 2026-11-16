@@ -291,16 +291,16 @@ TEST(LspTypesTest, CharIndexAndUtf16ColForMultiByte)
     const QString line = QStringLiteral("café日😀");
     // code point indices: c=0 a=1 f=2 é=3 日=4 😀=5; utf16 cols: c a f é(1) 日(1) 😀(2)
     EXPECT_EQ(charIndexToUtf16Col(line, 0), 0);
-    EXPECT_EQ(charIndexToUtf16Col(line, 3), 3);   // é
-    EXPECT_EQ(charIndexToUtf16Col(line, 4), 4);   // 日
-    EXPECT_EQ(charIndexToUtf16Col(line, 5), 5);   // start of 😀
-    EXPECT_EQ(charIndexToUtf16Col(line, 6), 7);   // after 😀
+    EXPECT_EQ(charIndexToUtf16Col(line, 3), 3); // é
+    EXPECT_EQ(charIndexToUtf16Col(line, 4), 4); // 日
+    EXPECT_EQ(charIndexToUtf16Col(line, 5), 5); // start of 😀
+    EXPECT_EQ(charIndexToUtf16Col(line, 6), 7); // after 😀
 
     EXPECT_EQ(utf16ColToCharIndex(line, 0), 0);
-    EXPECT_EQ(utf16ColToCharIndex(line, 3), 3);   // é
-    EXPECT_EQ(utf16ColToCharIndex(line, 4), 4);   // 日
-    EXPECT_EQ(utf16ColToCharIndex(line, 5), 5);   // start of 😀
-    EXPECT_EQ(utf16ColToCharIndex(line, 7), 6);   // after 😀
+    EXPECT_EQ(utf16ColToCharIndex(line, 3), 3); // é
+    EXPECT_EQ(utf16ColToCharIndex(line, 4), 4); // 日
+    EXPECT_EQ(utf16ColToCharIndex(line, 5), 5); // start of 😀
+    EXPECT_EQ(utf16ColToCharIndex(line, 7), 6); // after 😀
     // A UTF-16 column inside the astral character clamps to its start.
     EXPECT_EQ(utf16ColToCharIndex(line, 6), 5);
 }
@@ -310,15 +310,15 @@ TEST(LspTypesTest, CharIndexToByteOffsetMultiByte)
     // "a日😀": a(1,1 unit) 日(3 bytes,1 unit) 😀(4 bytes,2 units)
     const QString line = QStringLiteral("a日😀");
     EXPECT_EQ(charIndexToByteOffset(line, 0), 0);
-    EXPECT_EQ(charIndexToByteOffset(line, 1), 1);   // after 'a'
-    EXPECT_EQ(charIndexToByteOffset(line, 2), 4);   // after 日
-    EXPECT_EQ(charIndexToByteOffset(line, 3), 8);   // after 😀
+    EXPECT_EQ(charIndexToByteOffset(line, 1), 1); // after 'a'
+    EXPECT_EQ(charIndexToByteOffset(line, 2), 4); // after 日
+    EXPECT_EQ(charIndexToByteOffset(line, 3), 8); // after 😀
     EXPECT_EQ(byteOffsetToCharIndex(line, 0), 0);
-    EXPECT_EQ(byteOffsetToCharIndex(line, 1), 1);   // after 'a'
-    EXPECT_EQ(byteOffsetToCharIndex(line, 2), 1);   // mid-日 clamps to 'a'
-    EXPECT_EQ(byteOffsetToCharIndex(line, 4), 2);   // after 日
-    EXPECT_EQ(byteOffsetToCharIndex(line, 5), 2);   // mid-😀 clamps
-    EXPECT_EQ(byteOffsetToCharIndex(line, 8), 3);   // after 😀
+    EXPECT_EQ(byteOffsetToCharIndex(line, 1), 1); // after 'a'
+    EXPECT_EQ(byteOffsetToCharIndex(line, 2), 1); // mid-日 clamps to 'a'
+    EXPECT_EQ(byteOffsetToCharIndex(line, 4), 2); // after 日
+    EXPECT_EQ(byteOffsetToCharIndex(line, 5), 2); // mid-😀 clamps
+    EXPECT_EQ(byteOffsetToCharIndex(line, 8), 3); // after 😀
 }
 
 TEST(LspTypesTest, AllConversionsAgreeOnRoundTrip)
@@ -425,10 +425,9 @@ TEST(LspTypesTest, LocationFromAnyJsonLocationLinkWithoutSelectionRange)
 
 TEST(LspTypesTest, CompletionItemKindUsesOneBasedMapping)
 {
-    const char* labels[] = {"Text",      "Method", "Function", "Constructor",  "Field",       "Variable", "Class",
-                           "Interface", "Module", "Property", "Unit",         "Value",       "Enum",     "Keyword",
-                           "Snippet",   "Color",  "File",     "Reference",    "Folder",      "EnumMember", "Constant",
-                           "Struct",    "Event",  "Operator", "TypeParameter"};
+    const char* labels[] = {"Text",     "Method",     "Function", "Constructor", "Field",   "Variable", "Class",        "Interface", "Module",
+                            "Property", "Unit",       "Value",    "Enum",        "Keyword", "Snippet",  "Color",        "File",      "Reference",
+                            "Folder",   "EnumMember", "Constant", "Struct",      "Event",   "Operator", "TypeParameter"};
     for (int k = 1; k <= 25; ++k)
     {
         QJsonObject obj;

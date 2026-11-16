@@ -1,9 +1,9 @@
 #include "plugins/terminalplugin/terminalshortcuts.h"
-
 #include "settingsmanager.h"
 
 #include <QKeyEvent>
 #include <QKeySequence>
+
 #include <gtest/gtest.h>
 
 class TerminalShortcutsTest : public ::testing::Test

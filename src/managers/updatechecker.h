@@ -41,10 +41,16 @@ public:
 
     // Timestamp of the last *completed* check (persisted across launches), or
     // an invalid QDateTime if no check has ever been recorded.
-    QDateTime lastCheckTime() const { return m_lastCheckTime; }
+    QDateTime lastCheckTime() const
+    {
+        return m_lastCheckTime;
+    }
 
     // True while a network check is in flight.
-    bool isCheckInProgress() const { return m_checkInProgress; }
+    bool isCheckInProgress() const
+    {
+        return m_checkInProgress;
+    }
 
     static int compareVersions(const QString& a, const QString& b);
     static QString normalizeVersion(const QString& version);

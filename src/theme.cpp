@@ -1109,8 +1109,8 @@ void initThemeSystem()
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
         if (QApplication::styleHints())
         {
-            QObject::connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged, s_paletteFilter, &PaletteChangeFilter::onSystemThemeChanged,
-                             Qt::UniqueConnection);
+            QObject::connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged, s_paletteFilter,
+                             &PaletteChangeFilter::onSystemThemeChanged, Qt::UniqueConnection);
         }
 #endif
 #ifdef HAVE_QT_DBUS
@@ -1125,7 +1125,10 @@ void initThemeSystem()
     }
 }
 
-PaletteChangeFilter* systemThemeChangeFilter() { return s_paletteFilter; }
+PaletteChangeFilter* systemThemeChangeFilter()
+{
+    return s_paletteFilter;
+}
 
 static bool systemIsDark()
 {

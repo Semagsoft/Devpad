@@ -19,8 +19,8 @@
 #ifndef UPDATEDIALOG_H
 #define UPDATEDIALOG_H
 
-#include <QDialog>
 #include <QDateTime>
+#include <QDialog>
 #include <QString>
 
 class QLabel;
