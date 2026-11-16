@@ -149,7 +149,7 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                         wordEnd = position;
                     SendScintilla(QsciScintillaBase::SCI_SETSEL, static_cast<unsigned long>(position), static_cast<unsigned long>(wordEnd));
                     const QByteArray empty;
-                    SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<unsigned long>(0), empty.constData());
+                    SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<uintptr_t>(0), empty.constData());
                 };
 
                 static const QString marker = QStringLiteral("\u00ABsnip\u00BB");
@@ -186,7 +186,7 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                         deleteTriggerWord();
                         const QString insertText = item.insertText.isEmpty() ? item.label : item.insertText;
                         const QByteArray utf8 = insertText.toUtf8();
-                        SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<unsigned long>(0), utf8.constData());
+                        SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<uintptr_t>(0), utf8.constData());
                         break;
                     }
                 }
@@ -1296,7 +1296,7 @@ void CodeEditor::showCompletion(const lsp::CompletionList& completions)
     QString joined = entries.join(QLatin1Char(sep));
     QByteArray data = joined.toUtf8();
     SendScintilla(QsciScintillaBase::SCI_AUTOCSETSEPARATOR, static_cast<unsigned long>(static_cast<unsigned char>(sep)));
-    SendScintilla(SCI_AUTOCSHOW, static_cast<unsigned long>(currentWord.toUtf8().size()), data.constData());
+    SendScintilla(SCI_AUTOCSHOW, static_cast<uintptr_t>(currentWord.toUtf8().size()), data.constData());
 }
 
 void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnostic>& diagnostics)
@@ -1522,7 +1522,7 @@ void CodeEditor::applyTextEdits(const QList<QJsonObject>& editsIn)
         int endPos = positionFromLineIndex(endLine, endCol);
 
         SendScintilla(SCI_SETSEL, startPos, endPos);
-        SendScintilla(SCI_REPLACESEL, static_cast<unsigned long>(0), newText.toUtf8().constData());
+        SendScintilla(SCI_REPLACESEL, static_cast<uintptr_t>(0), newText.toUtf8().constData());
     }
     endUndoAction();
 }
