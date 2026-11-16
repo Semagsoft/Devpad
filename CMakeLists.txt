@@ -396,6 +396,9 @@ if(BUILD_PLUGINS)
         ${TERMINAL_TARGET}
         Qt6::Core
         Qt6::Widgets
+        # Windows needs the symbols to resolve at link time; the exe's import
+        # library (ENABLE_EXPORTS) provides them without copying code.
+        $<$<PLATFORM_ID:Windows>:Devpad>
     )
     target_link_qscintilla(terminalplugin)
     set_target_properties(terminalplugin PROPERTIES
@@ -438,6 +441,7 @@ if(BUILD_PLUGINS)
             # private static copy.
             Qt6::Core
             Qt6::Widgets
+            $<$<PLATFORM_ID:Windows>:Devpad>
         )
         target_link_qscintilla(dap_plugin)
         set_target_properties(dap_plugin PROPERTIES
@@ -480,6 +484,7 @@ if(BUILD_PLUGINS)
         Qt6::Gui
         Qt6::Widgets
         Qt6::Network
+        $<$<PLATFORM_ID:Windows>:Devpad>
     )
     if(APPLE)
         # Allow undefined symbols resolved from the host executable at load.
