@@ -8,6 +8,32 @@ What's new in Devpad 1.10:
 
 Bug fixes for version 1.10:
 
+- Fix next-gen mode applying every edit twice (text was mutated before
+  QUndoStack::push() re-applied it via redo()); large documents (>20k lines)
+  no longer render a blank editor. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Rework the DAP debugger client to speak the Debug Adapter Protocol
+  envelope instead of JSON-RPC (request/response/event framing, setBreakpoints
+  request shape and 1-based line conversion, execution control resolves the
+  last stopped thread id, adapter reverse requests are answered with errors,
+  initialize parses the spec body, crash cleanup and auto-restart fixed).
+  SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Plugin unload removes plugin-registered actions/docks/panels/objects
+  synchronously and deletes the IPlugin instance before unmapping the .so,
+  so plugin-code destructors never run from unmapped memory.
+  SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Fix local-socket file handoff dropping file paths when delivery of the
+  payload was fragmented. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Refuse lossy decodes when opening files instead of silently corrupting
+  non-UTF-8 text in the editor. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Fix Logger silently swallowing all log messages after a failed log-file
+  open. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Fix theme rename deleting the old file before the new one was written,
+  losing the theme on write failure. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Warn when the session cannot be locked/restored or saved instead of
+  silently dropping it. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+- Fix Find Symbols duplicating workspace-symbol results fanned out from
+  multiple language servers. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
+
 
 
 ## [1.09] - 2026-11-09
