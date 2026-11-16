@@ -443,18 +443,19 @@ bool CustomThemeDialog::saveTheme(bool applyAfter)
         return false;
     }
 
-    // Renaming: if editing an existing theme under a new name, remove the old file.
-    if (!m_editingName.isEmpty() && m_editingName != colors.name)
-    {
-        QString oldPath = m_themesDir + QStringLiteral("/") + themeFileName(m_editingName);
-        QFile::remove(oldPath);
-    }
-
     QString filePath = m_themesDir + QStringLiteral("/") + themeFileName(colors.name);
+    // Renaming: write the new file FIRST; only remove the old one once the new
+    // one is safely on disk, so a failed write never destroys the original theme.
     if (!writeThemeJson(colors, filePath))
     {
         QMessageBox::critical(this, tr("Save Error"), tr("Could not write theme file %1.").arg(filePath));
         return false;
+    }
+    if (!m_editingName.isEmpty() && m_editingName != colors.name)
+    {
+        QString oldPath = m_themesDir + QStringLiteral("/") + themeFileName(m_editingName);
+        if (oldPath != filePath)
+            QFile::remove(oldPath);
     }
 
     // Refresh the in-memory cache so the new/edited theme is discoverable.

@@ -2348,20 +2348,26 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
     bool useDocLineAt = false;
     if (m_linesDirty || m_linesCache.isEmpty())
     {
-        QString txt = m_doc ? m_doc->text() : QString();
-        if (txt.isEmpty())
+        if (m_doc && m_doc->lineCount() > MaxCachedLines)
         {
-            lines = QStringList{QString()};
-        }
-        else if (m_doc && m_doc->lineCount() <= MaxCachedLines)
-        {
-            lines = txt.split(QLatin1Char('\n'));
+            // Document too large to cache all lines: compute on demand (avoid a full text copy)
+            useDocLineAt = true;
+            m_useDocLineAt = true;
         }
         else
         {
-            // Document too large to cache all lines: compute on demand
-            useDocLineAt = true;
+            QString txt = m_doc ? m_doc->text() : QString();
+            if (txt.isEmpty())
+            {
+                lines = QStringList{QString()};
+            }
+            else
+            {
+                lines = txt.split(QLatin1Char('\n'));
+            }
         }
+        if (!useDocLineAt)
+            m_useDocLineAt = false;
         m_linesCache = lines;
         m_linesDirty = false;
         // also resize highlight cache
@@ -2376,8 +2382,11 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             m_highlightCache.resize(MaxCachedLines);
     }
     else
+    {
         lines = m_linesCache;
-    totalLines = lines.size();
+        useDocLineAt = m_useDocLineAt;
+    }
+    totalLines = useDocLineAt ? (m_doc ? m_doc->lineCount() : 0) : lines.size();
     qreal needed = totalLines * m_lineHeight + 8;
     if (!qFuzzyCompare(needed, m_contentHeight))
     {

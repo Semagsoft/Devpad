@@ -1,5 +1,7 @@
 #include "lspjsonrpc.h"
 
+#include "../contentlengthframer.h"
+
 #include <QDebug>
 #include <QJsonParseError>
 #include <QPointer>
@@ -34,9 +36,6 @@ QJsonObject errorObject(int code, const QString& message)
     return err;
 }
 
-// Ceiling on a single framed JSON-RPC message; larger Content-Length values
-// are discarded incrementally instead of being buffered entire in memory.
-constexpr qint64 kMaxMessageSize = 100LL * 1024 * 1024;
 } // namespace
 
 LspJsonRpc::LspJsonRpc(QObject* parent) : QObject(parent)
@@ -99,91 +98,7 @@ void LspJsonRpc::failPendingRequests(int code, const QString& message)
 
 void LspJsonRpc::handleData(const QByteArray& data)
 {
-    m_buffer.append(data);
-
-    while (true)
-    {
-        if (m_contentLength < 0)
-        {
-            static constexpr int kMaxHeaderSize = 16 * 1024;
-            int headerEnd = m_buffer.indexOf("\r\n\r\n");
-            if (headerEnd < 0)
-            {
-                if (m_buffer.size() > kMaxHeaderSize)
-                {
-                    // Server without Content-Length framing on the wire; shed
-                    // the unbounded garbage instead of buffering it forever.
-                    qWarning("LSP: header larger than %d bytes, dropping buffer contents to resync", kMaxHeaderSize);
-                    m_buffer.clear();
-                }
-                return;
-            }
-
-            QByteArray header = m_buffer.left(headerEnd);
-            int parsed = -1;
-            for (const QByteArray& line : header.split('\n'))
-            {
-                QByteArray l = line.trimmed();
-                if (l.startsWith("Content-Length:"))
-                {
-                    parsed = l.mid(15).trimmed().toInt();
-                }
-                else if (l.startsWith("Content-Type:"))
-                {
-                    // Consume but ignore — we only support UTF-8 JSON-RPC
-                }
-            }
-
-            if (parsed <= 0)
-            {
-                // Invalid or unusable Content-Length (missing, zero, or an
-                // overflowed toInt()): the body of this frame cannot be framed
-                // reliably, so drop the header AND the body bytes that follow
-                // it, then resync on the next framed message. Consuming only
-                // the header would make the next header search start inside
-                // the body and permanently desync the stream.
-                m_buffer.remove(0, headerEnd + 4);
-                qWarning("LSP: discarding frame with invalid Content-Length");
-                continue;
-            }
-
-            m_contentLength = parsed;
-            m_buffer.remove(0, headerEnd + 4);
-        }
-
-        if (m_contentLength > kMaxMessageSize)
-        {
-            // Pathological Content-Length: discard the message's bytes as
-            // they stream in (never accumulating them in memory) and resync
-            // on the next framed message.
-            const qint64 discardable = qMin<qint64>(m_buffer.size(), m_contentLength);
-            if (discardable > 0)
-            {
-                if (!m_discardingOversized)
-                {
-                    m_discardingOversized = true;
-                    qWarning() << "LSP: discarding server message larger than" << kMaxMessageSize << "bytes";
-                }
-                m_buffer.remove(0, static_cast<int>(discardable));
-                m_contentLength -= discardable;
-            }
-            if (m_contentLength > 0)
-                return; // wait for the rest of the oversized message to stream through
-            m_contentLength = -1;
-            m_discardingOversized = false;
-            continue;
-        }
-
-        if (m_buffer.size() < m_contentLength)
-            return;
-
-        QByteArray message = m_buffer.left(m_contentLength);
-        m_buffer.remove(0, m_contentLength);
-        m_contentLength = -1;
-        m_discardingOversized = false;
-
-        processMessage(message);
-    }
+    m_framer.handleData(data, [this](const QByteArray& message) { processMessage(message); });
 }
 
 void LspJsonRpc::processMessage(const QByteArray& message)
@@ -248,9 +163,7 @@ void LspJsonRpc::resolveResponse(const QString& key, const QJsonValue& result, c
 
 QByteArray LspJsonRpc::frame(const QJsonObject& obj) const
 {
-    QByteArray json = QJsonDocument(obj).toJson(QJsonDocument::Compact);
-    QByteArray header = QString("Content-Length: %1\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n").arg(json.size()).toUtf8();
-    return header + json;
+    return m_framer.frame(obj);
 }
 
 QByteArray LspJsonRpc::createRequest(int id, const QString& method, const QJsonObject& params)

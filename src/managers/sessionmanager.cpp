@@ -91,6 +91,7 @@ SessionManager::SessionData SessionManager::loadSessionData()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("SessionManager: failed to acquire lock in loadSessionData");
+        data.lockFailed = true;
         return data;
     }
     // Pick up changes written by other instances before reading.
@@ -228,6 +229,7 @@ void SessionManager::saveSessionData(const QStringList& files, int activeIndex, 
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("Failed to acquire session lock for saveSessionData");
+        m_lastSaveFailed = true;
         return;
     }
 
@@ -346,6 +348,7 @@ void SessionManager::saveSessionBookmarks(const QHash<QString, QList<int>>& book
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("Failed to acquire session lock for saveSessionBookmarks");
+        m_lastSaveFailed = true;
         return;
     }
 
@@ -404,6 +407,7 @@ void SessionManager::saveSessionCursors(const QHash<QString, QList<int>>& cursor
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("Failed to acquire session lock for saveSessionCursors");
+        m_lastSaveFailed = true;
         return;
     }
 
@@ -462,6 +466,7 @@ void SessionManager::saveSessionPinnedFiles(const QStringList& pinnedFiles)
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("Failed to acquire session lock for saveSessionPinnedFiles");
+        m_lastSaveFailed = true;
         return;
     }
 
@@ -503,6 +508,7 @@ void SessionManager::saveSessionSplitState(bool splitVisible, const QVariantList
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("Failed to acquire session lock for saveSessionSplitState");
+        m_lastSaveFailed = true;
         return;
     }
 
@@ -550,6 +556,7 @@ void SessionManager::clearSession()
     if (!m_sessionLock.tryLock(5000))
     {
         Logger::instance().error("Failed to acquire session lock for clearSession");
+        m_lastSaveFailed = true;
         return;
     }
 
@@ -575,6 +582,7 @@ void SessionManager::clearSession()
 
 void SessionManager::saveSession(TabManager* tabManager, ProjectPanel* projectPanel, const QString& terminalWorkingDir)
 {
+    m_lastSaveFailed = false;
     QStringList files;
     int activeIndex = 0;
     QTabWidget* currentPane = tabManager->activePane();

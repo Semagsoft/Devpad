@@ -18,6 +18,11 @@ DapEditorIntegration::DapEditorIntegration(CodeEditor* editor, QObject* parent) 
 
 DapEditorIntegration::~DapEditorIntegration() = default;
 
+CodeEditor* DapEditorIntegration::editor() const
+{
+    return m_editor;
+}
+
 void DapEditorIntegration::setServerManager(DapServerManager* manager)
 {
     m_dapManager = manager;

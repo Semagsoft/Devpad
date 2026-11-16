@@ -127,7 +127,7 @@ OutputEvent OutputEvent::fromJson(const QJsonObject& obj)
     e.source = obj.value("source").toInt(0);
     e.category = obj.value("category").toString();
     e.output = obj.value("output").toString();
-    e.threadId = obj.value("threadId").toString();
+    e.threadId = obj.value("threadId").toInt(0);
     e.handlesGrouped = obj.value("handlesGrouped").toBool(false);
     return e;
 }

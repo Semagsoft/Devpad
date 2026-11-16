@@ -70,6 +70,18 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
     else
         content = decoder(rawData);
 
+    // A lossy decode would put replacement chars in the editor, and a later
+    // save would silently destroy the original bytes. Refuse instead; the
+    // user can retry with an explicit encoding via reload.
+    if (decoder.hasError())
+    {
+        result.ok = false;
+        result.encoding = encDisplayName.isEmpty() ? encodingToDisplayName(enc) : encDisplayName;
+        result.error = QStringLiteral("File is not valid %1. Reloading with a different encoding may help.").arg(result.encoding);
+        Logger::instance().error(QStringLiteral("Decode error loading %1 as %2").arg(filePath, result.encoding));
+        return result;
+    }
+
     result.ok = true;
     result.text = content;
     result.encoding = encDisplayName.isEmpty() ? encodingToDisplayName(enc) : encDisplayName;

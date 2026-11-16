@@ -187,7 +187,7 @@ struct OutputEvent
     int source = 0;   // 0=console, 1=stdout, 2=stderr, 3=telemetry
     QString category; // "console", "stdout", "stderr", "telemetry"
     QString output;
-    QString threadId;
+    int threadId = 0;
     bool handlesGrouped = false;
 
     static OutputEvent fromJson(const QJsonObject& obj);

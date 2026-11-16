@@ -161,6 +161,16 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
         content = decoder(rawData);
     }
 
+    // Refuse a lossy decode instead of showing corrupted text that a later
+    // save would persist over the original bytes.
+    if (decoder.hasError())
+    {
+        m_lastError = tr("File is not valid %1. Reloading with a different encoding may help.").arg(encDisplayName);
+        Logger::instance().error(QStringLiteral("Decode error loading %1 as %2").arg(fileName, encDisplayName));
+        emit error(m_lastError);
+        return false;
+    }
+
     editor->setText(content);
 
     editor->setFileName(fileName);

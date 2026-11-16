@@ -115,6 +115,12 @@ void RemoteOpenCoordinator::openRemoteFileFromData(const QString& urlStr, const 
     QString detectedEnc = FileManager::detectEncoding(data);
     QStringDecoder decoder(encodingFromName(detectedEnc));
     QString content = decoder(bom.size > 0 ? data.mid(bom.size) : data);
+    if (decoder.hasError())
+    {
+        QMessageBox::warning(m_uiParent, QObject::tr("Cannot Open Remote File"),
+                             QObject::tr("The file is not valid %1. It may use a different encoding.").arg(detectedEnc));
+        return;
+    }
 
     QString displayName = fileName.isEmpty() ? QUrl(urlStr).fileName() : fileName;
     if (displayName.isEmpty())

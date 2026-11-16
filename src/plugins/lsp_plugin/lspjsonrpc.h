@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QVariant>
+#include "../contentlengthframer.h"
 #include <functional>
 
 namespace lsp
@@ -51,9 +52,7 @@ private:
 
     QByteArray frame(const QJsonObject& obj) const;
 
-    QByteArray m_buffer;
-    int m_contentLength = -1;
-    bool m_discardingOversized = false;
+    plugins::ContentLengthFramer m_framer;
     int m_requestIdCounter = 0;
     // Keyed by a canonical id string ("n:<num>" / "s:<str>") so numeric and
     // string ids cannot collide during pending-request matching.

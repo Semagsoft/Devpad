@@ -82,6 +82,7 @@ void FindSymbolsDialog::onSearchTextChanged(const QString& text)
     if (text.isEmpty())
     {
         m_model->removeRows(0, m_model->rowCount());
+        m_resultKeys.clear();
         m_statusLabel->setText(tr("Type to search"));
         m_debounceTimer->stop();
         return;
@@ -97,6 +98,7 @@ void FindSymbolsDialog::performSearch()
 
     m_statusLabel->setText(tr("Searching..."));
     m_model->removeRows(0, m_model->rowCount());
+    m_resultKeys.clear();
 
     if (!m_lspService)
         return;
@@ -133,6 +135,14 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
             line = range["start"].toObject()["line"].toInt();
             col = range["start"].toObject()["character"].toInt();
         }
+
+        // The request is fanned out to every running language server; servers
+        // may report the same symbol. Dedupe on identity.
+        const QString key = name + QLatin1Char('|') + filePath + QLatin1Char('|') + QString::number(line) + QLatin1Char('|') + QString::number(col) +
+                            QLatin1Char('|') + QString::number(kind);
+        if (m_resultKeys.contains(key))
+            continue;
+        m_resultKeys.insert(key);
 
         QString icon;
         if (kindName == QLatin1String("Function") || kindName == QLatin1String("Method") || kindName == QLatin1String("Constructor"))

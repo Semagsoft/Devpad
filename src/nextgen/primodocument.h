@@ -83,10 +83,12 @@ private:
     void invalidateCache();
     // Diff-based undo: stores only the changed range instead of full document copies.
     // position = char offset where the edit starts, removed = text removed,
-    // inserted = text inserted. Memory: O(change_size) instead of O(document_size).
-    void pushUndo(int position, const QString& removed, const QString& inserted);
+    // inserted = text inserted. The edit is applied by redo() on push.
+    // Returns false when the command was not pushed (undo disabled).
+    bool pushUndo(int position, const QString& removed, const QString& inserted);
     // Compute the diff between old and new text and push a diff-based undo command.
-    void pushUndoDiff(const QString& oldText, const QString& newText);
+    // Returns false when there is nothing to push (or undo is disabled).
+    bool pushUndoDiff(const QString& oldText, const QString& newText);
 
     QString m_filePath;
     QString m_text;

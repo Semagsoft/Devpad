@@ -291,6 +291,7 @@ private:
     qreal m_contentHeight = 0;
     QStringList m_linesCache;
     bool m_linesDirty = true;
+    bool m_useDocLineAt = false; // true when the doc is too large to cache all lines
 
     // Gutter / bookmarks / readOnly
     bool m_gutterVisible = true;

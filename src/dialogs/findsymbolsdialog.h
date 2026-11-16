@@ -2,6 +2,9 @@
 #define FINDSYMBOLSDIALOG_H
 
 #include <QDialog>
+#include <QJsonArray>
+#include <QPointer>
+#include <QSet>
 
 class QLineEdit;
 class QTreeView;
@@ -37,7 +40,7 @@ private:
     void setupUI();
     void populateResults(const QJsonArray& symbols);
 
-    lsp::ILspService* m_lspService = nullptr;
+    QPointer<lsp::ILspService> m_lspService;
     QLineEdit* m_searchEdit = nullptr;
     QTreeView* m_treeView = nullptr;
     QStandardItemModel* m_model = nullptr;
@@ -46,6 +49,7 @@ private:
     QPushButton* m_closeButton = nullptr;
     int m_navigateLine = -1;
     int m_navigateColumn = -1;
+    QSet<QString> m_resultKeys; // dedupe keys for the current query (multi-server fan-out)
 };
 
 #endif // FINDSYMBOLSDIALOG_H

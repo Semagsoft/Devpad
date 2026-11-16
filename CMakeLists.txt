@@ -409,6 +409,7 @@ if(BUILD_PLUGINS)
         add_library(dap_plugin MODULE
             src/plugins/dap_plugin/dapplugin.cpp
             src/plugins/dap_plugin/dapclient.cpp
+            src/plugins/dap_plugin/dapjsonrpc.cpp
             src/plugins/dap_plugin/dapservermanager.cpp
             src/plugins/dap_plugin/daptypes.cpp
             src/plugins/dap_plugin/dapeditorintegration.cpp

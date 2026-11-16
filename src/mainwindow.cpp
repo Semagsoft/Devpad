@@ -55,6 +55,7 @@
 #include "themeapplier.h"
 
 #include <QDateTime>
+#include <memory>
 
 #ifdef Q_OS_UNIX
 #include <sys/socket.h>
@@ -1111,6 +1112,9 @@ void MainWindow::applyStartupMode()
     else if (mode == StartupMode::RestoreSession)
     {
         auto sessionData = m_sessionManager->restoreSession([this](const QString& filePath) { loadFile(filePath); }, m_splitView, m_projectPanel);
+        if (sessionData.lockFailed)
+            QMessageBox::warning(this, tr("Session Not Restored"),
+                                 tr("Devpad could not lock the session file (another instance may be holding it). Your previous session was not restored."));
         m_tabManager->setPinnedFiles(m_sessionManager->loadSessionPinnedFiles());
 
         QString terminalDir = sessionData.terminalWorkingDir;
@@ -1449,6 +1453,9 @@ void MainWindow::quitDevpad()
     if (m_terminalCoordinator->dock())
         QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
     m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
+    if (m_sessionManager->lastSaveFailed())
+        QMessageBox::warning(this, tr("Session Not Saved"),
+                             tr("Devpad could not lock the session file (another instance may be holding it). Your session state will not be restored next time."));
     QApplication::quit();
 }
 
@@ -1539,66 +1546,97 @@ void MainWindow::handleQuitRequest()
         return;
     }
 #endif
+    // Buffer bytes across readyRead emissions: delivery of the handoff
+    // payload is not atomic, so a single emission may carry only part of a
+    // line (or several lines at once). Only act once the terminating
+    // "end" line (open_files) or the full command has been assembled.
+    struct HandoffState
+    {
+        QByteArray buffer;
+        QString command; // empty until the first complete line is seen
+        QStringList paths;
+    };
+    auto state = std::make_shared<HandoffState>();
     connect(client, &QLocalSocket::readyRead, this,
-            [this, client]()
+            [this, client, state]()
             {
-                if (!client->canReadLine())
-                    return;
-
-                QString command = QString::fromUtf8(client->readLine()).trimmed();
-                if (command == QStringLiteral("open_files"))
+                state->buffer.append(client->readAll());
+                for (;;)
                 {
-                    QStringList paths;
-                    while (client->canReadLine())
+                    const int idx = state->buffer.indexOf('\n');
+                    if (idx < 0)
+                        break;
+                    const QString line = QString::fromUtf8(state->buffer.left(idx)).trimmed();
+                    state->buffer.remove(0, idx + 1);
+                    if (line.isEmpty())
+                        continue;
+
+                    if (state->command.isEmpty())
                     {
-                        const QString line = QString::fromUtf8(client->readLine()).trimmed();
-                        if (line == QStringLiteral("end"))
-                            break;
-                        if (!line.isEmpty())
-                            paths.append(line);
+                        if (line == QStringLiteral("open_files") || line == QStringLiteral("save_and_quit"))
+                        {
+                            state->command = line;
+                            if (state->command == QStringLiteral("save_and_quit"))
+                            {
+                                if (m_quitRequested)
+                                {
+                                    client->disconnectFromServer();
+                                    return;
+                                }
+                                m_quitRequested = true;
+
+                                if (!saveAllModifiedTabs())
+                                {
+                                    client->write("abort\n");
+                                    client->flush();
+                                    client->disconnectFromServer();
+                                    return;
+                                }
+
+                                if (m_actionManager->terminalPanelAct()->isVisible())
+                                    SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
+                                QString termDir;
+                                if (m_terminalCoordinator->dock())
+                                    QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection,
+                                                              Q_RETURN_ARG(QString, termDir));
+                                m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
+                                // Can't warn interactively while quitting for another instance; log instead.
+                                if (m_sessionManager->lastSaveFailed())
+                                    Logger::instance().error(QStringLiteral("Could not save session state during save_and_quit handoff."));
+                                client->disconnectFromServer();
+                                QApplication::quit();
+                                return;
+                            }
+                            continue;
+                        }
+                        // Unknown command: don't act on anything further from this peer.
+                        client->disconnectFromServer();
+                        return;
                     }
-                    for (const QString& path : paths)
+
+                    if (state->command != QStringLiteral("open_files"))
+                        return;
+
+                    if (line == QStringLiteral("end"))
                     {
-                        const QFileInfo info(path);
-                        if (info.isDir())
-                            openFolderFromPath(path);
-                        else
-                            openFileFromPath(path);
+                        const QStringList paths = state->paths;
+                        for (const QString& path : paths)
+                        {
+                            const QFileInfo info(path);
+                            if (info.isDir())
+                                openFolderFromPath(path);
+                            else
+                                openFileFromPath(path);
+                        }
+                        raise();
+                        activateWindow();
+                        client->write("ok\n");
+                        client->flush();
+                        client->disconnectFromServer();
+                        return;
                     }
-                    raise();
-                    activateWindow();
-                    client->write("ok\n");
-                    client->flush();
-                    client->disconnectFromServer();
-                    return;
+                    state->paths.append(line);
                 }
-                if (command != QStringLiteral("save_and_quit"))
-                    return;
-
-                if (m_quitRequested)
-                {
-                    client->disconnectFromServer();
-                    return;
-                }
-                m_quitRequested = true;
-
-                if (!saveAllModifiedTabs())
-                {
-                    client->write("abort\n");
-                    client->flush();
-                    client->disconnectFromServer();
-                    return;
-                }
-
-                if (m_actionManager->terminalPanelAct()->isVisible())
-                    SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());
-                QString termDir;
-                if (m_terminalCoordinator->dock())
-                    QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection,
-                                              Q_RETURN_ARG(QString, termDir));
-                m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
-                client->disconnectFromServer();
-                QApplication::quit();
             });
     connect(client, &QLocalSocket::disconnected, client, &QObject::deleteLater);
 }
@@ -1625,6 +1663,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
     if (m_terminalCoordinator->dock())
         QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
     m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
+    if (m_sessionManager->lastSaveFailed())
+        QMessageBox::warning(this, tr("Session Not Saved"),
+                             tr("Devpad could not lock the session file (another instance may be holding it). Your session state will not be restored next time."));
     event->accept();
 }
 

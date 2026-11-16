@@ -5,6 +5,7 @@
 
 #include <QList>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 
 class CodeEditor;
@@ -60,11 +61,7 @@ public slots:
     void onTerminated();
     void onThreadEvent(const ThreadEvent& ev);
 
-    CodeEditor* editor() const
-    {
-        return m_editor;
-    }
-
+    CodeEditor* editor() const;
 signals:
     void navigateToLocation(const QString& filePath, int line, int column);
     void debuggingStateChanged(bool debugging);
@@ -75,7 +72,7 @@ private:
     QString currentUri() const;
     void connectClientSignals();
 
-    CodeEditor* m_editor;
+    QPointer<CodeEditor> m_editor;
     DapServerManager* m_dapManager = nullptr;
     QString m_sessionKey;
     bool m_dapActive = false;

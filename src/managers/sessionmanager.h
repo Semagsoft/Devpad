@@ -48,11 +48,18 @@ public:
         QHash<QString, QList<int>> bookmarks;
         // Per file: {cursor line, cursor index, first visible line}
         QHash<QString, QList<int>> cursors;
+        // True when the session file could not be locked (e.g. another
+        // hung instance holds it); the data above is then empty/stale and
+        // must not be mistaken for "no session exists".
+        bool lockFailed = false;
     };
 
     SessionData restoreSession(std::function<void(const QString& filePath)> loadFileFn, SplitView* splitView, ProjectPanel* projectPanel);
 
     void saveSession(TabManager* tabManager, ProjectPanel* projectPanel, const QString& terminalWorkingDir);
+    // True when the most recent saveSession() call could not acquire the
+    // session lock and some state was dropped instead of persisted.
+    bool lastSaveFailed() const { return m_lastSaveFailed; }
 
     // ── Persistence ────────────────────────────────────────────
     void saveSessionData(const QStringList& files, int activeIndex, const QString& projectPath, const QString& terminalWorkingDir = {});
@@ -87,6 +94,7 @@ private:
 
     QSettings m_sessionSettings;
     QLockFile m_sessionLock;
+    bool m_lastSaveFailed = false;
 };
 
 #endif

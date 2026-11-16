@@ -72,10 +72,15 @@ void DapServerManager::startSession(const QString& sessionKey, const QString& la
     // Forward client signals, tagging them with the session key.
     connect(client, &DapClient::serverStarted, this, [this, sessionKey]() { emit clientStarted(sessionKey); });
     connect(client, &DapClient::serverStopped, this,
-            [this, sessionKey]()
+            [this, sessionKey, client]()
             {
-                m_clients.remove(sessionKey);
+                // stopSession() takes the client out of the map first and
+                // handles cleanup itself; only clean up here for sessions
+                // that ended on their own (e.g. adapter exited).
+                if (!m_clients.take(sessionKey))
+                    return;
                 m_sessionLanguage.remove(sessionKey);
+                client->deleteLater(); // deferred; the client outlives this slot
                 emit clientStopped(sessionKey);
             });
     connect(client, &DapClient::serverError, this, [this, sessionKey](const QString& error) { emit clientError(sessionKey, error); });

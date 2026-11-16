@@ -130,8 +130,41 @@ void PluginHost::endPluginSession(const QString& pluginId)
         m_pluginRegistrations.erase(regIt);
     }
 
+    // Remove objects/panels this plugin registered but never unregistered
+    // (e.g. its shutdown() crashed before unregistering). Entries are dropped
+    // without deleting the pointees — ownership stays with the plugin, whose
+    // shutdown() should have deleted or unregistered them; keeping dangling
+    // registrations would hand out destroyed pointers via host->object()/panel().
+    for (auto it = m_pluginObjects.begin(); it != m_pluginObjects.end();)
+    {
+        if (m_pluginObjectOwners.value(it.key()) == pluginId)
+        {
+            m_pluginObjectOwners.remove(it.key());
+            it = m_pluginObjects.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    m_pluginObjectOwners.remove(pluginId);
+
+    for (auto it = m_pluginPanels.begin(); it != m_pluginPanels.end();)
+    {
+        if (m_pluginPanelOwners.value(it.key()) == pluginId)
+        {
+            m_pluginPanelOwners.remove(it.key());
+            it = m_pluginPanels.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    m_pluginPanelOwners.remove(pluginId);
+
     // Remove everything this plugin registered; must run while the plugin's
-    // library is still loaded (deleteLater()ed widgets may belong to it).
+    // library is still loaded (delete()ed widgets may belong to it).
     for (auto it = m_pluginActions.begin(); it != m_pluginActions.end();)
     {
         if (m_pluginActionOwners.value(it.key()) == pluginId)
@@ -140,7 +173,9 @@ void PluginHost::endPluginSession(const QString& pluginId)
             {
                 if (m_mainWindow)
                     m_mainWindow->removeAction(act);
-                act->deleteLater();
+                // Host-owned QAction; synchronous delete is safe and keeps
+                // plugin-triggered deferred deletes off the unload path.
+                delete act;
             }
             it = m_pluginActions.erase(it);
         }
@@ -158,7 +193,18 @@ void PluginHost::endPluginSession(const QString& pluginId)
             if (DockEntry entry = it.value(); entry.dock)
             {
                 m_mainWindow->removeDockWidget(entry.dock);
-                entry.dock->deleteLater();
+                // The dock's content widget may be a plugin class whose destructor
+                // lives in the plugin .so; delete synchronously while it is loaded.
+                QWidget* inner = entry.dock->widget();
+                delete entry.dock; // destroys children synchronously
+                // Panels that pointed at the dock must not outlive it.
+                for (auto pit = m_pluginPanels.begin(); pit != m_pluginPanels.end();)
+                {
+                    if (pit.value() == entry.dock || pit.value() == inner)
+                        pit = m_pluginPanels.erase(pit);
+                    else
+                        ++pit;
+                }
             }
             it = m_pluginDocks.erase(it);
         }
@@ -210,7 +256,7 @@ bool PluginHost::unregisterAction(const QString& id)
 
     if (m_mainWindow)
         m_mainWindow->removeAction(act);
-    act->deleteLater();
+    delete act;
     return true;
 }
 
@@ -338,11 +384,13 @@ void PluginHost::registerPanel(const QString& id, QWidget* widget)
     if (id.isEmpty() || !widget)
         return;
     m_pluginPanels.insert(id, widget);
+    m_pluginPanelOwners.insert(id, m_currentPluginId);
 }
 
 void PluginHost::unregisterPanel(const QString& id)
 {
     m_pluginPanels.remove(id);
+    m_pluginPanelOwners.remove(id);
 }
 
 QWidget* PluginHost::panel(const QString& id) const
@@ -355,11 +403,13 @@ void PluginHost::registerObject(const QString& id, QObject* object)
     if (id.isEmpty() || !object)
         return;
     m_pluginObjects.insert(id, object);
+    m_pluginObjectOwners.insert(id, m_currentPluginId);
 }
 
 void PluginHost::unregisterObject(const QString& id)
 {
     m_pluginObjects.remove(id);
+    m_pluginObjectOwners.remove(id);
 }
 
 QObject* PluginHost::object(const QString& id) const
@@ -379,14 +429,21 @@ bool PluginHost::removeDockWidget(const QString& dockId)
     m_mainWindow->removeDockWidget(entry.dock);
     // Unregister any panel that pointed at this dock so host->panel() no
     // longer returns a dangling (deleted) widget.
+    QWidget* inner = entry.dock->widget();
     for (auto it = m_pluginPanels.begin(); it != m_pluginPanels.end();)
     {
-        if (it.value() == entry.dock)
+        if (it.value() == entry.dock || it.value() == inner)
+        {
+            m_pluginPanelOwners.remove(it.key());
             it = m_pluginPanels.erase(it);
+        }
         else
             ++it;
     }
-    entry.dock->deleteLater();
+    // Synchronous delete: callers (e.g. plugin shutdown) may return before
+    // the event loop gets a chance to process deferred deletes, and the dock
+    // content may be a plugin-class widget whose destructor lives in the .so.
+    delete entry.dock;
     return true;
 }
 

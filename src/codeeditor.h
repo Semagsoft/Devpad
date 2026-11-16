@@ -270,7 +270,7 @@ private:
 
     // DAP / debugger integration (owned by plugin, stored as QObject* to avoid
     // compile-time dependency on plugin headers).
-    QObject* m_dapIntegration = nullptr;
+    QPointer<QObject> m_dapIntegration;
 };
 
 #endif // CODEEDITOR_H

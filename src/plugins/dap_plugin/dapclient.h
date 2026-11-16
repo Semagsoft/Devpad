@@ -1,7 +1,7 @@
 #ifndef DAPCLIENT_H
 #define DAPCLIENT_H
 
-#include "../lsp_plugin/lspjsonrpc.h"
+#include "dapjsonrpc.h"
 #include "daptypes.h"
 
 #include <QObject>
@@ -13,15 +13,17 @@ namespace dap
 
 // Debug Adapter Protocol client. Speaks DAP over stdio to a debug adapter
 // (e.g. lldb-vscode, codelldb, python's debugpy, vscode-chrome-debug-core).
-// Framing is the same Content-Length JSON-RPC used by LSP, so LspJsonRpc is
-// reused directly.
+// Speaks the DAP envelope (type/seq/request_seq/success/body) via DapJsonRpc,
+// sharing Content-Length framing with LSP.
 //
 // Lifecycle:
 //   initialize -> (capabilities) -> launch/attach -> configurationDone
 //             -> [threads/stackTrace/scopes/variables while stopped]
 //             -> continue/step*/pause -> ... -> terminate/disconnect
 //
-// Breakpoints are managed by setBreakpoints per source file.
+// Breakpoints are managed by setBreakpoints per source file. Breakpoint
+// lines are 0-based on the editor side; the adapter is told 1-based lines
+// (linesStartAt1 negotiated in initialize).
 class DapClient : public QObject
 {
     Q_OBJECT
@@ -107,14 +109,16 @@ private slots:
 private:
     void sendInitializeHandshake();
     void sendTerminateIfStopping();
-    int sendRequest(const QString& method, const QJsonObject& params, lsp::LspJsonRpc::ResponseCallback callback);
+    // 0 means "resolve to the last thread the adapter stopped" (tracked from
+    // stopped events); adapters assign thread ids, so a literal 0 is never valid.
+    int resolveThreadId(int threadId) const;
 
-    void handleNotification(const QString& method, const QJsonObject& params);
-    void handleResponse(const QVariant& id, const QJsonValue& result, const QJsonObject& error);
-    void handleServerRequest(const QVariant& id, const QString& method, const QJsonObject& params);
+    void handleEvent(const QString& event, const QJsonObject& body);
+    void handleResponse(const QString& command, bool success, const QJsonValue& body, const QJsonObject& error);
+    void handleReverseRequest(int seq, const QString& command, const QJsonObject& arguments);
 
     QProcess* m_process = nullptr;
-    lsp::LspJsonRpc* m_jsonRpc = nullptr;
+    DapJsonRpc* m_jsonRpc = nullptr;
     QString m_command;
     QStringList m_args;
     Capabilities m_capabilities;
@@ -122,6 +126,7 @@ private:
     bool m_starting = false;
     bool m_stopping = false;
     int m_retryCount = 0;
+    int m_stoppedThreadId = 0; // last threadId reported by a stopped event
     static constexpr int START_TIMEOUT_MS = 5000;
     static constexpr int SHUTDOWN_TIMEOUT_MS = 5000;
     static constexpr int KILL_TIMEOUT_MS = 2000;

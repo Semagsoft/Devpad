@@ -163,11 +163,15 @@ private:
     QHash<QString, DockEntry> m_pluginDocks;
     int m_dockCounter = 0;
 
-    // Panels keyed by id (registered via registerPanel()).
+    // Panels keyed by id (registered via registerPanel()). The *Owner hashes
+    // remember which plugin registered each entry so endPluginSession can
+    // drop a misbehaving plugin's leftovers without touching other plugins'.
     QHash<QString, QWidget*> m_pluginPanels;
+    QHash<QString, QString> m_pluginPanelOwners;
 
     // Generic plugin-registered objects keyed by id.
     QHash<QString, QObject*> m_pluginObjects;
+    QHash<QString, QString> m_pluginObjectOwners;
 
     // Per-plugin registration tracking for cleanup on unload.
     struct PluginRegistrations

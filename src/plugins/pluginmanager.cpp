@@ -26,8 +26,10 @@
 #include "managers/settingsmanager.h"
 #include "pluginhost.h"
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
+#include <QEvent>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -330,6 +332,8 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
         emit pluginFailed(entry.info.id, reason);
         safePluginCall(entry.info.id, "shutdown", [](IPlugin* p) { p->shutdown(); });
         m_host->endPluginSession(entry.info.id);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        delete plugin;
         loader->unload();
         loader->deleteLater();
         return false;
@@ -392,9 +396,21 @@ bool PluginManager::unload(const QString& pluginId)
     // Remove the plugin's registered actions/docks while its library is still
     // loaded — triggering an action whose callback lives in an unloaded .so
     // would crash, and deleting dock contents after unload would crash in the
-    // widget's destructor.
+    // widget's destructor. endPluginSession() deletes them synchronously.
     if (m_host)
         m_host->endPluginSession(pluginId);
+
+    // Flush any DeferredDelete events posted by the plugin so none of them
+    // land after its code is unmapped.
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+    // The plugin instance itself is factory-allocated in the .so; delete it
+    // while the library is still mapped.
+    if (entry.plugin)
+    {
+        delete entry.plugin;
+        entry.plugin = nullptr;
+    }
 
     if (entry.loader)
     {

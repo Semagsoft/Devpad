@@ -139,6 +139,12 @@ bool applyTextEditsToFile(const QString& filePath, const QList<QJsonObject>& edi
     {
         QStringDecoder decoder(encodingFromName(bom.encodingName));
         text = decoder(raw.mid(bom.size));
+        if (decoder.hasError())
+        {
+            if (error)
+                *error = QStringLiteral("File is not valid %1: %2").arg(bom.encodingName, filePath);
+            return false;
+        }
     }
     else
     {

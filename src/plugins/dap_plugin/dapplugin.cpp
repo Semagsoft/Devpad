@@ -104,10 +104,21 @@ void DapPlugin::shutdown()
         m_host->unregisterPanel(QStringLiteral("debug"));
     }
 
+    // Delete editor integrations synchronously: they are parented to this
+    // plugin, whose .so is unmapped right after shutdown() returns. Editors
+    // still hold their integration pointers, so detach them first.
+    for (auto* integration : m_editorIntegrations)
+    {
+        integration->setSessionKey(QString());
+        if (integration->editor())
+            integration->editor()->setDapIntegration(nullptr);
+        delete integration;
+    }
+    m_editorIntegrations.clear();
+
     delete m_debugPanel;
     m_debugPanel = nullptr;
     m_dapServerManager = nullptr;
-    m_editorIntegrations.clear();
     m_host = nullptr;
 }
 
@@ -121,6 +132,15 @@ void DapPlugin::onEditorCreated(CodeEditor* editor)
 
     editor->setDapIntegration(integration);
     m_editorIntegrations.append(integration);
+
+    // If the editor dies first, drop the integration immediately (plugin .so
+    // code must not outlive its owner's event-loop convenience deletes).
+    connect(editor, &QObject::destroyed, this,
+            [this, integration](QObject*)
+            {
+                m_editorIntegrations.removeAll(integration);
+                delete integration;
+            });
 
     qDebug("DapPlugin: editor created, integration set up");
 }
@@ -255,6 +275,9 @@ void DapPlugin::onClientStopped(const QString& sessionKey)
     if (sessionKey == m_debugSessionKey)
     {
         m_debugSessionKey.clear();
+
+        for (auto* integration : m_editorIntegrations)
+            integration->setSessionKey(QString());
 
         auto* actionManager = qobject_cast<::ActionManager*>(m_host->actionManager());
         if (actionManager)
