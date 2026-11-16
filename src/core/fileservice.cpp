@@ -98,7 +98,7 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
     // QTextStream maps unrepresentable characters to '?' with no error,
     // which silently destroys user data.
     QStringEncoder probe(enc);
-    (void) probe.encode(text);
+    (void)probe.encode(text);
     if (probe.hasError())
     {
         QString msg = QStringLiteral("The text contains characters that cannot be represented in %1").arg(useEncoding);

@@ -104,7 +104,7 @@ TEST(PrimoDocumentTest, UndoThenNewEditClearsRedo)
     doc.insertText(0, QStringLiteral("a"));
     doc.insertText(1, QStringLiteral("b"));
 
-    doc.undo(); // "a"
+    doc.undo();                             // "a"
     doc.insertText(1, QStringLiteral("X")); // "aX"
 
     EXPECT_EQ(doc.text(), QStringLiteral("aX"));

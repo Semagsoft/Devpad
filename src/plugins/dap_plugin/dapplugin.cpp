@@ -43,7 +43,6 @@
 #include <QJsonObject>
 #include <QMetaObject>
 #include <QTabWidget>
-
 #include <cstdio>
 
 DapPlugin::DapPlugin(QObject* parent) : QObject(parent)

@@ -14,10 +14,10 @@
 
 #include <QByteArray>
 #include <QDebug>
-#include <QJsonObject>
 #include <QJsonDocument>
-#include <functional>
+#include <QJsonObject>
 #include <algorithm>
+#include <functional>
 
 namespace plugins
 {
@@ -120,7 +120,8 @@ public:
 
     QByteArray frame(const QByteArray& json) const
     {
-        QByteArray header = QString("Content-Length: %1\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n").arg(json.size()).toUtf8();
+        QByteArray header =
+            QString("Content-Length: %1\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n").arg(json.size()).toUtf8();
         return header + json;
     }
 

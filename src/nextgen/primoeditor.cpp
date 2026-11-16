@@ -23,10 +23,10 @@
 #include <QSGGeometry>
 #include <QSGGeometryNode>
 #include <QSGRectangleNode>
-#include <QTimer>
 #include <QSGSimpleRectNode>
 #include <QSGTextNode>
 #include <QTextLayout>
+#include <QTimer>
 #include <algorithm>
 
 namespace
@@ -1776,7 +1776,8 @@ void PrimoEditor::ensureMetrics()
     const qreal implicit = contentHeight();
     // Defer QML-facing side effects to the event loop: ensureMetrics() may be
     // called from updatePaintNode() on the scene-graph thread.
-    QTimer::singleShot(0, this, [this, implicit]()
+    QTimer::singleShot(0, this,
+                       [this, implicit]()
                        {
                            emit gutterWidthChanged();
                            setImplicitHeight(implicit);
@@ -2466,7 +2467,8 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
         // Defer QML-facing side effects to the event loop: updatePaintNode may
         // run on the scene-graph thread, where emitting signals and changing
         // QQuickItem geometry is not allowed.
-        QTimer::singleShot(0, this, [this, h]()
+        QTimer::singleShot(0, this,
+                           [this, h]()
                            {
                                emit contentHeightChanged();
                                setImplicitHeight(h);

@@ -216,18 +216,17 @@ void DapClient::launch(const QJsonObject& arguments)
     if (!isRunning() || !m_initialized)
         return;
     int id = m_jsonRpc->nextRequestSeq();
-    m_jsonRpc->registerPendingRequest(
-        id,
-        [this](const QJsonValue& /*result*/, const QJsonObject& error)
-        {
-            if (!error.isEmpty())
-            {
-                emit serverError(QStringLiteral("[launch] %1").arg(error["message"].toString()));
-                return;
-            }
-            emit launchDone();
-            checkConfigurationReady();
-        });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this](const QJsonValue& /*result*/, const QJsonObject& error)
+                                      {
+                                          if (!error.isEmpty())
+                                          {
+                                              emit serverError(QStringLiteral("[launch] %1").arg(error["message"].toString()));
+                                              return;
+                                          }
+                                          emit launchDone();
+                                          checkConfigurationReady();
+                                      });
     m_process->write(m_jsonRpc->createRequest(id, "launch", arguments));
 }
 
@@ -236,18 +235,17 @@ void DapClient::attach(const QJsonObject& arguments)
     if (!isRunning() || !m_initialized)
         return;
     int id = m_jsonRpc->nextRequestSeq();
-    m_jsonRpc->registerPendingRequest(
-        id,
-        [this](const QJsonValue& /*result*/, const QJsonObject& error)
-        {
-            if (!error.isEmpty())
-            {
-                emit serverError(QStringLiteral("[attach] %1").arg(error["message"].toString()));
-                return;
-            }
-            emit attachDone();
-            checkConfigurationReady();
-        });
+    m_jsonRpc->registerPendingRequest(id,
+                                      [this](const QJsonValue& /*result*/, const QJsonObject& error)
+                                      {
+                                          if (!error.isEmpty())
+                                          {
+                                              emit serverError(QStringLiteral("[attach] %1").arg(error["message"].toString()));
+                                              return;
+                                          }
+                                          emit attachDone();
+                                          checkConfigurationReady();
+                                      });
     m_process->write(m_jsonRpc->createRequest(id, "attach", arguments));
 }
 

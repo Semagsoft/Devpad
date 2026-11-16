@@ -93,7 +93,7 @@ void NextgenTabModel::addTab(const QString& filePath)
     else
     {
         m_tabs.append(filePath);
-        m_tabPanes.append(0); // new tabs go to left pane by default
+        m_tabPanes.append(0);              // new tabs go to left pane by default
         m_tabCursors.append(QList<int>{}); // keep panes/cursors index-aligned with tabs
         m_current = m_tabs.size() - 1;
     }

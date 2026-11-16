@@ -59,11 +59,20 @@ public:
     void saveSession(TabManager* tabManager, ProjectPanel* projectPanel, const QString& terminalWorkingDir);
     // True when the most recent saveSession() call could not acquire the
     // session lock and some state was dropped instead of persisted.
-    bool lastSaveFailed() const { return m_lastSaveFailed; }
+    bool lastSaveFailed() const
+    {
+        return m_lastSaveFailed;
+    }
     // True when the most recent read could not acquire the session lock and
     // returned an empty/stale default instead of stored data.
-    bool lastLoadFailed() const { return m_lastLoadFailed; }
-    bool lastOperationFailed() const { return m_lastSaveFailed || m_lastLoadFailed; }
+    bool lastLoadFailed() const
+    {
+        return m_lastLoadFailed;
+    }
+    bool lastOperationFailed() const
+    {
+        return m_lastSaveFailed || m_lastLoadFailed;
+    }
 
     // ── Persistence ────────────────────────────────────────────
     void saveSessionData(const QStringList& files, int activeIndex, const QString& projectPath, const QString& terminalWorkingDir = {});

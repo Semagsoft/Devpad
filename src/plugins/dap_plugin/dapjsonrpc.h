@@ -35,7 +35,8 @@ public:
 
     int nextRequestSeq();
     QByteArray createRequest(int seq, const QString& command, const QJsonObject& arguments);
-    QByteArray createResponse(int requestSeq, const QString& command, bool success, const QString& message = QString(), const QJsonValue& body = QJsonValue::Undefined);
+    QByteArray createResponse(int requestSeq, const QString& command, bool success, const QString& message = QString(),
+                              const QJsonValue& body = QJsonValue::Undefined);
     QByteArray createErrorResponse(int requestSeq, const QString& command, const QString& message);
 
     using ResponseCallback = std::function<void(const QJsonValue& body, const QJsonObject& error)>;

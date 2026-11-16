@@ -18,13 +18,12 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include "pluginmanager.h"
-
 #include "codeeditor.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "managers/settingsmanager.h"
 #include "pluginhost.h"
+#include "pluginmanager.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -383,8 +382,7 @@ bool PluginManager::unload(const QString& pluginId)
         }
         catch (const std::exception& e)
         {
-            Logger::instance().error(
-                QStringLiteral("Plugin '%1': uncaught exception in shutdown: %2").arg(pluginId, QString::fromUtf8(e.what())));
+            Logger::instance().error(QStringLiteral("Plugin '%1': uncaught exception in shutdown: %2").arg(pluginId, QString::fromUtf8(e.what())));
         }
         catch (...)
         {

@@ -878,7 +878,8 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     auto* pollTimer = new QTimer(scp);
     pollTimer->setInterval(500);
     auto lastSize = std::make_shared<qint64>(0);
-    connect(pollTimer, &QTimer::timeout, scp, [scp, guard, processed, tmpFileShared, lastProgress, lastSize, urlStr, finishProcess]()
+    connect(pollTimer, &QTimer::timeout, scp,
+            [scp, guard, processed, tmpFileShared, lastProgress, lastSize, urlStr, finishProcess]()
             {
                 if (!guard || *processed)
                     return;

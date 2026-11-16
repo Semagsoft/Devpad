@@ -16,7 +16,6 @@
 #include <QTextLayout>
 #include <QThread>
 #include <QVector>
-
 #include <atomic>
 #include <memory>
 

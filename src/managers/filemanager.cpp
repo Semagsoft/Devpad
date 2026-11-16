@@ -230,7 +230,7 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
 
     // Fail fast instead of writing '?' for unrepresentable characters.
     QStringEncoder probe(encodingFromName(useEncoding));
-    (void) probe.encode(editor->text());
+    (void)probe.encode(editor->text());
     if (probe.hasError())
     {
         m_lastError = tr("The text contains characters that cannot be represented in %1").arg(useEncoding);
@@ -289,7 +289,7 @@ bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, co
 
     // Fail fast instead of uploading '?' for unrepresentable characters.
     QStringEncoder probe(encodingFromName(useEncoding));
-    (void) probe.encode(editor->text());
+    (void)probe.encode(editor->text());
     if (probe.hasError())
     {
         m_lastError = tr("The text contains characters that cannot be represented in %1").arg(useEncoding);

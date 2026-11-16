@@ -477,8 +477,7 @@ bool CustomThemeDialog::saveTheme(bool applyAfter)
         else
         {
             QMessageBox::warning(this, tr("Save Error"),
-                                 tr("The file \"%1\" exists but cannot be read; refusing to overwrite it.")
-                                     .arg(filePathForCheck));
+                                 tr("The file \"%1\" exists but cannot be read; refusing to overwrite it.").arg(filePathForCheck));
             return false;
         }
     }

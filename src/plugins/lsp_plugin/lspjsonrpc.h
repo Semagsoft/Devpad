@@ -1,6 +1,8 @@
 #ifndef LSPJSONRPC_H
 #define LSPJSONRPC_H
 
+#include "../contentlengthframer.h"
+
 #include <QByteArray>
 #include <QHash>
 #include <QJsonDocument>
@@ -8,7 +10,6 @@
 #include <QObject>
 #include <QTimer>
 #include <QVariant>
-#include "../contentlengthframer.h"
 #include <functional>
 
 namespace lsp

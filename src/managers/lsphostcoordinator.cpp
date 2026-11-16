@@ -98,8 +98,8 @@ void LspHostCoordinator::ensureServiceSignals(lsp::ILspService* svc)
     // references land in the references panel.
     svc->setNavigateCallback(m_navigate);
     if (m_referencesPanel && !m_referencesConnection)
-        m_referencesConnection = connect(svc, &lsp::ILspService::referencesReady, this,
-                                         [this](const QString&, const QList<lsp::Location>& locations) { m_referencesPanel->setReferences(locations); });
+        m_referencesConnection = connect(svc, &lsp::ILspService::referencesReady, this, [this](const QString&, const QList<lsp::Location>& locations)
+                                         { m_referencesPanel->setReferences(locations); });
     m_serviceSignalsConnected = true;
 }
 

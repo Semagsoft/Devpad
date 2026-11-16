@@ -18,8 +18,8 @@
  */
 #include "lspworkspaceedit.h"
 
-#include "lsp/lsptypes.h"
 #include "encodingutils.h"
+#include "lsp/lsptypes.h"
 
 #include <QFile>
 #include <QFileInfo>

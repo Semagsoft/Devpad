@@ -250,8 +250,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                         {
                             if (filePath.size() > 1 && filePath[0] == QChar(1))
                                 QFile::remove(filePath.mid(1));
-                            QMessageBox::information(this, tr("Pinned Tab"),
-                                                     tr("This tab is pinned. Unpin it before moving it to another window."));
+                            QMessageBox::information(this, tr("Pinned Tab"), tr("This tab is pinned. Unpin it before moving it to another window."));
                             return;
                         }
                     }
@@ -1114,8 +1113,9 @@ void MainWindow::applyStartupMode()
         auto sessionData = m_sessionManager->restoreSession([this](const QString& filePath) { loadFile(filePath); }, m_splitView, m_projectPanel);
         QStringList pinnedFiles = m_sessionManager->loadSessionPinnedFiles();
         if (sessionData.lockFailed || m_sessionManager->lastLoadFailed())
-            QMessageBox::warning(this, tr("Session Not Restored"),
-                                 tr("Devpad could not lock the session file (another instance may be holding it). Your previous session was not fully restored."));
+            QMessageBox::warning(
+                this, tr("Session Not Restored"),
+                tr("Devpad could not lock the session file (another instance may be holding it). Your previous session was not fully restored."));
         m_tabManager->setPinnedFiles(pinnedFiles);
 
         QString terminalDir = sessionData.terminalWorkingDir;
@@ -1455,8 +1455,9 @@ void MainWindow::quitDevpad()
         QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
     m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
     if (m_sessionManager->lastSaveFailed())
-        QMessageBox::warning(this, tr("Session Not Saved"),
-                             tr("Devpad could not lock the session file (another instance may be holding it). Your session state will not be restored next time."));
+        QMessageBox::warning(
+            this, tr("Session Not Saved"),
+            tr("Devpad could not lock the session file (another instance may be holding it). Your session state will not be restored next time."));
     QApplication::quit();
 }
 
@@ -1665,8 +1666,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
         QMetaObject::invokeMethod(m_terminalCoordinator->dock(), "workingDirectory", Qt::DirectConnection, Q_RETURN_ARG(QString, termDir));
     m_sessionManager->saveSession(m_tabManager, m_projectPanel, termDir);
     if (m_sessionManager->lastSaveFailed())
-        QMessageBox::warning(this, tr("Session Not Saved"),
-                             tr("Devpad could not lock the session file (another instance may be holding it). Your session state will not be restored next time."));
+        QMessageBox::warning(
+            this, tr("Session Not Saved"),
+            tr("Devpad could not lock the session file (another instance may be holding it). Your session state will not be restored next time."));
     event->accept();
 }
 

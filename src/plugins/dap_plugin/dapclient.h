@@ -127,7 +127,7 @@ private:
     QString m_command;
     QStringList m_args;
     Capabilities m_capabilities;
-    bool m_initialized = false;      // initialize response received: launch/attach allowed
+    bool m_initialized = false;        // initialize response received: launch/attach allowed
     bool m_configurationReady = false; // initialized event OR launch/attach done: config requests allowed
     bool m_starting = false;
     bool m_stopping = false;

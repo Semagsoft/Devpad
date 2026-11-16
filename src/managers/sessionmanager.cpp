@@ -30,7 +30,6 @@
 #include <QFile>
 #include <QStandardPaths>
 #include <QTabWidget>
-
 #include <cerrno>
 #include <csignal>
 

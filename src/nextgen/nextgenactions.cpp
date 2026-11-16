@@ -10,10 +10,10 @@
 #include "encodingutils.h"
 #include "managers/externaltoolmanager.h"
 #include "managers/settingsmanager.h"
+#include "managers/updatechecker.h"
 #include "nextgen/primoeditor.h"
 #include "nextgen/primohighlighter.h"
 #include "nextgen/primoterminal.h"
-#include "managers/updatechecker.h"
 #include "theme.h"
 
 #include <QApplication>
@@ -828,10 +828,7 @@ void NextgenActions::runExternalTool(int index, const QString& filePath, const Q
 {
     // Terminal sender: write to PrimoTerminal shared instance
     PrimoTerminal& term = PrimoTerminal::instance();
-    auto sender = [&term](const QString& cmd)
-    {
-        term.write(cmd);
-    };
+    auto sender = [&term](const QString& cmd) { term.write(cmd); };
     m_externalToolManager->runTool(index, filePath, projectDir, selectedText, lineNumber, sender);
 }
 
@@ -1267,9 +1264,7 @@ QString NextgenActions::generateHighlightedHtml(PrimoEditor* editor) const
         }
         if (rawPos < lineLen)
         {
-            html += QStringLiteral("<span style=\"color: %1;\">%2</span>")
-                        .arg(colors.foreground.name())
-                        .arg(line.mid(rawPos).toHtmlEscaped());
+            html += QStringLiteral("<span style=\"color: %1;\">%2</span>").arg(colors.foreground.name()).arg(line.mid(rawPos).toHtmlEscaped());
         }
         if (i < lines.size() - 1)
             html += QStringLiteral("<br>");
