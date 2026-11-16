@@ -425,7 +425,8 @@ void InlineFindBar::performSearch()
     QColor col = highlightColor();
     m_editor->SendScintilla(QsciScintillaBase::SCI_INDICSETSTYLE, FIND_INDICATOR, QsciScintillaBase::INDIC_ROUNDBOX);
     m_editor->SendScintilla(QsciScintillaBase::SCI_INDICSETFORE, FIND_INDICATOR,
-                            static_cast<long>(static_cast<unsigned>(col.red()) | (static_cast<unsigned>(col.green()) << 8u) | (static_cast<unsigned>(col.blue()) << 16u)));
+                            static_cast<long>(static_cast<unsigned>(col.red()) | (static_cast<unsigned>(col.green()) << 8u) |
+                                              (static_cast<unsigned>(col.blue()) << 16u)));
     m_editor->SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT, FIND_INDICATOR);
 
     int pos = 0;

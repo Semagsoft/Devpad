@@ -27,7 +27,6 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QToolButton>
-#include <cstdio>
 #include <cstdlib>
 
 #include <gmock/gmock.h>
@@ -605,14 +604,7 @@ TEST_F(MainWindowTest, DebugDockRemovedOnPluginDisable)
     auto* manager = window.pluginManager();
     ASSERT_NE(manager, nullptr);
 
-    fprintf(stderr, "DBG before: enabled=%d loaded=%d plugin=%p\n", manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
-            manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")), reinterpret_cast<void*>(manager->plugin(QStringLiteral("org.semagsoft.devpad.dap"))));
-
     manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), false);
-
-    fprintf(stderr, "DBG after: enabled=%d loaded=%d plugin=%p panel=%p\n", manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")),
-            manager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap")), reinterpret_cast<void*>(manager->plugin(QStringLiteral("org.semagsoft.devpad.dap"))),
-            reinterpret_cast<void*>(manager->host()->panel(QStringLiteral("debug"))));
 }
 
 TEST_F(MainWindowTest, DapPluginReenableRestoresDebugUi)

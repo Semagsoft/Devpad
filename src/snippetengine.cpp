@@ -45,7 +45,8 @@ SnippetEngine::SnippetEngine(CodeEditor* editor) : QObject(editor), m_editor(edi
             {
                 if (!m_snippetActive)
                     return;
-                if (!(static_cast<unsigned>(mtype) & (static_cast<unsigned>(QsciScintillaBase::SC_MOD_INSERTTEXT) | static_cast<unsigned>(QsciScintillaBase::SC_MOD_DELETETEXT))))
+                if (!(static_cast<unsigned>(mtype) &
+                      (static_cast<unsigned>(QsciScintillaBase::SC_MOD_INSERTTEXT) | static_cast<unsigned>(QsciScintillaBase::SC_MOD_DELETETEXT))))
                     return;
                 // Bookkeeping always runs (even for our own mirror edits):
                 // member positions must follow every edit. Only the text
