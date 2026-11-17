@@ -4,73 +4,12 @@
 
 What's new in Devpad 1.10:
 
-
-
-Bug fixes for version 1.10:
-
-- Fix next-gen mode applying every edit twice (text was mutated before
-  QUndoStack::push() re-applied it via redo()); large documents (>20k lines)
-  no longer render a blank editor. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Rework the DAP debugger client to speak the Debug Adapter Protocol
-  envelope instead of JSON-RPC (request/response/event framing, setBreakpoints
-  request shape and 1-based line conversion, execution control resolves the
-  last stopped thread id, adapter reverse requests are answered with errors,
-  initialize parses the spec body, crash cleanup and auto-restart fixed).
-  SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Plugin unload removes plugin-registered actions/docks/panels/objects
-  synchronously and deletes the IPlugin instance before unmapping the .so,
-  so plugin-code destructors never run from unmapped memory.
-  SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Fix local-socket file handoff dropping file paths when delivery of the
-  payload was fragmented. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Refuse lossy decodes when opening files instead of silently corrupting
-  non-UTF-8 text in the editor. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Fix Logger silently swallowing all log messages after a failed log-file
-  open. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Fix theme rename deleting the old file before the new one was written,
-  losing the theme on write failure. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Warn when the session cannot be locked/restored or saved instead of
-  silently dropping it. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Fix Find Symbols duplicating workspace-symbol results fanned out from
-  multiple language servers. SHA: 3520d90308ac1a4bb52f63d1691664b30be7f363
-- Make BUILD_NEXTGEN=ON link: AUTOMOC could not discover the next-gen
-  Q_OBJECT sources behind generator expressions; they are listed explicitly.
-  SHA: 116020696023d14328d9e805b59ce6a4c9f3af79
-- Fix DAP session ordering against live adapters (verified against
-  debugpy): configuration requests now wait for the adapter's initialized
-  event or launch/attach acceptance, initialize sends a required adapterID,
-  breakpoints are pushed and configurationDone sent at session start, and
-  failed setBreakpoints no longer reports an empty verified set.
-  SHA: b85f222b1a6c423f9085ce74349ee85528973ca4
-- Fix next-gen defects: undo applied every edit twice (via redo() on push),
-  oversized documents rendered blank, snippet tab stops landed at the
-  insert position, remote-download error path dereferenced a freed reply,
-  project-tree delete used a QML/C++ signature mismatch, wrap-mode rows
-  were drawn at scrolled offsets, scene-graph side effects are deferred to
-  the event loop, and search-match/next-gen QML diagnostics are populated.
-  SHA: 11a69e4792a98066e16936282f3b8d0ed46faa6d
-- Fix manager/LSP lifecycle defects: session-lock failures are now
-  distinguished from 'no session' (with per-key legacy fallback), LSP
-  didOpen is deduplicated across rapid language re-detects, references are
-  not delivered multiple times after plugin reloads, plugin keyword
-  registrations are dropped independently of their languages, keyword
-  providers no longer dangle on QHash rehash, remote listing watchdogs
-  reclaim ssh processes, and register-only actions restore default shortcuts.
-  SHA: ad5bf239f8a931cc1fdeb796df564bf2691c775e
-- Fix Find in Files leaking its worker thread on stopped searches, double
-  searchFinished emission, and the misreported file count; Options Cancel
-  now reverts theme/accent edits; custom theme save refuses same-file-name
-  collisions; replace dialog warns on regex back references; .gitignore no
-  longer matches substrings; theme QSS failures clear stale style sheets.
-  SHA: 44668a09db937f651adef15772287bfa1954883e
-- Make BUILD_GHOSTTY default to OFF: the libghostty-vt backend requires
-  Zig ≥ 0.17 (not packaged on Ubuntu 24.04), which left every CI job that
-  configures with the default failing at 'Could not find ZIG_EXECUTABLE';
-  CI, Flatpak and fresh builds now use the qtermwidget/KodoTerm fallback,
-  matching the Flatpak and README. Pass -DBUILD_GHOSTTY=ON to opt in.
-  SHA: 34c58ebee7e1109d8a47efdde7ab428b649e97e6
-
-
+- libghostty-vt terminal backend added to terminal plugin as default backend. SHA: TBD
+- New TOML plugin. SHA: TBD
+- Moduleize Devpad through plugins. SHA: TBD
+      LSP
+      DAP
+      Terminal
 
 ## [1.09] - 2026-11-09
 
