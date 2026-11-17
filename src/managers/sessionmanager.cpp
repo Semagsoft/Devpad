@@ -32,6 +32,12 @@
 #include <QTabWidget>
 #include <cerrno>
 #include <csignal>
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 SessionManager::SessionManager(QObject* parent)
     : QObject(parent), m_sessionSettings(QStringLiteral("Semagsoft"), QStringLiteral("Devpad")),
@@ -54,6 +60,21 @@ static bool processAlive(qint64 pid)
     if (::kill(static_cast<pid_t>(pid), 0) == 0)
         return true;
     return errno == EPERM; // Exists but owned by another user.
+#elif defined(Q_OS_WIN)
+    if (pid <= 0)
+        return false;
+    HANDLE handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, static_cast<DWORD>(pid));
+    if (!handle)
+        // Invalid or nonexistent process id. If the failure was access
+        // denied (error 5), the process exists but we may not query it;
+        // treat it as alive, mirroring the EPERM case on Unix.
+        return GetLastError() == ERROR_ACCESS_DENIED;
+    DWORD exitCode = 0;
+    const BOOL ok = GetExitCodeProcess(handle, &exitCode);
+    CloseHandle(handle);
+    if (!ok)
+        return true; // Cannot determine; keep the group rather than drop it.
+    return exitCode == STILL_ACTIVE;
 #else
     Q_UNUSED(pid)
     // Cannot reliably check liveness; fail safe by keeping the group.

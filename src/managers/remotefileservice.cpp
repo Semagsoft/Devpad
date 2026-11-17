@@ -27,6 +27,8 @@
 
 #include "logger.h"
 
+#include <QStandardPaths>
+
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -443,7 +445,7 @@ QString RemoteFileService::findSshPath()
     }
     // Fall back to PATH lookup; if not on PATH, return empty so callers can
     // report a clear "not found" message instead of failing to start.
-    return {};
+    return QStandardPaths::findExecutable(QStringLiteral("ssh"));
 }
 QString RemoteFileService::findScpPath()
 {
@@ -462,7 +464,7 @@ QString RemoteFileService::findScpPath()
     }
     // Fall back to PATH lookup; if not on PATH, return empty so callers can
     // report a clear "not found" message instead of failing to start.
-    return {};
+    return QStandardPaths::findExecutable(QStringLiteral("scp"));
 }
 
 QString RemoteFileService::shellQuote(const QString& path)
