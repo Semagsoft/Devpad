@@ -427,6 +427,10 @@ if(BUILD_PLUGINS)
         ${DEVPAD_HOST_LINKS}
     )
     target_link_qscintilla(terminalplugin)
+    if(APPLE)
+        # Allow undefined symbols resolved from the host executable at load.
+        target_link_options(terminalplugin PRIVATE -Wl,-undefined,dynamic_lookup)
+    endif()
     set_target_properties(terminalplugin PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
         PREFIX "lib"
@@ -469,6 +473,10 @@ if(BUILD_PLUGINS)
             ${DEVPAD_HOST_LINKS}
         )
         target_link_qscintilla(dap_plugin)
+        if(APPLE)
+            # Allow undefined symbols resolved from the host executable at load.
+            target_link_options(dap_plugin PRIVATE -Wl,-undefined,dynamic_lookup)
+        endif()
         set_target_properties(dap_plugin PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
             PREFIX "lib"
