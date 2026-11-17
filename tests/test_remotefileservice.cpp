@@ -329,7 +329,7 @@ TEST_F(RemoteFileServiceTest, SaveRemoteValidUrlStartsUpload)
     // so any spawned scp fails fast (connection refused); the test only
     // asserts the synchronous contract.
     QString error;
-    ASSERT_TRUE(m_service.saveRemote("ssh://user@127.0.0.1:1/path/to/file", QByteArray("data"), &error));
+    ASSERT_TRUE(m_service.saveRemote("ssh://user@127.0.0.1:1/path/to/file", QByteArray("data"), &error)) << "error: " << error.toStdString();
 }
 
 TEST_F(RemoteFileServiceTest, SaveRemoteAsyncFailureEmitsUploadFailed)
@@ -338,7 +338,7 @@ TEST_F(RemoteFileServiceTest, SaveRemoteAsyncFailureEmitsUploadFailed)
     ASSERT_TRUE(failSpy.isValid());
 
     QString error;
-    ASSERT_TRUE(m_service.saveRemote("ssh://user@127.0.0.1:1/path/to/file", QByteArray("data"), &error));
+    ASSERT_TRUE(m_service.saveRemote("ssh://user@127.0.0.1:1/path/to/file", QByteArray("data"), &error)) << "error: " << error.toStdString();
 
     QTRY_VERIFY_WITH_TIMEOUT(failSpy.count() == 1, 10000);
     EXPECT_EQ(failSpy.at(0).at(0).toString(), QStringLiteral("ssh://user@127.0.0.1:1/path/to/file"));

@@ -430,12 +430,20 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
 QString RemoteFileService::findSshPath()
 {
     // Try common install locations first (GUI launches may have a limited PATH).
-    const QStringList candidates = {
+    QStringList candidates = {
         QStringLiteral("/usr/bin/ssh"),
         QStringLiteral("/bin/ssh"),
         QStringLiteral("/usr/local/bin/ssh"),
         QStringLiteral("/opt/homebrew/bin/ssh"),
     };
+    // Windows ships OpenSSH at %SystemRoot%\System32\OpenSSH; Git for
+    // Windows bundles its own under \usr\bin or \mingw64\bin. The MSYS2/CI
+    // bash PATH uses '/c/...' virtual entries Qt cannot stat, so absolute
+    // locations are required before falling back to QStandardPaths.
+    const QString systemRoot = QString::fromUtf8(qgetenv("SystemRoot"));
+    if (!systemRoot.isEmpty())
+        candidates << systemRoot + QStringLiteral("/System32/OpenSSH/ssh.exe");
+    candidates << QStringLiteral("C:/Program Files/Git/usr/bin/ssh.exe") << QStringLiteral("C:/Program Files/Git/mingw64/bin/ssh.exe");
     for (const QString& path : candidates)
     {
         QFileInfo fi(path);
@@ -449,12 +457,16 @@ QString RemoteFileService::findSshPath()
 QString RemoteFileService::findScpPath()
 {
     // Try common install locations first (GUI launches may have a limited PATH).
-    const QStringList candidates = {
+    QStringList candidates = {
         QStringLiteral("/usr/bin/scp"),
         QStringLiteral("/bin/scp"),
         QStringLiteral("/usr/local/bin/scp"),
         QStringLiteral("/opt/homebrew/bin/scp"),
     };
+    const QString systemRoot = QString::fromUtf8(qgetenv("SystemRoot"));
+    if (!systemRoot.isEmpty())
+        candidates << systemRoot + QStringLiteral("/System32/OpenSSH/scp.exe");
+    candidates << QStringLiteral("C:/Program Files/Git/usr/bin/scp.exe") << QStringLiteral("C:/Program Files/Git/mingw64/bin/scp.exe");
     for (const QString& path : candidates)
     {
         QFileInfo fi(path);
