@@ -309,6 +309,12 @@ TEST_F(MainWindowTest, MultipleFilesOpenSeparateTabs)
 
 TEST_F(MainWindowTest, ToggleCommentShortcutTogglesExactlyOnce)
 {
+    // Keep the terminal plugin hidden so show() does not spawn a shell on
+    // macOS (teardown crashes when bash is still running); same pattern as
+    // TerminalPanelHiddenInTabModeWhenDisabled.
+    SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Tab);
+    SettingsManager::instance().setShowTerminalPanel(false);
+
     MainWindow window;
     window.show();
 
@@ -505,6 +511,11 @@ TEST_F(MainWindowTest, StartDebuggingInvokesDapPluginViaMetaObject)
 
 TEST_F(MainWindowTest, DebugPanelTogglesViaPluginHost)
 {
+    // Keep the terminal plugin hidden so show() does not spawn a shell on
+    // macOS (teardown crashes when bash is still running).
+    SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Tab);
+    SettingsManager::instance().setShowTerminalPanel(false);
+
     MainWindow window;
     auto* manager = window.pluginManager();
     ASSERT_NE(manager, nullptr);
