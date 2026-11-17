@@ -21,6 +21,7 @@
 
 #include "dialogsettings.h"
 
+#include <QColor>
 #include <QDialog>
 
 class QComboBox;
@@ -33,6 +34,7 @@ class QTableWidget;
 
 class ActionManager;
 class CustomThemeDialog;
+class QGroupBox;
 class ThemePreviewWidget;
 
 class OptionsDialog : public QDialog
@@ -77,6 +79,11 @@ private:
         int data;
     };
     QVector<ThemeItem> m_themeItems;
+    // Snapshot of the theme-related settings taken when the dialog opens;
+    // reject() restores them so Cancel undoes live theme/accent edits.
+    int m_originalThemeId = 0;
+    QString m_originalCustomTheme;
+    QColor m_originalAccent;
 
     QTabWidget* tabWidget = nullptr;
 
@@ -91,9 +98,16 @@ private:
     QComboBox* tabDisplayComboBox = nullptr;
     QComboBox* cursorStyleComboBox = nullptr;
     QComboBox* tabBarPositionComboBox = nullptr;
+    QGroupBox* lspGeneralGroup = nullptr;
+    QGroupBox* lspServerGroup = nullptr;
     QComboBox* terminalPanelPositionComboBox = nullptr;
     QSpinBox* terminalPanelMinWidthSpin = nullptr;
     QComboBox* terminalFontFaceComboBox = nullptr;
+    QCheckBox* terminalBellCheckBox = nullptr;
+    QCheckBox* terminalCopyOnSelectCheckBox = nullptr;
+    // True when the Terminal plugin is loaded and the Terminal group is shown.
+    // The isVisible() check can't be used in the ctor/before show().
+    bool m_terminalGroupAvailable = true;
     QLineEdit* terminalFontSizeBox = nullptr;
     QSpinBox* tabWidthSpin = nullptr;
     QSpinBox* verticalEdgeColumnSpin = nullptr;

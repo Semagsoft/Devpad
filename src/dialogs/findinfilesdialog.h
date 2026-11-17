@@ -49,7 +49,8 @@ signals:
     void searchError(const QString& message);
 
 private:
-    void searchFile(const QString& filePath);
+    // Returns false when the scan should stop (interruption or fatal error); never emits searchFinished itself.
+    bool searchFile(const QString& filePath);
 
     QString m_searchText;
     QString m_rootDir;
@@ -116,6 +117,7 @@ private:
     DialogSettings m_settings;
     int m_matchCount = 0;
     bool m_searching = false;
+    QSet<QString> m_matchFiles; // distinct files with >= 1 match in the current search
 };
 
 #endif

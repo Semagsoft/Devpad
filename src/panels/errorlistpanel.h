@@ -22,6 +22,7 @@ public:
     void clearAll();
 
 signals:
+    // line: 0-based. column: LSP UTF-16 code unit column.
     void navigateToLocation(const QString& filePath, int line, int column);
 
 private slots:

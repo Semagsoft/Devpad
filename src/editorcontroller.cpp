@@ -31,13 +31,16 @@
 #include "tabmanager.h"
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDateTime>
+#include <QEventLoop>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QPointer>
 #include <QTabWidget>
+#include <QTimer>
 
 #include <Qsci/qsciscintilla.h>
 
@@ -46,6 +49,26 @@ EditorController::EditorController(TabManager* tabManager, FileManager* fileMana
     : QObject(parent), m_tabManager(tabManager), m_fileManager(fileManager), m_fileWatcherManager(watcher), m_actionManager(actionManager),
       m_tabWidget(tabWidget)
 {
+    // Remote (ssh://) saves complete asynchronously; the editor and tab
+    // title are updated here, once the upload actually succeeded.
+    connect(m_fileManager, &FileManager::remoteSaveFinished, this,
+            [this](bool ok, const QString& fileName, const QString& errorDetail)
+            {
+                if (ok)
+                {
+                    if (CodeEditor* editor = findEditorByFileName(fileName))
+                    {
+                        m_tabManager->updateTabTitle(editor);
+                        deleteUntitledBackup(editor);
+                    }
+                    emit fileSaved(fileName);
+                    return;
+                }
+                QString detail = errorDetail.trimmed();
+                if (detail.isEmpty())
+                    detail = fileName;
+                QMessageBox::warning(qobject_cast<QWidget*>(QObject::parent()), tr("Error"), tr("Cannot save file: %1").arg(detail));
+            });
 }
 
 CodeEditor* EditorController::currentEditor() const
@@ -106,7 +129,6 @@ bool EditorController::saveFileAs()
     if (!editor)
         return false;
 
-    editor->setFileName(fileName);
     if (!saveEditor(editor.data(), fileName))
     {
         QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save Failed"),
@@ -114,40 +136,46 @@ bool EditorController::saveFileAs()
         return false;
     }
     if (editor)
+    {
+        editor->setFileName(fileName);
         m_tabManager->updateTabTitle(editor);
+    }
     return true;
 }
 
 bool EditorController::saveEditor(CodeEditor* editor, const QString& fileName)
 {
-    if (!checkSaveConflict(editor, fileName))
+    if (checkSaveConflict(editor, fileName))
     {
-        return false;
-    }
-    if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
-    {
-        m_fileWatcherManager->unwatchFile(fileName);
-    }
-    bool saved = m_fileManager->saveFile(fileName, editor);
-    if (!saved)
-    {
-        if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+        bool isRemote = fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive);
+        if (!isRemote)
+            m_fileWatcherManager->unwatchFile(fileName);
+        bool saved = m_fileManager->saveFile(fileName, editor);
+        if (!saved)
         {
-            m_fileWatcherManager->watchFile(fileName);
+            if (!isRemote)
+                m_fileWatcherManager->watchFile(fileName);
+            QString detail = m_fileManager->lastError();
+            if (detail.isEmpty())
+                detail = fileName;
+            QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot save file: %1").arg(detail));
+            return false;
         }
-        QString detail = m_fileManager->lastError();
-        if (detail.isEmpty())
-            detail = fileName;
-        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot save file: %1").arg(detail));
-        return false;
-    }
-    m_tabManager->updateTabTitle(editor);
-    if (!fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
-    {
+        if (isRemote)
+        {
+            // The upload runs asynchronously; tab-title refresh, the fileSaved
+            // signal and the save-failed dialog are delivered by the
+            // remoteSaveFinished handler connected in the constructor.
+            return true;
+        }
+        m_tabManager->updateTabTitle(editor);
         m_fileWatcherManager->watchFile(fileName);
+        deleteUntitledBackup(editor);
+        emit fileSaved(fileName);
+        Logger::instance().debug(QString("Saved file: %1").arg(fileName));
+        return true;
     }
-    emit fileSaved(fileName);
-    return true;
+    return false;
 }
 
 bool EditorController::checkSaveConflict(CodeEditor* editor, const QString& fileName)
@@ -202,7 +230,6 @@ void EditorController::saveAll()
                     continue;
                 }
 
-                editor->setFileName(fileName);
                 if (!saveEditor(editor, fileName))
                 {
                     failedCount++;
@@ -210,6 +237,7 @@ void EditorController::saveAll()
                 }
                 else if (editor)
                 {
+                    editor->setFileName(fileName);
                     m_tabManager->updateTabTitle(editor);
                 }
             }
@@ -245,7 +273,31 @@ bool EditorController::maybeSave(CodeEditor* editor)
     if (!editor || !editor->isModified())
         return true;
 
+    // A remote save may still be in flight (uploads complete asynchronously).
+    // Wait, bounded, so quitting/closing doesn't kill the upload mid-transfer
+    // and the modified flag settles before the user is prompted.
     QPointer<CodeEditor> guard(editor);
+    const QString waitName = editor->fileName();
+    if (waitName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive) && m_fileManager->hasPendingRemoteSave(waitName))
+    {
+        QEventLoop waitLoop;
+        QTimer timeout;
+        timeout.setSingleShot(true);
+        timeout.setInterval(30000); // bounded wait; uploads stream asynchronously and may outlast this
+        QObject::connect(&timeout, &QTimer::timeout, &waitLoop, &QEventLoop::quit);
+        QObject::connect(m_fileManager, &FileManager::remoteSaveFinished, &waitLoop,
+                         [&waitLoop, &waitName](bool, const QString& fileName, const QString&)
+                         {
+                             if (fileName == waitName)
+                                 waitLoop.quit();
+                         });
+        timeout.start();
+        waitLoop.exec();
+        if (!guard)
+            return false; // Editor was destroyed during the wait; nothing left to save.
+        if (!guard->isModified())
+            return true;
+    }
     QMessageBox::StandardButton ret =
         QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save"), tr("The document has been modified.\nDo you want to save your changes?"),
                              QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
@@ -262,7 +314,6 @@ bool EditorController::maybeSave(CodeEditor* editor)
                 return false;
             if (!guard)
                 return false;
-            guard->setFileName(fileName);
             if (!saveEditor(guard.data(), fileName))
             {
                 QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Save Failed"),
@@ -270,7 +321,10 @@ bool EditorController::maybeSave(CodeEditor* editor)
                 return false;
             }
             if (guard)
+            {
+                guard->setFileName(fileName);
                 m_tabManager->updateTabTitle(guard);
+            }
             return true;
         }
         if (!saveEditor(guard.data(), guard->fileName()))
@@ -324,8 +378,17 @@ bool EditorController::onTabCloseRequested(int index)
         if (!guard)
             return true; // Editor destroyed during the save prompt.
         QString fileName = guard->fileName();
-        m_tabManager->closeEditor(index);
-        if (fileName != Strings::untitled() && !fileName.isEmpty())
+        // If the user discarded the document (or saved it before closing),
+        // drop any untitled backup so it is not resurrected next launch.
+        if (fileName == Strings::untitled() || fileName.isEmpty())
+            deleteUntitledBackup(guard);
+        bool closed = m_tabManager->closeEditor(index);
+        if (!closed && m_tabManager->isTabPinned(guard))
+        {
+            QMessageBox::information(qobject_cast<QWidget*>(parent()), tr("Pinned Tab"), tr("This tab is pinned. Unpin it before closing."));
+            return true; // Handled (user informed); tab stays open.
+        }
+        if (closed && fileName != Strings::untitled() && !fileName.isEmpty())
         {
             m_fileWatcherManager->unwatchFile(fileName);
         }
@@ -348,8 +411,10 @@ void EditorController::closeAllTabs()
         if (!editor)
             continue; // Editor destroyed during the save prompt.
         QString fileName = editor->fileName();
-        m_tabManager->closeEditor(i);
-        if (fileName != Strings::untitled() && !fileName.isEmpty())
+        if (fileName == Strings::untitled() || fileName.isEmpty())
+            deleteUntitledBackup(editor);
+        bool closed = m_tabManager->closeEditor(i);
+        if (closed && fileName != Strings::untitled() && !fileName.isEmpty())
         {
             m_fileWatcherManager->unwatchFile(fileName);
         }
@@ -494,9 +559,9 @@ void EditorController::insertSnippet()
     if (!editor || editor->isReadOnly())
         return;
 
-    if (SnippetManager* sm = SnippetManager::instance())
     {
-        QList<Snippet> snippets = sm->snippetsForLanguage(editor->syntax());
+        SnippetManager& sm = SnippetManager::instance();
+        QList<Snippet> snippets = sm.snippetsForLanguage(editor->syntax());
         if (snippets.isEmpty())
             return;
 
@@ -509,13 +574,34 @@ void EditorController::insertSnippet()
 
         if (ok && !chosen.isEmpty())
         {
-            Snippet snip = sm->snippetByName(chosen);
+            Snippet snip = sm.snippetByName(chosen);
             if (!snip.prefix.isEmpty())
             {
                 editor->insertSnippet(snip);
             }
         }
     }
+}
+
+void EditorController::duplicateLine()
+{
+    CodeEditor* editor = currentEditor();
+    if (editor && !editor->isReadOnly())
+        editor->duplicateLine();
+}
+
+void EditorController::moveLineUp()
+{
+    CodeEditor* editor = currentEditor();
+    if (editor && !editor->isReadOnly())
+        editor->moveLineUp();
+}
+
+void EditorController::moveLineDown()
+{
+    CodeEditor* editor = currentEditor();
+    if (editor && !editor->isReadOnly())
+        editor->moveLineDown();
 }
 
 void EditorController::toggleComment()
@@ -535,6 +621,12 @@ void EditorController::updateUndoRedoState()
         m_actionManager->redoAct()->setEnabled(!readOnly && editor->isRedoAvailable());
         m_actionManager->insertSnippetAct()->setEnabled(!readOnly);
         m_actionManager->toggleCommentAct()->setEnabled(!readOnly);
+        if (auto* duplicate = m_actionManager->duplicateLineAct())
+            duplicate->setEnabled(!readOnly);
+        if (auto* up = m_actionManager->moveLineUpAct())
+            up->setEnabled(!readOnly);
+        if (auto* down = m_actionManager->moveLineDownAct())
+            down->setEnabled(!readOnly);
     }
     else
     {
@@ -542,6 +634,12 @@ void EditorController::updateUndoRedoState()
         m_actionManager->redoAct()->setEnabled(false);
         m_actionManager->insertSnippetAct()->setEnabled(false);
         m_actionManager->toggleCommentAct()->setEnabled(false);
+        if (auto* duplicate = m_actionManager->duplicateLineAct())
+            duplicate->setEnabled(false);
+        if (auto* up = m_actionManager->moveLineUpAct())
+            up->setEnabled(false);
+        if (auto* down = m_actionManager->moveLineDownAct())
+            down->setEnabled(false);
     }
 }
 
@@ -586,11 +684,25 @@ void EditorController::autoSave()
                     }
                     if (m_fileManager->saveFile(fileName, editor.data()))
                     {
-                        m_fileWatcherManager->updateModificationTime(fileName);
-                        if (editor)
-                            m_tabManager->updateTabTitle(editor);
-                        emit fileSaved(fileName);
-                        Logger::instance().debug(QString("Auto-saved file: %1").arg(fileName));
+                        if (fileName.startsWith(QStringLiteral("ssh://"), Qt::CaseInsensitive))
+                        {
+                            // Remote uploads complete asynchronously; the tab
+                            // title and fileSaved signal are handled by the
+                            // remoteSaveFinished handler.
+                            Logger::instance().debug(QString("Auto-save upload started: %1").arg(fileName));
+                        }
+                        else
+                        {
+                            // QSaveFile replaces the file (rename), killing the old
+                            // inotify watch — re-add it so external changes are
+                            // still detected.
+                            m_fileWatcherManager->watchFile(fileName);
+                            m_fileWatcherManager->updateModificationTime(fileName);
+                            if (editor)
+                                m_tabManager->updateTabTitle(editor);
+                            emit fileSaved(fileName);
+                            Logger::instance().debug(QString("Auto-saved file: %1").arg(fileName));
+                        }
                     }
                 }
                 else
@@ -603,9 +715,10 @@ void EditorController::autoSave()
             }
             else
             {
-                if (BackupManager::saveBackup(fileName, editor->text()))
+                QString key = untitledBackupKey(editor);
+                if (!key.isEmpty() && BackupManager::saveBackup(key, editor->text()))
                 {
-                    Logger::instance().debug(QString("Auto-saved backup: %1").arg(fileName));
+                    Logger::instance().debug(QString("Auto-saved untitled backup: %1").arg(key));
                 }
             }
         }
@@ -633,15 +746,18 @@ void EditorController::promptBackupRestore(const QString& filePath)
     if (result == QMessageBox::Yes)
     {
         QString backupContent = BackupManager::getBackupContent(filePath);
-        if (!backupContent.isEmpty())
+        CodeEditor* editor = findEditorByFileName(filePath);
+        if (editor)
         {
-            CodeEditor* editor = findEditorByFileName(filePath);
-            if (editor)
-            {
-                editor->setText(backupContent);
-                editor->setModified(true);
-                Logger::instance().info(QString("Restored auto-save backup: %1").arg(filePath));
-            }
+            // Restore even when the backup is empty: the empty text may be
+            // exactly what the user typed before the crash.
+            editor->setText(backupContent);
+            editor->setModified(true);
+            Logger::instance().info(QString("Restored auto-save backup: %1").arg(filePath));
+        }
+        else
+        {
+            Logger::instance().warning(QString("Auto-save backup for %1 could not be restored: no open editor for the file").arg(filePath));
         }
         BackupManager::deleteBackup(filePath);
     }
@@ -696,6 +812,45 @@ CodeEditor* EditorController::openFile(const QString& fileName, const QString& e
     return editor;
 }
 
+bool EditorController::reloadFileInPlace(CodeEditor* editor, const QString& encoding, const QList<int>& bookmarks)
+{
+    if (!editor)
+        return false;
+
+    const QString fileName = editor->fileName();
+    if (fileName.isEmpty() || fileName == Strings::untitled())
+        return false;
+
+    if (!m_fileManager->loadFile(fileName, editor, encoding))
+    {
+        QMessageBox::warning(qobject_cast<QWidget*>(parent()), tr("Error"), tr("Cannot reload file: ") + fileName);
+        return false;
+    }
+
+    SettingsManager::instance().applyToEditor(editor);
+
+    QString syntax = editor->syntax(); // Preserve the current format selection.
+    if (syntax.isEmpty())
+        syntax = SettingsManager::instance().syntaxForFile(fileName);
+    if (!syntax.isEmpty())
+        editor->setSyntax(syntax);
+
+    QFileInfo fileInfo(fileName);
+    if (fileInfo.exists())
+        editor->setReadOnlyMode(!fileInfo.isWritable()); // keep read-only in sync both ways
+
+    m_fileWatcherManager->watchFile(fileName);
+    m_fileWatcherManager->updateModificationTime(fileName);
+
+    // Only replace bookmark markers when the caller provides them (callers
+    // that reload in place from elsewhere replace them afterwards).
+    if (!bookmarks.isEmpty())
+        editor->setBookmarks(bookmarks);
+
+    m_tabManager->updateTabTitle(editor);
+    return true;
+}
+
 void EditorController::reloadWithEncoding(const QString& encoding)
 {
     CodeEditor* editor = currentEditor();
@@ -710,7 +865,6 @@ void EditorController::reloadWithEncoding(const QString& encoding)
     }
 
     QList<int> bookmarks = editor->bookmarkLines();
-    QString syntax = editor->syntax();
     if (!maybeSave(editor))
         return;
 
@@ -718,17 +872,11 @@ void EditorController::reloadWithEncoding(const QString& encoding)
     if (!guard)
         return; // Editor destroyed while the save prompt ran.
 
-    int idx = m_tabManager->indexOf(editor);
-    if (idx >= 0)
-        m_tabManager->closeEditor(idx);
-
-    CodeEditor* newEditor = openFile(fileName, encoding);
-    if (newEditor)
-    {
-        if (!syntax.isEmpty())
-            newEditor->setSyntax(syntax);
-        newEditor->setBookmarks(bookmarks);
-    }
+    reloadFileInPlace(editor, encoding);
+    QPointer<CodeEditor> guard2(editor);
+    if (guard2)
+        guard2->setBookmarks(bookmarks); // Replace stale markers unconditionally.
+    updateUndoRedoState();
 }
 
 void EditorController::saveWithEncoding(const QString& encoding)
@@ -781,6 +929,35 @@ void EditorController::handleFileDeleted(const QString& path)
         {
             m_fileWatcherManager->unwatchFile(path);
         }
+    }
+}
+
+QString EditorController::untitledBackupKey(CodeEditor* editor)
+{
+    if (!editor)
+        return QString();
+    QVariant existing = editor->property("untitledBackupKey");
+    if (existing.isValid() && !existing.toString().isEmpty())
+        return existing.toString();
+    QString key = QStringLiteral("untitled-%1-%2").arg(QCoreApplication::applicationPid()).arg(m_untitledBackupSeq++);
+    editor->setProperty("untitledBackupKey", key);
+    return key;
+}
+
+void EditorController::discardUntitledBackup(CodeEditor* editor)
+{
+    deleteUntitledBackup(editor);
+}
+
+void EditorController::deleteUntitledBackup(CodeEditor* editor)
+{
+    if (!editor)
+        return;
+    QVariant existing = editor->property("untitledBackupKey");
+    if (existing.isValid())
+    {
+        BackupManager::deleteBackup(existing.toString());
+        editor->setProperty("untitledBackupKey", QVariant());
     }
 }
 

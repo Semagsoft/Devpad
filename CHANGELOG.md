@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.10] - WIP
+
+What's new in Devpad 1.10:
+
+- libghostty-vt terminal backend added to terminal plugin as default backend. SHA: TBD
+- New TOML plugin. SHA: TBD
+- Moduleize Devpad through plugins. SHA: TBD
+      LSP
+      DAP
+      Terminal
+
 ## [1.09] - 2026-11-09
 
 What's new in Devpad 1.09:

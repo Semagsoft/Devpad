@@ -21,7 +21,9 @@
 #define PLUGININTERFACE_H
 
 #include "plugininfo.h"
+#include "theme.h"
 
+#include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QVariant>
@@ -34,11 +36,6 @@ class QMenuBar;
 class QWidget;
 
 class CodeEditor;
-
-namespace lsp
-{
-class LspServerManager;
-}
 
 /**
  * IPluginHost is the host-side surface exposed to plugins. Plugins receive a
@@ -61,6 +58,8 @@ public:
     virtual QObject* settingsManager() const = 0;
     virtual QObject* editorController() const = 0;
     virtual QObject* tabManager() const = 0;
+    // Deprecated: kept to preserve the vtable layout. The LSP manager is owned
+    // by the LSP plugin; use the "lsp_service" object (lspinterface.h) instead.
     virtual QObject* lspServerManager() const = 0;
 
     // ── Actions / commands ───────────────────────────────────────
@@ -96,8 +95,100 @@ public:
     // started automatically when a file of that language is opened.
     virtual void registerLspServer(const QString& language, const QString& command, const QStringList& args) = 0;
 
+    // ── Language / syntax ────────────────────────────────────────
+    // Registers a custom language/lexer. factory creates a QsciLexer
+    // (passed as QObject* so plugins don't need QScintilla headers).
+    // Returns false if languageId is already registered.
+    using LexerFactory = std::function<QObject*(QObject* parent)>;
+    virtual bool registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory) = 0;
+    // Registers keyword list for a language (comma-separated keywords are
+    // split automatically, as with built-in languages).
+    virtual bool registerLanguageKeywords(const QString& languageId, const QStringList& keywords) = 0;
+
+    // ── Encoding ─────────────────────────────────────────────────
+    // Registers a custom text encoding. encodingName is passed to
+    // QStringConverter (e.g. "UTF-8", "ISO-8859-1"). Qt6 only provides the
+    // encodings listed in QStringConverter::SupportedEncodings; legacy codecs
+    // like Windows-1252 are NOT available and registration will fail.
+    // Returns false if displayName is already registered or encodingName
+    // cannot be resolved.
+    virtual bool registerEncoding(const QString& displayName, const QString& encodingName) = 0;
+
+    // ── File type mapping ────────────────────────────────────────
+    // Maps a file extension (e.g. "rs") to a language id. Extension is stored
+    // lowercased; leading dot is optional and stripped if present.
+    virtual bool registerExtension(const QString& extension, const QString& languageId) = 0;
+    // Maps an exact file name (e.g. "CMakeLists.txt") to a language id.
+    // File name is stored lowercased.
+    virtual bool registerFileNameMapping(const QString& fileName, const QString& languageId) = 0;
+
+    // ── Snippets ─────────────────────────────────────────────────
+    // Register a snippet contributed by a plugin. scope is a comma-separated
+    // list of language ids (e.g. "cpp,python"), or empty for global snippets
+    // available in all languages. Returns false if name is already registered.
+    virtual bool registerSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description,
+                                 const QString& scope) = 0;
+    // Remove a plugin-contributed snippet by name. Returns false if not found.
+    virtual bool unregisterSnippet(const QString& name) = 0;
+
+    // ── Themes ───────────────────────────────────────────────────
+    // Register a custom theme contributed by a plugin. themeId is a plugin-
+    // specific string id (e.g. "myplugin.mydark"). Returns false if already
+    // registered.
+    virtual bool registerTheme(const QString& themeId, const ThemeColors& colors) = 0;
+    // Unregister a plugin-contributed theme. Returns false if not found.
+    virtual bool unregisterTheme(const QString& themeId) = 0;
+
     // ── Frontend ─────────────────────────────────────────────────
     virtual bool isWidgetFrontend() const = 0;
+
+    // ── Debug control ────────────────────────────────────────────
+    virtual void startDebugging(const QString& sessionKey, const QString& language, const QString& command, const QStringList& args)
+    {
+        Q_UNUSED(sessionKey);
+        Q_UNUSED(language);
+        Q_UNUSED(command);
+        Q_UNUSED(args);
+    }
+    virtual void stopDebugging(const QString& sessionKey)
+    {
+        Q_UNUSED(sessionKey);
+    }
+    virtual void debugContinue(const QString& sessionKey)
+    {
+        Q_UNUSED(sessionKey);
+    }
+    virtual void debugStepOver(const QString& sessionKey)
+    {
+        Q_UNUSED(sessionKey);
+    }
+    virtual void debugStepInto(const QString& sessionKey)
+    {
+        Q_UNUSED(sessionKey);
+    }
+    virtual void debugStepOut(const QString& sessionKey)
+    {
+        Q_UNUSED(sessionKey);
+    }
+    virtual void debugRestart(const QString& sessionKey)
+    {
+        Q_UNUSED(sessionKey);
+    }
+
+    // ── Panels contributed by plugins / host ─────────────────────
+    // Registers a widget (e.g. a dock panel) keyed by id so it can be looked
+    // up later by id. Used by the host to expose built-in panels to plugins,
+    // and by plugins to expose their own panels to the host.
+    virtual void registerPanel(const QString& id, QWidget* widget) = 0;
+    virtual void unregisterPanel(const QString& id) = 0;
+    virtual QWidget* panel(const QString& id) const = 0;
+
+    // ── Generic object registry ──────────────────────────────────
+    // Registers a QObject (e.g. a manager) keyed by id so it can be looked
+    // up later by id. Used by plugins to expose objects to MainWindow.
+    virtual void registerObject(const QString& id, QObject* object) = 0;
+    virtual void unregisterObject(const QString& id) = 0;
+    virtual QObject* object(const QString& id) const = 0;
 };
 
 /**
@@ -142,6 +233,10 @@ public:
         Q_UNUSED(filePath);
     }
     virtual void onFileSaved(const QString& filePath)
+    {
+        Q_UNUSED(filePath);
+    }
+    virtual void onFileModifiedExternally(const QString& filePath)
     {
         Q_UNUSED(filePath);
     }

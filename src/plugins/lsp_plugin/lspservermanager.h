@@ -1,0 +1,117 @@
+/*
+ * Devpad - A C++/Qt6 code editor
+ * Copyright (C) 2026 Semagsoft
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+#ifndef LSPSERVERMANAGER_H
+#define LSPSERVERMANAGER_H
+
+#include "lsp/lsptypes.h"
+#include "lspclient.h"
+
+#include <QHash>
+#include <QMap>
+#include <QObject>
+
+namespace lsp
+{
+
+class LspServerManager : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit LspServerManager(QObject* parent = nullptr);
+    ~LspServerManager() override;
+
+    LspClient* clientForLanguage(const QString& language);
+    LspClient* clientForUri(const QString& uri);
+
+    // Returns the URIs of all currently open documents, useful for project-wide
+    // operations such as aggregating references across open files.
+    QStringList documentUris() const;
+
+    void openDocument(const QString& language, const QString& uri, const QString& text);
+    void changeDocument(const QString& uri, const QString& text);
+    void closeDocument(const QString& uri);
+    void saveDocument(const QString& uri);
+
+    // Registers an LSP server command provided by a plugin. Plugin-registered
+    // servers take precedence over built-in defaults and user settings.
+    void registerPluginServer(const QString& language, const QString& command, const QStringList& args);
+    void unregisterPluginServer(const QString& language);
+
+    bool hasCapability(const QString& uri, const QString& capability) const;
+    QString rootUriForFile(const QString& filePath) const;
+    QString rootUriForLanguage(const QString& language) const;
+    // Command/args precedence: plugin-registered server, then user settings,
+    // then built-in defaults. Shared by client creation, startup and replay.
+    QString serverCommandForLanguage(const QString& language) const;
+    QStringList serverArgsForLanguage(const QString& language) const;
+    void startClientIfNeeded(LspClient* client, const QString& language, const QString& rootUri);
+
+    // Returns (uri, (text, version)) for documents to re-open after a crash.
+    // Exposed for testing the replay selection logic.
+    QList<QPair<QString, QPair<QString, int>>> documentsForReplay(const QString& language) const;
+
+    QList<QString> languages() const
+    {
+        return m_clients.keys();
+    }
+
+    static QHash<QString, QString> defaultServerCommands();
+    static QStringList defaultServerArgs(const QString& language);
+
+signals:
+    void diagnosticsReady(const QString& uri, const QList<Diagnostic>& diagnostics);
+    void completionReady(const QString& uri, const CompletionList& completions);
+    void definitionReady(const QString& uri, const Location& location);
+    void referencesReady(const QString& uri, const QList<Location>& locations);
+    void hoverReady(const QString& uri, const QString& contents);
+    void codeActionReady(const QString& uri, const QList<QJsonObject>& actions);
+    void executeCommandReady(const QJsonValue& result);
+    void documentSymbolsReady(const QString& uri, const QJsonArray& symbols);
+    void formattingReady(const QString& uri, const QList<QJsonObject>& edits);
+    void rangeFormattingReady(const QString& uri, const QList<QJsonObject>& edits);
+    void signatureHelpReady(const QString& uri, const QJsonObject& info);
+    void renameReady(const QString& uri, const QJsonObject& result);
+    void documentHighlightReady(const QString& uri, const QJsonArray& highlights);
+    void typeDefinitionReady(const QString& uri, const Location& location);
+    void declarationReady(const QString& uri, const Location& location);
+    void workspaceSymbolsReady(const QString& query, const QJsonArray& symbols);
+    void selectionRangesReady(const QString& uri, const QJsonArray& ranges);
+    void linkedEditingRangeReady(const QString& uri, const QJsonObject& result);
+    void callHierarchyReady(const QString& uri, const QJsonArray& items);
+    void incomingCallsReady(const QString& uri, const QJsonArray& calls);
+    void outgoingCallsReady(const QString& uri, const QJsonArray& calls);
+    void semanticTokensFullReady(const QString& uri, const QJsonArray& tokens);
+
+private:
+    QHash<QString, LspClient*> m_clients;           // language -> client
+    QMap<QString, QString> m_documentLanguages;     // uri -> language
+    QMap<QString, int> m_documentVersions;          // uri -> version
+    QMap<QString, QString> m_documentTexts;         // uri -> last known text
+    QHash<QString, QString> m_pluginServerCommands; // language -> command (plugins)
+    QHash<QString, QStringList> m_pluginServerArgs; // language -> args (plugins)
+
+    // Re-send didOpen for every open document of this language. Used after a
+    // server crash/restart, since the new server starts with no document state.
+    void replayDocuments(const QString& language, LspClient* client);
+};
+
+} // namespace lsp
+
+#endif // LSPSERVERMANAGER_H

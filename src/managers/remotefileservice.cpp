@@ -27,6 +27,7 @@
 
 #include "logger.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -35,6 +36,7 @@
 #include <QPointer>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QTemporaryFile>
 #include <QTimer>
 #include <QUrl>
@@ -55,6 +57,19 @@ constexpr qint64 kMaxListingBytes = 10LL * 1024 * 1024;
 
 // Abort an HTTP/HTTPS transfer that stalls for this long.
 constexpr int kHttpTransferTimeoutMs = 30000;
+
+// Inactivity watchdog for scp transfers. scp does not report byte-level
+// progress; a transfer with no destination-file growth (download) or no
+// output/exit for this long is considered stalled and is killed.
+constexpr qint64 kSshStallTimeoutMs = 60LL * 1000;
+
+// Upload timeout budget: assume no better than 64 KB/s throughput.
+constexpr qint64 kUploadMinThroughputBytesPerSec = 64LL * 1024;
+// Base allowance for connection setup and protocol overhead on top of the
+// throughput-scaled part.
+constexpr qint64 kUploadBaseTimeoutMs = 30LL * 1000;
+// Hard cap on the total upload timeout, regardless of payload size.
+constexpr qint64 kUploadMaxTimeoutMs = 30LL * 60 * 1000;
 } // namespace
 
 RemoteFileService::RemoteFileService(QObject* parent) : QObject(parent)
@@ -293,17 +308,17 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
     auto stdoutBuf = std::make_shared<QByteArray>();
     auto stderrBuf = std::make_shared<QByteArray>();
 
-    // Disconnect and close the process without deleteLater() — calling
-    // deleteLater() from within a QProcess's own signal handlers can cause a
-    // use-after-free when both finished() and errorOccurred() fire. The
-    // QProcess is a child of RemoteFileService and will be cleaned up by its
-    // destructor.
+    // Disconnect, close and deleteLater() the process once finished —
+    // deleteLater defers destruction to the event loop, so this is safe even
+    // from inside the handler, and avoids unbounded accumulation of dead
+    // QProcess children.
     auto finishProcess = [ssh, procGuard]()
     {
         if (procGuard)
         {
             ssh->disconnect();
             ssh->close();
+            ssh->deleteLater(); // deleteLater is safe from inside a handler; avoids unbounded accumulation
         }
     };
 
@@ -312,12 +327,13 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
         if (!guard)
             return;
         QString err = QString::fromUtf8(*stderrBuf).trimmed();
+        // A listing failure is not a download failure; routing it to
+        // downloadFailed pops the wrong "Download Failed" modal.
         emit remoteListingFailed(urlStr, remotePath, err.isEmpty() ? fallback : err);
-        emit downloadFailed(urlStr, err.isEmpty() ? fallback : err);
     };
 
     connect(ssh, &QProcess::readyReadStandardOutput, this,
-            [ssh, procGuard, guard, processed, stdoutBuf, urlStr, remotePath]()
+            [ssh, procGuard, guard, processed, stdoutBuf, urlStr, remotePath, finishProcess]()
             {
                 if (!guard || !procGuard || *processed)
                     return;
@@ -325,11 +341,11 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
                 if (stdoutBuf->size() > kMaxListingBytes)
                 {
                     *processed = true;
-                    ssh->disconnect();
-                    ssh->kill();
+                    if (ssh->state() != QProcess::NotRunning)
+                        ssh->kill();
+                    finishProcess();
                     QString msg = tr("Directory listing too large.");
                     emit guard->remoteListingFailed(urlStr, remotePath, msg);
-                    emit guard->downloadFailed(urlStr, msg);
                 }
             });
 
@@ -395,17 +411,16 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
     auto* killTimer = new QTimer(ssh);
     killTimer->setSingleShot(true);
     connect(killTimer, &QTimer::timeout, ssh,
-            [ssh, guard, processed]()
+            [ssh, guard, processed, finishProcess]()
             {
                 if (!guard || *processed)
                     return;
                 *processed = true;
-                ssh->disconnect();
                 if (ssh->state() != QProcess::NotRunning)
                     ssh->kill();
+                finishProcess();
                 QString msg = tr("Directory listing timed out.");
                 emit guard->remoteListingFailed(ssh->property("remoteUrl").toString(), ssh->property("remotePath").toString(), msg);
-                emit guard->downloadFailed(ssh->property("remoteUrl").toString(), msg);
             });
 
     ssh->start();
@@ -415,12 +430,20 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
 QString RemoteFileService::findSshPath()
 {
     // Try common install locations first (GUI launches may have a limited PATH).
-    const QStringList candidates = {
+    QStringList candidates = {
         QStringLiteral("/usr/bin/ssh"),
         QStringLiteral("/bin/ssh"),
         QStringLiteral("/usr/local/bin/ssh"),
         QStringLiteral("/opt/homebrew/bin/ssh"),
     };
+    // Windows ships OpenSSH at %SystemRoot%\System32\OpenSSH; Git for
+    // Windows bundles its own under \usr\bin or \mingw64\bin. The MSYS2/CI
+    // bash PATH uses '/c/...' virtual entries Qt cannot stat, so absolute
+    // locations are required before falling back to QStandardPaths.
+    const QString systemRoot = QString::fromUtf8(qgetenv("SystemRoot"));
+    if (!systemRoot.isEmpty())
+        candidates << systemRoot + QStringLiteral("/System32/OpenSSH/ssh.exe");
+    candidates << QStringLiteral("C:/Program Files/Git/usr/bin/ssh.exe") << QStringLiteral("C:/Program Files/Git/mingw64/bin/ssh.exe");
     for (const QString& path : candidates)
     {
         QFileInfo fi(path);
@@ -429,17 +452,21 @@ QString RemoteFileService::findSshPath()
     }
     // Fall back to PATH lookup; if not on PATH, return empty so callers can
     // report a clear "not found" message instead of failing to start.
-    return {};
+    return QStandardPaths::findExecutable(QStringLiteral("ssh"));
 }
 QString RemoteFileService::findScpPath()
 {
     // Try common install locations first (GUI launches may have a limited PATH).
-    const QStringList candidates = {
+    QStringList candidates = {
         QStringLiteral("/usr/bin/scp"),
         QStringLiteral("/bin/scp"),
         QStringLiteral("/usr/local/bin/scp"),
         QStringLiteral("/opt/homebrew/bin/scp"),
     };
+    const QString systemRoot = QString::fromUtf8(qgetenv("SystemRoot"));
+    if (!systemRoot.isEmpty())
+        candidates << systemRoot + QStringLiteral("/System32/OpenSSH/scp.exe");
+    candidates << QStringLiteral("C:/Program Files/Git/usr/bin/scp.exe") << QStringLiteral("C:/Program Files/Git/mingw64/bin/scp.exe");
     for (const QString& path : candidates)
     {
         QFileInfo fi(path);
@@ -448,7 +475,7 @@ QString RemoteFileService::findScpPath()
     }
     // Fall back to PATH lookup; if not on PATH, return empty so callers can
     // report a clear "not found" message instead of failing to start.
-    return {};
+    return QStandardPaths::findExecutable(QStringLiteral("scp"));
 }
 
 QString RemoteFileService::shellQuote(const QString& path)
@@ -557,9 +584,10 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
         return;
     }
 
-    // Remote paths may legitimately contain spaces/unicode (they arrive from
-    // remote listings), so only host/user are strictly checked; the path must
-    // merely be free of shell-breaking control characters.
+    // Remote paths may legitimately contain spaces/unicode/shell metacharacters
+    // (they arrive from remote listings), so only host/user are strictly checked;
+    // the path only needs to be free of control characters — unsafe bytes are
+    // neutralized by shellQuote() when the path is passed to the remote shell.
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
     if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
@@ -593,7 +621,7 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
     // BatchMode prevents interactive prompts (password/host-key) without a
     // TTY; ConnectTimeout fails fast on unreachable hosts.
     args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
-    args << QString("%1@%2:%3").arg(user, host, remotePath);
+    args << QString("%1@%2:%3").arg(user, host, shellQuote(remotePath));
 
     // Start the transfer on the next event-loop iteration. Deferring the
     // download attempt keeps the synchronous part of downloadSsh() limited to
@@ -628,7 +656,8 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     }
 
     // Same validation as downloadSsh: host/user are strict; the path may
-    // contain spaces/unicode but must be free of shell-breaking control chars.
+    // contain spaces/unicode/shell metacharacters (neutralized by shellQuote())
+    // but must be free of control chars.
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
     if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
@@ -654,10 +683,8 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     if (user.isEmpty())
         user = QDir::home().dirName();
 
-    emit statusMessage(tr("Uploading %1 via SSH...").arg(urlStr));
-
     // Write the payload to a temp file, then scp it onto the remote host.
-    std::unique_ptr<QTemporaryFile> tmpFile{new QTemporaryFile(QDir::temp().filePath("devpad_remote_XXXXXX"))};
+    auto tmpFile = std::make_unique<QTemporaryFile>(QDir::temp().filePath("devpad_remote_XXXXXX"));
     tmpFile->setAutoRemove(true);
     if (!tmpFile->open())
     {
@@ -667,6 +694,12 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     }
     tmpFile->write(data);
     tmpFile->flush();
+    if (tmpFile->error() != QFile::NoError || tmpFile->size() != data.size())
+    {
+        if (error)
+            *error = tr("Failed to write temp file (%1).").arg(tmpFile->errorString());
+        return false;
+    }
     tmpFile->close();
     QString localPath = tmpFile->fileName();
 
@@ -676,10 +709,8 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     // BatchMode prevents interactive prompts without a TTY; ConnectTimeout
     // fails fast on unreachable hosts.
     args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
-    args << localPath << QString("%1@%2:%3").arg(user, host, remotePath);
+    args << localPath << QString("%1@%2:%3").arg(user, host, shellQuote(remotePath));
 
-    // Run scp synchronously so the caller (FileManager::saveFile) gets a
-    // definite success/failure result before returning.
     QString scpPath = findScpPath();
     if (scpPath.isEmpty())
     {
@@ -687,35 +718,22 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
             *error = tr("scp not found on PATH. Install openssh-client.");
         return false;
     }
-    QProcess scp;
-    scp.setProgram(scpPath);
-    scp.setArguments(args);
-    scp.start();
-    if (!scp.waitForStarted())
-    {
-        if (error)
-            *error = tr("Failed to start SCP process.");
-        return false;
-    }
-    if (!scp.waitForFinished(30000))
-    {
-        scp.kill();
-        scp.waitForFinished();
-        if (error)
-            *error = tr("SCP transfer timed out.");
-        return false;
-    }
 
-    if (scp.exitCode() != 0 || scp.exitStatus() != QProcess::NormalExit)
-    {
-        if (error)
-            *error = QString::fromUtf8(scp.readAllStandardError()).trimmed();
-        if (error && error->isEmpty())
-            *error = tr("SCP exited with code %1").arg(scp.exitCode());
-        return false;
-    }
+    emit statusMessage(tr("Uploading %1 via SSH...").arg(urlStr));
 
-    emit fileUploaded(urlStr);
+    // Start the transfer on the next event-loop iteration. Deferring the
+    // start keeps this function's synchronous part limited to validation and
+    // the temp-file write, so failures surfaced from within start() (some
+    // platforms deliver QProcess start failures synchronously) are never
+    // reported synchronously to the caller.
+    QTimer::singleShot(0, this,
+                       [this, urlStr, args, scpPath, tmpFile = std::move(tmpFile)]() mutable
+                       {
+                           QPointer<RemoteFileService> guard(this);
+                           if (!guard)
+                               return;
+                           startSshUpload(urlStr, args, scpPath, std::move(tmpFile));
+                       });
     return true;
 }
 
@@ -751,18 +769,19 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     QPointer<QProcess> procGuard(scp);
     std::shared_ptr<bool> processed = std::make_shared<bool>(false);
     auto stderrBuf = std::make_shared<QByteArray>();
+    auto lastProgress = std::make_shared<qint64>(QDateTime::currentMSecsSinceEpoch());
 
-    // Disconnect and close the process without deleteLater() — calling
-    // deleteLater() from within a QProcess's own signal handlers can cause a
-    // use-after-free when both finished() and errorOccurred() fire. The
-    // QProcess is a child of RemoteFileService and will be cleaned up by its
-    // destructor.
+    // Disconnect, close and deleteLater() the process once finished —
+    // deleteLater defers destruction to the event loop, so this is safe even
+    // from inside the handler, and avoids unbounded accumulation of dead
+    // QProcess children.
     auto finishProcess = [scp, procGuard]()
     {
         if (procGuard)
         {
             scp->disconnect();
             scp->close();
+            scp->deleteLater(); // safe: DeferredDelete runs after the current signal stack
         }
     };
 
@@ -775,18 +794,20 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
     };
 
     connect(scp, &QProcess::readyReadStandardError, this,
-            [scp, procGuard, stderrBuf]()
+            [scp, procGuard, stderrBuf, lastProgress]()
             {
                 if (!procGuard)
                     return;
                 stderrBuf->append(scp->readAllStandardError());
+                *lastProgress = QDateTime::currentMSecsSinceEpoch();
             });
 
     connect(scp, &QProcess::readyReadStandardOutput, this,
-            [scp, procGuard, guard, urlStr]()
+            [scp, procGuard, guard, urlStr, lastProgress]()
             {
                 if (!guard || !procGuard)
                     return;
+                *lastProgress = QDateTime::currentMSecsSinceEpoch();
                 // scp prints the current file being copied; surface the last
                 // line as progress feedback.
                 QString text = QString::fromUtf8(scp->readAllStandardOutput()).trimmed();
@@ -862,20 +883,179 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
                 reportFailure(reason);
             });
 
-    auto* killTimer = new QTimer(scp);
-    killTimer->setSingleShot(true);
-    connect(killTimer, &QTimer::timeout, scp,
-            [scp, guard, processed]()
+    // Inactivity watchdog. scp does not report byte-level progress, so we
+    // poll the destination file: growth resets the stall timer and an
+    // oversized result aborts the transfer. Any stderr output also counts as
+    // activity. A transfer that produces no growth for kSshStallTimeoutMs is
+    // killed.
+    auto* pollTimer = new QTimer(scp);
+    pollTimer->setInterval(500);
+    auto lastSize = std::make_shared<qint64>(0);
+    connect(pollTimer, &QTimer::timeout, scp,
+            [scp, guard, processed, tmpFileShared, lastProgress, lastSize, urlStr, finishProcess]()
+            {
+                if (!guard || *processed)
+                    return;
+                QString path = tmpFileShared->fileName();
+                qint64 sz = QFileInfo(path).size();
+                qint64 now = QDateTime::currentMSecsSinceEpoch();
+                if (sz != *lastSize)
+                {
+                    *lastSize = sz;
+                    *lastProgress = now;
+                }
+                if (sz > kMaxRemoteFileSize)
+                {
+                    *processed = true;
+                    if (scp->state() != QProcess::NotRunning)
+                        scp->kill();
+                    finishProcess();
+                    emit guard->downloadFailed(urlStr, tr("Remote file too large (limit %1 MB)").arg(kMaxRemoteFileSize / (1024LL * 1024)));
+                    return;
+                }
+                if (now - *lastProgress > kSshStallTimeoutMs)
+                {
+                    *processed = true;
+                    if (scp->state() != QProcess::NotRunning)
+                        scp->kill();
+                    finishProcess();
+                    emit guard->downloadFailed(urlStr, tr("SCP transfer timed out."));
+                }
+            });
+
+    scp->start();
+    pollTimer->start();
+}
+
+void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList& args, const QString& scpPath,
+                                       std::unique_ptr<QTemporaryFile> tmpFile)
+{
+    std::shared_ptr<QTemporaryFile> tmpFileShared(std::move(tmpFile));
+
+    auto* scp = new QProcess(this);
+    scp->setProgram(scpPath);
+    scp->setArguments(args);
+    scp->setProperty("remoteUrl", urlStr);
+
+    QPointer<RemoteFileService> guard(this);
+    QPointer<QProcess> procGuard(scp);
+    std::shared_ptr<bool> processed = std::make_shared<bool>(false);
+    auto stderrBuf = std::make_shared<QByteArray>();
+    auto lastProgress = std::make_shared<qint64>(QDateTime::currentMSecsSinceEpoch());
+
+    // Disconnect, close and deleteLater() the process once finished —
+    // deleteLater defers destruction to the event loop, so this is safe even
+    // from inside the handler, and avoids unbounded accumulation of dead
+    // QProcess children.
+    auto finishProcess = [scp, procGuard]()
+    {
+        if (procGuard)
+        {
+            scp->disconnect();
+            scp->close();
+            scp->deleteLater(); // safe: DeferredDelete runs after the current signal stack
+        }
+    };
+
+    auto reportFailure = [this, guard, urlStr, stderrBuf](const QString& fallback)
+    {
+        if (!guard)
+            return;
+        QString err = QString::fromUtf8(*stderrBuf).trimmed();
+        emit uploadFailed(urlStr, err.isEmpty() ? fallback : err);
+    };
+
+    connect(scp, &QProcess::readyReadStandardError, this,
+            [scp, procGuard, stderrBuf, lastProgress]()
+            {
+                if (!procGuard)
+                    return;
+                stderrBuf->append(scp->readAllStandardError());
+                *lastProgress = QDateTime::currentMSecsSinceEpoch();
+            });
+
+    connect(scp, &QProcess::readyReadStandardOutput, this,
+            [scp, procGuard, guard, urlStr, lastProgress]()
+            {
+                if (!guard || !procGuard)
+                    return;
+                *lastProgress = QDateTime::currentMSecsSinceEpoch();
+                // scp prints the current file being copied; surface the last
+                // line as progress feedback.
+                QString text = QString::fromUtf8(scp->readAllStandardOutput()).trimmed();
+                if (!text.isEmpty())
+                {
+                    QStringList lines = text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+                    if (!lines.isEmpty())
+                        emit guard->statusMessage(tr("Copying: %1").arg(lines.last()));
+                }
+            });
+
+    connect(scp, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+            [procGuard, guard, processed, finishProcess, reportFailure, tmpFileShared, urlStr](int exitCode, QProcess::ExitStatus status)
+            {
+                if (!guard || !procGuard || *processed)
+                    return;
+                *processed = true;
+                finishProcess();
+
+                if (exitCode != 0 || status != QProcess::NormalExit)
+                {
+                    reportFailure(tr("Unknown error"));
+                    return;
+                }
+
+                emit guard->fileUploaded(urlStr);
+            });
+
+    connect(scp, &QProcess::errorOccurred, this,
+            [guard, processed, finishProcess, reportFailure](QProcess::ProcessError error)
             {
                 if (!guard || *processed)
                     return;
                 *processed = true;
-                scp->disconnect();
+                finishProcess();
+
+                QString reason;
+                switch (error)
+                {
+                case QProcess::FailedToStart:
+                    reason = tr("Failed to start SCP process.");
+                    break;
+                case QProcess::Crashed:
+                    reason = tr("SCP process crashed.");
+                    break;
+                case QProcess::Timedout:
+                    reason = tr("SCP process timed out.");
+                    break;
+                default:
+                    reason = tr("Unknown SCP process error.");
+                    break;
+                }
+                reportFailure(reason);
+            });
+
+    // Overall timeout scaled by payload size: scp gives no byte-level progress
+    // for uploads (the local file is only read), so allow enough time for a
+    // worst-case throughput of kUploadMinThroughputBytesPerSec plus a base
+    // allowance, capped at kUploadMaxTimeoutMs.
+    const qint64 payloadBytes = QFileInfo(tmpFileShared->fileName()).size();
+    const qint64 budgetMs = qMin(kUploadBaseTimeoutMs + (payloadBytes * 1000) / kUploadMinThroughputBytesPerSec, kUploadMaxTimeoutMs);
+
+    auto* killTimer = new QTimer(scp);
+    killTimer->setSingleShot(true);
+    connect(killTimer, &QTimer::timeout, scp,
+            [scp, guard, processed, finishProcess]()
+            {
+                if (!guard || *processed)
+                    return;
+                *processed = true;
                 if (scp->state() != QProcess::NotRunning)
                     scp->kill();
-                emit guard->downloadFailed(scp->property("remoteUrl").toString(), tr("SCP transfer timed out."));
+                finishProcess();
+                emit guard->uploadFailed(scp->property("remoteUrl").toString(), tr("SCP transfer timed out."));
             });
 
     scp->start();
-    killTimer->start(30000);
+    killTimer->start(budgetMs);
 }

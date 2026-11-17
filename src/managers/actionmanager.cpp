@@ -25,7 +25,6 @@
 #include "mainwindow.h"
 #include "settingsmanager.h"
 #include "splitview.h"
-#include "terminalpanel.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -145,6 +144,14 @@ void ActionManager::createFileActions()
             emit fileActionTriggered(FileAction::SaveAll);
         },
         "File.SaveAll");
+    m_reopenClosedTabAct = createIconAction(
+        ":/icons/File/open.svg", tr("Reopen Closed Tab"), QKeySequence("Ctrl+Shift+T"),
+        [this]()
+        {
+            emit reopenClosedTabTriggered();
+            emit fileActionTriggered(FileAction::ReopenClosedTab);
+        },
+        "File.ReopenClosedTab");
     m_revertAct = createIconAction(
         ":/icons/File/revert.svg", tr("Revert"), QKeySequence(),
         [this]()
@@ -304,7 +311,7 @@ void ActionManager::createEditActions()
         },
         "Edit.GoToLine");
     m_formatSelectionAct = createIconAction(
-        ":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Ctrl+Shift+F"),
+        ":/icons/Edit/goto.svg", tr("Format Selection"), QKeySequence("Alt+Shift+F"),
         [this]()
         {
             emit formatSelectionTriggered();
@@ -331,6 +338,56 @@ void ActionManager::createEditActions()
     // them once one is available.
     m_insertSnippetAct->setEnabled(false);
     m_toggleCommentAct->setEnabled(false);
+
+    m_duplicateLineAct = createIconAction(
+        ":/icons/Edit/duplicate.svg", tr("Duplicate Line"), QKeySequence("Ctrl+D"),
+        [this]()
+        {
+            emit duplicateLineTriggered();
+            emit editActionTriggered(EditAction::DuplicateLine);
+        },
+        "Edit.DuplicateLine");
+    m_moveLineUpAct = createIconAction(
+        ":/icons/Edit/movelineup.svg", tr("Move Line Up"), QKeySequence("Alt+Up"),
+        [this]()
+        {
+            emit moveLineUpTriggered();
+            emit editActionTriggered(EditAction::MoveLineUp);
+        },
+        "Edit.MoveLineUp");
+    m_moveLineDownAct = createIconAction(
+        ":/icons/Edit/movelinedown.svg", tr("Move Line Down"), QKeySequence("Alt+Down"),
+        [this]()
+        {
+            emit moveLineDownTriggered();
+            emit editActionTriggered(EditAction::MoveLineDown);
+        },
+        "Edit.MoveLineDown");
+    m_findNextWithSelectionAct = createIconAction(
+        ":/icons/Edit/findnext.svg", tr("Find Next (Selection)"), QKeySequence("Ctrl+F3"),
+        [this]()
+        {
+            emit findNextWithSelectionTriggered();
+            emit editActionTriggered(EditAction::FindNextWithSelection);
+        },
+        "Edit.FindNextWithSelection");
+    m_findPreviousWithSelectionAct = createIconAction(
+        ":/icons/Edit/findprevious.svg", tr("Find Previous (Selection)"), QKeySequence("Shift+F3"),
+        [this]()
+        {
+            emit findPreviousWithSelectionTriggered();
+            emit editActionTriggered(EditAction::FindPreviousWithSelection);
+        },
+        "Edit.FindPreviousWithSelection");
+
+    // Not shown in any menu: kept for the terminal plugin. The terminal
+    // claims all other shortcuts, these stay global so copy/paste work
+    // while the terminal has focus. Remappable in Options -> Keyboard.
+    m_terminalCopyAct = createIconAction(
+        ":/icons/Edit/copy.svg", tr("Copy (Terminal)"), QKeySequence("Ctrl+Shift+C"), [this]() { emit terminalCopyTriggered(); }, "Terminal.Copy");
+    m_terminalPasteAct = createIconAction(
+        ":/icons/Edit/paste.svg", tr("Paste (Terminal)"), QKeySequence("Ctrl+Shift+V"), [this]() { emit terminalPasteTriggered(); },
+        "Terminal.Paste");
 }
 
 void ActionManager::createBookmarkActions()
@@ -465,8 +522,10 @@ void ActionManager::createDebugActions()
             emit debugActionTriggered(DebugAction::StopDebugging);
         },
         "Debug.Stop");
+    // Continue shares F5 with Start Debugging through the F5 toggle in
+    // MainWindow; this action is menu-only so both never fire together.
     m_continueAct = createIconAction(
-        ":/icons/Debug/continue.svg", tr("Continue"), QKeySequence("F5"),
+        ":/icons/Debug/continue.svg", tr("Continue"), QKeySequence(),
         [this]()
         {
             emit continueTriggered();
@@ -538,7 +597,7 @@ void ActionManager::createViewActions()
 #ifdef Q_OS_MACOS
         QKeySequence(),
 #else
-        QKeySequence("F11"),
+        QKeySequence("Ctrl+F11"),
 #endif
         [this]()
         {
@@ -561,6 +620,7 @@ void ActionManager::createViewActions()
     m_terminalPanelAct = new QAction(QIcon(":/icons/View/terminal.svg"), tr("Terminal Panel"), this);
     m_terminalPanelAct->setCheckable(true);
     m_terminalPanelAct->setChecked(false);
+    m_terminalPanelAct->setVisible(false); // Shown only when Terminal plugin is loaded
     m_terminalPanelAct->setShortcut(QKeySequence("Ctrl+`"));
     m_actionsWithShortcuts.append(m_terminalPanelAct);
     registerAction(m_terminalPanelAct, "View.TerminalPanel");
@@ -657,6 +717,11 @@ void ActionManager::registerAction(QAction* action, const QString& actionId)
 
     m_actionIds.insert(action, actionId);
     m_actionsById.insert(actionId, action);
+
+    // Seed the default shortcut for actions not created via createIconAction(),
+    // so resetShortcut() can restore it instead of leaving the action bare.
+    if (!m_defaultShortcuts.contains(actionId) && !action->shortcut().isEmpty())
+        m_defaultShortcuts.insert(actionId, action->shortcut());
 }
 
 void ActionManager::applyStoredShortcuts()
@@ -787,6 +852,7 @@ void ActionManager::buildFileMenu(QMenu* fileMenu)
     openMenu->addAction(m_openFolderAct);
     openMenu->addAction(m_openRemoteAct);
     openMenu->addAction(m_openRemoteFolderAct);
+    fileMenu->addAction(m_reopenClosedTabAct);
     fileMenu->addSeparator();
 
     fileMenu->addMenu(m_recentFilesHelper->createMenu(fileMenu));
@@ -827,10 +893,16 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     editMenu->addSeparator();
     editMenu->addAction(m_selectAllAct);
     editMenu->addSeparator();
+    editMenu->addAction(m_duplicateLineAct);
+    editMenu->addAction(m_moveLineUpAct);
+    editMenu->addAction(m_moveLineDownAct);
+    editMenu->addSeparator();
     editMenu->addAction(m_findAct);
     editMenu->addAction(m_replaceAct);
     editMenu->addAction(m_findInFilesAct);
     editMenu->addAction(m_goToAct);
+    editMenu->addAction(m_findNextWithSelectionAct);
+    editMenu->addAction(m_findPreviousWithSelectionAct);
     editMenu->addSeparator();
     editMenu->addAction(m_insertSnippetAct);
     editMenu->addAction(m_toggleCommentAct);
@@ -845,6 +917,7 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     editMenu->addSeparator();
     QMenu* lspMenu = editMenu->addMenu(tr("Language Server"));
     lspMenu->setIcon(QIcon(":/icons/Tools/options.svg"));
+    m_lspMenu = lspMenu;
     lspMenu->addAction(m_goToDefinitionAct);
     lspMenu->addAction(m_goToTypeDefinitionAct);
     lspMenu->addAction(m_goToDeclarationAct);
@@ -860,6 +933,7 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
 
     QMenu* debugMenu = editMenu->addMenu(tr("Debug"));
     debugMenu->setIcon(QIcon(":/icons/Debug/start.svg"));
+    m_debugMenu = debugMenu;
     debugMenu->addAction(m_startDebuggingAct);
     debugMenu->addAction(m_stopDebuggingAct);
     debugMenu->addSeparator();
@@ -869,6 +943,34 @@ void ActionManager::buildEditMenu(QMenu* editMenu)
     debugMenu->addAction(m_stepOutAct);
     debugMenu->addSeparator();
     debugMenu->addAction(m_restartAct);
+}
+
+void ActionManager::setDebugUiVisible(bool visible)
+{
+    if (m_debugMenu)
+        m_debugMenu->menuAction()->setVisible(visible);
+    if (m_debugPanelAct)
+        m_debugPanelAct->setVisible(visible);
+}
+
+void ActionManager::setLspUiVisible(bool visible)
+{
+    if (m_lspMenu)
+        m_lspMenu->menuAction()->setVisible(visible);
+    const QList<QAction*> lspActions = {m_formatSelectionAct, m_goToDefinitionAct,    m_goToTypeDefinitionAct, m_goToDeclarationAct,
+                                        m_findReferencesAct,  m_triggerCompletionAct, m_renameSymbolAct,       m_codeActionAct,
+                                        m_findSymbolsAct,     m_expandSelectionAct,   m_shrinkSelectionAct};
+    for (QAction* action : lspActions)
+        if (action)
+            action->setVisible(visible);
+    if (m_errorListPanelAct)
+        m_errorListPanelAct->setVisible(visible);
+    if (m_referencesPanelAct)
+        m_referencesPanelAct->setVisible(visible);
+    if (m_errorListPanelButton)
+        m_errorListPanelButton->setVisible(visible);
+    if (m_referencesPanelButton)
+        m_referencesPanelButton->setVisible(visible);
 }
 
 void ActionManager::buildViewMenu(QMenu* viewMenu)
@@ -914,6 +1016,13 @@ void ActionManager::rebuildExternalToolsMenu()
     }
     m_externalToolActs.clear();
 
+    for (QAction* sep : m_externalToolSeparators)
+    {
+        m_toolsMenu->removeAction(sep);
+        delete sep;
+    }
+    m_externalToolSeparators.clear();
+
     int count = SettingsManager::instance().externalToolCount();
     for (int i = 0; i < count; ++i)
     {
@@ -933,7 +1042,7 @@ void ActionManager::rebuildExternalToolsMenu()
     }
 
     if (count > 0)
-        m_toolsMenu->addSeparator();
+        m_externalToolSeparators.append(m_toolsMenu->addSeparator());
 
     QAction* configureAct = new QAction(QIcon(":/icons/Tools/externaltools.svg"), tr("External Tools..."), this);
     connect(configureAct, &QAction::triggered, this,
@@ -945,7 +1054,7 @@ void ActionManager::rebuildExternalToolsMenu()
     m_toolsMenu->addAction(configureAct);
     m_externalToolActs.append(configureAct);
 
-    m_toolsMenu->addSeparator();
+    m_externalToolSeparators.append(m_toolsMenu->addSeparator());
     m_toolsMenu->removeAction(m_optionsAct);
     m_toolsMenu->addAction(m_optionsAct);
 
@@ -1011,12 +1120,12 @@ void ActionManager::wireFileConnections(const ActionTargets& t)
     connect(this, &ActionManager::saveFileTriggered, ec, &EditorController::saveFile);
     connect(this, &ActionManager::saveFileAsTriggered, ec, &EditorController::saveFileAs);
     connect(this, &ActionManager::saveAllTriggered, ec, &EditorController::saveAll);
+    connect(this, &ActionManager::reopenClosedTabTriggered, mw, &MainWindow::reopenClosedTab);
     connect(this, &ActionManager::revertTriggered, mw, &MainWindow::revertFile);
     connect(this, &ActionManager::closeCurrentTabTriggered, ec, &EditorController::closeCurrentTab);
     connect(this, &ActionManager::closeAllTabsTriggered, ec, &EditorController::closeAllTabs);
     connect(this, &ActionManager::exitTriggered, mw, &QWidget::close);
     connect(this, &ActionManager::quitDevpadTriggered, mw, &MainWindow::quitDevpad);
-    connect(t.terminalPanel, &TerminalPanel::sessionExited, mw, &QWidget::close);
 }
 
 void ActionManager::wireEditConnections(const ActionTargets& t)
@@ -1024,11 +1133,20 @@ void ActionManager::wireEditConnections(const ActionTargets& t)
     auto* ec = t.editorController;
     auto* mw = t.mainWindow;
 
+    connect(this, &ActionManager::duplicateLineTriggered, ec, &EditorController::duplicateLine);
+    connect(this, &ActionManager::moveLineUpTriggered, ec, &EditorController::moveLineUp);
+    connect(this, &ActionManager::moveLineDownTriggered, ec, &EditorController::moveLineDown);
+    connect(this, &ActionManager::findNextWithSelectionTriggered, mw, &MainWindow::findNextWithSelection);
+    connect(this, &ActionManager::findPreviousWithSelectionTriggered, mw, &MainWindow::findPreviousWithSelection);
     connect(this, &ActionManager::undoTriggered, ec, &EditorController::undo);
     connect(this, &ActionManager::redoTriggered, ec, &EditorController::redo);
     connect(this, &ActionManager::cutTriggered, ec, &EditorController::cut);
     connect(this, &ActionManager::copyTriggered, mw, &MainWindow::copy);
     connect(this, &ActionManager::pasteTriggered, mw, &MainWindow::paste);
+    // Terminal copy/paste: MainWindow::copy/paste already prefer the terminal
+    // when it has focus, so route both through the same slots.
+    connect(this, &ActionManager::terminalCopyTriggered, mw, &MainWindow::copy);
+    connect(this, &ActionManager::terminalPasteTriggered, mw, &MainWindow::paste);
     connect(this, &ActionManager::selectAllTriggered, ec, &EditorController::selectAll);
     connect(this, &ActionManager::deleteTriggered, ec, &EditorController::deleteText);
     connect(this, &ActionManager::findTriggered, mw, &MainWindow::find);
@@ -1132,7 +1250,7 @@ void ActionManager::wireDebugConnections(const ActionTargets& t)
 {
     auto* mw = t.mainWindow;
 
-    connect(this, &ActionManager::startDebuggingTriggered, mw, &MainWindow::startDebugging);
+    connect(this, &ActionManager::startDebuggingTriggered, mw, &MainWindow::debugStartOrContinue);
     connect(this, &ActionManager::stopDebuggingTriggered, mw, &MainWindow::stopDebugging);
     connect(this, &ActionManager::continueTriggered, mw, &MainWindow::debugContinue);
     connect(this, &ActionManager::stepOverTriggered, mw, &MainWindow::debugStepOver);
@@ -1213,6 +1331,9 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_lineColLabel->setVisible(false);
     m_encodingComboBox->setVisible(false);
     m_fileTypeLabel->setVisible(false);
+    m_lineColLabel->setToolTip(tr("Current line and column"));
+    m_encodingComboBox->setToolTip(tr("Text encoding for the current file"));
+    m_fileTypeLabel->setToolTip(tr("Language / file type of the current file"));
     statusBar->addPermanentWidget(m_lineColLabel);
     statusBar->addPermanentWidget(m_fileTypeLabel);
     statusBar->addPermanentWidget(m_encodingComboBox);
@@ -1221,6 +1342,7 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_projectPanelButton->setIcon(QIcon(":/icons/Common/folder.svg"));
     m_projectPanelButton->setCheckable(true);
     m_projectPanelButton->setCursor(Qt::PointingHandCursor);
+    m_projectPanelButton->setToolTip(tr("Toggle Project Panel (Ctrl+B)"));
     m_projectPanelButton->setStyleSheet(
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_projectPanelButton, &QToolButton::clicked, this, [this]() { emit toggleProjectPanelTriggered(); });
@@ -1230,6 +1352,7 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_terminalPanelButton->setIcon(QIcon(":/icons/View/terminal.svg"));
     m_terminalPanelButton->setCheckable(true);
     m_terminalPanelButton->setCursor(Qt::PointingHandCursor);
+    m_terminalPanelButton->setToolTip(tr("Toggle Terminal Panel (Ctrl+`)"));
     m_terminalPanelButton->setStyleSheet(
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_terminalPanelButton, &QToolButton::clicked, this, [this]() { emit toggleTerminalPanelTriggered(); });
@@ -1239,6 +1362,7 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_errorListPanelButton->setIcon(QIcon(":/icons/View/error.svg"));
     m_errorListPanelButton->setCheckable(true);
     m_errorListPanelButton->setCursor(Qt::PointingHandCursor);
+    m_errorListPanelButton->setToolTip(tr("Toggle Error List (LSP diagnostics)"));
     m_errorListPanelButton->setStyleSheet(
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_errorListPanelButton, &QToolButton::clicked, this, [this]() { emit toggleErrorListPanelTriggered(); });
@@ -1248,6 +1372,7 @@ void ActionManager::buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectP
     m_referencesPanelButton->setIcon(QIcon(":/icons/Edit/find.svg"));
     m_referencesPanelButton->setCheckable(true);
     m_referencesPanelButton->setCursor(Qt::PointingHandCursor);
+    m_referencesPanelButton->setToolTip(tr("Toggle References Panel (Find References)"));
     m_referencesPanelButton->setStyleSheet(
         "QToolButton { border: none; padding: 2px 4px; } QToolButton:checked { background-color: palette(highlight); }");
     connect(m_referencesPanelButton, &QToolButton::clicked, this, [this]() { emit toggleReferencesPanelTriggered(); });

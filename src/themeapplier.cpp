@@ -20,12 +20,14 @@
 #include "themeapplier.h"
 
 #include "codeeditor.h"
+#include "logger.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
 
 #include <QApplication>
 #include <QFile>
 #include <QMainWindow>
+#include <QStyle>
 #include <array>
 
 ThemeApplier::ThemeApplier(QObject* parent) : QObject(parent)
@@ -51,6 +53,12 @@ void ThemeApplier::applyTheme(QMainWindow* window)
     {
         QPalette palette = getThemePalette(colors);
         QApplication::setPalette(palette);
+    }
+    else
+    {
+        // Restore the native palette; a previously-applied dark/custom palette
+        // would otherwise linger on dialogs, menus and dock widgets.
+        QApplication::setPalette(QApplication::style()->standardPalette());
     }
 
     const auto& ui = s.uiSettings();
@@ -104,6 +112,13 @@ void ThemeApplier::applyTheme(QMainWindow* window)
             }
 
             window->setStyleSheet(ss);
+        }
+        else
+        {
+            // The QSS template could not be opened; clear any stale stylesheet
+            // from a previously applied theme instead of leaving a half-applied UI.
+            Logger::instance().warning(QStringLiteral("ThemeApplier: could not open :/theme.qss; clearing style sheet"));
+            window->setStyleSheet(QString());
         }
     }
     else

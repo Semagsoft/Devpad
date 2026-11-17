@@ -1,0 +1,143 @@
+#ifndef DAPCLIENT_H
+#define DAPCLIENT_H
+
+#include "dapjsonrpc.h"
+#include "daptypes.h"
+
+#include <QObject>
+#include <QProcess>
+#include <QTimer>
+
+namespace dap
+{
+
+// Debug Adapter Protocol client. Speaks DAP over stdio to a debug adapter
+// (e.g. lldb-vscode, codelldb, python's debugpy, vscode-chrome-debug-core).
+// Speaks the DAP envelope (type/seq/request_seq/success/body) via DapJsonRpc,
+// sharing Content-Length framing with LSP.
+//
+// Lifecycle:
+//   initialize -> (capabilities) -> launch/attach -> configurationDone
+//             -> [threads/stackTrace/scopes/variables while stopped]
+//             -> continue/step*/pause -> ... -> terminate/disconnect
+//
+// Breakpoints are managed by setBreakpoints per source file. Breakpoint
+// lines are 0-based on the editor side; the adapter is told 1-based lines
+// (linesStartAt1 negotiated in initialize).
+class DapClient : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit DapClient(QObject* parent = nullptr);
+    ~DapClient() override;
+
+    void startServer(const QString& command, const QStringList& args);
+    void stopServer();
+    bool isRunning() const;
+
+    // ── Handshake ───────────────────────────────────────────────
+    void sendInitialize(const QString& clientName = QStringLiteral("Devpad"), const QString& adapterID = QString(),
+                        const QJsonObject& pathFormat = QJsonObject());
+
+    // ── Session control ─────────────────────────────────────────
+    // Programmatic launch (no debug UI yet). Arguments are passed through
+    // verbatim; subclasses/UI fill in program/args/cwd/env.
+    void launch(const QJsonObject& arguments);
+    void attach(const QJsonObject& arguments);
+    void disconnectDebug(bool terminateDebuggee = true);
+    void terminate();
+
+    // ── Breakpoints ─────────────────────────────────────────────
+    // sourcePath: file path on disk. lines: 0-based breakpoint lines.
+    void setSourceBreakpoints(const QString& sourcePath, const QList<int>& lines, const QJsonObject& sourceParams = QJsonObject());
+    void setExceptionBreakpoints(const QStringList& filters, const QJsonObject& filterOptions = QJsonObject());
+
+    // ── Execution control ───────────────────────────────────────
+    void configurationDone();
+    void threads();
+    void stackTrace(int threadId, int startFrame = 0, int levels = 0);
+    void scopes(int frameId);
+    void variables(int variablesReference, int start = 0, int count = 0);
+    void continueExecution(int threadId);
+    void stepOver(int threadId);
+    void pause(int threadId);
+    void stepInto(int threadId, int targetId = 0);
+    void stepOut(int threadId, int targetId = 0);
+    void stepBack(int threadId);
+    void reverseContinue(int threadId);
+
+signals:
+    // Lifecycle
+    void serverStarted();
+    void serverStopped();
+    void serverError(const QString& error);
+
+    // initialize handshake
+    void initializeDone(const Capabilities& capabilities);
+    // Adapter is ready to accept configuration requests (breakpoints,
+    // configurationDone): either it sent the "initialized" event, or it
+    // accepted launch/attach (two-stage adapters spawn their server then).
+    void configurationReady();
+
+    // launch / attach
+    void launchDone();
+    void attachDone();
+
+    // Breakpoints
+    void breakpointsSet(const QString& sourcePath, const QList<Breakpoint>& breakpoints);
+    void exceptionBreakpointsSet();
+
+    // Events from the adapter
+    void stopped(const StoppedEvent& ev);
+    void terminated(const TerminatedEvent& ev);
+    void threadEvent(const ThreadEvent& ev);
+    void breakpointEvent(const BreakpointEvent& ev);
+    void output(const OutputEvent& ev);
+    void capabilitiesEvent(const QJsonObject& capabilities);
+
+    // Data results
+    void threadsReady(const QList<Thread>& threads);
+    void stackTraceReady(const QList<StackFrame>& frames, int totalFrames);
+    void scopesReady(const QList<Scope>& scopes);
+    void variablesReady(const QList<Variable>& variables);
+    void continueDone(int threadId, bool allThreadsContinued);
+
+private slots:
+    void onReadyReadStdout();
+    void onReadyReadStderr();
+    void onProcessStarted();
+    void onProcessFinished(int exitCode, QProcess::ExitStatus status);
+    void onProcessError(QProcess::ProcessError error);
+
+private:
+    void sendInitializeHandshake();
+    void sendTerminateIfStopping();
+    void checkConfigurationReady();
+    // 0 means "resolve to the last thread the adapter stopped" (tracked from
+    // stopped events); adapters assign thread ids, so a literal 0 is never valid.
+    int resolveThreadId(int threadId) const;
+
+    void handleEvent(const QString& event, const QJsonObject& body);
+    void handleResponse(const QString& command, bool success, const QJsonValue& body, const QJsonObject& error);
+    void handleReverseRequest(int seq, const QString& command, const QJsonObject& arguments);
+
+    QProcess* m_process = nullptr;
+    DapJsonRpc* m_jsonRpc = nullptr;
+    QString m_command;
+    QStringList m_args;
+    Capabilities m_capabilities;
+    bool m_initialized = false;        // initialize response received: launch/attach allowed
+    bool m_configurationReady = false; // initialized event OR launch/attach done: config requests allowed
+    bool m_starting = false;
+    bool m_stopping = false;
+    int m_retryCount = 0;
+    int m_stoppedThreadId = 0; // last threadId reported by a stopped event
+    static constexpr int START_TIMEOUT_MS = 5000;
+    static constexpr int SHUTDOWN_TIMEOUT_MS = 5000;
+    static constexpr int KILL_TIMEOUT_MS = 2000;
+};
+
+} // namespace dap
+
+#endif // DAPCLIENT_H

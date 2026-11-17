@@ -46,6 +46,8 @@ void ReferencesPanel::setupUI()
     setWidget(content);
 
     connect(m_treeView, &QTreeView::doubleClicked, this, &ReferencesPanel::onItemDoubleClicked);
+    // Enter/Return navigates to the selected reference (keyboard users).
+    connect(m_treeView, &QTreeView::activated, this, &ReferencesPanel::onItemDoubleClicked);
 }
 
 void ReferencesPanel::setReferences(const QList<lsp::Location>& locations)
@@ -82,6 +84,7 @@ void ReferencesPanel::setReferences(const QList<lsp::Location>& locations)
 
             auto* lineItem = new QStandardItem(QString::number(line + 1));
             lineItem->setEditable(false);
+            lineItem->setData(line + 1, Qt::EditRole); // numeric sort
 
             auto* codeItem = new QStandardItem(code);
             codeItem->setEditable(false);

@@ -30,6 +30,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QSet>
 #include <QTextStream>
 #include <QThread>
 #include <QTreeWidget>
@@ -74,11 +75,8 @@ void FindInFilesWorker::run()
     QDirIterator it(m_rootDir, nameFilters, QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext())
     {
-        if (QThread::currentThread()->isInterruptionRequested())
-        {
-            emit searchFinished(m_totalMatches);
-            return;
-        }
+        if (QThread::currentThread()->isInterruptionRequested() || m_hasError)
+            break;
 
         QString filePath = it.next();
 
@@ -104,22 +102,25 @@ void FindInFilesWorker::run()
         if (excluded)
             continue;
 
-        searchFile(filePath);
-        if (m_hasError)
+        if (!searchFile(filePath))
+        {
+            // Interrupted mid-file, or a regex error flagged via m_hasError.
+            // searchFinished is emitted exactly once below.
             break;
+        }
     }
 
     emit searchFinished(m_totalMatches);
 }
 
-void FindInFilesWorker::searchFile(const QString& filePath)
+bool FindInFilesWorker::searchFile(const QString& filePath)
 {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly))
-        return;
+        return true;
 
     if (file.size() > 10LL * 1024 * 1024)
-        return;
+        return true;
 
     QByteArray rawData = file.readAll();
     file.close();
@@ -162,7 +163,7 @@ void FindInFilesWorker::searchFile(const QString& filePath)
         {
             emit searchError(tr("Invalid regex: %1").arg(precompiledRe.errorString()));
             m_hasError = true;
-            return;
+            return false;
         }
     }
 
@@ -170,10 +171,7 @@ void FindInFilesWorker::searchFile(const QString& filePath)
     while (!in.atEnd())
     {
         if (QThread::currentThread()->isInterruptionRequested())
-        {
-            emit searchFinished(m_totalMatches);
-            return;
-        }
+            return false;
 
         QString line = in.readLine();
         lineNumber++;
@@ -213,6 +211,7 @@ void FindInFilesWorker::searchFile(const QString& filePath)
             emit matchFound(filePath, lineNumber, line.trimmed());
         }
     }
+    return true;
 }
 
 FindInFilesDialog::FindInFilesDialog(const QString& defaultDir, QWidget* parent) : QDialog(parent), m_settings("FindInFiles")
@@ -340,6 +339,7 @@ void FindInFilesDialog::onSearch()
 
     resultTree->clear();
     m_matchCount = 0;
+    m_matchFiles.clear();
     statusLabel->setText(tr("Searching..."));
 
     QString searchText = searchLineEdit->text().trimmed();
@@ -385,35 +385,36 @@ void FindInFilesDialog::onStop()
 
 void FindInFilesDialog::cleanupSearch()
 {
-    // Don't block the GUI waiting for the worker: ask it to stop, drop its
-    // signal connections so late results can't reach the dialog, and let the
-    // thread tear itself down when it notices the interruption.
+    // Ask the worker to stop, drop its signal connections so late results
+    // can't reach the dialog, and let the thread tear itself down. The
+    // worker is deleted when the thread's event loop finishes; if the thread
+    // already exited, delete directly (its 'finished' was already emitted).
     if (m_worker)
-    {
         m_worker->disconnect();
-    }
     if (m_workerThread)
     {
         m_workerThread->disconnect();
         if (m_workerThread->isRunning())
         {
+            if (m_worker)
+                connect(m_workerThread, &QThread::finished, m_worker, &QObject::deleteLater);
+            connect(m_workerThread, &QThread::finished, m_workerThread, &QObject::deleteLater);
             m_workerThread->requestInterruption();
             m_workerThread->quit();
-            connect(m_workerThread, &QThread::finished, m_workerThread, &QObject::deleteLater);
         }
         else
         {
+            delete m_worker;
+            m_worker = nullptr;
             m_workerThread->deleteLater();
         }
     }
-
-    if (m_worker)
+    else if (m_worker)
     {
-        // deleteLater() is deferred to the worker thread's own event loop,
-        // so it is safe even while run() is still executing.
-        m_worker->deleteLater();
-        m_worker = nullptr;
+        delete m_worker;
     }
+
+    m_worker = nullptr;
     m_workerThread = nullptr;
 
     m_searching = false;
@@ -435,6 +436,7 @@ void FindInFilesDialog::onMatchFound(const QString& filePath, int lineNumber, co
     }
 
     m_matchCount++;
+    m_matchFiles.insert(filePath);
     QString relativePath = QDir(dirLineEdit->text()).relativeFilePath(filePath);
 
     auto* item = new QTreeWidgetItem(resultTree);
@@ -465,7 +467,7 @@ void FindInFilesDialog::onSearchFinished(int totalMatches)
     if (m_matchCount == 0)
         statusLabel->setText(tr("No results found."));
     else
-        statusLabel->setText(tr("Found %1 match(es) in %2 file(s).").arg(m_matchCount).arg(resultTree->topLevelItemCount()));
+        statusLabel->setText(tr("Found %1 match(es) in %2 file(s).").arg(m_matchCount).arg(m_matchFiles.size()));
 
     resultTree->resizeColumnToContents(0);
     resultTree->resizeColumnToContents(1);
@@ -475,6 +477,8 @@ void FindInFilesDialog::onSearchFinished(int totalMatches)
 
 void FindInFilesDialog::onSearchError(const QString& message)
 {
+    if (!m_searching)
+        return; // stale error from an already-stopped search
     statusLabel->setText(tr("Error: %1").arg(message));
 }
 

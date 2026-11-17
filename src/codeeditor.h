@@ -19,14 +19,15 @@
 #ifndef CODEEDITOR_H
 #define CODEEDITOR_H
 
-#include "lsp/lspeditorintegration.h"
 #include "lsp/lsptypes.h"
+#include "plugins/lspinterface.h"
 #include "settingsmanager.h"
 #include "snippet.h"
 #include "snippetengine.h"
 #include "theme.h"
 
 #include <QDateTime>
+#include <QPointer>
 #include <QScopedPointer>
 #include <QTimer>
 
@@ -35,11 +36,8 @@
 #include <Qsci/qscilexer.h>
 #include <Qsci/qsciscintilla.h>
 
-namespace dap
-{
-class DapEditorIntegration;
-class DapServerManager;
-} // namespace dap
+class ScrollbarAnnotation;
+class QResizeEvent;
 
 class CodeEditor : public QsciScintilla
 {
@@ -151,10 +149,9 @@ public:
         return m_snippetEngine;
     }
 
-    // LSP support
-    void setLspServerManager(lsp::LspServerManager* manager);
-    void setLspLanguage(const QString& language);
-    lsp::LspServerManager* lspServerManager() const;
+    // LSP support (served by the LSP plugin via its session interface)
+    void setLspSession(lsp::ILspEditorSession* session);
+    lsp::ILspEditorSession* lspSession() const;
     bool lspActive() const;
     void goToDefinition();
     void goToTypeDefinition();
@@ -168,27 +165,22 @@ public:
     void clearHighlights();
     void applyDiagnostics(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
     void clearDiagnostics();
+    void clearDiagnosticIndicators();
     void showCompletion(const lsp::CompletionList& completions);
     void requestCodeActions();
     void expandSelection();
     void shrinkSelection();
-    void requestSelectionRanges();
     void sendDidChange();
     void sendDidOpen();
     int documentVersion() const;
     void setDocumentVersion(int v);
+    int wordCharCountBeforeCursor() const;
 
-    lsp::LspEditorIntegration* lspIntegration() const
-    {
-        return m_lspIntegration;
-    }
-
-    dap::DapEditorIntegration* dapIntegration() const
+    QObject* dapIntegration() const
     {
         return m_dapIntegration;
     }
-    void setDapServerManager(dap::DapServerManager* manager);
-    void setDapSessionKey(const QString& sessionKey);
+    void setDapIntegration(QObject* integration);
 
     ThemeId themeId() const
     {
@@ -205,7 +197,6 @@ public:
     void setLinkedEditingRanges(const QJsonObject& result);
     void clearLinkedRanges();
     void applySemanticTokens(const QString& uri, const QJsonArray& tokenData);
-    void setSelectionRanges(const QJsonArray& ranges);
 
 signals:
     void fileDropped(const QString& filePath);
@@ -215,6 +206,7 @@ signals:
     void replaceRequested();
     void goToLineRequested();
     void insertSnippetRequested();
+    // line: 0-based. column: LSP UTF-16 code unit column.
     void navigateToLocation(const QString& filePath, int line, int column);
     void diagnosticsChanged(const QString& uri, const QList<lsp::Diagnostic>& diagnostics);
     void minimapVisibleChanged(bool visible);
@@ -225,20 +217,32 @@ public slots:
     void zoomIn() override;
     void zoomOut() override;
     void zoomReset();
+    void duplicateLine();
+    void moveLineUp();
+    void moveLineDown();
 
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     QString m_fileName;
     QString m_syntax;
     QString m_encoding;
+    QList<lsp::Diagnostic> m_lspDiagnostics;
+    ScrollbarAnnotation* m_scrollbarAnnotation = nullptr;
+    void updateScrollbarAnnotations();
     QDateTime m_diskModifiedAt;
     QFont m_defaultFont;
     ThemeId m_themeId;
+    // Last resolved colors applied to the editor. Custom themes have no
+    // ThemeId, so theme re-application (e.g. after setSyntax) must reuse
+    // these instead of re-deriving from m_themeId.
+    ThemeColors m_lastColors;
+    bool m_hasLastColors = false;
     QScopedPointer<QsciLexer> m_lexer;
     QScopedPointer<QsciAPIs> m_apis;
     bool m_lineNumbersVisible = true;
@@ -257,11 +261,16 @@ private:
 
     SnippetEngine* m_snippetEngine = nullptr;
 
-    // LSP integration
-    lsp::LspEditorIntegration* m_lspIntegration = nullptr;
+    // LSP support (session owned by the LSP plugin)
+    QPointer<lsp::ILspEditorSession> m_lspSession;
+    QList<lsp::CompletionItem> m_lspCompletionItems;
+    QList<lsp::Range> m_linkedRanges;
+    bool m_isApplyingLinkedEdit = false;
+    QString m_semanticTokensUri;
 
-    // DAP / debugger integration
-    dap::DapEditorIntegration* m_dapIntegration = nullptr;
+    // DAP / debugger integration (owned by plugin, stored as QObject* to avoid
+    // compile-time dependency on plugin headers).
+    QPointer<QObject> m_dapIntegration;
 };
 
 #endif // CODEEDITOR_H

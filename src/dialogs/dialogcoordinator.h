@@ -29,7 +29,7 @@ class TabManager;
 
 namespace lsp
 {
-class LspServerManager;
+class ILspService;
 } // namespace lsp
 
 /**
@@ -48,7 +48,7 @@ public:
     explicit DialogCoordinator(TabManager* tabManager, ProjectPanel* projectPanel, QObject* parent = nullptr);
 
     void findInFiles();
-    void findSymbols(lsp::LspServerManager* lspManager);
+    void findSymbols(lsp::ILspService* lspService);
 
 signals:
     /**

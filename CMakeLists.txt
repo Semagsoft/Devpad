@@ -1,10 +1,45 @@
 ﻿cmake_minimum_required(VERSION 3.23)
-project(Devpad VERSION 1.09 LANGUAGES CXX)
+project(Devpad VERSION 1.10 LANGUAGES CXX)
+
+# -Wsfinae-incomplete only exists in Clang and GCC >= 14. GCC rejects an
+# unknown -Wno-error=<name> outright, so only add it when the compiler
+# supports it; keeps -Werror builds working on Ubuntu 24.04's GCC 13.
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-Wno-error=sfinae-incomplete" DEVPAD_HAS_SFINAE_INCOMPLETE_FLAG)
+if(DEVPAD_HAS_SFINAE_INCOMPLETE_FLAG)
+    add_compile_options(-Wno-error=sfinae-incomplete)
+endif()
 
 set(DEPS_PREFIX ${CMAKE_BINARY_DIR}/_deps)
+# On Windows, plugins must resolve host symbols at link time (PE has no
+# load-time resolution for undefined symbols). The host code is therefore
+# merged into one aggregate DLL that exports everything and is linked by
+# the app and its plugins; elsewhere plugins resolve host symbols from the
+# executable at load time (ENABLE_EXPORTS).
+if(WIN32)
+    set(DEVPAD_PLUGIN_SUFFIX ".dll")
+else()
+    set(DEVPAD_PLUGIN_SUFFIX ".so")
+endif()
+add_compile_definitions(PLUGIN_SUFFIX="${DEVPAD_PLUGIN_SUFFIX}")
+if(WIN32)
+    set(DEVPAD_HOST_LINKS Devpad_host)
+    set(DEVPAD_HOST_APP Devpad_host)
+    # The test binary links the host code statically (as on Linux): the
+    # per-module member-pointer registration table that QSignalSpy relies
+    # on is only complete in a single-image binary. The app and plugins
+    # still share Devpad_host.dll, so runtime semantics are unaffected.
+    set(DEVPAD_HOST_TEST Devpad_lib Devpad_lsp)
+    set(DEVPAD_NEXTGEN_HOST "")
+else()
+    set(DEVPAD_HOST_LINKS "")
+    set(DEVPAD_HOST_APP Devpad_lib Devpad_core)
+    set(DEVPAD_HOST_TEST Devpad_lib Devpad_lsp)
+    set(DEVPAD_NEXTGEN_HOST Devpad_lsp)
+endif()
 option(BUILD_QSCINTILLA "Build QScintilla from source if not found system-wide" ON)
 option(BUILD_TUI "Build terminal UI (ncurses) mode" OFF)
-option(BUILD_NEXTGEN "Build next-gen QML/high-perf mode (primoEditor)" OFF)
+option(BUILD_NEXTGEN "Build next-gen QML/high-perf mode (primoEditor, experimental; not shipped)" OFF)
 option(BUILD_PLUGINS "Build the C++ plugin/extension system" ON)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -27,16 +62,50 @@ if(TARGET Qt6::DBus)
 else()
     message(STATUS "Qt6 DBus not found; portal-based dark-mode detection disabled")
 endif()
-# ── Terminal widget ──────────────────────────────────────────
+# ── Terminal backend: libghostty-vt (default) ─────────────────────
+option(BUILD_GHOSTTY "Build the libghostty-vt terminal backend via FetchContent (Zig >= 0.17, not packaged in most distros). OFF by default: the QTermWidget/KodoTerm fallback needs no Zig and is what CI and Flatpak build. Pass -DBUILD_GHOSTTY=ON to opt in." OFF)
+if(BUILD_GHOSTTY)
+    include(FetchContent)
+    message(STATUS "Fetching libghostty-vt (ghostty) via FetchContent...")
+    FetchContent_Declare(ghostty
+        GIT_REPOSITORY https://github.com/ghostty-org/ghostty.git
+        GIT_TAG vt-1.0.0
+    )
+    # Ghostty-vt unconditionally registers install rules (library, headers,
+    # CMake config). Embedded in this project it must be built but NOT
+    # installed into the system prefix by `cmake --install` — EXCLUDE_FROM_ALL
+    # drops the subdirectory's install rules while keeping its targets.
+    cmake_policy(PUSH)
+    cmake_policy(SET CMP0169 OLD)
+    FetchContent_Populate(ghostty)
+    add_subdirectory(${ghostty_SOURCE_DIR} ${ghostty_BINARY_DIR} EXCLUDE_FROM_ALL)
+    cmake_policy(POP)
+    set(TERMINAL_TARGET ghostty-vt-static)
+    set(TERMINAL_HAS_GHOSTTY TRUE)
+    set(DEVPAD_GHOSTTY_TERMINAL TRUE)
+endif()
+if(NOT DEFINED TERMINAL_HAS_GHOSTTY)
+    set(TERMINAL_HAS_GHOSTTY FALSE)
+endif()
+
+# ── Terminal widget (legacy backends; only used when libghostty is off) ──
+if(NOT TERMINAL_HAS_GHOSTTY)
 if(WIN32)
     include(FetchContent)
     message(STATUS "Fetching KodoTerm terminal widget (Windows)...")
     FetchContent_Declare(KodoTerm
         GIT_REPOSITORY https://github.com/diegoiast/KodoTerm.git
-        GIT_TAG main
+        # Pinned to the tip of main as of 2026-11-12; do not float on a
+        # moving branch. Bump deliberately and re-test the Windows build.
+        GIT_TAG 9d016815076a451ad639fa021d46602585e91247
     )
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(KodoTerm)
+    # Embedded dependency: built but not installed into the system prefix.
+    cmake_policy(PUSH)
+    cmake_policy(SET CMP0169 OLD)
+    FetchContent_Populate(KodoTerm)
+    add_subdirectory(${kodoterm_SOURCE_DIR} ${kodoterm_BINARY_DIR} EXCLUDE_FROM_ALL)
+    cmake_policy(POP)
     set(TERMINAL_TARGET KodoTerm::KodoTerm)
     set(TERMINAL_HAS_KODOTERM TRUE)
 else()
@@ -80,6 +149,7 @@ else()
         list(PREPEND CMAKE_PREFIX_PATH ${DEPS_PREFIX})
     endif()
     set(TERMINAL_TARGET qtermwidget6)
+endif()
 endif()
 
 # ── QScintilla (system or build from source) ──────────────────
@@ -185,32 +255,300 @@ add_library(Devpad_core STATIC
     src/tui/tuihighlighter.cpp
     src/tui/tuiviewstate.cpp
     src/tui/tuirenderer.cpp
+    src/keywords.cpp
 )
 target_compile_options(Devpad_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad_core PUBLIC
     Qt6::Core
     Qt6::Network
 )
+# Position-independent code: Devpad_core is linked into plugin modules.
+set_target_properties(Devpad_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(Devpad_core PUBLIC
     src
     src/managers
     ${CMAKE_BINARY_DIR}/generated
 )
 
-# ── Shared static library (avoids double compilation) ─────────
-add_library(Devpad_lib STATIC
+# ── Editor library (QScintilla + Qt Gui/Widgets) ────────────────────────
+# Holds the editing core: QScintilla editor, themes, languages, snippets,
+# and the lightweight editor widgets. SettingsManager lives here because its
+# implementation includes codeeditor.h / QScintilla.
+add_library(Devpad_editor STATIC
     src/codeeditor.cpp
-    src/keywords.cpp
     src/languageinfo.cpp
-    src/theme.cpp
+    src/lsp/lspeditorbridge.cpp
     src/palettechangefilter.h
+    src/snippet.cpp
+    src/snippetengine.cpp
+    src/theme.cpp
+    src/managers/settingsmanager.cpp
+    src/widgets/brackethelper.cpp
+    src/widgets/inlinefindbar.cpp
+    src/widgets/minimap.cpp
+    src/widgets/scrollbarannotation.cpp
+    src/widgets/editorcontainer.cpp
+    src/widgets/themepreviewwidget.cpp
+)
+target_compile_options(Devpad_editor PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_editor PUBLIC
+    Devpad_core
+    Qt6::Gui
+    Qt6::Widgets
+    ${QSCINTILLA_TARGET}
+)
+# Position-independent code: Devpad_editor is linked into plugin modules.
+set_target_properties(Devpad_editor PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(TARGET Qt6::DBus)
+    target_link_libraries(Devpad_editor PUBLIC Qt6::DBus)
+    target_compile_definitions(Devpad_editor PUBLIC HAVE_QT_DBUS)
+endif()
+target_include_directories(Devpad_editor PUBLIC
+    src
+    src/managers
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# ── LSP library ──────────────────────────────────────────────────────────
+# DTOs plus the JSON-RPC transport, language client, server manager and
+# workspace-edit helper. Shared by the host (link-time) and by tests; the LSP
+# plugin itself ships only its own UI/session glue and resolves both this
+# library's and the host's symbols from the main executable at load time.
+add_library(Devpad_lsp STATIC
+    src/lsp/lsptypes.cpp
+    src/plugins/lsp_plugin/lspjsonrpc.cpp
+    src/plugins/lsp_plugin/lspclient.cpp
+    src/plugins/lsp_plugin/lspservermanager.cpp
+    src/plugins/lsp_plugin/lspworkspaceedit.cpp
+    src/plugins/lsp_plugin/lspworkspaceedit.h
+)
+target_compile_options(Devpad_lsp PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_lsp PUBLIC
+    Devpad_editor
+    Qt6::Core
+)
+target_link_libraries(Devpad_lsp PRIVATE
+    Qt6::Gui
+    Qt6::Widgets
+)
+# Position-independent code: Devpad_lsp objects may be linked into tests.
+set_target_properties(Devpad_lsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(Devpad_lsp PUBLIC
+    src
+    src/managers
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# TERMINAL_HAS_GHOSTTY / TERMINAL_HAS_KODOTERM are only set in the branches
+# above (libghostty / legacy); default them everywhere else so the
+# $<BOOL:...> generator expressions below evaluate.
+if(NOT DEFINED TERMINAL_HAS_GHOSTTY)
+    set(TERMINAL_HAS_GHOSTTY FALSE)
+endif()
+if(NOT DEFINED TERMINAL_HAS_KODOTERM)
+    set(TERMINAL_HAS_KODOTERM FALSE)
+endif()
+
+# ── Panels library ───────────────────────────────────────────────────────
+# Dockable panels: project tree, split view, tab bar, error list, references,
+# debugger panel, plus chrome widgets (title bar, window frame bridge).
+add_library(Devpad_panels STATIC
+    src/panels/projectpanel.cpp
+    src/panels/splitview.cpp
+    src/panels/draggabletabbar.cpp
+    src/panels/dropzoneoverlay.cpp
+    src/panels/errorlistpanel.cpp
+    src/panels/referencespanel.cpp
+    src/widgets/titlebar.cpp
+    src/widgets/windowsframebridge.cpp
+)
+target_compile_options(Devpad_panels PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(Devpad_panels PUBLIC
+    Devpad_editor
+    Devpad_lsp
+    Qt6::Widgets
+)
+target_include_directories(Devpad_panels PUBLIC
+    src
+    src/managers
+    src/panels
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# ── Terminal sources (built only into the terminal plugin) ─────────────────
+# The terminal panel and backends live exclusively in the terminalplugin
+# module so the heavyweight terminal widget (qtermwidget/KodoTerm) can be
+# loaded at runtime and optionally left out of the main executable.
+if(TERMINAL_HAS_GHOSTTY)
+    set(DEVPAD_TERMINAL_SOURCES
+        src/plugins/terminalplugin/terminalpanel.cpp
+        src/plugins/terminalplugin/terminalbackend.cpp
+        src/plugins/terminalplugin/terminalbackend_ghostty.cpp)
+elseif(TERMINAL_HAS_KODOTERM)
+    set(DEVPAD_TERMINAL_SOURCES
+        src/plugins/terminalplugin/terminalpanel.cpp
+        src/plugins/terminalplugin/terminalbackend.cpp
+        src/plugins/terminalplugin/terminalbackend_kodoterm.cpp)
+else()
+    set(DEVPAD_TERMINAL_SOURCES
+        src/plugins/terminalplugin/terminalpanel.cpp
+        src/plugins/terminalplugin/terminalbackend.cpp
+        src/plugins/terminalplugin/terminalbackend_qtermwidget.cpp)
+endif()
+
+# ── Terminal plugin ──────────────────────────────────────────────────────
+# First-party plugin: creates and owns the TerminalPanel. Built as a MODULE
+# library so it can be loaded at runtime via QLibrary from the user plugins
+# directory.
+if(BUILD_PLUGINS)
+    add_library(terminalplugin MODULE
+        src/plugins/terminalplugin/terminalplugin.cpp
+        ${DEVPAD_TERMINAL_SOURCES}
+    )
+    target_compile_options(terminalplugin PRIVATE -Wall -Wextra -Wpedantic)
+    if(DEVPAD_GHOSTTY_TERMINAL)
+        target_compile_definitions(terminalplugin PRIVATE DEVPAD_GHOSTTY_TERMINAL)
+    endif()
+    target_include_directories(terminalplugin PRIVATE
+        src
+        src/managers
+        src/panels
+    )
+    target_link_libraries(terminalplugin PRIVATE
+        # On Linux/macOS plugins resolve host symbols from the executable at
+        # load time (ENABLE_EXPORTS); on Windows they link the host DLLs so
+        # they share the app's singletons (SettingsManager, Logger, ...)
+        # instead of getting a private static copy.
+        ${TERMINAL_TARGET}
+        Qt6::Core
+        Qt6::Widgets
+        # On Windows the host libraries are DLLs; linking them gives plugins
+        # the same single copy of host symbols the app uses.
+        ${DEVPAD_HOST_LINKS}
+    )
+    target_link_qscintilla(terminalplugin)
+    if(APPLE)
+        # Allow undefined symbols resolved from the host executable at load.
+        target_link_options(terminalplugin PRIVATE -Wl,-undefined,dynamic_lookup)
+    endif()
+    set_target_properties(terminalplugin PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX "lib"
+        SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+        OUTPUT_NAME terminalplugin
+    )
+    # Copy the plugin manifest next to the shared library.
+    configure_file(
+        src/plugins/terminalplugin/terminalplugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
+        @ONLY
+    )
+
+    # ── DAP debugger plugin ──────────────────────────────────────────
+    # First-party plugin: provides Debug Adapter Protocol debugging support.
+    # Creates DapServerManager, DebugPanel, and per-editor DapEditorIntegration.
+    if(BUILD_PLUGINS)
+        add_library(dap_plugin MODULE
+            src/plugins/dap_plugin/dapplugin.cpp
+            src/plugins/dap_plugin/dapclient.cpp
+            src/plugins/dap_plugin/dapjsonrpc.cpp
+            src/plugins/dap_plugin/dapservermanager.cpp
+            src/plugins/dap_plugin/daptypes.cpp
+            src/plugins/dap_plugin/dapeditorintegration.cpp
+            src/plugins/dap_plugin/debugpanel.cpp
+        )
+        target_compile_options(dap_plugin PRIVATE -Wall -Wextra -Wpedantic)
+        target_include_directories(dap_plugin PRIVATE
+            src
+            src/managers
+            src/panels
+            ${CMAKE_BINARY_DIR}/generated
+        )
+        target_link_libraries(dap_plugin PRIVATE
+            # On Linux/macOS plugins resolve host symbols from the executable
+            # at load time (ENABLE_EXPORTS); on Windows they link the host
+            # DLLs so they share the app's singletons.
+            Qt6::Core
+            Qt6::Widgets
+            ${DEVPAD_HOST_LINKS}
+        )
+        target_link_qscintilla(dap_plugin)
+        if(APPLE)
+            # Allow undefined symbols resolved from the host executable at load.
+            target_link_options(dap_plugin PRIVATE -Wl,-undefined,dynamic_lookup)
+        endif()
+        set_target_properties(dap_plugin PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+            PREFIX "lib"
+            SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+            OUTPUT_NAME dap_plugin
+        )
+        # Copy the plugin manifest next to the shared library.
+        configure_file(
+            src/plugins/dap_plugin/dap_plugin.plugin.json
+            ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
+            @ONLY
+        )
+    endif()
+endif()
+
+# ── LSP plugin ───────────────────────────────────────────────────────────
+# First-party plugin: provides the whole Language Server Protocol stack
+# (JSON-RPC client, server manager, per-editor sessions). Host code talks to
+# it through the ILspService / ILspEditorSession / IEditorLspBridge
+# interfaces in src/plugins/lspinterface.h; Devpad never links the plugin.
+if(BUILD_PLUGINS)
+    add_library(lsp_plugin MODULE
+        src/plugins/lsp_plugin/lspplugin.cpp
+        src/plugins/lsp_plugin/lspeditorsession.cpp
+        src/plugins/lsp_plugin/lspconnectionhelper.cpp
+    )
+    target_compile_options(lsp_plugin PRIVATE -Wall -Wextra -Wpedantic)
+    target_include_directories(lsp_plugin PRIVATE
+        src
+        src/managers
+        src/panels
+    )
+    target_link_libraries(lsp_plugin PRIVATE
+        # Host symbols (SettingsManager, Logger, lsptypes helpers, ...) are
+        # resolved from the main executable (ENABLE_EXPORTS) at load time on
+        # Linux/macOS; on Windows the host DLLs are linked, same as the DAP
+        # plugin. Qt modules provide the rest.
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        ${DEVPAD_HOST_LINKS}
+    )
+    if(APPLE)
+        # Allow undefined symbols resolved from the host executable at load.
+        target_link_options(lsp_plugin PRIVATE -Wl,-undefined,dynamic_lookup)
+    endif()
+    set_target_properties(lsp_plugin PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX "lib"
+        SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+        OUTPUT_NAME lsp_plugin
+    )
+    # Copy the plugin manifest next to the shared library.
+    configure_file(
+        src/plugins/lsp_plugin/lsp_plugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/lsp_plugin.plugin.json
+        @ONLY
+    )
+endif()
+
+# ── App / coordinator static library (slimmed Devpad_lib) ────────────────
+# Holds MainWindow, EditorController, the remaining managers/dialogs/TUI and
+# the plugin host. Keeps the historic Devpad_lib name so the Devpad executable
+# and Devpad_tests need no link/include changes.
+add_library(Devpad_lib STATIC
     src/mainwindow.cpp
     src/editorcontroller.cpp
     src/themeapplier.cpp
     src/managers/backupmanager.cpp
     src/managers/externaltoolmanager.cpp
     src/managers/filemanager.cpp
-    src/managers/settingsmanager.cpp
     src/managers/remotefileservice.cpp
     src/managers/tabmanager.cpp
     src/managers/searchmanager.cpp
@@ -223,49 +561,25 @@ add_library(Devpad_lib STATIC
     src/managers/printmanager.cpp
     src/managers/filewatchermanager.cpp
     src/managers/updatechecker.cpp
-    src/snippet.cpp
-    src/snippetengine.cpp
+    src/managers/externalchangecoordinator.cpp
+    src/managers/remoteopencoordinator.cpp
+    src/managers/updateservicecoordinator.cpp
+    src/managers/remoteservicecoordinator.cpp
+    src/managers/terminalpanelcoordinator.cpp
+    src/managers/lsphostcoordinator.cpp
+    src/plugins/lspinterface.h
     src/dialogs/findinfilesdialog.cpp
     src/dialogs/findsymbolsdialog.cpp
     src/dialogs/dialogcoordinator.cpp
-    src/managers/externalchangecoordinator.cpp
-    src/managers/remoteopencoordinator.cpp
     src/dialogs/aboutdialog.cpp
     src/dialogs/customthemedialog.cpp
     src/dialogs/optionsdialog.cpp
     src/dialogs/externaltoolsdialog.cpp
     src/dialogs/updatedialog.cpp
-    src/panels/projectpanel.cpp
-    src/panels/terminalpanel.cpp
-    src/panels/terminalbackend.cpp
-    src/panels/splitview.cpp
-    src/panels/dropzoneoverlay.cpp
-    $<$<NOT:$<BOOL:${TERMINAL_HAS_KODOTERM}>>:src/panels/terminalbackend_qtermwidget.cpp>
-    $<$<BOOL:${TERMINAL_HAS_KODOTERM}>:src/panels/terminalbackend_kodoterm.cpp>
-    src/panels/draggabletabbar.cpp
-    src/panels/errorlistpanel.cpp
-    src/panels/referencespanel.cpp
-    src/panels/debugpanel.cpp
-    src/widgets/brackethelper.cpp
-    src/widgets/themepreviewwidget.cpp
-    src/widgets/titlebar.cpp
-    src/widgets/windowsframebridge.cpp
-    src/widgets/inlinefindbar.cpp
-    src/widgets/editorcontainer.cpp
-    src/widgets/minimap.cpp
     src/tui/tuisession.cpp
     src/tui/tuicommand.cpp
     src/tui/tuiinput.cpp
-    src/lsp/lspjsonrpc.cpp
-    src/lsp/lspclient.cpp
-    src/lsp/lspconnectionhelper.cpp
-    src/lsp/lspservermanager.cpp
-    src/lsp/lsptypes.cpp
-    src/lsp/lspeditorintegration.cpp
-    src/dap/dapclient.cpp
-    src/dap/dapservermanager.cpp
-    src/dap/daptypes.cpp
-    src/dap/dapeditorintegration.cpp
+    src/nextgen/primodocument.cpp
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginhost.cpp>
     $<$<BOOL:${BUILD_PLUGINS}>:src/plugins/pluginmanager.cpp>
 )
@@ -273,19 +587,19 @@ target_compile_options(Devpad_lib PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad_lib PUBLIC
     Devpad_core
-    Qt6::Gui
-    Qt6::Widgets
+    Devpad_editor
+    Devpad_panels
     Qt6::PrintSupport
     Qt6::Multimedia
     Qt6::Svg
-    ${TERMINAL_TARGET}
 )
 if(TARGET Qt6::DBus)
     target_link_libraries(Devpad_lib PUBLIC Qt6::DBus)
     target_compile_definitions(Devpad_lib PUBLIC HAVE_QT_DBUS)
 endif()
 if(BUILD_PLUGINS)
-    target_compile_definitions(Devpad_lib PUBLIC BUILD_PLUGINS=1)
+    target_compile_definitions(Devpad_lib PUBLIC BUILD_PLUGINS=1
+        "DEVPAD_SYSTEM_PLUGINS_DIR=\"${CMAKE_INSTALL_PREFIX}/lib/devpad/plugins\"")
 endif()
 target_include_directories(Devpad_lib PUBLIC
     src
@@ -306,33 +620,97 @@ endif()
 if(BUILD_NEXTGEN)
     find_package(Qt6 6.6 REQUIRED COMPONENTS Quick Qml QuickControls2)
     message(STATUS "Building with NEXTGEN support (QML + primoEditor)")
+    # AUTOMOC does not reliably pick up Q_OBJECT headers hidden behind
+    # $<BOOL:${BUILD_NEXTGEN}> generator expressions; list them so moc runs.
+    set(NEXTGEN_SOURCES
+        src/nextgen/nextgenapp.cpp
+        src/nextgen/nextgenapp.h
+        src/nextgen/nextgenactions.cpp
+        src/nextgen/nextgenactions.h
+        src/nextgen/nextgentabmodel.cpp
+        src/nextgen/nextgentabmodel.h
+        src/nextgen/primoeditor.cpp
+        src/nextgen/primoeditor.h
+        src/nextgen/primohighlighter.cpp
+        src/nextgen/primohighlighter.h
+        src/nextgen/primoshader.cpp
+        src/nextgen/primoshader.h
+        src/nextgen/primoterminal.cpp
+        src/nextgen/primoterminal.h
+        src/nextgen/primofindinfiles.cpp
+        src/nextgen/primofindinfiles.h
+        src/nextgen/filetreemodel.cpp
+        src/nextgen/filetreemodel.h
+    )
+else()
+    set(NEXTGEN_SOURCES "")
+endif()
+
+# Windows DLLs export no symbols unless told to, and the host libraries
+# reference each other densely (generated moc output, cross-module headers,
+# e.g. Devpad_editor needs IEditorLspBridge's vtable from Devpad_lib and the
+# lsp:: helpers from Devpad_lsp). They therefore cannot be arranged into a
+# DLL dependency DAG; instead they are merged into one aggregate DLL that
+# exports everything. --whole-archive ensures no object is dropped.
+if(WIN32)
+    add_library(Devpad_host SHARED)
+    target_link_libraries(Devpad_host PRIVATE
+        -Wl,--whole-archive
+        Devpad_core
+        Devpad_editor
+        Devpad_lsp
+        Devpad_panels
+        Devpad_lib
+        -Wl,--no-whole-archive
+    )
+    # Carry the host libraries' usage requirements forward (Qt modules,
+    # includes, compile definitions) so consumers need nothing else —
+    # $<LINK_ONLY:> does not propagate usage requirements in practice.
+    target_include_directories(Devpad_host PUBLIC
+        src
+        src/managers
+        src/dialogs
+        src/panels
+        ${CMAKE_BINARY_DIR}/generated
+    )
+    target_link_libraries(Devpad_host PUBLIC
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::PrintSupport
+        Qt6::Multimedia
+        Qt6::Svg
+    )
+    if(TARGET Qt6::DBus)
+        target_link_libraries(Devpad_host PUBLIC Qt6::DBus)
+        target_compile_definitions(Devpad_host PUBLIC HAVE_QT_DBUS)
+    endif()
+    if(BUILD_PLUGINS)
+        target_compile_definitions(Devpad_host PUBLIC BUILD_PLUGINS=1
+            "DEVPAD_SYSTEM_PLUGINS_DIR=\"${CMAKE_INSTALL_PREFIX}/lib/devpad/plugins\"")
+    endif()
+    target_link_options(Devpad_host PRIVATE -Wl,--export-all-symbols)
 endif()
 
 # ── Main executable ───────────────────────────────────────────
 add_executable(Devpad WIN32)
+# Export symbols so plugins can qobject_cast host objects (e.g. the shared
+# SettingsManager instance) across the DSO boundary.
+set_target_properties(Devpad PROPERTIES ENABLE_EXPORTS ON)
 
 target_sources(Devpad PRIVATE
     src/main.cpp
     resources/resources.qrc
     $<$<PLATFORM_ID:Windows>:resources/appicon.rc>
     $<$<BOOL:${BUILD_TUI}>:src/tui/tuiapp.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgenapp.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoeditor.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primodocument.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primohighlighter.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoshader.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgenactions.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/nextgentabmodel.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primoterminal.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/primofindinfiles.cpp>
-    $<$<BOOL:${BUILD_NEXTGEN}>:src/nextgen/filetreemodel.cpp>
+    ${NEXTGEN_SOURCES}
 )
 
 target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(Devpad PRIVATE
-    Devpad_lib
-    Devpad_core
+    ${DEVPAD_HOST_APP}
 )
 target_link_qscintilla(Devpad)
 
@@ -358,11 +736,17 @@ if(BUILD_NEXTGEN)
         Qt6::Quick
         Qt6::Qml
         Qt6::QuickControls2
+        ${DEVPAD_NEXTGEN_HOST}
     )
 endif()
 
 # ── Install rules ─────────────────────────────────────────────
 install(TARGETS Devpad RUNTIME DESTINATION bin)
+# Windows host libraries are DLLs; they must sit next to the executable so
+# it (and the plugins) can load them at runtime.
+if(WIN32)
+    install(TARGETS Devpad_host RUNTIME DESTINATION bin)
+endif()
 
 install(FILES resources/com.semagsoft.Devpad.desktop
     DESTINATION share/applications
@@ -380,6 +764,23 @@ install(FILES resources/icons/devpad.svg
 install(FILES LICENSE
     DESTINATION share/licenses/Devpad
 )
+
+# ── Install first-party plugins ───────────────────────────────
+# System plugins are installed to lib/devpad/plugins (read-only,
+# shipped with the app). User-installed plugins live in
+# ~/.local/share/devpad/plugins/ and are scanned in addition.
+if(BUILD_PLUGINS)
+    install(FILES
+        ${CMAKE_BINARY_DIR}/plugins/libterminalplugin${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/terminalplugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libdap_plugin${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/liblsp_plugin${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/lsp_plugin.plugin.json
+        DESTINATION lib/devpad/plugins
+        OPTIONAL
+    )
+endif()
 
 # ── Internationalization ──────────────────────────────────────
 set(TS_FILES
@@ -452,6 +853,8 @@ if(BUILD_TESTS)
         GIT_TAG v1.14.0
     )
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    # Embedded dependency: built but not installed into the system prefix.
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
     enable_testing()
@@ -495,21 +898,28 @@ if(BUILD_TESTS)
         tests/test_recentfileshelper.cpp
         tests/test_lsptypes.cpp
         tests/test_lspjsonrpc.cpp
+        tests/test_lspservermanager.cpp
+        tests/test_workspaceedit.cpp
         tests/test_splitview.cpp
         tests/test_updatechecker.cpp
         tests/test_projectpanel.cpp
         tests/test_lspclient.cpp
         tests/test_fileservice.cpp
         tests/test_tuibuffer.cpp
+        tests/test_terminalshortcuts.cpp
         tests/test_tuitabmodel.cpp
         tests/test_tuisearchengine.cpp
         tests/test_tuifiletree.cpp
         tests/test_tuihighlighter.cpp
+        tests/test_primodocument.cpp
         tests/test_tuifindinfiles.cpp
         tests/test_tuicommand.cpp
+        tests/test_pluginapi.cpp
     )
 
     add_executable(Devpad_tests ${TEST_SOURCES} resources/resources.qrc)
+    # Tests load plugins too; export symbols for cross-DSO qobject_cast.
+    set_target_properties(Devpad_tests PROPERTIES ENABLE_EXPORTS ON)
 
     target_compile_options(Devpad_tests PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -521,7 +931,7 @@ if(BUILD_TESTS)
         Qt6::Widgets
         Qt6::Network
         Qt6::Test
-        Devpad_lib
+        ${DEVPAD_HOST_TEST}
     )
     target_link_qscintilla(Devpad_tests)
 
@@ -532,5 +942,18 @@ if(BUILD_TESTS)
         src/panels
     )
 
-    gtest_discover_tests(Devpad_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    target_compile_definitions(Devpad_tests PRIVATE
+        DEVPAD_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+        DEVPAD_BUILD_DIR="${CMAKE_BINARY_DIR}"
+        $<$<BOOL:${BUILD_PLUGINS}>:DEVPAD_BUILD_PLUGINS=1>
+    )
+
+    # Point the tests at the plugins built in this build tree so the suite
+    # never loads a stale system-wide installation (plugins share the
+    # application's data layout; a mismatched copy corrupts memory). The
+    # DEVPAD_PLUGINS_DIR environment variable itself is set by tests/main.cpp,
+    # because the ENVIRONMENT property cannot reliably carry a
+    # semicolon-separated value through gtest_discover_tests.
+    gtest_discover_tests(Devpad_tests
+        DISCOVERY_MODE PRE_TEST)
 endif()

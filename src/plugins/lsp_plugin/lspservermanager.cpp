@@ -1,0 +1,350 @@
+/*
+ * Devpad - A C++/Qt6 code editor
+ * Copyright (C) 2026 Semagsoft
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+#include "lspservermanager.h"
+
+#include "lsp/lspdefaults.h"
+#include "settingsmanager.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QJsonValue>
+#include <QStandardPaths>
+
+namespace lsp
+{
+
+LspServerManager::LspServerManager(QObject* parent) : QObject(parent)
+{
+}
+
+QList<QPair<QString, QPair<QString, int>>> LspServerManager::documentsForReplay(const QString& language) const
+{
+    QList<QPair<QString, QPair<QString, int>>> result;
+    for (auto it = m_documentLanguages.constBegin(); it != m_documentLanguages.constEnd(); ++it)
+    {
+        if (it.value() != language)
+            continue;
+        result.append(qMakePair(it.key(), qMakePair(m_documentTexts.value(it.key()), m_documentVersions.value(it.key(), 1))));
+    }
+    return result;
+}
+
+void LspServerManager::replayDocuments(const QString& language, LspClient* client)
+{
+    if (!client)
+        return;
+    for (const auto& doc : documentsForReplay(language))
+    {
+        // Server is not initialized right after a crash; the client queues
+        // these and flushes them once the new server finishes initializing.
+        client->openDocument(doc.first, doc.second.first, doc.second.second);
+    }
+}
+
+LspServerManager::~LspServerManager()
+{
+    for (auto* client : m_clients)
+    {
+        client->stopServer();
+        delete client;
+    }
+    m_clients.clear();
+}
+
+QString LspServerManager::rootUriForFile(const QString& filePath) const
+{
+    // Look for project root by checking for common markers
+    QDir dir = QFileInfo(filePath).absoluteDir();
+    while (!dir.isRoot())
+    {
+        if (dir.exists(".git") || dir.exists(".svn") || dir.exists("CMakeLists.txt") || dir.exists("Cargo.toml") || dir.exists("package.json") ||
+            dir.exists("go.mod") || dir.exists("pom.xml") || dir.exists("build.gradle") || dir.exists("Setup.hs"))
+        {
+            return uriFromPath(dir.absolutePath());
+        }
+        if (!dir.cdUp())
+            break;
+    }
+    // Fallback: parent directory of the file
+    return uriFromPath(QFileInfo(filePath).absolutePath());
+}
+
+QString LspServerManager::serverCommandForLanguage(const QString& language) const
+{
+    const auto& s = SettingsManager::instance();
+    if (m_pluginServerCommands.contains(language))
+        return m_pluginServerCommands.value(language);
+    QString serverCommand = s.lspServerCommand(language);
+    if (serverCommand.isEmpty())
+        serverCommand = defaultServerCommands().value(language);
+    return serverCommand;
+}
+
+QStringList LspServerManager::serverArgsForLanguage(const QString& language) const
+{
+    const auto& s = SettingsManager::instance();
+    if (m_pluginServerArgs.contains(language))
+        return m_pluginServerArgs.value(language);
+    QStringList serverArgs = s.lspServerArgs(language);
+    if (serverArgs.isEmpty())
+        serverArgs = defaultServerArgs(language);
+    return serverArgs;
+}
+
+void LspServerManager::startClientIfNeeded(LspClient* client, const QString& language, const QString& rootUri)
+{
+    if (!client || client->isRunning())
+        return;
+    const QString command = serverCommandForLanguage(language);
+    if (command.isEmpty())
+        return;
+    client->startServer(command, serverArgsForLanguage(language), rootUri);
+}
+
+QString LspServerManager::rootUriForLanguage(const QString& language) const
+{
+    for (auto it = m_documentLanguages.constBegin(); it != m_documentLanguages.constEnd(); ++it)
+    {
+        if (it.value() == language)
+            return rootUriForFile(pathFromUri(it.key()));
+    }
+    return QString();
+}
+
+LspClient* LspServerManager::clientForLanguage(const QString& language)
+{
+    if (language.isEmpty() || language == "text")
+        return nullptr;
+
+    if (m_clients.contains(language))
+        return m_clients[language];
+
+    if (!SettingsManager::instance().lspEnabled())
+        return nullptr;
+
+    // Plugin-registered servers take precedence, then user settings, then
+    // built-in defaults.
+    const QString serverCommand = serverCommandForLanguage(language);
+    if (serverCommand.isEmpty())
+        return nullptr;
+
+    // Verify the server binary exists in PATH
+    if (QStandardPaths::findExecutable(serverCommand).isEmpty())
+    {
+#ifdef QT_DEBUG
+        qDebug().noquote() << QString("LSP server '%1' not found in PATH for %2").arg(serverCommand, language);
+#endif
+        return nullptr;
+    }
+
+    auto* client = new LspClient(language, this);
+    m_clients[language] = client;
+
+    // Replay open documents when the server crashes and restarts (the fresh
+    // server starts with no document state, so hover/diagnostics/completion
+    // would silently fail until the next keystroke).
+    connect(client, &LspClient::serverCrashed, this, [this, language, client]() { replayDocuments(language, client); });
+
+    // Forward signals
+    connect(client, &LspClient::completionReady, this, &LspServerManager::completionReady);
+    connect(client, &LspClient::definitionReady, this, &LspServerManager::definitionReady);
+    connect(client, &LspClient::referencesReady, this, &LspServerManager::referencesReady);
+    connect(client, &LspClient::hoverReady, this, &LspServerManager::hoverReady);
+    connect(client, &LspClient::codeActionReady, this, &LspServerManager::codeActionReady);
+    connect(client, &LspClient::executeCommandReady, this, &LspServerManager::executeCommandReady);
+    connect(client, &LspClient::diagnosticsReady, this, &LspServerManager::diagnosticsReady);
+    connect(client, &LspClient::documentSymbolsReady, this, &LspServerManager::documentSymbolsReady);
+    connect(client, &LspClient::formattingReady, this, &LspServerManager::formattingReady);
+    connect(client, &LspClient::rangeFormattingReady, this, &LspServerManager::rangeFormattingReady);
+    connect(client, &LspClient::signatureHelpReady, this, &LspServerManager::signatureHelpReady);
+    connect(client, &LspClient::renameReady, this, &LspServerManager::renameReady);
+    connect(client, &LspClient::documentHighlightReady, this, &LspServerManager::documentHighlightReady);
+    connect(client, &LspClient::typeDefinitionReady, this, &LspServerManager::typeDefinitionReady);
+    connect(client, &LspClient::declarationReady, this, &LspServerManager::declarationReady);
+    connect(client, &LspClient::workspaceSymbolsReady, this, &LspServerManager::workspaceSymbolsReady);
+    connect(client, &LspClient::selectionRangesReady, this, &LspServerManager::selectionRangesReady);
+    connect(client, &LspClient::linkedEditingRangeReady, this, &LspServerManager::linkedEditingRangeReady);
+    connect(client, &LspClient::callHierarchyReady, this, &LspServerManager::callHierarchyReady);
+    connect(client, &LspClient::incomingCallsReady, this, &LspServerManager::incomingCallsReady);
+    connect(client, &LspClient::outgoingCallsReady, this, &LspServerManager::outgoingCallsReady);
+    connect(client, &LspClient::semanticTokensFullReady, this, &LspServerManager::semanticTokensFullReady);
+
+    return client;
+}
+
+LspClient* LspServerManager::clientForUri(const QString& uri)
+{
+    QString lang = m_documentLanguages.value(uri);
+    if (lang.isEmpty())
+        return nullptr;
+    return clientForLanguage(lang);
+}
+
+void LspServerManager::openDocument(const QString& language, const QString& uri, const QString& text)
+{
+    if (!SettingsManager::instance().lspEnabled())
+        return;
+
+    // Track the document even when no server is available for the language,
+    // so a later plugin registration or config change can pick it up.
+    int version = m_documentVersions.value(uri, 0) + 1;
+    m_documentLanguages[uri] = language;
+    m_documentVersions[uri] = version;
+    m_documentTexts[uri] = text;
+
+    QString rootUri = rootUriForFile(pathFromUri(uri));
+    auto* client = clientForLanguage(language);
+    if (!client)
+        return;
+
+    startClientIfNeeded(client, language, rootUri);
+
+    client->openDocument(uri, text, version);
+}
+
+QStringList LspServerManager::documentUris() const
+{
+    return m_documentLanguages.keys();
+}
+
+void LspServerManager::changeDocument(const QString& uri, const QString& text)
+{
+    // Track even when the server is gone; replay needs the latest text.
+    int version = m_documentVersions.value(uri, 0) + 1;
+    m_documentVersions[uri] = version;
+    m_documentTexts[uri] = text;
+
+    auto* client = clientForUri(uri);
+    if (!client)
+        return;
+    client->changeDocument(uri, text, version);
+}
+
+void LspServerManager::closeDocument(const QString& uri)
+{
+    auto* client = clientForUri(uri);
+    if (client)
+        client->closeDocument(uri);
+    // Always untrack, even when no server was running.
+    m_documentLanguages.remove(uri);
+    m_documentVersions.remove(uri);
+    m_documentTexts.remove(uri);
+}
+
+void LspServerManager::saveDocument(const QString& uri)
+{
+    auto* client = clientForUri(uri);
+    if (!client)
+        return;
+
+    client->saveDocument(uri);
+}
+
+bool LspServerManager::hasCapability(const QString& uri, const QString& capability) const
+{
+    QString lang = m_documentLanguages.value(uri);
+    if (lang.isEmpty())
+        return false;
+    auto* client = m_clients.value(lang);
+    if (!client || !client->isRunning())
+        return false;
+
+    const auto& caps = client->capabilities();
+    if (capability == "completion")
+        return caps.completionProvider;
+    if (capability == "definition")
+        return caps.definitionProvider;
+    if (capability == "codeAction")
+        return caps.codeActionProvider;
+    if (capability == "workspaceSymbol")
+        return caps.workspaceSymbolProvider;
+    if (capability == "selectionRange")
+        return caps.selectionRangeProvider;
+    if (capability == "linkedEditingRange")
+        return caps.linkedEditingRangeProvider;
+    if (capability == "callHierarchy")
+        return caps.callHierarchyProvider;
+    if (capability == "semanticTokens")
+        return caps.semanticTokensProvider;
+    if (capability == "references")
+        return caps.referencesProvider;
+    if (capability == "hover")
+        return caps.hoverProvider;
+    if (capability == "documentSymbol")
+        return caps.documentSymbolProvider;
+    if (capability == "signatureHelp")
+        return caps.signatureHelpProvider;
+    if (capability == "formatting")
+        return caps.formattingProvider;
+    if (capability == "typeDefinition")
+        return caps.typeDefinitionProvider;
+    if (capability == "declaration")
+        return caps.declarationProvider;
+    return false;
+}
+
+QHash<QString, QString> LspServerManager::defaultServerCommands()
+{
+    return lsp::defaultServerCommands();
+}
+
+QStringList LspServerManager::defaultServerArgs(const QString& language)
+{
+    return lsp::defaultServerArgs(language);
+}
+
+void LspServerManager::registerPluginServer(const QString& language, const QString& command, const QStringList& args)
+{
+    if (language.isEmpty() || command.isEmpty())
+        return;
+    m_pluginServerCommands.insert(language, command);
+    m_pluginServerArgs.insert(language, args);
+
+    // If a client is already cached for this language, replace it cleanly so
+    // the new command takes effect: stop and delete the old client (like
+    // unregisterPluginServer does), then replay tracked documents onto a
+    // fresh client built from the new registration and start it.
+    if (auto* client = m_clients.take(language))
+    {
+        client->stopServer();
+        delete client;
+        if (LspClient* fresh = clientForLanguage(language))
+        {
+            startClientIfNeeded(fresh, language, rootUriForLanguage(language));
+            replayDocuments(language, fresh);
+        }
+    }
+}
+
+void LspServerManager::unregisterPluginServer(const QString& language)
+{
+    if (language.isEmpty())
+        return;
+    m_pluginServerCommands.remove(language);
+    m_pluginServerArgs.remove(language);
+
+    // Stop and remove any running client for this language.
+    if (auto* client = m_clients.take(language))
+    {
+        client->stopServer();
+        delete client;
+    }
+}
+
+} // namespace lsp

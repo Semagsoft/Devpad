@@ -713,6 +713,10 @@ static ThemeColors createAyuDarkTheme()
 static QList<ThemeColors> s_customThemeCache;
 static QStringList s_customThemeNames;
 
+// ── Plugin theme registry ──────────────────────────────────────
+static QHash<QString, ThemeColors> s_pluginThemeMap;
+static QStringList s_pluginThemeNameList;
+
 static QColor jsonColor(const QJsonObject& obj, const QString& key, const QColor& fallback)
 {
     if (obj.contains(key))
@@ -803,6 +807,42 @@ ThemeColors getCustomThemeColors(const QString& name)
             return c;
     }
     return getThemeColors(ThemeId::Light);
+}
+
+bool registerPluginTheme(const QString& themeId, const ThemeColors& colors)
+{
+    if (themeId.isEmpty() || s_pluginThemeMap.contains(themeId))
+        return false;
+    ThemeColors resolved = colors;
+    resolved.resolve();
+    s_pluginThemeMap.insert(themeId, resolved);
+    s_pluginThemeNameList.append(resolved.name.isEmpty() ? themeId : resolved.name);
+    return true;
+}
+
+bool unregisterPluginTheme(const QString& themeId)
+{
+    if (themeId.isEmpty() || !s_pluginThemeMap.contains(themeId))
+        return false;
+    s_pluginThemeMap.remove(themeId);
+    // Rebuild name list from remaining entries.
+    s_pluginThemeNameList.clear();
+    for (auto it = s_pluginThemeMap.begin(); it != s_pluginThemeMap.end(); ++it)
+        s_pluginThemeNameList.append(it.value().name.isEmpty() ? it.key() : it.value().name);
+    return true;
+}
+
+QStringList pluginThemeNames()
+{
+    return s_pluginThemeNameList;
+}
+
+ThemeColors getPluginThemeColors(const QString& themeId)
+{
+    auto it = s_pluginThemeMap.find(themeId);
+    if (it != s_pluginThemeMap.end())
+        return it.value();
+    return ThemeColors();
 }
 
 // ── Accent overlay ───────────────────────────────────────────────
@@ -1028,6 +1068,8 @@ static bool systemIsDarkImpl()
 static bool s_systemDarkCached = false;
 static bool s_systemDarkValue = false;
 
+static PaletteChangeFilter* s_paletteFilter = nullptr;
+
 PaletteChangeFilter::PaletteChangeFilter(QObject* parent) : QObject(parent)
 {
 }
@@ -1035,6 +1077,7 @@ PaletteChangeFilter::PaletteChangeFilter(QObject* parent) : QObject(parent)
 void PaletteChangeFilter::onSystemThemeChanged()
 {
     s_systemDarkCached = false;
+    emit systemThemeChanged();
 }
 
 #ifdef HAVE_QT_DBUS
@@ -1056,29 +1099,35 @@ void initThemeSystem()
 {
     s_systemDarkValue = systemIsDarkImpl();
     s_systemDarkCached = true;
-    static PaletteChangeFilter filter;
+    if (!s_paletteFilter)
+        s_paletteFilter = new PaletteChangeFilter(qApp);
     static bool s_watcherInstalled = false;
     if (qApp && !s_watcherInstalled)
     {
         s_watcherInstalled = true;
-        qApp->installEventFilter(&filter);
+        qApp->installEventFilter(s_paletteFilter);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
         if (QApplication::styleHints())
         {
-            QObject::connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged, &filter, &PaletteChangeFilter::onSystemThemeChanged,
-                             Qt::UniqueConnection);
+            QObject::connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged, s_paletteFilter,
+                             &PaletteChangeFilter::onSystemThemeChanged, Qt::UniqueConnection);
         }
 #endif
 #ifdef HAVE_QT_DBUS
         QDBusConnection::sessionBus().connect(QStringLiteral("org.freedesktop.portal.Desktop"), QStringLiteral("/org/freedesktop/portal/desktop"),
-                                              QStringLiteral("org.freedesktop.portal.Settings"), QStringLiteral("SettingChanged"), &filter,
+                                              QStringLiteral("org.freedesktop.portal.Settings"), QStringLiteral("SettingChanged"), s_paletteFilter,
                                               SLOT(onPortalSettingChanged(QString, QString, QDBusVariant)));
 #endif
     }
     else if (qApp)
     {
-        qApp->installEventFilter(&filter);
+        qApp->installEventFilter(s_paletteFilter);
     }
+}
+
+PaletteChangeFilter* systemThemeChangeFilter()
+{
+    return s_paletteFilter;
 }
 
 static bool systemIsDark()

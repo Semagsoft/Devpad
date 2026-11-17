@@ -20,6 +20,7 @@
 
 #include "codeeditor.h"
 #include "editorcontroller.h"
+#include "encodingutils.h"
 #include "filemanager.h"
 #include "logger.h"
 #include "managers/remotefileservice.h"
@@ -110,10 +111,16 @@ void RemoteOpenCoordinator::openRemoteFileActivated(const QString& urlStr)
 
 void RemoteOpenCoordinator::openRemoteFileFromData(const QString& urlStr, const QString& fileName, const QByteArray& data)
 {
+    BomResult bom = detectBom(data);
     QString detectedEnc = FileManager::detectEncoding(data);
-    auto encOpt = QStringConverter::encodingForName(detectedEnc.toUtf8());
-    QStringDecoder decoder(encOpt.value_or(QStringConverter::Utf8));
-    QString content = decoder(data);
+    QStringDecoder decoder(encodingFromName(detectedEnc));
+    QString content = decoder(bom.size > 0 ? data.mid(bom.size) : data);
+    if (decoder.hasError())
+    {
+        QMessageBox::warning(m_uiParent, QObject::tr("Cannot Open Remote File"),
+                             QObject::tr("The file is not valid %1. It may use a different encoding.").arg(detectedEnc));
+        return;
+    }
 
     QString displayName = fileName.isEmpty() ? QUrl(urlStr).fileName() : fileName;
     if (displayName.isEmpty())
@@ -123,6 +130,7 @@ void RemoteOpenCoordinator::openRemoteFileFromData(const QString& urlStr, const 
 
     CodeEditor* editor = m_tabManager->createEditor();
     editor->setFileName(urlStr);
+    editor->setEncoding(detectedEnc);
     editor->setText(content);
     editor->setModified(false);
 

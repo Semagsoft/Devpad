@@ -28,6 +28,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QStringConverter>
+#include <QStringEncoder>
 #include <QTextStream>
 
 namespace
@@ -43,7 +44,58 @@ FileManager::FileManager(QObject* parent) : QObject(parent)
 
 void FileManager::setRemoteFileService(RemoteFileService* service)
 {
+    if (m_remoteUploadedConn)
+        QObject::disconnect(m_remoteUploadedConn);
+    if (m_remoteFailedConn)
+        QObject::disconnect(m_remoteFailedConn);
+
     m_remoteFileService = service;
+    if (!service)
+        return;
+
+    m_remoteUploadedConn =
+        connect(service, &RemoteFileService::fileUploaded, this, [this](const QString& url) { completeRemoteSave(url, true, QString()); });
+    m_remoteFailedConn = connect(service, &RemoteFileService::uploadFailed, this,
+                                 [this](const QString& url, const QString& error) { completeRemoteSave(url, false, error); });
+}
+
+void FileManager::completeRemoteSave(const QString& url, bool ok, const QString& errorDetail)
+{
+    QList<PendingRemoteSave> pending;
+    if (auto it = m_pendingRemoteSaves.find(url); it != m_pendingRemoteSaves.end())
+    {
+        pending = *it;
+        m_pendingRemoteSaves.erase(it);
+    }
+
+    if (ok)
+    {
+        for (const auto& save : pending)
+        {
+            if (!save.editor)
+                continue;
+            // The user may have edited the buffer while the upload was in
+            // flight. Only clear the modified flag when what is on disk
+            // matches what the editor shows; otherwise keep the unsaved
+            // state so the edits are not silently lost on close.
+            if (save.editor->text() == save.text)
+                save.editor->setModified(false);
+            else
+                Logger::instance().warning(QStringLiteral("Remote save completed but the editor has unsaved edits: %1").arg(url));
+        }
+        Logger::instance().info(QString("Saved remote file: %1").arg(url));
+        emit fileSaved(url);
+        emit remoteSaveFinished(true, url, QString());
+        return;
+    }
+
+    QString detail = errorDetail.trimmed();
+    if (detail.isEmpty())
+        detail = url;
+    m_lastError = tr("Cannot save file: %1 - %2").arg(url, detail);
+    Logger::instance().error(m_lastError);
+    emit error(m_lastError);
+    emit remoteSaveFinished(false, url, errorDetail);
 }
 
 bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QString& encoding)
@@ -87,16 +139,16 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
     BomResult bom = detectBom(rawData);
 
     QStringConverter::Encoding enc;
+    QString encDisplayName;
     if (encoding.isEmpty())
     {
-        QString detectedEnc = detectEncoding(rawData);
-        auto encOpt = QStringConverter::encodingForName(detectedEnc.toUtf8());
-        enc = encOpt.value_or(QStringConverter::Utf8);
+        encDisplayName = detectEncoding(rawData);
+        enc = encodingFromName(encDisplayName);
     }
     else
     {
-        auto encOpt = QStringConverter::encodingForName(encoding.toUtf8());
-        enc = encOpt.value_or(QStringConverter::Utf8);
+        encDisplayName = encoding;
+        enc = encodingFromName(encoding);
     }
     QStringDecoder decoder(enc);
     QString content;
@@ -109,11 +161,21 @@ bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QS
         content = decoder(rawData);
     }
 
+    // Refuse a lossy decode instead of showing corrupted text that a later
+    // save would persist over the original bytes.
+    if (decoder.hasError())
+    {
+        m_lastError = tr("File is not valid %1. Reloading with a different encoding may help.").arg(encDisplayName);
+        Logger::instance().error(QStringLiteral("Decode error loading %1 as %2").arg(fileName, encDisplayName));
+        emit error(m_lastError);
+        return false;
+    }
+
     editor->setText(content);
 
     editor->setFileName(fileName);
     editor->setModified(false);
-    editor->setEncoding(encoding.isEmpty() ? encodingToDisplayName(enc) : encoding);
+    editor->setEncoding(encDisplayName);
     editor->setDiskModifiedAt(QFileInfo(fileName).lastModified());
 
     Logger::instance().info(QString("Opened file: %1").arg(fileName));
@@ -165,7 +227,17 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
     }
 
     QString useEncoding = encoding.isEmpty() ? editor->encoding() : encoding;
-    auto encOpt = QStringConverter::encodingForName(useEncoding.toUtf8());
+
+    // Fail fast instead of writing '?' for unrepresentable characters.
+    QStringEncoder probe(encodingFromName(useEncoding));
+    (void)probe.encode(editor->text());
+    if (probe.hasError())
+    {
+        m_lastError = tr("The text contains characters that cannot be represented in %1").arg(useEncoding);
+        Logger::instance().error(m_lastError);
+        emit error(m_lastError);
+        return false;
+    }
 
     QByteArray bom = bomForEncoding(useEncoding);
     if (!bom.isEmpty())
@@ -174,14 +246,7 @@ bool FileManager::saveFile(const QString& fileName, CodeEditor* editor, const QS
     }
 
     QTextStream out(&file);
-    if (encOpt.has_value())
-    {
-        out.setEncoding(encOpt.value());
-    }
-    else
-    {
-        out.setEncoding(QStringConverter::Utf8);
-    }
+    out.setEncoding(encodingFromName(useEncoding));
 
     out << editor->text();
     out.flush();
@@ -222,13 +287,23 @@ bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, co
 
     QString useEncoding = encoding.isEmpty() ? editor->encoding() : encoding;
 
+    // Fail fast instead of uploading '?' for unrepresentable characters.
+    QStringEncoder probe(encodingFromName(useEncoding));
+    (void)probe.encode(editor->text());
+    if (probe.hasError())
+    {
+        m_lastError = tr("The text contains characters that cannot be represented in %1").arg(useEncoding);
+        Logger::instance().error(m_lastError);
+        emit error(m_lastError);
+        return false;
+    }
+
     // Encode the editor text into a byte buffer. Remote files are written
     // without a BOM.
     QBuffer buffer;
     buffer.open(QIODevice::WriteOnly);
     QTextStream out(&buffer);
-    auto encOpt = QStringConverter::encodingForName(useEncoding.toUtf8());
-    out.setEncoding(encOpt.value_or(QStringConverter::Utf8));
+    out.setEncoding(encodingFromName(useEncoding));
     out << editor->text();
     out.flush();
 
@@ -241,11 +316,11 @@ bool FileManager::saveRemoteFile(const QString& fileName, CodeEditor* editor, co
         return false;
     }
 
-    editor->setModified(false);
-    // Remote (ssh://) paths have no meaningful local disk mtime; skip
-    // setDiskModifiedAt rather than querying an invalid QFileInfo.
-    Logger::instance().info(QString("Saved remote file: %1").arg(fileName));
-    emit fileSaved(fileName);
+    // The transfer runs asynchronously; completion is reported via
+    // remoteSaveFinished(). Remote (ssh://) paths have no local disk mtime, so
+    // setDiskModifiedAt() is not called — same rationale as before.
+    m_pendingRemoteSaves[fileName].append({editor, editor->text()});
+    Logger::instance().info(QString("Uploading remote file: %1").arg(fileName));
     return true;
 }
 
@@ -286,7 +361,7 @@ QString FileManager::detectEncoding(const QByteArray& buffer)
                 nullAt2or3++;
         }
 
-        if (c & 0x80)
+        if (c & 0x80u)
         {
             hasHighBytes = true;
         }
@@ -312,19 +387,19 @@ QString FileManager::detectEncoding(const QByteArray& buffer)
     {
         unsigned char c = static_cast<unsigned char>(buffer[i]);
         int expectedBytes = 0;
-        if ((c & 0x80) == 0)
+        if ((c & 0x80u) == 0)
         {
             expectedBytes = 1;
         }
-        else if ((c & 0xE0) == 0xC0)
+        else if ((c & 0xE0u) == 0xC0u)
         {
             expectedBytes = 2;
         }
-        else if ((c & 0xF0) == 0xE0)
+        else if ((c & 0xF0u) == 0xE0u)
         {
             expectedBytes = 3;
         }
-        else if ((c & 0xF8) == 0xF0)
+        else if ((c & 0xF8u) == 0xF0u)
         {
             expectedBytes = 4;
         }
@@ -335,7 +410,7 @@ QString FileManager::detectEncoding(const QByteArray& buffer)
         }
         for (int j = 1; j < expectedBytes; ++j)
         {
-            if (i + j >= buffer.size() || (static_cast<unsigned char>(buffer[i + j]) & 0xC0) != 0x80)
+            if (i + j >= buffer.size() || (static_cast<unsigned char>(buffer[i + j]) & 0xC0u) != 0x80u)
             {
                 validUtf8 = false;
                 break;

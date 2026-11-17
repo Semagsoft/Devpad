@@ -18,11 +18,16 @@
  */
 #include "encodingutils.h"
 
+namespace
+{
+QVector<EncodingInfo>& pluginEncodingTable();
+} // namespace
+
 BomResult detectBom(const QByteArray& data)
 {
     if (data.size() >= 3 && data.first(3) == QByteArray("\xEF\xBB\xBF", 3))
     {
-        return {3, "UTF-8"};
+        return {3, "UTF-8-BOM"};
     }
     if (data.size() >= 4 && data.first(4) == QByteArray("\x00\x00\xFE\xFF", 4))
     {
@@ -51,12 +56,29 @@ const QVector<EncodingInfo>& supportedEncodings()
         {"UTF-32LE", QStringConverter::Utf32LE}, {"UTF-32BE", QStringConverter::Utf32BE}, {"ISO-8859-1", QStringConverter::Latin1},
         {"System", QStringConverter::System},
     };
-    return encodings;
+    // Built-ins first, then plugin-registered encodings (which is also the
+    // precedence used by encodingToDisplayName and the encoding menus).
+    static QVector<EncodingInfo> merged;
+    merged = encodings;
+    const auto& plugins = pluginEncodingTable();
+    merged.reserve(encodings.size() + plugins.size());
+    for (const auto& plugin : plugins)
+        merged.append(plugin);
+    return merged;
 }
 
 QStringConverter::Encoding encodingFromName(const QString& name)
 {
     for (const auto& info : supportedEncodings())
+    {
+        if (info.displayName == name)
+        {
+            return info.encoding;
+        }
+    }
+    // Check plugin-registered encodings.
+    auto& pluginEncodings = pluginEncodingTable();
+    for (const auto& info : pluginEncodings)
     {
         if (info.displayName == name)
         {
@@ -76,4 +98,48 @@ QString encodingToDisplayName(QStringConverter::Encoding enc)
         }
     }
     return "UTF-8";
+}
+
+// ── Plugin encoding registry ──────────────────────────────────
+namespace
+{
+QVector<EncodingInfo>& pluginEncodingTable()
+{
+    static QVector<EncodingInfo> encodings;
+    return encodings;
+}
+} // namespace
+
+bool registerPluginEncoding(const QString& displayName, const QString& encodingName)
+{
+    if (displayName.isEmpty() || encodingName.isEmpty())
+        return false;
+    auto& table = pluginEncodingTable();
+    for (const auto& info : table)
+    {
+        if (info.displayName == displayName)
+            return false;
+    }
+    // Resolve the encoding through Qt's name lookup, the same route used by
+    // the built-in table. Unknown names are rejected rather than silently
+    // degrading to UTF-8.
+    const auto encOpt = QStringConverter::encodingForName(encodingName.toUtf8());
+    if (!encOpt.has_value())
+        return false;
+    table.append({displayName, encOpt.value()});
+    return true;
+}
+
+bool unregisterPluginEncoding(const QString& displayName)
+{
+    auto& table = pluginEncodingTable();
+    for (int i = 0; i < table.size(); ++i)
+    {
+        if (table[i].displayName == displayName)
+        {
+            table.removeAt(i);
+            return true;
+        }
+    }
+    return false;
 }

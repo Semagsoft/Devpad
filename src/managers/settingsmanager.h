@@ -24,6 +24,7 @@
 #include <QFont>
 #include <QHash>
 #include <QObject>
+#include <QPointer>
 #include <QSettings>
 #include <QString>
 #include <memory>
@@ -87,6 +88,17 @@ enum class ShellOpenMode
 // because it is accessed from many contexts (CodeEditor, dialogs, panels, etc.)
 // that do not have a reference to the main window. The testing overrides
 // (setTestingInstance / createForTesting) allow unit tests to isolate state.
+//
+// Bare QSettings use is deliberately confined to feature-scoped stores that do
+// not belong in this app-wide cache:
+//   - SessionManager     (session restore payload, incl. its QLockFile)
+//   - UpdateChecker      (last-check timestamps)
+//   - DialogSettings     (per-dialog geometry via a prefix)
+//   - InlineFindBar      ("Find" group: match case / whole word / regex)
+//   - theme.cpp          (hand-parses gtk/kde config INI files; QSettings is
+//                         wrong for extensionless files, see its comments)
+// Unit tests redirect all of these via XDG_CONFIG_HOME / XDG_DATA_HOME /
+// XDG_CACHE_HOME in tests/main.cpp; do not route them through the cache.
 class SettingsManager : public QObject
 {
     Q_OBJECT
@@ -135,7 +147,7 @@ public:
         bool showMenuInTitlebar = true;
         bool showToolbar = true;
         bool showStatusbar = true;
-        bool checkForUpdatesEnabled = false;
+        bool checkForUpdatesEnabled = true; // matches the QSettings load default (settingsmanager.cpp)
         QString uiFontFamily = "Sans Serif";
         int uiFontSize = 10;
         ShellOpenMode shellOpenModeFiles = ShellOpenMode::NewWindow;
@@ -149,6 +161,8 @@ public:
         QString terminalFontFamily = "Monospace";
         int terminalFontSize = 12;
         bool showTerminalPanel = false;
+        bool terminalCopyOnSelect = false;
+        bool terminalBellEnabled = true;
     };
 
     struct AutoSaveSettings
@@ -314,6 +328,10 @@ public:
     void setTerminalFontFamily(const QString& family);
     void setTerminalFontSize(int size);
     void setShowTerminalPanel(bool visible);
+    bool terminalCopyOnSelect() const;
+    void setTerminalCopyOnSelect(bool enabled);
+    bool terminalBellEnabled() const;
+    void setTerminalBellEnabled(bool enabled);
 
     // ── Auto-save settings ─────────────────────────────────────
     AutoSaveSettings autoSaveSettings() const;
@@ -338,6 +356,16 @@ public:
     // ── File type associations ─────────────────────────────────
     QString syntaxForExtension(const QString& ext) const;
     QString syntaxForFile(const QString& filePath) const;
+
+    // ── Plugin file type mapping ───────────────────────────────
+    // Maps a file extension (e.g. "rs") to a language id. Extension is stored
+    // lowercased; leading dot is optional and stripped if present.
+    static bool addExtensionMapping(const QString& extension, const QString& languageId);
+    static bool removeExtensionMapping(const QString& extension);
+    // Maps an exact file name (e.g. "CMakeLists.txt") to a language id.
+    // File name is stored lowercased.
+    static bool addFileNameMapping(const QString& fileName, const QString& languageId);
+    static bool removeFileNameMapping(const QString& fileName);
 
     // ── External tools ─────────────────────────────────────────
     int externalToolCount() const;
@@ -402,7 +430,7 @@ private:
     static const QHash<QString, QString>& extensionMap();
     static const QHash<QString, QString>& fileNameMap();
     static QString pluginGroup(const QString& pluginId);
-    static SettingsManager* s_testInstance;
+    static QPointer<SettingsManager> s_testInstance;
 
     friend struct std::default_delete<SettingsManager>;
     void loadCache();

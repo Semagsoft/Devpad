@@ -22,6 +22,9 @@ ApplicationWindow {
     property var codeActionModel: []
     property var symbolModel: []
     property var lspDiagnostics: []
+    // Internal authoritative store of {uri, diagnostics}; lspDiagnostics is a
+    // flattened view of this for the Error List panel.
+    property var diagStore: []
 
     function pathFromUri(uri) {
         var p = uri.toString()
@@ -70,6 +73,9 @@ ApplicationWindow {
     menuBar: NextgenMenuBar {
         actions: win.actions
         editor: primo
+        secondaryEditor: primo2
+        lspClient: lspClient
+        renameDialog: renameDlg
     }
 
     header: ColumnLayout {
@@ -205,6 +211,8 @@ ApplicationWindow {
 
                     PrimoEditor {
                         id: primo
+                        // LSP document version: monotonically increasing, sent with every change.
+                        property int docVersion: 1
                         width: flick.width
                         height: contentHeight
                         focus: true
@@ -253,12 +261,14 @@ ApplicationWindow {
                             minimap.requestPaint()
                             if (lspClient) {
                                 var uri = "file://" + primo.filePath
-                                lspClient.changeDocument(uri, primo.text, 1)
+                                primo.docVersion += 1
+                                lspClient.changeDocument(uri, primo.text, primo.docVersion)
                             }
                         }
                         onFileLoaded: (ok, error) => {
                             if (!ok) console.warn("load failed:", error)
                             else {
+                                primo.docVersion = 1
                                 flick.contentY = 0
                                 if (lspClient && primo.filePath) {
                                     var uri = "file://" + primo.filePath
@@ -461,6 +471,52 @@ ApplicationWindow {
         }
     }
 
+    // Update check result dialog
+    Dialog {
+        id: updateDlg
+        title: updateDlgTitleText
+        modal: true
+        width: 420
+
+        property string updateDlgTitleText: qsTr("Check for Updates")
+        property string message: ""
+        property string detail: ""
+        property string downloadUrl: ""
+
+        function show(title, msg, details, url) {
+            updateDlgTitleText = title;
+            message = msg;
+            detail = details ? details : "";
+            downloadUrl = url ? url : "";
+            open();
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 10
+            Label { text: updateDlg.message; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            Label {
+                text: updateDlg.detail
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+                visible: updateDlg.detail.length > 0
+                opacity: 0.75
+                font.pointSize: Math.max(8, updateDlg.font.pointSize - 1)
+            }
+            Button {
+                text: qsTr("Download")
+                visible: updateDlg.downloadUrl.length > 0
+                Layout.alignment: Qt.AlignRight
+                onClicked: {
+                    Qt.openUrlExternally(updateDlg.downloadUrl);
+                    updateDlg.close();
+                }
+            }
+        }
+        standardButtons: Dialog.Close
+    }
+
     // References dialog
     Dialog {
         id: refDlg
@@ -653,6 +709,30 @@ ApplicationWindow {
             statusMsg.text = msg;
             statusMsgTimer.restart();
         }
+        function onUpdateAvailable(latestVersion, releaseUrl) {
+            updateDlg.show(qsTr("Update Available"),
+                           qsTr("A new version of Devpad is available (%1).\n\nYou are currently running version %2.").arg(latestVersion).arg(devpadVersion),
+                           "", releaseUrl);
+        }
+        function onUpdateUpToDate(latestVersion) {
+            updateDlg.show(qsTr("You're up to date"),
+                           qsTr("Devpad %1 is the latest version.").arg(latestVersion),
+                           "", "");
+        }
+        function onUpdateCheckFailed(message, details) {
+            updateDlg.show(qsTr("Check for Updates Failed"), message, details, "");
+        }
+        function onUpdateCheckThrottled(lastCheckText) {
+            if (lastCheckText.length === 0) {
+                updateDlg.show(qsTr("Already checked recently"),
+                               qsTr("An update check is already in progress. Please wait for it to complete."),
+                               "", "");
+            } else {
+                updateDlg.show(qsTr("Already checked recently"),
+                               qsTr("Devpad checks for updates at most once per hour.\n\nLast checked: %1").arg(lastCheckText),
+                               "", "");
+            }
+        }
     }
 
     // Terminal Drawer – shared QProcess, simple TextArea shell
@@ -692,6 +772,7 @@ ApplicationWindow {
             anchors.fill: parent
             editor: primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
             diagnostics: lspClient ? lspDiagnostics : []
+            onCloseRequested: errorListDrawer.close()
         }
     }
 
@@ -833,12 +914,12 @@ ApplicationWindow {
                 statusMsgTimer.restart()
                 return
             }
-            // Show references list in a simple dialog
-            refModel.clear()
+            // Show references list in a simple dialog (JS array model)
+            var refs = []
             for (var i = 0; i < locations.length; i++) {
                 var loc = locations[i]
                 var lp = pathFromUri(loc.uri)
-                refModel.append({
+                refs.push({
                     file: lp.split("/").pop(),
                     path: lp,
                     line: loc.range.start.line + 1,
@@ -846,6 +927,7 @@ ApplicationWindow {
                     text: loc.range.start.line + ":" + (loc.range.start.character + 1)
                 })
             }
+            refModel = refs
             refDlg.open()
         }
         function onFormattingReady(uri, edits) {
@@ -884,11 +966,12 @@ ApplicationWindow {
             path = decodeURIComponent(path)
             var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
             if (!ed || ed.filePath !== path) return
-            codeActionModel.clear()
+            var acts = []
             for (var i = 0; i < actions.length; i++) {
                 var a = actions[i]
-                codeActionModel.append({title: a.title, command: a.command ? a.command.command : "", action: a})
+                acts.push({title: a.title, command: a.command ? a.command.command : "", action: a})
             }
+            codeActionModel = acts
             if (codeActionModel.length > 0) {
                 codeActionDlg.open()
             } else {
@@ -901,11 +984,12 @@ ApplicationWindow {
             path = decodeURIComponent(path)
             var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
             if (!ed || ed.filePath !== path) return
-            symbolModel.clear()
+            var syms = []
             for (var i = 0; i < symbols.length; i++) {
                 var s = symbols[i]
-                symbolModel.append({name: s.name, kind: s.kind, line: s.range.start.line + 1})
+                syms.push({name: s.name, kind: s.kind, line: s.range.start.line + 1})
             }
+            symbolModel = syms
             symbolDlg.open()
         }
     }
@@ -915,24 +999,27 @@ ApplicationWindow {
         function onDiagnosticsReady(uri, diagnostics) {
             var path = uri.toString().replace("file://", "")
             path = decodeURIComponent(path)
-            // Accumulate all diagnostics for the Error List panel
-            var existing = false
-            for (var i = 0; i < lspDiagnostics.length; i++) {
-                if (lspDiagnostics[i].uri === uri) {
-                    lspDiagnostics[i].diagnostics = diagnostics
-                    existing = true
+            // Accumulate per-URI diagnostics in the internal store
+            var store = diagStore.slice()
+            var existing = -1
+            for (var i = 0; i < store.length; i++) {
+                if (store[i].uri === uri) {
+                    existing = i
                     break
                 }
             }
-            if (!existing) {
-                lspDiagnostics.push({uri: uri, diagnostics: diagnostics})
-            }
-            // Flatten for the panel
+            if (existing >= 0)
+                store[existing] = {uri: uri, diagnostics: diagnostics}
+            else
+                store.push({uri: uri, diagnostics: diagnostics})
+            diagStore = store
+            // Flatten for the Error List panel
             var flat = []
-            for (var i = 0; i < lspDiagnostics.length; i++) {
-                var entry = lspDiagnostics[i]
-                for (var j = 0; j < entry.diagnostics.length; j++) {
-                    var d = entry.diagnostics[j]
+            for (var j = 0; j < store.length; j++) {
+                var entry = store[j]
+                var diags = entry.diagnostics || []
+                for (var k = 0; k < diags.length; k++) {
+                    var d = diags[k]
                     flat.push({
                         uri: entry.uri,
                         range: d.range,
@@ -1025,7 +1112,6 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Shift+R"; onActivated: {
         var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
         if (!ed || !ed.filePath) return
-        renameDlg.newName = ""
         renameDlg.open()
     } }
     Shortcut { sequence: "Ctrl+Shift+A"; onActivated: {

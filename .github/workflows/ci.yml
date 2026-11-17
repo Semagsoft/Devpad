@@ -43,6 +43,13 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
+      - name: Build (for AUTOMOC/codegen)
+        # clang-tidy needs the AUTOMOC outputs (e.g. dapplugin.moc,
+        # lspplugin.moc) to exist; otherwise sources with
+        # #include "*.moc" fail with clang-diagnostic-error and
+        # xargs exits 123.
+        run: cmake --build build -j"$(nproc)"
+
       - name: Run clang-tidy on source
         run: |
           set -euo pipefail
@@ -63,7 +70,7 @@ jobs:
               p = e['file']
               if '/src/' in p and p.endswith('.cpp'):
                   low = p.lower()
-                  if 'kodoterm' in low or 'qtermwidget' in low:
+                  if 'kodoterm' in low or 'qtermwidget' in low or 'ghostty' in low:
                       continue
                   seen.add(p)
           print('\n'.join(sorted(seen)))
@@ -283,7 +290,7 @@ jobs:
           export CCACHE_BASEDIR=${{ github.workspace }}
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_FLAGS="-Werror -Wno-error=sfinae-incomplete" \
+            -DCMAKE_CXX_FLAGS="-Werror" \
             -DBUILD_TESTS=ON \
             -DBUILD_QSCINTILLA=OFF
         env:
@@ -620,6 +627,8 @@ jobs:
             -DBUILD_TESTS=ON
 
       - name: Build
+        env:
+          LSAN_OPTIONS: detect_leaks=0
         run: cmake --build build -j$(nproc)
 
       - name: Test

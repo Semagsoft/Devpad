@@ -1,7 +1,7 @@
 #include "findsymbolsdialog.h"
 
-#include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
+#include "plugins/lspinterface.h"
 
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -17,7 +17,7 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
-FindSymbolsDialog::FindSymbolsDialog(lsp::LspServerManager* lspManager, QWidget* parent) : QDialog(parent), m_lspManager(lspManager)
+FindSymbolsDialog::FindSymbolsDialog(lsp::ILspService* lspService, QWidget* parent) : QDialog(parent), m_lspService(lspService)
 {
     setWindowTitle(tr("Find Symbol"));
     setMinimumSize(400, 300);
@@ -29,7 +29,8 @@ FindSymbolsDialog::FindSymbolsDialog(lsp::LspServerManager* lspManager, QWidget*
     m_debounceTimer->setInterval(300);
     connect(m_debounceTimer, &QTimer::timeout, this, &FindSymbolsDialog::performSearch);
 
-    connect(m_lspManager, &lsp::LspServerManager::workspaceSymbolsReady, this, &FindSymbolsDialog::onSymbolsReady);
+    if (m_lspService)
+        connect(m_lspService, &lsp::ILspService::workspaceSymbolsReady, this, &FindSymbolsDialog::onSymbolsReady);
 }
 
 FindSymbolsDialog::~FindSymbolsDialog() = default;
@@ -81,6 +82,7 @@ void FindSymbolsDialog::onSearchTextChanged(const QString& text)
     if (text.isEmpty())
     {
         m_model->removeRows(0, m_model->rowCount());
+        m_resultKeys.clear();
         m_statusLabel->setText(tr("Type to search"));
         m_debounceTimer->stop();
         return;
@@ -96,14 +98,13 @@ void FindSymbolsDialog::performSearch()
 
     m_statusLabel->setText(tr("Searching..."));
     m_model->removeRows(0, m_model->rowCount());
+    m_resultKeys.clear();
 
-    // Search across all languages
-    for (const QString& lang : m_lspManager->languages())
-    {
-        auto* client = m_lspManager->clientForLanguage(lang);
-        if (client)
-            client->requestWorkspaceSymbols(query);
-    }
+    if (!m_lspService)
+        return;
+
+    // The service fans the request out to every running language server.
+    m_lspService->requestWorkspaceSymbols(query);
 }
 
 void FindSymbolsDialog::onSymbolsReady(const QString& query, const QJsonArray& symbols)
@@ -119,7 +120,8 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
     {
         QJsonObject obj = s.toObject();
         QString name = obj["name"].toString();
-        QString kind = obj["kind"].toString();
+        const int kind = obj["kind"].toInt(0);
+        const QString kindName = lsp::symbolKindName(kind);
 
         QString location;
         QString filePath;
@@ -134,18 +136,26 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
             col = range["start"].toObject()["character"].toInt();
         }
 
+        // The request is fanned out to every running language server; servers
+        // may report the same symbol. Dedupe on identity.
+        const QString key = name + QLatin1Char('|') + filePath + QLatin1Char('|') + QString::number(line) + QLatin1Char('|') + QString::number(col) +
+                            QLatin1Char('|') + QString::number(kind);
+        if (m_resultKeys.contains(key))
+            continue;
+        m_resultKeys.insert(key);
+
         QString icon;
-        if (kind == "Function" || kind == "Method")
+        if (kindName == QLatin1String("Function") || kindName == QLatin1String("Method") || kindName == QLatin1String("Constructor"))
             icon = QStringLiteral("\u0192");
-        else if (kind == "Class" || kind == "Struct")
+        else if (kindName == QLatin1String("Class") || kindName == QLatin1String("Struct"))
             icon = QStringLiteral("\u2299");
-        else if (kind == "Variable" || kind == "Field")
+        else if (kindName == QLatin1String("Variable") || kindName == QLatin1String("Field") || kindName == QLatin1String("Property"))
             icon = QStringLiteral("\u25CB");
-        else if (kind == "Interface")
+        else if (kindName == QLatin1String("Interface"))
             icon = QStringLiteral("\u2261");
-        else if (kind == "Module" || kind == "Namespace")
+        else if (kindName == QLatin1String("Module") || kindName == QLatin1String("Namespace") || kindName == QLatin1String("Package"))
             icon = QStringLiteral("\u25A0");
-        else if (kind == "Enum")
+        else if (kindName == QLatin1String("Enum") || kindName == QLatin1String("EnumMember"))
             icon = QStringLiteral("\u2630");
         else
             icon = QStringLiteral("\u2022");
@@ -156,7 +166,7 @@ void FindSymbolsDialog::populateResults(const QJsonArray& symbols)
         nameItem->setData(line, Qt::UserRole + 2);
         nameItem->setData(col, Qt::UserRole + 3);
 
-        auto* kindItem = new QStandardItem(kind);
+        auto* kindItem = new QStandardItem(kindName.isEmpty() ? QString::number(kind) : kindName);
         kindItem->setEditable(false);
 
         auto* fileItem = new QStandardItem(location);

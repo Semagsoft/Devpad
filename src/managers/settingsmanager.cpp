@@ -92,6 +92,21 @@ static const QHash<QString, QString>& buildFileNameMap()
     return map;
 }
 
+// ── Plugin file type mapping registry ─────────────────────────
+namespace
+{
+QHash<QString, QString>& pluginExtensionMap()
+{
+    static QHash<QString, QString> map;
+    return map;
+}
+QHash<QString, QString>& pluginFileNameMap()
+{
+    static QHash<QString, QString> map;
+    return map;
+}
+} // namespace
+
 const QHash<QString, QString>& SettingsManager::extensionMap()
 {
     return buildExtensionMap();
@@ -102,7 +117,56 @@ const QHash<QString, QString>& SettingsManager::fileNameMap()
     return buildFileNameMap();
 }
 
-SettingsManager* SettingsManager::s_testInstance = nullptr;
+bool SettingsManager::addExtensionMapping(const QString& extension, const QString& languageId)
+{
+    if (extension.isEmpty() || languageId.isEmpty())
+        return false;
+    QString ext = extension.toLower();
+    if (ext.startsWith(QLatin1Char('.')))
+        ext = ext.mid(1);
+    auto& map = pluginExtensionMap();
+    if (map.contains(ext))
+        return false;
+    map.insert(ext, languageId);
+    return true;
+}
+
+bool SettingsManager::removeExtensionMapping(const QString& extension)
+{
+    if (extension.isEmpty())
+        return false;
+    QString ext = extension.toLower();
+    if (ext.startsWith(QLatin1Char('.')))
+        ext = ext.mid(1);
+    return pluginExtensionMap().remove(ext) > 0;
+}
+
+bool SettingsManager::addFileNameMapping(const QString& fileName, const QString& languageId)
+{
+    if (fileName.isEmpty() || languageId.isEmpty())
+        return false;
+    QString name = fileName.toLower();
+    auto& map = pluginFileNameMap();
+    if (map.contains(name))
+        return false;
+    map.insert(name, languageId);
+    return true;
+}
+
+bool SettingsManager::removeFileNameMapping(const QString& fileName)
+{
+    if (fileName.isEmpty())
+        return false;
+    QString name = fileName.toLower();
+    return pluginFileNameMap().remove(name) > 0;
+}
+
+// Plugins link Devpad_editor statically, so each plugin DSO would otherwise
+// get its own SettingsManager singleton. Plugins call this with the host's
+// instance (obtained via IPluginHost::settingsManager()) to share the app's
+// cached settings state. Stored as a QPointer so a destroyed host instance
+// cannot leave a plugin with a dangling pointer.
+QPointer<SettingsManager> SettingsManager::s_testInstance;
 
 void SettingsManager::setTestingInstance(SettingsManager* instance)
 {
@@ -118,7 +182,7 @@ std::unique_ptr<SettingsManager> SettingsManager::createForTesting()
 
 SettingsManager& SettingsManager::instance()
 {
-    if (s_testInstance)
+    if (!s_testInstance.isNull())
     {
         return *s_testInstance;
     }
@@ -203,6 +267,8 @@ void SettingsManager::loadCache()
     m_cache.terminal.terminalFontFamily = m_settings.value("Options_TerminalFont", "Monospace").toString();
     m_cache.terminal.terminalFontSize = m_settings.value("Options_TerminalFontSize", 12).toInt();
     m_cache.terminal.showTerminalPanel = m_settings.value("Options_ShowTerminalPanel", false).toBool();
+    m_cache.terminal.terminalCopyOnSelect = m_settings.value("Options_TerminalCopyOnSelect", false).toBool();
+    m_cache.terminal.terminalBellEnabled = m_settings.value("Options_TerminalBellEnabled", true).toBool();
 
     m_cache.autoSave.autoSaveEnabled = m_settings.value("Options_AutoSaveEnabled", false).toBool();
     m_cache.autoSave.autoSaveInterval = m_settings.value("Options_AutoSaveInterval", 60).toInt();
@@ -726,6 +792,22 @@ void SettingsManager::setShowTerminalPanel(bool visible)
 {
     writeCached("Options_ShowTerminalPanel", m_cache.terminal.showTerminalPanel, visible);
 }
+bool SettingsManager::terminalCopyOnSelect() const
+{
+    return m_cache.terminal.terminalCopyOnSelect;
+}
+void SettingsManager::setTerminalCopyOnSelect(bool enabled)
+{
+    writeCached("Options_TerminalCopyOnSelect", m_cache.terminal.terminalCopyOnSelect, enabled);
+}
+bool SettingsManager::terminalBellEnabled() const
+{
+    return m_cache.terminal.terminalBellEnabled;
+}
+void SettingsManager::setTerminalBellEnabled(bool enabled)
+{
+    writeCached("Options_TerminalBellEnabled", m_cache.terminal.terminalBellEnabled, enabled);
+}
 
 void SettingsManager::setAutoSaveEnabled(bool enabled)
 {
@@ -778,13 +860,23 @@ void SettingsManager::setFileOpenMode(FileOpenMode mode)
 
 QString SettingsManager::syntaxForExtension(const QString& ext) const
 {
-    return extensionMap().value(ext.toLower());
+    QString e = ext.toLower();
+    if (e.startsWith(QLatin1Char('.')))
+        e = e.mid(1);
+    // Check plugin mappings first, then built-in.
+    auto lang = pluginExtensionMap().value(e);
+    if (!lang.isEmpty())
+        return lang;
+    return extensionMap().value(e);
 }
 
 QString SettingsManager::syntaxForFile(const QString& filePath) const
 {
     QString fileName = QFileInfo(filePath).fileName();
-    QString lang = fileNameMap().value(fileName.toLower());
+    QString lang = pluginFileNameMap().value(fileName.toLower());
+    if (!lang.isEmpty())
+        return lang;
+    lang = fileNameMap().value(fileName.toLower());
     if (!lang.isEmpty())
         return lang;
     return syntaxForExtension(QFileInfo(filePath).suffix());

@@ -21,7 +21,7 @@
 #include "customthemedialog.h"
 #include "defaultsyntax.h"
 #include "encodingutils.h"
-#include "lsp/lspservermanager.h"
+#include "lsp/lspdefaults.h"
 #include "mainwindow.h"
 #include "managers/actionmanager.h"
 #include "settingsmanager.h"
@@ -111,20 +111,11 @@ protected:
         if (key == Qt::Key_Control || key == Qt::Key_Shift || key == Qt::Key_Alt || key == Qt::Key_Meta)
             return;
 
-        // Build a human-readable shortcut string like "Ctrl+Shift+S".
-        QStringList parts;
-        if (mods & Qt::ControlModifier)
-            parts << tr("Ctrl");
-        if (mods & Qt::ShiftModifier)
-            parts << tr("Shift");
-        if (mods & Qt::AltModifier)
-            parts << tr("Alt");
-        if (mods & Qt::MetaModifier)
-            parts << tr("Meta");
-        parts << QKeySequence(key).toString(QKeySequence::NativeText);
-
-        QString combined = parts.join(QLatin1String("+"));
-        m_sequence = QKeySequence(combined);
+        // Build the sequence from Qt key/modifier enums directly. Going
+        // through translated modifier names breaks on non-English locales
+        // (e.g. "Strg" does not parse back), so never round-trip via text.
+        Qt::KeyboardModifiers modOnly = mods & (Qt::ControlModifier | Qt::ShiftModifier | Qt::AltModifier | Qt::MetaModifier);
+        m_sequence = QKeySequence(modOnly | static_cast<Qt::Key>(key));
         m_sequenceLabel->setText(m_sequence.toString(QKeySequence::NativeText));
         m_captured = true;
     }
@@ -149,6 +140,10 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent), m_geometrySetti
     resize(850, 600);
     setupUI();
     loadSettings();
+    // Snapshot the theme-related settings so reject() can revert live edits.
+    m_originalThemeId = static_cast<int>(SettingsManager::instance().theme());
+    m_originalCustomTheme = SettingsManager::instance().customTheme();
+    m_originalAccent = SettingsManager::instance().accentColor();
     m_geometrySettings.restoreGeometry(this);
 }
 
@@ -255,7 +250,7 @@ void OptionsDialog::setupGeneralTab()
     defaultsLayout->addRow(tr("Default encoding:"), defaultEncodingComboBox);
     mainLayout->addWidget(defaultsGroup);
 
-    QGroupBox* lspGeneralGroup = new QGroupBox(tr("Language Server Protocol"), content);
+    lspGeneralGroup = new QGroupBox(tr("Language Server Protocol"), content);
     QVBoxLayout* lspGeneralLayout = new QVBoxLayout(lspGeneralGroup);
     lspEnabledCheckBox = new QCheckBox(tr("Enable LSP (Language Server Protocol)"), lspGeneralGroup);
     lspGeneralLayout->addWidget(lspEnabledCheckBox);
@@ -268,9 +263,9 @@ void OptionsDialog::setupGeneralTab()
     lspGeneralLayout->addLayout(thresholdLayout);
     mainLayout->addWidget(lspGeneralGroup);
 
-    QGroupBox* serverGroup = new QGroupBox(tr("Server Commands"), content);
-    QVBoxLayout* serverLayout = new QVBoxLayout(serverGroup);
-    lspServerTable = new QTableWidget(serverGroup);
+    lspServerGroup = new QGroupBox(tr("Server Commands"), content);
+    QVBoxLayout* serverLayout = new QVBoxLayout(lspServerGroup);
+    lspServerTable = new QTableWidget(lspServerGroup);
     lspServerTable->setColumnCount(3);
     lspServerTable->setHorizontalHeaderLabels({tr("Language"), tr("Command"), tr("Arguments")});
     lspServerTable->horizontalHeader()->setStretchLastSection(true);
@@ -279,7 +274,21 @@ void OptionsDialog::setupGeneralTab()
     lspServerTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     lspServerTable->setSelectionMode(QAbstractItemView::SingleSelection);
     serverLayout->addWidget(lspServerTable);
-    mainLayout->addWidget(serverGroup);
+    mainLayout->addWidget(lspServerGroup);
+
+    // Hide the LSP groups when the LSP plugin is disabled or absent.
+    {
+        bool lspAvailable = false;
+#if defined(BUILD_PLUGINS)
+        if (auto* mw = qobject_cast<MainWindow*>(parent()))
+        {
+            if (auto* pm = mw->pluginManager())
+                lspAvailable = pm->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"));
+        }
+#endif
+        lspGeneralGroup->setVisible(lspAvailable);
+        lspServerGroup->setVisible(lspAvailable);
+    }
 
     mainLayout->addStretch();
 
@@ -569,6 +578,22 @@ void OptionsDialog::setupPanelsTab()
     QIntValidator* terminalFontSizeValidator = new QIntValidator(6, 72, terminalFontSizeBox);
     terminalFontSizeBox->setValidator(terminalFontSizeValidator);
     terminalLayout->addRow(tr("Font size:"), terminalFontSizeBox);
+    terminalBellCheckBox = new QCheckBox(tr("Bell on BEL (beep + flash taskbar when not focused)"), terminalGroup);
+    terminalLayout->addWidget(terminalBellCheckBox);
+    terminalCopyOnSelectCheckBox = new QCheckBox(tr("Copy selection to clipboard automatically"), terminalGroup);
+    terminalLayout->addWidget(terminalCopyOnSelectCheckBox);
+
+#ifdef BUILD_PLUGINS
+    // Hide the Terminal panel group when the Terminal plugin is not loaded.
+    MainWindow* mw = qobject_cast<MainWindow*>(parent());
+    PluginManager* pm = mw ? mw->pluginManager() : nullptr;
+    if (!pm || !pm->isLoaded(QStringLiteral("org.semagsoft.devpad.terminal")))
+    {
+        terminalGroup->setVisible(false);
+        m_terminalGroupAvailable = false;
+    }
+#endif
+
     mainLayout->addWidget(terminalGroup);
 
     QGroupBox* projectGroup = new QGroupBox(tr("Project"), content);
@@ -758,6 +783,26 @@ void OptionsDialog::setupPluginsTab()
                     return;
                 QString pluginId = item->data(Qt::UserRole).toString();
                 bool enabled = item->checkState() == Qt::Checked;
+
+                // Confirm before disabling the Terminal plugin: it removes the
+                // dock panel immediately and any unsaved terminal state is lost.
+                if (!enabled && pluginId == QStringLiteral("org.semagsoft.devpad.terminal"))
+                {
+                    int ret = QMessageBox::warning(this, tr("Disable Terminal Plugin?"),
+                                                   tr("Disabling the Terminal plugin will remove the terminal panel "
+                                                      "from Devpad immediately. Any unsaved terminal state will be lost. "
+                                                      "Do you want to continue?"),
+                                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                    if (ret == QMessageBox::No)
+                    {
+                        // Revert the checkbox to checked. The re-fired
+                        // itemChanged() with enabled=true is a no-op since
+                        // the plugin is already enabled.
+                        item->setCheckState(Qt::Checked);
+                        return;
+                    }
+                }
+
                 mw->pluginManager()->setPluginEnabled(pluginId, enabled);
             });
 }
@@ -860,7 +905,7 @@ void OptionsDialog::filterThemes(const QString& text)
         themeComboBox->insertSeparator(insertPos);
     }
 
-    themeComboBox->blockSignals(false);
+    themeComboBox->blockSignals(true); // keep blocked through the restore below; unblock at the end of the function
 
     // Restore selection if the previously selected theme is still visible;
     // otherwise fall back to the first visible item so the combo is never
@@ -895,6 +940,7 @@ void OptionsDialog::filterThemes(const QString& text)
     if (!restored && themeComboBox->count() > 0)
         themeComboBox->setCurrentIndex(0);
 
+    themeComboBox->blockSignals(false);
     updateThemePreview();
 }
 
@@ -971,6 +1017,9 @@ void OptionsDialog::loadSettings()
     }
     ThemeId savedThemeId = s.theme();
     bool found = false;
+    // Block signals: setCurrentIndex fires currentIndexChanged, which would
+    // persist the just-loaded theme and emit themeChanged during load.
+    const QSignalBlocker blocker(themeComboBox);
     for (int i = 0; i < themeComboBox->count(); ++i)
     {
         if (themeComboBox->itemData(i).toInt() == static_cast<int>(savedThemeId))
@@ -1005,13 +1054,18 @@ void OptionsDialog::loadSettings()
     cursorBlinkingCheckBox->setChecked(s.cursorBlinking());
     highlightCurrentLineCheckBox->setChecked(s.highlightCurrentLine());
     tabBarPositionComboBox->setCurrentIndex(static_cast<int>(s.tabBarPosition()));
-    terminalPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.terminalPanelPosition()));
-    terminalPanelMinWidthSpin->setValue(s.terminalPanelMinWidth());
-    QString termFont = s.terminalFontFamily();
-    int termFontIndex = terminalFontFaceComboBox->findText(termFont);
-    if (termFontIndex >= 0)
-        terminalFontFaceComboBox->setCurrentIndex(termFontIndex);
-    terminalFontSizeBox->setText(QString::number(s.terminalFontSize()));
+    if (m_terminalGroupAvailable)
+    {
+        terminalPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.terminalPanelPosition()));
+        terminalPanelMinWidthSpin->setValue(s.terminalPanelMinWidth());
+        QString termFont = s.terminalFontFamily();
+        int termFontIndex = terminalFontFaceComboBox->findText(termFont);
+        if (termFontIndex >= 0)
+            terminalFontFaceComboBox->setCurrentIndex(termFontIndex);
+        terminalFontSizeBox->setText(QString::number(s.terminalFontSize()));
+        terminalBellCheckBox->setChecked(s.terminalBellEnabled());
+        terminalCopyOnSelectCheckBox->setChecked(s.terminalCopyOnSelect());
+    }
     projectPanelPositionComboBox->setCurrentIndex(static_cast<int>(s.projectPanelPosition()));
     projectFileOpenComboBox->setCurrentIndex(static_cast<int>(s.fileOpenMode()));
     showHiddenFilesCheckBox->setChecked(s.showHiddenFiles());
@@ -1053,7 +1107,7 @@ void OptionsDialog::loadSettings()
 #endif
 
     // Populate LSP server table with default + custom entries
-    auto defaultCmds = lsp::LspServerManager::defaultServerCommands();
+    auto defaultCmds = lsp::defaultServerCommands();
     QSet<QString> seen;
     lspServerTable->setRowCount(0);
     for (auto it = defaultCmds.constBegin(); it != defaultCmds.constEnd(); ++it)
@@ -1066,7 +1120,7 @@ void OptionsDialog::loadSettings()
         if (cmd.isEmpty())
             cmd = it.value();
         if (args.isEmpty())
-            args = lsp::LspServerManager::defaultServerArgs(lang);
+            args = lsp::defaultServerArgs(lang);
         lspServerTable->setItem(row, 0, new QTableWidgetItem(lang));
         lspServerTable->setItem(row, 1, new QTableWidgetItem(cmd));
         lspServerTable->setItem(row, 2, new QTableWidgetItem(args.join(' ')));
@@ -1097,10 +1151,15 @@ void OptionsDialog::saveSettings()
     SettingsManager::instance().setCursorBlinking(cursorBlinkingCheckBox->isChecked());
     SettingsManager::instance().setHighlightCurrentLine(highlightCurrentLineCheckBox->isChecked());
     SettingsManager::instance().setTabBarPosition(static_cast<TabBarPosition>(tabBarPositionComboBox->currentIndex()));
-    SettingsManager::instance().setTerminalPanelPosition(static_cast<TerminalPanelPosition>(terminalPanelPositionComboBox->currentIndex()));
-    SettingsManager::instance().setTerminalPanelMinWidth(terminalPanelMinWidthSpin->value());
-    SettingsManager::instance().setTerminalFontFamily(terminalFontFaceComboBox->currentText());
-    SettingsManager::instance().setTerminalFontSize(qMax(1, terminalFontSizeBox->text().toInt()));
+    if (m_terminalGroupAvailable)
+    {
+        SettingsManager::instance().setTerminalPanelPosition(static_cast<TerminalPanelPosition>(terminalPanelPositionComboBox->currentIndex()));
+        SettingsManager::instance().setTerminalPanelMinWidth(terminalPanelMinWidthSpin->value());
+        SettingsManager::instance().setTerminalFontFamily(terminalFontFaceComboBox->currentText());
+        SettingsManager::instance().setTerminalFontSize(qMax(1, terminalFontSizeBox->text().toInt()));
+        SettingsManager::instance().setTerminalBellEnabled(terminalBellCheckBox->isChecked());
+        SettingsManager::instance().setTerminalCopyOnSelect(terminalCopyOnSelectCheckBox->isChecked());
+    }
     SettingsManager::instance().setProjectPanelPosition(static_cast<ProjectPanelPosition>(projectPanelPositionComboBox->currentIndex()));
     SettingsManager::instance().setFileOpenMode(static_cast<FileOpenMode>(projectFileOpenComboBox->currentIndex()));
     SettingsManager::instance().setShowHiddenFiles(showHiddenFilesCheckBox->isChecked());
@@ -1143,12 +1202,12 @@ void OptionsDialog::saveSettings()
         QStringList args;
         if (argsItem && !argsItem->text().trimmed().isEmpty())
             args = argsItem->text().trimmed().split(' ', Qt::SkipEmptyParts);
-        auto defaultCmds = lsp::LspServerManager::defaultServerCommands();
+        auto defaultCmds = lsp::defaultServerCommands();
         if (cmd != defaultCmds.value(lang))
         {
             SettingsManager::instance().setLspServerCommand(lang, cmd);
         }
-        auto defaultArgs = lsp::LspServerManager::defaultServerArgs(lang);
+        auto defaultArgs = lsp::defaultServerArgs(lang);
         if (args != defaultArgs)
         {
             SettingsManager::instance().setLspServerArgs(lang, args);
@@ -1169,6 +1228,15 @@ void OptionsDialog::accept()
 
 void OptionsDialog::reject()
 {
+    // Restore the theme-related settings that were applied live while the
+    // dialog was open, so Cancel reverts them like every other setting.
+    SettingsManager::instance().setTheme(static_cast<ThemeId>(m_originalThemeId));
+    SettingsManager::instance().setCustomTheme(m_originalCustomTheme);
+    if (m_originalAccent.isValid())
+        SettingsManager::instance().setAccentColor(m_originalAccent);
+    else
+        SettingsManager::instance().clearAccentColor();
+    emit themeChanged();
     m_geometrySettings.saveGeometry(this);
     QDialog::reject();
 }

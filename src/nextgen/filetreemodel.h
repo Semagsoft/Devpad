@@ -65,6 +65,7 @@ public:
     Q_INVOKABLE bool rename(const QModelIndex& idx, const QString& newName);
     Q_INVOKABLE bool renamePath(const QString& oldPath, const QString& newPath);
     Q_INVOKABLE bool remove(const QModelIndex& idx);
+    Q_INVOKABLE bool removePath(const QString& path);
 
 signals:
     void rootPathChanged();
@@ -84,6 +85,7 @@ private:
     Node* nodeFor(const QModelIndex& idx) const;
     void deleteTree(Node* n);
     void loadChildren(Node* n);
+    QList<Node*> collectChildren(Node* n);
     Node* m_root = nullptr;
     QString m_rootPath;
     bool m_showHidden = false;

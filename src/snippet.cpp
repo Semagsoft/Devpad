@@ -60,6 +60,26 @@ int adjustPosition(int pos, const QList<ShiftEntry>& shifts)
     return adjusted;
 }
 
+// Shift recorded tab stop positions after an edit that removed removedLen
+// characters at pos and inserted insertedLen in their place.
+static void shiftTabStopPositionsAfterEdit(QMap<int, Snippet::TabStop>& map, int pos, int removedLen, int insertedLen)
+{
+    const int delta = insertedLen - removedLen;
+    if (delta == 0)
+        return;
+    for (auto it = map.begin(); it != map.end(); ++it)
+    {
+        auto& ts = it.value();
+        for (int& p : ts.positions)
+        {
+            if (p >= pos + removedLen) // strictly after the removed region
+                p += delta;
+            else if (p > pos) // inside removed region: collapse onto its start
+                p = pos;
+        }
+    }
+}
+
 // Apply the final escape decodings to a value (no position tracking). Order
 // mirrors the tracked passes in parseBody.
 QString decodeEscapes(QString value)
@@ -95,11 +115,29 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
     QMap<int, TabStop> tabStopMap;
     QList<ShiftEntry> shifts;
 
+    // Matches ${n:default} placeholders. Declared once for the precompute
+    // pass and the expansion pass below.
+    static const QRegularExpression placeholderRe(R"(\$\{(\d+):((?:\\.|[^}])*)\})");
+
+    // Mirror rule (VS Code): bare ${n} and $n stops share the default of the
+    // first ${n:default} occurrence of the same number. Precompute the
+    // effective defaults before expanding any of them.
+    QHash<int, QString> defaultForStop;
+    {
+        QRegularExpressionMatchIterator defaultsIt = placeholderRe.globalMatch(joined);
+        while (defaultsIt.hasNext())
+        {
+            const auto m = defaultsIt.next();
+            const int number = m.captured(1).toInt();
+            if (!defaultForStop.contains(number))
+                defaultForStop.insert(number, m.captured(2));
+        }
+    }
+
     // Replace ${n:default} placeholders. The default may contain escaped
     // braces (\}) and other escapes — the (?:\\.|[^}])* pattern consumes
     // \-escapes atomically so a literal } inside the default cannot end the
     // placeholder early.
-    static const QRegularExpression placeholderRe(R"(\$\{(\d+):((?:\\.|[^}])*)\})");
     QRegularExpressionMatchIterator it = placeholderRe.globalMatch(joined);
     struct PlaceholderReplace
     {
@@ -131,6 +169,7 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 
     for (const auto& pr : replacements)
     {
+        shiftTabStopPositionsAfterEdit(tabStopMap, pr.pos, pr.len, pr.replacement.length());
         joined.replace(pr.pos, pr.len, pr.replacement);
         auto mapIt = tabStopMap.find(pr.number);
         if (mapIt != tabStopMap.end())
@@ -161,7 +200,7 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
         pr.pos = m.capturedStart();
         pr.len = m.capturedLength();
         pr.number = number;
-        pr.replacement.clear();
+        pr.replacement = defaultForStop.value(number); // mirror the placeholder's default
         braceReplacements.append(pr);
     }
 
@@ -170,6 +209,7 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 
     for (const auto& pr : braceReplacements)
     {
+        shiftTabStopPositionsAfterEdit(tabStopMap, pr.pos, pr.len, pr.replacement.length());
         joined.replace(pr.pos, pr.len, pr.replacement);
         auto mapIt = tabStopMap.find(pr.number);
         if (mapIt != tabStopMap.end())
@@ -200,7 +240,7 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
         pr.pos = m.capturedStart();
         pr.len = m.capturedLength();
         pr.number = number;
-        pr.replacement.clear();
+        pr.replacement = defaultForStop.value(number); // mirror the placeholder's default
         simpleReplacements.append(pr);
     }
 
@@ -210,6 +250,7 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 
     for (const auto& pr : simpleReplacements)
     {
+        shiftTabStopPositionsAfterEdit(tabStopMap, pr.pos, pr.len, pr.replacement.length());
         joined.replace(pr.pos, pr.len, pr.replacement);
         auto mapIt = tabStopMap.find(pr.number);
         if (mapIt != tabStopMap.end())

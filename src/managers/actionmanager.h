@@ -66,6 +66,7 @@ public:
     {
         New,
         NewWindow,
+        ReopenClosedTab,
         Open,
         OpenRemote,
         OpenRemoteFolder,
@@ -95,6 +96,11 @@ public:
         GoToLine,
         FindNext,
         FindPrevious,
+        FindNextWithSelection,
+        FindPreviousWithSelection,
+        DuplicateLine,
+        MoveLineUp,
+        MoveLineDown,
         ToggleComment,
         FormatSelection,
         ExpandSelection,
@@ -160,6 +166,22 @@ public:
     QToolBar* buildToolBar();
     void buildStatusBar(QStatusBar* statusBar, ProjectPanel* projectPanel, TerminalPanel* terminalPanel);
 
+    QAction* reopenClosedTabAct() const
+    {
+        return m_reopenClosedTabAct;
+    }
+    QAction* duplicateLineAct() const
+    {
+        return m_duplicateLineAct;
+    }
+    QAction* moveLineUpAct() const
+    {
+        return m_moveLineUpAct;
+    }
+    QAction* moveLineDownAct() const
+    {
+        return m_moveLineDownAct;
+    }
     QAction* newAct() const
     {
         return m_newAct;
@@ -447,6 +469,20 @@ public:
     {
         return m_restartAct;
     }
+    // Shows/hides all debugger UI (Debug menu + View->Debug Panel action).
+    // Called by MainWindow depending on whether the DAP plugin is enabled.
+    void setDebugUiVisible(bool visible);
+    // Show/hide every action, menu, and status-bar button that is only
+    // meaningful with the LSP plugin loaded.
+    void setLspUiVisible(bool visible);
+    bool isDebugUiVisible() const
+    {
+        return m_debugPanelAct->isVisible();
+    }
+    QMenu* debugMenu() const
+    {
+        return m_debugMenu;
+    }
     QToolButton* projectPanelButton() const
     {
         return m_projectPanelButton;
@@ -458,6 +494,10 @@ public:
     QToolButton* errorListPanelButton() const
     {
         return m_errorListPanelButton;
+    }
+    QToolButton* referencesPanelButton() const
+    {
+        return m_referencesPanelButton;
     }
 
     void rebuildExternalToolsMenu();
@@ -504,6 +544,7 @@ signals:
     void saveFileAsTriggered();
     void saveAllTriggered();
     void revertTriggered();
+    void reopenClosedTabTriggered();
     void closeCurrentTabTriggered();
     void closeAllTabsTriggered();
     void exitTriggered();
@@ -514,6 +555,8 @@ signals:
     void cutTriggered();
     void copyTriggered();
     void pasteTriggered();
+    void terminalCopyTriggered();
+    void terminalPasteTriggered();
     void selectAllTriggered();
     void deleteTriggered();
     void findTriggered();
@@ -522,6 +565,11 @@ signals:
     void goToLineTriggered();
     void findNextTriggered();
     void findPreviousTriggered();
+    void findNextWithSelectionTriggered();
+    void findPreviousWithSelectionTriggered();
+    void duplicateLineTriggered();
+    void moveLineUpTriggered();
+    void moveLineDownTriggered();
 
     void zoomInTriggered();
     void zoomOutTriggered();
@@ -642,6 +690,12 @@ private:
     QAction* m_openFolderAct = nullptr;
     QAction* m_closeProjectAct = nullptr;
     QAction* m_revertAct = nullptr;
+    QAction* m_reopenClosedTabAct = nullptr;
+    QAction* m_duplicateLineAct = nullptr;
+    QAction* m_moveLineUpAct = nullptr;
+    QAction* m_moveLineDownAct = nullptr;
+    QAction* m_findNextWithSelectionAct = nullptr;
+    QAction* m_findPreviousWithSelectionAct = nullptr;
     QAction* m_saveAct = nullptr;
     QAction* m_saveAsAct = nullptr;
     QAction* m_saveAllAct = nullptr;
@@ -668,10 +722,14 @@ private:
     QAction* m_fullScreenAct = nullptr;
     QAction* m_projectPanelAct = nullptr;
     QAction* m_terminalPanelAct = nullptr;
+    QAction* m_terminalCopyAct = nullptr;
+    QAction* m_terminalPasteAct = nullptr;
     QAction* m_errorListPanelAct = nullptr;
     QAction* m_referencesPanelAct = nullptr;
     QToolButton* m_referencesPanelButton = nullptr;
     QAction* m_debugPanelAct = nullptr;
+    QMenu* m_debugMenu = nullptr;
+    QMenu* m_lspMenu = nullptr;
     QAction* m_startDebuggingAct = nullptr;
     QAction* m_stopDebuggingAct = nullptr;
     QAction* m_continueAct = nullptr;
@@ -712,6 +770,7 @@ private:
     QAction* m_aboutAct = nullptr;
     QAction* m_checkForUpdatesAct = nullptr;
     QList<QAction*> m_externalToolActs;
+    QList<QAction*> m_externalToolSeparators;
     RecentFilesHelper* m_recentFilesHelper = nullptr;
     EncodingMenuHelper* m_encodingHelper = nullptr;
     QMenu* m_toolsMenu = nullptr;

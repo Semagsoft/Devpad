@@ -53,6 +53,7 @@ private slots:
     void onReplaceClicked();
     void onReplaceAllClicked();
     void onCloseClicked();
+    void onOptionToggled();
 
 private:
     void setupUI();
@@ -60,6 +61,7 @@ private:
     void performSearch();
     void clearHighlights();
     void navigateToMatch(int index);
+    void selectByteRange(int posFrom, int posTo);
     void saveState();
     void restoreState();
     void updateIcons();

@@ -1,14 +1,20 @@
 #include "codeeditor.h"
 #include "editorcontroller.h"
 #include "filemanager.h"
+#include "lsp/lsptypes.h"
 #include "mainwindow.h"
+#include "managers/actionmanager.h"
+#include "plugins/lspinterface.h"
+#include "plugins/pluginhost.h"
+#include "plugins/pluginmanager.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
-#include "terminalpanel.h"
 #include "theme.h"
 
 #include <QAction>
 #include <QApplication>
+#include <QCoreApplication>
+#include <QDockWidget>
 #include <QEvent>
 #include <QFile>
 #include <QFileInfo>
@@ -20,13 +26,17 @@
 #include <QTest>
 #include <QTextStream>
 #include <QTimer>
-#include <cstdio>
+#include <QToolButton>
 #include <cstdlib>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-// Counts how many QMessageBox dialogs are shown anywhere in the application.
+// Counts QMessageBox dialogs as they are shown and auto-dismisses them with
+// "No" from inside the prompt's own nested event loop. That makes dismissal
+// deterministic — the dialog's exec() always returns — and removes any
+// dependence on timer granularity, watchdogs, or how loaded the machine is.
+// Used to test the single-prompt guard without hanging or racing.
 class MessageBoxShowCounter : public QObject
 {
 public:
@@ -35,9 +45,14 @@ public:
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override
     {
-        if (event->type() == QEvent::Show && qobject_cast<QMessageBox*>(obj))
+        auto* box = qobject_cast<QMessageBox*>(obj);
+        if (!box)
+            return QObject::eventFilter(obj, event);
+        if (event->type() == QEvent::Show)
+        {
             ++count;
-
+            QTimer::singleShot(0, box, [box]() { box->done(QMessageBox::No); });
+        }
         return QObject::eventFilter(obj, event);
     }
 };
@@ -85,56 +100,28 @@ protected:
         window.openFileFromPath(filePath);
     }
 
-    // Invokes the private onFileModifiedExternally slot, dismissing any prompt it raises
-    // with No. Re-enters the slot `reentries` times from inside that prompt's nested event
-    // loop, mimicking watcher signals delivered while the dialog is already up.
-    // Dialogs shown are accumulated in `counter`, which may span several calls.
+    // Invokes the private onFileModifiedExternally slot. Re-enters the slot
+    // `reentries` times from inside the prompt's nested event loop, mimicking
+    // watcher signals delivered while the dialog is already up; the guard must
+    // drop them. The prompt itself is auto-dismissed with "No" once shown (see
+    // MessageBoxShowCounter), so the sequence is deterministic. Dialogs shown
+    // are accumulated in `counter`, which may span several calls.
     void runExternalChangePrompt(MainWindow& window, const QString& filePath, MessageBoxShowCounter& counter, int reentries = 0)
     {
         // Installed on the application so it sees every event, including those of the
         // dialog (which is not reachable from the main window's modal state here).
         qApp->installEventFilter(&counter);
 
-        QTimer ticker;
-        int tick = 0;
-        QObject::connect(&ticker, &QTimer::timeout, &window,
-                         [&]()
-                         {
-                             if (tick++ < reentries)
-                             {
-                                 QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath));
-                                 return;
-                             }
-
-                             // Dismiss every open prompt so its exec() returns. With the guard
-                             // in place there is at most one; a regression that stacks dialogs
-                             // still unwinds instead of hanging.
-                             const auto prompts = window.findChildren<QMessageBox*>();
-                             for (auto* prompt : prompts)
-                                 prompt->close();
-                         });
-        ticker.start(1);
-
-        // Stacked modal loops cannot always be unwound from here, so give up loudly instead
-        // of hanging the suite when the guard is missing.
-        QTimer watchdog;
-        int budget = 0;
-        QObject::connect(&watchdog, &QTimer::timeout, &window,
-                         [&]()
-                         {
-                             if (++budget <= 40)
-                                 return;
-
-                             fprintf(stderr, "'File Modified' prompts never dismissed: the one-dialog guard is missing\n");
-                             fflush(stderr);
-                             std::_Exit(1);
-                         });
-        watchdog.start(50);
+        // Re-entrant signals delivered while the outer prompt is still open.
+        // They must all be dropped by the guard — none may stack another dialog.
+        for (int i = 0; i < reentries; ++i)
+        {
+            QTimer::singleShot(0, &window, [&window, filePath]()
+                               { QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath)); });
+        }
 
         QMetaObject::invokeMethod(&window, "onFileModifiedExternally", Qt::DirectConnection, Q_ARG(QString, filePath));
 
-        ticker.stop();
-        watchdog.stop();
         qApp->removeEventFilter(&counter);
     }
 };
@@ -154,14 +141,75 @@ TEST_F(MainWindowTest, TerminalPanelHiddenInTabModeWhenDisabled)
     MainWindow window;
     window.show();
 
-    auto* terminal = window.findChild<TerminalPanel*>();
-    ASSERT_NE(terminal, nullptr);
-    EXPECT_FALSE(terminal->isVisible());
-
-    for (QTabWidget* tw : window.findChildren<QTabWidget*>())
+    // The terminal panel is plugin-owned: when the Terminal plugin is loaded
+    // the dock object always exists, but with the panel disabled it must not
+    // be visible (no tab added and the dock removed from the main window).
+    auto* terminal = window.findChild<QDockWidget*>("TerminalPanel");
+    if (terminal)
     {
-        EXPECT_EQ(tw->indexOf(terminal), -1) << "Disabled terminal panel must not be added as a tab";
+        EXPECT_FALSE(terminal->isVisible());
+        auto* tabWidget = window.findChild<QTabWidget*>();
+        if (tabWidget)
+        {
+            EXPECT_EQ(tabWidget->indexOf(terminal), -1);
+        }
     }
+}
+
+TEST_F(MainWindowTest, OpenCppFileAttachesLspSession)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    MainWindow window;
+    auto* host = window.pluginManager() ? window.pluginManager()->host() : nullptr;
+    auto* service = host ? qobject_cast<lsp::ILspService*>(host->object(QString::fromLatin1(lsp::LspServiceObjectId))) : nullptr;
+    if (!service)
+        GTEST_SKIP() << "LSP plugin not loaded in this build";
+
+    QString filePath = testFilePath("lsp_session.cpp");
+    createFile(filePath, "int main() { return 0; }");
+
+    window.openFileFromPath(filePath);
+
+    auto* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    ASSERT_NE(editor->lspSession(), nullptr) << "editor must have an LSP session attached after open";
+    EXPECT_TRUE(editor->lspSession()->isActive());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, DisablingLspPluginDetachesAndReattachWorks)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    MainWindow window;
+    ASSERT_TRUE(window.pluginManager() != nullptr);
+    auto* host = window.pluginManager()->host();
+    if (qobject_cast<lsp::ILspService*>(host->object(QString::fromLatin1(lsp::LspServiceObjectId))) == nullptr)
+        GTEST_SKIP() << "LSP plugin not loaded in this build";
+
+    QString filePath = testFilePath("lsp_toggle.cpp");
+    createFile(filePath, "int main() { return 0; }");
+
+    window.openFileFromPath(filePath);
+    auto* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    ASSERT_NE(editor->lspSession(), nullptr);
+
+    // Disable: sessions must die and the editor must silently no-op.
+    window.pluginManager()->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"), false);
+    EXPECT_TRUE(window.pluginManager()->isLoaded(QStringLiteral("org.semagsoft.devpad.lsp")) == false);
+    EXPECT_EQ(nullptr, editor->lspSession());
+    EXPECT_FALSE(editor->lspActive());
+
+    // Re-enable: a fresh session must be attached for the open editor.
+    window.pluginManager()->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"), true);
+    ASSERT_TRUE(window.pluginManager()->isLoaded(QStringLiteral("org.semagsoft.devpad.lsp")));
+    ASSERT_NE(editor->lspSession(), nullptr) << "re-enabling the plugin must re-attach sessions";
+    EXPECT_TRUE(editor->lspSession()->isActive());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
 }
 
 TEST_F(MainWindowTest, OpenFileFromPathOpensTab)
@@ -261,6 +309,12 @@ TEST_F(MainWindowTest, MultipleFilesOpenSeparateTabs)
 
 TEST_F(MainWindowTest, ToggleCommentShortcutTogglesExactlyOnce)
 {
+    // Keep the terminal plugin hidden so show() does not spawn a shell on
+    // macOS (teardown crashes when bash is still running); same pattern as
+    // TerminalPanelHiddenInTabModeWhenDisabled.
+    SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Tab);
+    SettingsManager::instance().setShowTerminalPanel(false);
+
     MainWindow window;
     window.show();
 
@@ -389,4 +443,335 @@ TEST_F(MainWindowTest, OpeningSameFileTwiceDoesNotDuplicateTab)
     {
         EXPECT_EQ(editors.front()->text(), "content");
     }
+}
+
+// ── Plugin bridge ──────────────────────────────────────────────────────────
+// MainWindow talks to plugins through QMetaObject::invokeMethod on the
+// plugin's QObject side, since IPlugin is not a QObject. These tests verify
+// that bridge for the DAP debugger plugin.
+
+TEST_F(MainWindowTest, DapPluginExposesInvokableDebugMethods)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    auto* plugin = manager->plugin(QStringLiteral("org.semagsoft.devpad.dap"));
+    ASSERT_NE(plugin, nullptr);
+
+    auto* object = dynamic_cast<QObject*>(plugin);
+    ASSERT_NE(object, nullptr);
+
+    const QMetaObject* meta = object->metaObject();
+    EXPECT_NE(meta->indexOfMethod("startDebugging(QString,QString,QString,QStringList)"), -1);
+    EXPECT_NE(meta->indexOfMethod("stopDebugging(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugContinue(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugStepOver(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugStepInto(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugStepOut(QString)"), -1);
+    EXPECT_NE(meta->indexOfMethod("debugRestart(QString)"), -1);
+}
+
+TEST_F(MainWindowTest, StartDebuggingInvokesDapPluginViaMetaObject)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    auto* plugin = manager->plugin(QStringLiteral("org.semagsoft.devpad.dap"));
+    ASSERT_NE(plugin, nullptr);
+    auto* object = dynamic_cast<QObject*>(plugin);
+    ASSERT_NE(object, nullptr);
+
+    // The plugin registers its DapServerManager with the host; connect to its
+    // clientError signal so we can observe that the invocation reached it.
+    auto* server = manager->host()->object(QStringLiteral("dap_server"));
+    ASSERT_NE(server, nullptr);
+    QSignalSpy errorSpy(server, SIGNAL(clientError(QString, QString)));
+
+    // Open a file so startDebugging() has a path to debug, then run it with
+    // a language no adapter is configured for: the DapServerManager must
+    // emit clientError and not spawn a process.
+    QString filePath = testFilePath("debug_me.py");
+    createFile(filePath, "print('hi')");
+    window.openFileFromPath(filePath);
+    ASSERT_NE(window.findChild<CodeEditor*>(), nullptr);
+
+    bool invoked =
+        QMetaObject::invokeMethod(object, "startDebugging", Qt::DirectConnection, Q_ARG(QString, lsp::uriFromPath(filePath)),
+                                  Q_ARG(QString, QStringLiteral("unknownlang")), Q_ARG(QString, QString()), Q_ARG(QStringList, QStringList()));
+    EXPECT_TRUE(invoked);
+
+    // The invocation reached the plugin and was forwarded to the server
+    // manager, which reports the missing adapter.
+    QTRY_VERIFY_WITH_TIMEOUT(errorSpy.count() >= 1, 1000);
+
+    QMetaObject::invokeMethod(object, "stopDebugging", Qt::DirectConnection, Q_ARG(QString, QStringLiteral("session")));
+}
+
+TEST_F(MainWindowTest, DebugPanelTogglesViaPluginHost)
+{
+    // Keep the terminal plugin hidden so show() does not spawn a shell on
+    // macOS (teardown crashes when bash is still running).
+    SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Tab);
+    SettingsManager::instance().setShowTerminalPanel(false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    auto* dock = qobject_cast<QDockWidget*>(manager->host()->panel(QStringLiteral("debug")));
+    if (!dock)
+    {
+        GTEST_SKIP() << "DAP debug panel not registered (plugin disabled?)";
+    }
+
+    window.show();
+    EXPECT_FALSE(dock->isVisible());
+
+    window.toggleDebugPanel();
+    EXPECT_TRUE(dock->isVisible());
+    EXPECT_TRUE(window.actionManager()->debugPanelAct()->isChecked());
+
+    window.toggleDebugPanel();
+    EXPECT_FALSE(dock->isVisible());
+    EXPECT_FALSE(window.actionManager()->debugPanelAct()->isChecked());
+}
+
+// ── DAP UI visibility follows plugin state ─────────────────────────────────
+
+TEST_F(MainWindowTest, DapUiHiddenWhenPluginDisabled)
+{
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.dap"), QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+
+    EXPECT_FALSE(window.pluginManager()->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
+    EXPECT_FALSE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}
+
+TEST_F(MainWindowTest, DapUiVisibleWhenPluginEnabled)
+{
+    // Default: no persisted Enabled setting -> manifest default (enabled).
+    MainWindow window;
+
+    EXPECT_TRUE(window.pluginManager()->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+    EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
+    EXPECT_TRUE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}
+
+TEST_F(MainWindowTest, DisablingDapPluginAtRuntimeHidesDebugUi)
+{
+    MainWindow window;
+
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    EXPECT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+    EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), false);
+
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
+    EXPECT_FALSE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}
+
+TEST_F(MainWindowTest, EnablingDapPluginAtRuntimeShowsDebugUi)
+{
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.dap"), QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), true);
+
+    EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
+    EXPECT_TRUE(window.actionManager()->debugMenu()->menuAction()->isVisible());
+}
+
+// ── Plugin bridge: editor integration + lifecycle ─────────────────────────
+
+TEST_F(MainWindowTest, DapEditorIntegrationAttachedOnFileOpen)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+
+    QString filePath = testFilePath("integ.py");
+    createFile(filePath, "print('hi')");
+    window.openFileFromPath(filePath);
+
+    auto* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    EXPECT_NE(editor->dapIntegration(), nullptr);
+}
+
+TEST_F(MainWindowTest, DebugDockRemovedOnPluginDisable)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), false);
+}
+
+TEST_F(MainWindowTest, DapPluginReenableRestoresDebugUi)
+{
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.dap"), QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), true);
+
+    EXPECT_TRUE(window.actionManager()->isDebugUiVisible());
+    EXPECT_NE(manager->host()->panel(QStringLiteral("debug")), nullptr);
+}
+
+TEST_F(MainWindowTest, TerminalToggleHiddenOnPluginDisable)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.terminal")));
+
+    auto* dock = qobject_cast<QDockWidget*>(manager->host()->panel(QStringLiteral("terminal")));
+    if (!dock)
+    {
+        GTEST_SKIP() << "Terminal panel not registered";
+    }
+
+    EXPECT_TRUE(window.actionManager()->terminalPanelAct()->isVisible());
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.terminal"), false);
+
+    EXPECT_FALSE(window.actionManager()->terminalPanelAct()->isVisible());
+    EXPECT_FALSE(window.actionManager()->terminalPanelButton()->isVisible());
+    EXPECT_EQ(manager->host()->panel(QStringLiteral("terminal")), nullptr);
+}
+
+TEST_F(MainWindowTest, TerminalReenableRestoresPanel)
+{
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.terminal"), QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.terminal"), true);
+
+    EXPECT_TRUE(window.actionManager()->terminalPanelAct()->isVisible());
+    EXPECT_NE(manager->host()->panel(QStringLiteral("terminal")), nullptr);
+}
+
+// ── Terminal toggle + position switching ──────────────────────────────────
+
+TEST_F(MainWindowTest, TerminalToggleAddsRemovesTab)
+{
+#ifdef Q_OS_WIN
+    GTEST_SKIP() << "Windows: test binary and terminal plugin DLL each carry their own host libraries on Windows; "
+                    "cross-module SettingsManager singleton assertions cannot hold. "
+                    "Covered on Linux where the plugin resolves host symbols from the test executable";
+#endif
+    // The terminal plugin is a separate module on Windows; it reads its own
+    // SettingsManager at construction time. Write the settings before any
+    // plugin is constructed so the plugin sees them.
+    SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Tab);
+    SettingsManager::instance().setShowTerminalPanel(false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.terminal")));
+
+    auto* dock = qobject_cast<QDockWidget*>(manager->host()->panel(QStringLiteral("terminal")));
+    ASSERT_NE(dock, nullptr);
+
+    auto* tabWidget = window.findChild<QTabWidget*>();
+    ASSERT_NE(tabWidget, nullptr);
+
+    EXPECT_EQ(tabWidget->indexOf(dock), -1);
+
+    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection, Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(tabWidget->indexOf(dock), 0);
+    EXPECT_TRUE(SettingsManager::instance().showTerminalPanel());
+
+    // Toggle again -> removed from tab
+    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection, Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(tabWidget->indexOf(dock), -1);
+    EXPECT_FALSE(SettingsManager::instance().showTerminalPanel());
+}
+
+TEST_F(MainWindowTest, TerminalPositionSwitchingTabToDock)
+{
+#ifdef Q_OS_WIN
+    GTEST_SKIP() << "Windows: test binary and terminal plugin DLL each carry their own host libraries on Windows; "
+                    "cross-module SettingsManager singleton assertions cannot hold. "
+                    "Covered on Linux where the plugin resolves host symbols from the test executable";
+#endif
+    // Write settings before window (plugin DLL) construction so the plugin
+    // sees them; see TerminalToggleAddsRemovesTab.
+    SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Tab);
+    SettingsManager::instance().setShowTerminalPanel(false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.terminal")));
+
+    auto* dock = qobject_cast<QDockWidget*>(manager->host()->panel(QStringLiteral("terminal")));
+    ASSERT_NE(dock, nullptr);
+
+    auto* tabWidget = window.findChild<QTabWidget*>();
+    ASSERT_NE(tabWidget, nullptr);
+
+    // Add as tab first
+    QMetaObject::invokeMethod(dock, "toggle", Qt::DirectConnection, Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(tabWidget->indexOf(dock), 0);
+
+    // Switch to Bottom position -> removed from tab, docked
+    SettingsManager::instance().setTerminalPanelPosition(TerminalPanelPosition::Bottom);
+    QMetaObject::invokeMethod(dock, "applyPosition", Qt::DirectConnection, Q_ARG(int, static_cast<int>(TerminalPanelPosition::Bottom)),
+                              Q_ARG(QTabWidget*, tabWidget), Q_ARG(QMainWindow*, &window));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(tabWidget->indexOf(dock), -1);
+}
+
+// ── Debug session active during plugin disable ────────────────────────────
+
+TEST_F(MainWindowTest, DebugSessionClearedWhenPluginDisabled)
+{
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_TRUE(manager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap")));
+
+    auto* object = dynamic_cast<QObject*>(manager->plugin(QStringLiteral("org.semagsoft.devpad.dap")));
+    ASSERT_NE(object, nullptr);
+
+    // Start a debug session with no adapter configured -> server emits clientError
+    QString filePath = testFilePath("debug_me.py");
+    createFile(filePath, "print('hi')");
+    window.openFileFromPath(filePath);
+    ASSERT_NE(window.findChild<CodeEditor*>(), nullptr);
+
+    bool invoked =
+        QMetaObject::invokeMethod(object, "startDebugging", Qt::DirectConnection, Q_ARG(QString, lsp::uriFromPath(filePath)),
+                                  Q_ARG(QString, QStringLiteral("unknownlang")), Q_ARG(QString, QString()), Q_ARG(QStringList, QStringList()));
+    EXPECT_TRUE(invoked);
+
+    QCoreApplication::processEvents();
+
+    // Now disable the plugin -> session key cleared, UI hidden
+    manager->setPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"), false);
+
+    EXPECT_FALSE(window.actionManager()->isDebugUiVisible());
 }

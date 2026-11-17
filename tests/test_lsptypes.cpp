@@ -85,6 +85,82 @@ TEST(LspTypesTest, ServerCapabilitiesFromJsonFull)
     EXPECT_TRUE(result.diagnosticProvider);
 }
 
+TEST(LspTypesTest, ServerCapabilitiesExplicitFalseIsNotSupported)
+{
+    QJsonObject caps;
+    caps["hoverProvider"] = false;
+    caps["completionProvider"] = QJsonObject{{"triggerCharacters", QJsonArray{"."}}};
+    caps["definitionProvider"] = QJsonObject{};
+    caps["referencesProvider"] = true;
+
+    ServerCapabilities result = ServerCapabilities::fromJson(caps);
+    EXPECT_FALSE(result.hoverProvider);
+    EXPECT_TRUE(result.completionProvider);
+    EXPECT_TRUE(result.definitionProvider);
+    EXPECT_TRUE(result.referencesProvider);
+    EXPECT_EQ(result.completionTriggerChars.size(), 1);
+    EXPECT_EQ(result.completionTriggerChars.first(), ".");
+}
+
+TEST(LspTypesTest, ServerCapabilitiesFalseEmbeddedInTextDocument)
+{
+    QJsonObject td;
+    td["completion"] = false;
+    td["hover"] = QJsonObject{};
+    QJsonObject caps;
+    caps["textDocument"] = td;
+
+    ServerCapabilities result = ServerCapabilities::fromJson(caps);
+    EXPECT_FALSE(result.completionProvider);
+    EXPECT_TRUE(result.hoverProvider);
+}
+
+TEST(LspTypesTest, ServerCapabilitiesWorkspaceSymbol)
+{
+    QJsonObject caps;
+    caps["workspaceSymbolProvider"] = true;
+    EXPECT_TRUE(ServerCapabilities::fromJson(caps).workspaceSymbolProvider);
+
+    caps = QJsonObject{};
+    caps["workspace"] = QJsonObject{{"symbol", QJsonObject{}}};
+    EXPECT_TRUE(ServerCapabilities::fromJson(caps).workspaceSymbolProvider);
+
+    caps = QJsonObject{};
+    caps["workspace"] = QJsonObject{{"symbol", false}};
+    EXPECT_FALSE(ServerCapabilities::fromJson(caps).workspaceSymbolProvider);
+
+    caps = QJsonObject{};
+    EXPECT_FALSE(ServerCapabilities::fromJson(caps).workspaceSymbolProvider);
+}
+
+TEST(LspTypesTest, DiagnosticCodeStringIsPreserved)
+{
+    QJsonObject obj;
+    obj["range"] = QJsonObject{{"start", QJsonObject{{"line", 0}, {"character", 0}}}, {"end", QJsonObject{{"line", 0}, {"character", 1}}}};
+    obj["message"] = QStringLiteral("ts error");
+    obj["severity"] = 1;
+
+    obj["code"] = QStringLiteral("TS2304");
+    EXPECT_EQ(Diagnostic::fromJson(obj).code, "TS2304");
+
+    obj["code"] = 2304; // numeric codes are stringified
+    EXPECT_EQ(Diagnostic::fromJson(obj).code, "2304");
+}
+
+TEST(LspTypesTest, SymbolKindName)
+{
+    EXPECT_EQ(symbolKindName(1), "File");
+    EXPECT_EQ(symbolKindName(5), "Class");
+    EXPECT_EQ(symbolKindName(6), "Method");
+    EXPECT_EQ(symbolKindName(12), "Function");
+    EXPECT_EQ(symbolKindName(14), "Constant");
+    EXPECT_EQ(symbolKindName(23), "Struct");
+    EXPECT_EQ(symbolKindName(26), "TypeParameter");
+    EXPECT_EQ(symbolKindName(0), QString());
+    EXPECT_EQ(symbolKindName(27), QString());
+    EXPECT_EQ(symbolKindName(-1), QString());
+}
+
 TEST(LspTypesTest, PositionToJsonAndBack)
 {
     Position pos{5, 10};
@@ -196,6 +272,93 @@ TEST(LspTypesTest, ByteOffsetToUtf16RoundTripAtBoundaries)
     }
 }
 
+TEST(LspTypesTest, CharIndexToUtf16ColAscii)
+{
+    const QString line = QStringLiteral("hello");
+    EXPECT_EQ(charIndexToUtf16Col(line, 0), 0);
+    EXPECT_EQ(charIndexToUtf16Col(line, 1), 1);
+    EXPECT_EQ(charIndexToUtf16Col(line, 5), 5);
+    EXPECT_EQ(utf16ColToCharIndex(line, 0), 0);
+    EXPECT_EQ(utf16ColToCharIndex(line, 1), 1);
+    EXPECT_EQ(utf16ColToCharIndex(line, 5), 5);
+}
+
+TEST(LspTypesTest, CharIndexAndUtf16ColForMultiByte)
+{
+    // "café日😀": c a f é 日 😀
+    // é is U+00E9 (2 UTF-8 bytes, 1 unit), 日 is U+65E5 (3 bytes, 1 unit),
+    // 😀 is U+1F600 (4 bytes, 2 units).
+    const QString line = QStringLiteral("café日😀");
+    // code point indices: c=0 a=1 f=2 é=3 日=4 😀=5; utf16 cols: c a f é(1) 日(1) 😀(2)
+    EXPECT_EQ(charIndexToUtf16Col(line, 0), 0);
+    EXPECT_EQ(charIndexToUtf16Col(line, 3), 3); // é
+    EXPECT_EQ(charIndexToUtf16Col(line, 4), 4); // 日
+    EXPECT_EQ(charIndexToUtf16Col(line, 5), 5); // start of 😀
+    EXPECT_EQ(charIndexToUtf16Col(line, 6), 7); // after 😀
+
+    EXPECT_EQ(utf16ColToCharIndex(line, 0), 0);
+    EXPECT_EQ(utf16ColToCharIndex(line, 3), 3); // é
+    EXPECT_EQ(utf16ColToCharIndex(line, 4), 4); // 日
+    EXPECT_EQ(utf16ColToCharIndex(line, 5), 5); // start of 😀
+    EXPECT_EQ(utf16ColToCharIndex(line, 7), 6); // after 😀
+    // A UTF-16 column inside the astral character clamps to its start.
+    EXPECT_EQ(utf16ColToCharIndex(line, 6), 5);
+}
+
+TEST(LspTypesTest, CharIndexToByteOffsetMultiByte)
+{
+    // "a日😀": a(1,1 unit) 日(3 bytes,1 unit) 😀(4 bytes,2 units)
+    const QString line = QStringLiteral("a日😀");
+    EXPECT_EQ(charIndexToByteOffset(line, 0), 0);
+    EXPECT_EQ(charIndexToByteOffset(line, 1), 1); // after 'a'
+    EXPECT_EQ(charIndexToByteOffset(line, 2), 4); // after 日
+    EXPECT_EQ(charIndexToByteOffset(line, 3), 8); // after 😀
+    EXPECT_EQ(byteOffsetToCharIndex(line, 0), 0);
+    EXPECT_EQ(byteOffsetToCharIndex(line, 1), 1); // after 'a'
+    EXPECT_EQ(byteOffsetToCharIndex(line, 2), 1); // mid-日 clamps to 'a'
+    EXPECT_EQ(byteOffsetToCharIndex(line, 4), 2); // after 日
+    EXPECT_EQ(byteOffsetToCharIndex(line, 5), 2); // mid-😀 clamps
+    EXPECT_EQ(byteOffsetToCharIndex(line, 8), 3); // after 😀
+}
+
+TEST(LspTypesTest, AllConversionsAgreeOnRoundTrip)
+{
+    // "naïve日😀x": n a ï v e 日 😀 x
+    // byte boundaries: 0 1 2 4 5 6 9 13 14
+    // utf16 columns:   0 1 2 3 4 5 6 8 9   (😀 is two UTF-16 units)
+    const QString line = QStringLiteral("naïve日😀x");
+    // code points:     0 1 2 3 4 5 6 7 8
+    std::array<int, 8> cp = {0, 1, 2, 3, 4, 5, 6, 7};
+    for (int c : cp)
+    {
+        int utf16 = charIndexToUtf16Col(line, c);
+        int bytes = charIndexToByteOffset(line, c);
+        EXPECT_EQ(utf16ToByteOffset(line, utf16), bytes);
+        EXPECT_EQ(utf16ColToCharIndex(line, utf16), c);
+        EXPECT_EQ(byteOffsetToCharIndex(line, bytes), c);
+        EXPECT_EQ(byteOffsetToUtf16(line, bytes), utf16);
+    }
+}
+
+TEST(LspTypesTest, ConversionClampsBeyondLineEnd)
+{
+    const QString line = QStringLiteral("ab");
+    EXPECT_EQ(utf16ColToCharIndex(line, 10), 2);
+    EXPECT_EQ(charIndexToUtf16Col(line, 10), 2);
+    EXPECT_EQ(charIndexToByteOffset(line, 10), 2);
+    EXPECT_EQ(byteOffsetToCharIndex(line, 10), 2);
+}
+
+TEST(LspTypesTest, ConversionOnEmptyLine)
+{
+    const QString empty;
+    EXPECT_EQ(utf16ColToCharIndex(empty, 0), 0);
+    EXPECT_EQ(charIndexToUtf16Col(empty, 0), 0);
+    EXPECT_EQ(charIndexToByteOffset(empty, 0), 0);
+    EXPECT_EQ(byteOffsetToCharIndex(empty, 0), 0);
+    EXPECT_EQ(utf16ColToCharIndex(empty, 5), 0);
+}
+
 TEST(LspTypesTest, ByteOffsetToUtf16EdgeCases)
 {
     const QString line = QStringLiteral("test");
@@ -206,4 +369,84 @@ TEST(LspTypesTest, ByteOffsetToUtf16EdgeCases)
     const QString empty;
     EXPECT_EQ(byteOffsetToUtf16(empty, 0), 0);
     EXPECT_EQ(utf16ToByteOffset(empty, 0), 0);
+}
+
+TEST(LspTypesTest, LocationFromAnyJsonParsesLocationShape)
+{
+    QJsonObject rangeObj;
+    rangeObj["start"] = QJsonObject{{"line", 41}, {"character", 5}};
+    rangeObj["end"] = QJsonObject{{"line", 41}, {"character", 12}};
+    QJsonObject obj;
+    obj["uri"] = "file:///tmp/sample.cpp";
+    obj["range"] = rangeObj;
+
+    Location loc = Location::fromAnyJson(obj);
+    EXPECT_EQ(loc.uri, "file:///tmp/sample.cpp");
+    EXPECT_EQ(loc.range.start.line, 41);
+    EXPECT_EQ(loc.range.start.character, 5);
+    EXPECT_EQ(loc.range.end.character, 12);
+}
+
+TEST(LspTypesTest, LocationFromAnyJsonParsesLocationLinkShape)
+{
+    QJsonObject targetRange;
+    targetRange["start"] = QJsonObject{{"line", 7}, {"character", 0}};
+    targetRange["end"] = QJsonObject{{"line", 9}, {"character", 0}};
+    QJsonObject selectionRange;
+    selectionRange["start"] = QJsonObject{{"line", 7}, {"character", 4}};
+    selectionRange["end"] = QJsonObject{{"line", 7}, {"character", 9}};
+    QJsonObject link;
+    link["targetUri"] = "file:///tmp/other.cpp";
+    link["targetRange"] = targetRange;
+    link["targetSelectionRange"] = selectionRange;
+
+    Location loc = Location::fromAnyJson(link);
+    EXPECT_EQ(loc.uri, "file:///tmp/other.cpp");
+    // The selection range is preferred for navigation; the full statement
+    // range is the fallback only when the selection range is absent.
+    EXPECT_EQ(loc.range.start.character, 4);
+    EXPECT_EQ(loc.range.end.character, 9);
+}
+
+TEST(LspTypesTest, LocationFromAnyJsonLocationLinkWithoutSelectionRange)
+{
+    QJsonObject targetRange;
+    targetRange["start"] = QJsonObject{{"line", 3}, {"character", 1}};
+    targetRange["end"] = QJsonObject{{"line", 5}, {"character", 2}};
+    QJsonObject link;
+    link["targetUri"] = "file:///tmp/plain.cpp";
+    link["targetRange"] = targetRange;
+
+    Location loc = Location::fromAnyJson(link);
+    EXPECT_EQ(loc.uri, "file:///tmp/plain.cpp");
+    EXPECT_EQ(loc.range.start.line, 3);
+    EXPECT_EQ(loc.range.end.line, 5);
+}
+
+TEST(LspTypesTest, CompletionItemKindUsesOneBasedMapping)
+{
+    const std::array<const char*, 25> labels = {"Text",      "Method", "Function", "Constructor",  "Field",  "Variable",   "Class",
+                                                "Interface", "Module", "Property", "Unit",         "Value",  "Enum",       "Keyword",
+                                                "Snippet",   "Color",  "File",     "Reference",    "Folder", "EnumMember", "Constant",
+                                                "Struct",    "Event",  "Operator", "TypeParameter"};
+    for (int k = 1; k <= 25; ++k)
+    {
+        QJsonObject obj;
+        obj["label"] = QString("item%1").arg(k);
+        obj["kind"] = k;
+        CompletionItem item = CompletionItem::fromJson(obj);
+        EXPECT_EQ(item.kind, QString::fromLatin1(labels[k - 1])) << "kind=" << k;
+    }
+}
+
+TEST(LspTypesTest, CompletionItemKindOutOfRangeLeavesKindEmpty)
+{
+    for (int k : {0, -1, 26, 1000})
+    {
+        QJsonObject obj;
+        obj["label"] = QStringLiteral("item");
+        obj["kind"] = k;
+        CompletionItem item = CompletionItem::fromJson(obj);
+        EXPECT_TRUE(item.kind.isEmpty()) << "kind=" << k;
+    }
 }

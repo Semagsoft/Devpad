@@ -43,6 +43,36 @@ void SearchManager::showReplaceDialog()
         container->showReplaceBar();
 }
 
+void SearchManager::findNextWithSelection()
+{
+    if (auto* editor = currentEditor())
+    {
+        const QString selected = editor->selectedText();
+        if (!selected.isEmpty() && !selected.contains(QLatin1Char('\n')) && !selected.contains(QLatin1Char('\r')))
+        {
+            setLastSearch(selected);
+            performSearch(selected, false, false, false, true);
+            return;
+        }
+    }
+    findNext();
+}
+
+void SearchManager::findPreviousWithSelection()
+{
+    if (auto* editor = currentEditor())
+    {
+        const QString selected = editor->selectedText();
+        if (!selected.isEmpty() && !selected.contains(QLatin1Char('\n')) && !selected.contains(QLatin1Char('\r')))
+        {
+            setLastSearch(selected);
+            performSearch(selected, false, false, false, false);
+            return;
+        }
+    }
+    findPrevious();
+}
+
 void SearchManager::findNext()
 {
     auto* editor = currentEditor();

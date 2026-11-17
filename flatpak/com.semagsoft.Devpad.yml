@@ -9,7 +9,13 @@ finish-args:
   - --socket=wayland
   - --share=network
   - --device=dri
-  - --filesystem=home
+  # Least-privilege filesystem access: user documents/downloads plus the app's
+  # own config/data dirs. Grant more via `flatpak override --user com.semagsoft.Devpad --filesystem=<path>` if needed.
+  - --filesystem=xdg-documents
+  - --filesystem=xdg-download
+  - --filesystem=xdg-config/Semagsoft:create
+  - --filesystem=xdg-config/devpad:create
+  - --filesystem=xdg-data/devpad:create
   - --socket=pulseaudio
   - --talk-name=org.freedesktop.Notifications
   - --talk-name=org.freedesktop.portal.Desktop
@@ -65,7 +71,11 @@ modules:
     config-opts:
       - -DCMAKE_BUILD_TYPE=Release
       - -DBUILD_TESTS=OFF
-      - -DBUILD_NEXTGEN=ON
+      # Experimental frontend (next-gen QML): not shipped while experimental.
+      - -DBUILD_NEXTGEN=OFF
+      # The libghostty-vt backend needs Zig (not available in the KDE runtime);
+      # keep the QTermWidget fallback inside the Flatpak build.
+      - -DBUILD_GHOSTTY=OFF
     sources:
       - type: dir
         path: ..

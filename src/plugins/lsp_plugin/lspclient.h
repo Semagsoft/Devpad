@@ -1,0 +1,191 @@
+/*
+ * Devpad - A C++/Qt6 code editor
+ * Copyright (C) 2026 Semagsoft
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+#ifndef LSPCLIENT_H
+#define LSPCLIENT_H
+
+#include "lsp/lsptypes.h"
+#include "lspjsonrpc.h"
+
+#include <QObject>
+#include <QProcess>
+#include <QTimer>
+
+namespace lsp
+{
+
+class LspClient : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit LspClient(const QString& language, QObject* parent = nullptr);
+    ~LspClient() override;
+
+    Q_INVOKABLE void startServer(const QString& command, const QStringList& args, const QString& rootUri);
+    Q_INVOKABLE void stopServer();
+    Q_INVOKABLE bool isRunning() const;
+    Q_INVOKABLE QString language() const
+    {
+        return m_language;
+    }
+    Q_INVOKABLE const ServerCapabilities& capabilities() const
+    {
+        return m_capabilities;
+    }
+    Q_INVOKABLE QString rootUri() const
+    {
+        return m_rootUri;
+    }
+
+    // Document synchronization
+    Q_INVOKABLE void openDocument(const QString& uri, const QString& text, int version);
+    Q_INVOKABLE void changeDocument(const QString& uri, const QString& text, int version);
+    Q_INVOKABLE void closeDocument(const QString& uri);
+    Q_INVOKABLE void saveDocument(const QString& uri);
+
+    // LSP requests
+    Q_INVOKABLE void requestCompletion(const QString& uri, const Position& pos, int triggerKind = 1);
+    Q_INVOKABLE void requestDefinition(const QString& uri, const Position& pos);
+    // Convenience overloads for QML (which cannot construct lsp::Position)
+    Q_INVOKABLE void requestCompletionAt(const QString& uri, int line, int character, int triggerKind = 1);
+    Q_INVOKABLE void requestDefinitionAt(const QString& uri, int line, int character);
+    Q_INVOKABLE void requestHoverAt(const QString& uri, int line, int character);
+    Q_INVOKABLE void requestSignatureHelpAt(const QString& uri, int line, int character);
+    Q_INVOKABLE void requestHover(const QString& uri, const Position& pos);
+    Q_INVOKABLE void requestSignatureHelp(const QString& uri, const Position& pos);
+    Q_INVOKABLE void requestReferences(const QString& uri, const Position& pos);
+    Q_INVOKABLE void requestDocumentSymbols(const QString& uri);
+    Q_INVOKABLE void requestFormatting(const QString& uri, int tabSize, bool insertSpaces);
+    Q_INVOKABLE void requestRangeFormatting(const QString& uri, const Range& range, int tabSize, bool insertSpaces);
+    Q_INVOKABLE void requestRename(const QString& uri, const Position& pos, const QString& newName);
+    Q_INVOKABLE void requestCodeAction(const QString& uri, const Range& range, const QList<Diagnostic>& diagnostics);
+    Q_INVOKABLE void requestExecuteCommand(const QString& command, const QJsonArray& arguments = {});
+    Q_INVOKABLE void requestDiagnostics(const QString& uri);
+
+    // ── QML-friendly convenience overloads ──
+    Q_INVOKABLE void requestReferencesAt(const QString& uri, int line, int character);
+    Q_INVOKABLE void requestRenameAt(const QString& uri, int line, int character, const QString& newName);
+    void requestDocumentHighlight(const QString& uri, const Position& pos);
+    void requestTypeDefinition(const QString& uri, const Position& pos);
+    void requestDeclaration(const QString& uri, const Position& pos);
+    void requestWorkspaceSymbols(const QString& query);
+    void requestSelectionRanges(const QString& uri, const QList<Position>& positions);
+    void requestLinkedEditingRange(const QString& uri, const Position& pos);
+    void prepareCallHierarchy(const QString& uri, const Position& pos);
+    void incomingCalls(const QString& uri, const QJsonObject& item);
+    void outgoingCalls(const QString& uri, const QJsonObject& item);
+    void requestSemanticTokensFull(const QString& uri);
+    void sendDidChangeConfiguration(const QJsonObject& settings);
+
+signals:
+    void serverStarted();
+    void serverStopped();
+    void serverError(const QString& error);
+    void serverCrashed();
+    void capabilitiesReady(const ServerCapabilities& caps);
+
+    // Results
+    void completionReady(const QString& uri, const CompletionList& completions);
+    void definitionReady(const QString& uri, const Location& location);
+    void referencesReady(const QString& uri, const QList<Location>& locations);
+    void hoverReady(const QString& uri, const QString& contents);
+    void documentSymbolsReady(const QString& uri, const QJsonArray& symbols);
+    void formattingReady(const QString& uri, const QList<QJsonObject>& edits);
+    void rangeFormattingReady(const QString& uri, const QList<QJsonObject>& edits);
+    void signatureHelpReady(const QString& uri, const QJsonObject& info);
+
+    // Diagnostics
+    void diagnosticsReady(const QString& uri, const QList<Diagnostic>& diagnostics);
+    void renameReady(const QString& uri, const QJsonObject& result);
+    void documentHighlightReady(const QString& uri, const QJsonArray& highlights);
+    void typeDefinitionReady(const QString& uri, const Location& location);
+    void declarationReady(const QString& uri, const Location& location);
+    void codeActionReady(const QString& uri, const QList<QJsonObject>& actions);
+    void executeCommandReady(const QJsonValue& result);
+    void workspaceSymbolsReady(const QString& query, const QJsonArray& symbols);
+    void selectionRangesReady(const QString& uri, const QJsonArray& ranges);
+    void linkedEditingRangeReady(const QString& uri, const QJsonObject& result);
+    void callHierarchyReady(const QString& uri, const QJsonArray& items);
+    void incomingCallsReady(const QString& uri, const QJsonArray& calls);
+    void outgoingCallsReady(const QString& uri, const QJsonArray& calls);
+    void semanticTokensFullReady(const QString& uri, const QJsonArray& tokens);
+
+private slots:
+    void onReadyReadStdout();
+    void onReadyReadStderr();
+    void onProcessStarted();
+    void onProcessFinished(int exitCode, QProcess::ExitStatus status);
+    void onProcessError(QProcess::ProcessError error);
+
+private:
+    void sendInitialize();
+    void sendExitIfStopping();
+    void cleanupProcess();
+    void flushPendingDocOps();
+    void handleNotification(const QString& method, const QJsonObject& params);
+    void handleResponse(const QVariant& id, const QJsonValue& result, const QJsonObject& error);
+    void handleServerRequest(const QVariant& id, const QString& method, const QJsonObject& params);
+    QString methodName(const QString& method) const;
+
+    void tryRestart();
+
+    // Unified request helper to reduce duplication
+    int sendRequest(const QString& method, const QJsonObject& params, LspJsonRpc::ResponseCallback callback);
+    QJsonObject makeTextDocumentParam(const QString& uri) const;
+    QJsonObject makePositionParam(const QString& uri, const Position& pos) const;
+    void requestLocation(const QString& method, const QString& uri, const Position& pos, const char* signalName);
+
+    struct PendingDocOp
+    {
+        enum Type
+        {
+            Open,
+            Change,
+            Close,
+            Save
+        };
+        Type type;
+        QString uri;
+        QString text;
+        int version = 0;
+    };
+    QList<PendingDocOp> m_pendingDocOps;
+
+    QProcess* m_process = nullptr;
+    LspJsonRpc* m_jsonRpc = nullptr;
+    QString m_language;
+    QString m_rootUri;
+    QString m_command;
+    QStringList m_args;
+    ServerCapabilities m_capabilities;
+    bool m_initialized = false;
+    bool m_starting = false;
+    bool m_stopping = false;
+    bool m_shutdownExitSent = false;
+    int m_retryCount = 0;
+    static constexpr int MAX_RETRIES = 3;
+    static constexpr int START_TIMEOUT_MS = 5000;
+    static constexpr int SHUTDOWN_TIMEOUT_MS = 5000;
+    static constexpr int EXIT_GRACE_MS = 250;
+    static constexpr int KILL_TIMEOUT_MS = 2000;
+};
+
+} // namespace lsp
+
+#endif // LSPCLIENT_H

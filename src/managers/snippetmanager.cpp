@@ -5,34 +5,37 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPointer>
 #include <QStandardPaths>
 
-SnippetManager* SnippetManager::s_instance = nullptr;
+QPointer<SnippetManager> SnippetManager::s_testInstance;
 
 SnippetManager::SnippetManager(QObject* parent) : QObject(parent)
 {
-    s_instance = this;
     loadBuiltIn();
     loadUserSnippets();
 }
 
-SnippetManager::~SnippetManager()
+SnippetManager::~SnippetManager() = default;
+
+void SnippetManager::setTestingInstance(SnippetManager* instance)
 {
-    if (s_instance == this)
-        s_instance = nullptr;
+    s_testInstance = instance;
 }
 
-SnippetManager* SnippetManager::instance()
+std::unique_ptr<SnippetManager> SnippetManager::createForTesting()
 {
-    return s_instance;
+    return std::unique_ptr<SnippetManager>(new SnippetManager());
 }
 
-void SnippetManager::initialize(QObject* parent)
+SnippetManager& SnippetManager::instance()
 {
-    if (!s_instance)
+    if (!s_testInstance.isNull())
     {
-        new SnippetManager(parent);
+        return *s_testInstance;
     }
+    static SnippetManager instance;
+    return instance;
 }
 
 static QStringList parseScope(const QString& scope)
@@ -158,6 +161,72 @@ void SnippetManager::loadBuiltIn()
     {
         loadFromJson(builtIn.readAll());
     }
+}
+
+bool SnippetManager::addSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description, const QString& scope)
+{
+    if (name.isEmpty() || prefix.isEmpty() || body.isEmpty())
+        return false;
+
+    // Reject duplicates.
+    if (snippetByName(name).name == name)
+        return false;
+
+    Snippet s;
+    s.name = name;
+    s.prefix = prefix;
+    s.body = body;
+    s.description = description;
+    s.scope = parseScope(scope);
+
+    if (s.scope.isEmpty())
+    {
+        m_globalSnippets.append(s);
+    }
+    else
+    {
+        for (const QString& lang : s.scope)
+            m_snippets[lang].append(s);
+    }
+    return true;
+}
+
+bool SnippetManager::removeSnippet(const QString& name)
+{
+    if (name.isEmpty())
+        return false;
+
+    bool removed = false;
+
+    // Remove from global snippets (all occurrences).
+    for (int i = m_globalSnippets.size() - 1; i >= 0; --i)
+    {
+        if (m_globalSnippets[i].name == name)
+        {
+            m_globalSnippets.removeAt(i);
+            removed = true;
+        }
+    }
+
+    // Remove from EVERY per-language list (a snippet with scope "cpp,python"
+    // is registered in both; previously only the first match was removed).
+    for (auto it = m_snippets.begin(); it != m_snippets.end();)
+    {
+        auto& list = it.value();
+        for (int i = list.size() - 1; i >= 0; --i)
+        {
+            if (list[i].name == name)
+            {
+                list.removeAt(i);
+                removed = true;
+            }
+        }
+        if (list.isEmpty())
+            it = m_snippets.erase(it);
+        else
+            ++it;
+    }
+    return removed;
 }
 
 void SnippetManager::loadUserSnippets()

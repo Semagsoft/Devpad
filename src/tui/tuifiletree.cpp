@@ -15,7 +15,7 @@ void TuiFileTree::setRootPath(const QString& path)
     QString clean = QDir::cleanPath(path);
     if (clean == m_rootPath)
         return;
-    m_rootPath = clean;
+    m_rootPath = std::move(clean);
     m_expanded.clear();
     m_cursor = 0;
     m_dirty = true;

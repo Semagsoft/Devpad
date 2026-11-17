@@ -94,22 +94,29 @@ void PrimoDocument::rebuildOffsets() const
     m_offsetsDirty = false;
 }
 
-void PrimoDocument::pushUndo(int position, const QString& removed, const QString& inserted)
+// Pushes an undo command for an edit that has NOT been applied yet.
+// QUndoStack::push() calls redo() synchronously, which applies the edit.
+// Returns false (edit not applied) when undo is disabled/suppressed, so the
+// caller can fall back to applying the edit directly.
+bool PrimoDocument::pushUndo(int position, const QString& removed, const QString& inserted)
 {
     if (m_inUndoRedo || m_undoDisabled)
-        return;
+        return false;
     // Avoid pushing no-op
     if (removed.isEmpty() && inserted.isEmpty())
-        return;
+        return false;
     m_undoStack->push(new TextEditCommand(this, position, removed, inserted));
+    return true;
 }
 
 // Compute the diff between old and new text and push a diff-based undo command.
 // Finds common prefix/suffix to minimize the stored change range.
-void PrimoDocument::pushUndoDiff(const QString& oldText, const QString& newText)
+// The edit is NOT applied by this function; redo() applies it.
+// Returns false when there is nothing to push.
+bool PrimoDocument::pushUndoDiff(const QString& oldText, const QString& newText)
 {
     if (oldText == newText)
-        return;
+        return false;
 
     int minLen = qMin(oldText.size(), newText.size());
 
@@ -129,7 +136,7 @@ void PrimoDocument::pushUndoDiff(const QString& oldText, const QString& newText)
     QString removed = oldText.mid(prefix, oldMiddleLen);
     QString inserted = newText.mid(prefix, newMiddleLen);
 
-    pushUndo(prefix, removed, inserted);
+    return pushUndo(prefix, removed, inserted);
 }
 
 QString PrimoDocument::text() const
@@ -157,15 +164,16 @@ void PrimoDocument::setText(const QString& text)
         }
         else if (!m_undoDisabled)
         {
-            m_text = text;
+            // Push diff-based undo command; redo() applies the change synchronously.
+            if (!pushUndoDiff(old, text))
+            {
+                // No diff (m_text != text only if it changed): apply directly.
+                m_text = text;
+                invalidateCache();
+            }
             m_modified = true;
-            invalidateCache();
             emit textChanged();
             emit modifiedChanged();
-            emit canUndoChanged();
-            emit canRedoChanged();
-            // Push diff-based undo command (not full snapshots)
-            pushUndoDiff(old, text);
             return;
         }
     }
@@ -189,8 +197,7 @@ void PrimoDocument::setTextWithoutUndo(const QString& text)
     m_text = text;
     m_modified = true;
     invalidateCache();
-    emit textChanged();
-    emit modifiedChanged();
+    // No signals here: callers (undo/redo and the edit paths) emit textChanged/modifiedChanged.
 }
 
 void PrimoDocument::setFilePath(const QString& path)
@@ -275,12 +282,14 @@ void PrimoDocument::setLine(int line, const QString& content)
     int start = m_lineOffsets.at(line);
     int end = (line + 1 < m_lineOffsets.size()) ? m_lineOffsets.at(line + 1) - 1 : m_text.size();
     QString removed = m_text.mid(start, end - start);
-    m_text.replace(start, end - start, content);
-    invalidateCache();
+    if (!pushUndo(start, removed, content))
+    {
+        m_text.replace(start, end - start, content);
+        invalidateCache();
+    }
     m_modified = true;
     emit textChanged();
     emit modifiedChanged();
-    pushUndo(start, removed, content);
 }
 
 void PrimoDocument::insertText(int position, const QString& t)
@@ -289,12 +298,14 @@ void PrimoDocument::insertText(int position, const QString& t)
         position = 0;
     if (position > m_text.size())
         position = m_text.size();
-    m_text.insert(position, t);
-    invalidateCache();
+    if (!pushUndo(position, QString(), t))
+    {
+        m_text.insert(position, t);
+        invalidateCache();
+    }
     m_modified = true;
     emit textChanged();
     emit modifiedChanged();
-    pushUndo(position, QString(), t);
 }
 
 void PrimoDocument::removeText(int position, int length)
@@ -302,12 +313,14 @@ void PrimoDocument::removeText(int position, int length)
     if (position < 0 || length <= 0 || position >= m_text.size())
         return;
     QString removed = m_text.mid(position, length);
-    m_text.remove(position, length);
-    invalidateCache();
+    if (!pushUndo(position, removed, QString()))
+    {
+        m_text.remove(position, length);
+        invalidateCache();
+    }
     m_modified = true;
     emit textChanged();
     emit modifiedChanged();
-    pushUndo(position, removed, QString());
 }
 
 int PrimoDocument::length() const
@@ -430,6 +443,6 @@ bool PrimoDocument::saveToFile(const QString& path, QString* error) const
     QString err;
     bool ok = FileService::save(path, m_text, QStringLiteral("UTF-8"), &err);
     if (!ok && error)
-        *error = err;
+        *error = std::move(err);
     return ok;
 }

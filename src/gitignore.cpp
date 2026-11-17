@@ -39,7 +39,7 @@ void GitIgnore::scanDirectory(const QString& dirPath)
         return;
 
     QString absDir = QFileInfo(dirPath).absoluteFilePath();
-    if (!absDir.startsWith(m_rootPath))
+    if (absDir != m_rootPath && !absDir.startsWith(m_rootPath + '/'))
         return;
 
     if (m_patterns.contains(absDir))
@@ -89,6 +89,11 @@ void GitIgnore::addPattern(const QString& line, const QString& dirPath)
         pattern = pattern.mid(1);
 
     bool hasSlash = pattern.contains('/');
+    // gitignore(5): "If there is a separator at the beginning or middle (or
+    // both) of the pattern, then the pattern may only match paths relative
+    // to the location of the .gitignore file" — a slash anywhere in the
+    // pattern anchors it.
+    anchored = anchored || hasSlash;
 
     QRegularExpression regex = patternToRegex(pattern, anchored);
     if (!regex.isValid())
@@ -126,6 +131,8 @@ QRegularExpression GitIgnore::patternToRegex(const QString& pattern, bool anchor
 
     if (anchored)
         regex += '^';
+    else
+        regex += QStringLiteral("(?:^|/)");
 
     while (i < pattern.size())
     {
@@ -177,14 +184,27 @@ QRegularExpression GitIgnore::patternToRegex(const QString& pattern, bool anchor
             else
             {
                 QString cls = pattern.mid(i, end - i + 1);
+                // git uses '!' for a negated character class; Qt regex
+                // wants '^'.
+                if (cls.startsWith("[!"))
+                    cls = "[^" + cls.mid(2);
                 regex += cls;
                 i = end + 1;
             }
         }
         else if (c == '\\')
         {
-            regex += "\\\\";
-            i++;
+            if (i + 1 < pattern.size())
+            {
+                // A backslash escapes the following character (gitignore(5)).
+                regex += QRegularExpression::escape(QString(pattern[i + 1]));
+                i += 2;
+            }
+            else
+            {
+                regex += "\\\\";
+                i++;
+            }
         }
         else if (c == '+' || c == '^' || c == '$' || c == '{' || c == '}' || c == '(' || c == ')' || c == '|')
         {
@@ -271,11 +291,16 @@ bool GitIgnore::isIgnored(const QString& filePath, bool isDir) const
                     ignored = !p.negate;
             }
 
-            // 2) Match against the leading directory component: a pattern
-            // that excludes a directory also excludes everything beneath it.
-            if (hasDirBelow && p.regex.match(relPath.section('/', 0, 0)).hasMatch())
+            // 2) Match against every leading directory prefix of the path:
+            // a pattern that excludes a (sub)directory also excludes
+            // everything beneath it. 'a/b' must match the prefix 'a/b',
+            // not just the first component.
+            int prefixEnd = 0;
+            while ((prefixEnd = relPath.indexOf('/', prefixEnd)) != -1)
             {
-                dirExcludedHere = !p.negate;
+                if (p.regex.match(relPath.left(prefixEnd)).hasMatch())
+                    dirExcludedHere = !p.negate;
+                ++prefixEnd;
             }
         }
 

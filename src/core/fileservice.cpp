@@ -12,6 +12,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QStringConverter>
+#include <QStringEncoder>
 #include <QTextStream>
 
 FileLoadResult FileService::load(const QString& filePath, const QString& requestedEncoding)
@@ -50,17 +51,15 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
     if (requestedEncoding.isEmpty())
     {
         QString detectedEnc = detectEncoding(rawData);
-        auto encOpt = QStringConverter::encodingForName(detectedEnc.toUtf8());
-        enc = encOpt.value_or(QStringConverter::Utf8);
-        encDisplayName = detectedEnc;
+        enc = encodingFromName(detectedEnc);
+        encDisplayName = std::move(detectedEnc);
         // Normalize display name via encoding utils when possible
         if (encDisplayName.isEmpty())
             encDisplayName = encodingToDisplayName(enc);
     }
     else
     {
-        auto encOpt = QStringConverter::encodingForName(requestedEncoding.toUtf8());
-        enc = encOpt.value_or(QStringConverter::Utf8);
+        enc = encodingFromName(requestedEncoding);
         encDisplayName = requestedEncoding;
     }
 
@@ -71,8 +70,20 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
     else
         content = decoder(rawData);
 
+    // A lossy decode would put replacement chars in the editor, and a later
+    // save would silently destroy the original bytes. Refuse instead; the
+    // user can retry with an explicit encoding via reload.
+    if (decoder.hasError())
+    {
+        result.ok = false;
+        result.encoding = encDisplayName.isEmpty() ? encodingToDisplayName(enc) : encDisplayName;
+        result.error = QStringLiteral("File is not valid %1. Reloading with a different encoding may help.").arg(result.encoding);
+        Logger::instance().error(QStringLiteral("Decode error loading %1 as %2").arg(filePath, result.encoding));
+        return result;
+    }
+
     result.ok = true;
-    result.text = content;
+    result.text = std::move(content);
     result.encoding = encDisplayName.isEmpty() ? encodingToDisplayName(enc) : encDisplayName;
     Logger::instance().info(QStringLiteral("Loaded file: %1 (%2)").arg(filePath, result.encoding));
     return result;
@@ -80,28 +91,39 @@ FileLoadResult FileService::load(const QString& filePath, const QString& request
 
 bool FileService::save(const QString& filePath, const QString& text, const QString& encoding, QString* error)
 {
+    QString useEncoding = encoding.isEmpty() ? QStringLiteral("UTF-8") : encoding;
+    QStringConverter::Encoding enc = encodingFromName(useEncoding);
+
+    // Fail fast when the text cannot be represented in the target encoding:
+    // QTextStream maps unrepresentable characters to '?' with no error,
+    // which silently destroys user data.
+    QStringEncoder probe(enc);
+    (void)probe.encode(text);
+    if (probe.hasError())
+    {
+        QString msg = QStringLiteral("The text contains characters that cannot be represented in %1").arg(useEncoding);
+        Logger::instance().error(msg);
+        if (error)
+            *error = std::move(msg);
+        return false;
+    }
+
     QSaveFile file(filePath);
     if (!file.open(QIODevice::WriteOnly))
     {
         QString msg = QStringLiteral("Cannot save file: %1").arg(filePath);
         Logger::instance().error(msg);
         if (error)
-            *error = msg;
+            *error = std::move(msg);
         return false;
     }
-
-    QString useEncoding = encoding.isEmpty() ? QStringLiteral("UTF-8") : encoding;
-    auto encOpt = QStringConverter::encodingForName(useEncoding.toUtf8());
 
     QByteArray bom = bomForEncoding(useEncoding);
     if (!bom.isEmpty())
         file.write(bom);
 
     QTextStream out(&file);
-    if (encOpt.has_value())
-        out.setEncoding(encOpt.value());
-    else
-        out.setEncoding(QStringConverter::Utf8);
+    out.setEncoding(enc);
 
     out << text;
     out.flush();
@@ -111,7 +133,7 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
         QString msg = QStringLiteral("Error writing to file: %1").arg(filePath);
         Logger::instance().error(msg);
         if (error)
-            *error = msg;
+            *error = std::move(msg);
         return false;
     }
 
@@ -120,7 +142,7 @@ bool FileService::save(const QString& filePath, const QString& text, const QStri
         QString msg = QStringLiteral("Error saving file: %1 - %2").arg(filePath, file.errorString());
         Logger::instance().error(msg);
         if (error)
-            *error = msg;
+            *error = std::move(msg);
         return false;
     }
 
@@ -159,7 +181,7 @@ QString FileService::detectEncoding(const QByteArray& buffer)
             else
                 nullAt2or3++;
         }
-        if (c & 0x80)
+        if (c & 0x80u)
             hasHighBytes = true;
     }
 
@@ -182,13 +204,13 @@ QString FileService::detectEncoding(const QByteArray& buffer)
     {
         unsigned char c = static_cast<unsigned char>(buffer[i]);
         int expectedBytes = 0;
-        if ((c & 0x80) == 0)
+        if ((c & 0x80u) == 0)
             expectedBytes = 1;
-        else if ((c & 0xE0) == 0xC0)
+        else if ((c & 0xE0u) == 0xC0u)
             expectedBytes = 2;
-        else if ((c & 0xF0) == 0xE0)
+        else if ((c & 0xF0u) == 0xE0u)
             expectedBytes = 3;
-        else if ((c & 0xF8) == 0xF0)
+        else if ((c & 0xF8u) == 0xF0u)
             expectedBytes = 4;
         else
         {
@@ -197,7 +219,7 @@ QString FileService::detectEncoding(const QByteArray& buffer)
         }
         for (int j = 1; j < expectedBytes; ++j)
         {
-            if (i + j >= buffer.size() || (static_cast<unsigned char>(buffer[i + j]) & 0xC0) != 0x80)
+            if (i + j >= buffer.size() || (static_cast<unsigned char>(buffer[i + j]) & 0xC0u) != 0x80u)
             {
                 validUtf8 = false;
                 break;

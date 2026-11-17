@@ -412,18 +412,15 @@ QTabWidget* SplitView::createTabWidget()
                         tmpFile.write(editor->text().toUtf8());
                         QString tmpPath = tmpFile.fileName();
                         tmpFile.close();
-                        emit tabDetachedToWindow(QString(QChar(1)) + tmpPath);
+                        emit tabDetachedToWindow(QString(QChar(1)) + tmpPath, tw, index);
                     }
                     else
                     {
-                        emit tabDetachedToWindow(filePath);
+                        emit tabDetachedToWindow(filePath, tw, index);
                     }
-
-                    tw->removeTab(index);
-                    if (tw->count() == 0)
-                    {
-                        removePane(tw);
-                    }
+                    // The tab is removed by MainWindow via closeDetachedTab() once
+                    // the new process started successfully; on failure the tab
+                    // stays open and the user keeps their content.
                 });
 
         connect(bar, &DraggableTabBar::closeTabRequested, this,
@@ -965,6 +962,11 @@ void SplitView::setPaneCallbacks(std::function<void(QTabWidget*)> onAdded, std::
     m_onTabMoved = std::move(onTabMoved);
 }
 
+void SplitView::setTabClosedCallback(std::function<bool(QTabWidget*, int)> onTabClosed)
+{
+    m_onTabClosed = std::move(onTabClosed);
+}
+
 QTabWidget* SplitView::activeTabWidget() const
 {
     return m_activeWidget;
@@ -1023,6 +1025,30 @@ void SplitView::removePane(QTabWidget* tw)
 {
     if ((tw == m_primaryWidget && m_panes.size() == 1) || !m_panes.contains(tw) || m_dropping)
         return;
+
+    // When the primary pane is being removed, promote another pane to take
+    // its place instead of letting it dangle: MainWindow (m_tabWidget),
+    // TabManager (m_primaryWidget) and other owners cache the primary pane
+    // pointer, so it must never outlive its widget.
+    QTabWidget* promoted = nullptr;
+    if (tw == m_primaryWidget)
+    {
+        for (QTabWidget* p : m_panes)
+        {
+            if (p != tw)
+            {
+                promoted = p;
+                break;
+            }
+        }
+        if (!promoted)
+            return; // no other pane can take over — keep the primary alive
+        m_primaryWidget = promoted;
+        if (auto* bar = promoted->tabBar())
+            bar->setExpanding(false);
+        promoted->setDocumentMode(true);
+        emit primaryPaneChanged(promoted);
+    }
 
     QSplitter* parentSplit = parentSplitterFor(tw);
 
@@ -1100,30 +1126,31 @@ bool SplitView::moveTabToPane(int tabIndex, QTabWidget* source, QTabWidget* targ
     return true;
 }
 
-void SplitView::detachTabToWindow(int tabIndex, QTabWidget* source)
+void SplitView::closeDetachedTab(QTabWidget* source, int index)
 {
-    if (!source || tabIndex < 0 || tabIndex >= source->count())
+    if (!source || index < 0 || index >= source->count())
         return;
 
-    auto* container = qobject_cast<EditorContainer*>(source->widget(tabIndex));
-    if (!container)
-        return;
-
-    auto* editor = container->editor();
-    if (!editor)
-        return;
-
-    QString filePath = editor->fileName();
-    if (filePath.isEmpty() || filePath == Strings::untitled())
-        return;
-
-    emit tabDetachedToWindow(filePath);
-
-    source->removeTab(tabIndex);
-    // The editor is a child of the container, so deleting the container
-    // cascades to it (matches TabManager::closeEditor). Deleting only the
-    // editor used to leak the container.
-    container->deleteLater();
+    // Route through the owner of the tab bookkeeping (pinned set, containers,
+    // editorClosed signal) so detached tabs are closed exactly like normal
+    // tab closes. Pinned tabs are refused (the callback returns false) and
+    // the tab stays — detaching was already approved by the caller, which
+    // must handle a refused close by keeping the source tab.
+    if (m_onTabClosed)
+    {
+        const bool closed = m_onTabClosed(source, index);
+        if (!closed)
+            return;
+    }
+    else
+    {
+        auto* container = qobject_cast<EditorContainer*>(source->widget(index));
+        source->removeTab(index);
+        // The editor is a child of the container, so deleting the container
+        // cascades to it (matches TabManager::closeEditor).
+        if (container)
+            container->deleteLater();
+    }
 
     if (source->count() == 0)
     {

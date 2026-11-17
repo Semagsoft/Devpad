@@ -47,6 +47,8 @@ public:
     CodeEditor* currentEditor() const;
     CodeEditor* editorAt(int index) const;
     CodeEditor* findEditorByFileName(const QString& fileName) const;
+    /** Every open editor across all panes. */
+    QList<CodeEditor*> editors() const;
     int indexOf(CodeEditor* editor) const;
     int count() const;
     int currentIndex() const;
@@ -54,6 +56,14 @@ public:
     CodeEditor* createEditor();
     void addEditor(CodeEditor* editor, const QString& title);
     bool closeEditor(int index);
+    // Same as closeEditor() but addresses a pane-local index (used by
+    // SplitView when a tab is torn off into a new window).
+    bool closeEditorInPane(QTabWidget* pane, int localIndex);
+
+    // Re-anchor the primary pane (SplitView promotes a new primary when the
+    // original primary pane is removed). Repoints internal references and
+    // drops the old primary from the pane list.
+    void setPrimaryWidget(QTabWidget* pane);
 
     void addPane(QTabWidget* pane);
     void removePane(QTabWidget* pane);
@@ -90,6 +100,20 @@ public:
 
     EditorContainer* containerFor(CodeEditor* editor) const;
 
+    struct ClosedTab
+    {
+        QString fileName;
+        int line = 0;
+        int column = 0;
+        int firstVisibleLine = 0;
+    };
+    /**
+     * @brief Pop the most recently closed file tab (stack is capped at 20).
+     * @return true and fills @p entry when a closed tab is available.
+     */
+    bool takeLastClosedTab(ClosedTab& entry);
+    bool hasClosedTabs() const;
+
     /**
      * @brief Bring an already-open editor to the foreground: activates the pane
      *        containing it and selects its tab. No-op if the editor is unknown.
@@ -104,6 +128,7 @@ signals:
 
 private:
     QList<QTabWidget*> m_panes;
+    QList<ClosedTab> m_closedTabs; // stack, most recent at back; capped at 20
     QTabWidget* m_primaryWidget;
     QTabWidget* m_activePane;
     // QPointer auto-nulls if an editor is deleted outside normal close path

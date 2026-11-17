@@ -1,3 +1,4 @@
+#include <cstdio>
 /*
  * Devpad - A C++/Qt6 code editor
  * Copyright (C) 2026 Semagsoft
@@ -17,16 +18,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include "pluginmanager.h"
-
 #include "codeeditor.h"
 #include "logger.h"
 #include "mainwindow.h"
 #include "managers/settingsmanager.h"
 #include "pluginhost.h"
+#include "pluginmanager.h"
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
+#include <QEvent>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -44,6 +46,19 @@ PluginManager::PluginManager(MainWindow* mainWindow, QObject* parent) : QObject(
     if (base.isEmpty())
         base = QDir::homePath() + QLatin1String("/.local/share");
     setPluginsDir(base + QLatin1String("/devpad/plugins"));
+
+    // Optional environment override for the plugins directory. Takes
+    // precedence over the user and system directories. Used by the test
+    // suite to load the plugins from the build tree instead of a possibly
+    // stale system-wide installation; also handy for portable installs.
+    m_envPluginsDir = qEnvironmentVariable("DEVPAD_PLUGINS_DIR");
+
+    // System plugins directory (shipped with the app, read-only).
+#ifdef DEVPAD_SYSTEM_PLUGINS_DIR
+    m_systemPluginsDir = QStringLiteral(DEVPAD_SYSTEM_PLUGINS_DIR);
+#else
+    m_systemPluginsDir = QLatin1String("/usr/local/lib/devpad/plugins");
+#endif
 
     // Forward host editor/file events to every loaded plugin.
     connectHostEventForwarding();
@@ -64,12 +79,36 @@ void PluginManager::setPluginsDir(const QString& dir)
     m_pluginsDir = QDir::cleanPath(dir);
 }
 
+QString PluginManager::systemPluginsDir() const
+{
+    return m_systemPluginsDir;
+}
+
+QString PluginManager::userPluginsDir() const
+{
+    return m_pluginsDir;
+}
+
 QList<PluginInfo> PluginManager::discoveredPlugins() const
 {
-    QList<PluginInfo> result;
-    QDir dir(m_pluginsDir);
-    if (!dir.exists())
-        return result;
+    QHash<QString, PluginInfo> byId;
+
+    // Environment override directory (highest priority), the system plugins
+    // directory (shipped with the app), then the user plugins directory.
+    // User-installed plugins take priority over system ones; the environment
+    // override takes priority over both.
+    appendDiscoveredFromDir(m_systemPluginsDir, byId);
+    appendDiscoveredFromDir(m_pluginsDir, byId);
+    appendDiscoveredFromDir(m_envPluginsDir, byId);
+
+    return byId.values();
+}
+
+void PluginManager::appendDiscoveredFromDir(const QString& dirPath, QHash<QString, PluginInfo>& byId) const
+{
+    QDir dir(dirPath);
+    if (dirPath.isEmpty() || !dir.exists())
+        return;
 
 #ifdef Q_OS_WIN
     const QStringList filters = {QStringLiteral("*.dll")};
@@ -78,14 +117,28 @@ QList<PluginInfo> PluginManager::discoveredPlugins() const
 #endif
     dir.setNameFilters(filters);
     for (const QFileInfo& info : dir.entryInfoList(QDir::Files))
-        result.append(readPluginManifest(info.absoluteFilePath()));
-    return result;
+    {
+        PluginInfo pluginInfo = readPluginManifest(info.absoluteFilePath());
+        byId.insert(pluginInfo.id, pluginInfo);
+    }
 }
 
 QString PluginManager::pluginFilePath(const QString& pluginId) const
 {
-    QDir dir(m_pluginsDir);
-    if (!dir.exists())
+    // Environment override takes priority, then the user directory, then the system one.
+    QString path = findPluginFileInDir(m_envPluginsDir, pluginId);
+    if (!path.isEmpty())
+        return path;
+    path = findPluginFileInDir(m_pluginsDir, pluginId);
+    if (!path.isEmpty())
+        return path;
+    return findPluginFileInDir(m_systemPluginsDir, pluginId);
+}
+
+QString PluginManager::findPluginFileInDir(const QString& dirPath, const QString& pluginId) const
+{
+    QDir dir(dirPath);
+    if (dirPath.isEmpty() || !dir.exists())
         return QString();
 
 #ifdef Q_OS_WIN
@@ -139,13 +192,19 @@ PluginInfo PluginManager::readPluginManifest(const QString& filePath)
 
 void PluginManager::loadAll()
 {
-    QDir dir(m_pluginsDir);
-    if (!dir.exists())
-    {
-        if (!dir.mkpath("."))
-            qWarning() << "PluginManager: cannot create plugins directory" << m_pluginsDir;
+    // Later directories do not override already-loaded plugins, so scan in
+    // reverse priority: the environment override wins, then the user plugins
+    // directory, then the system one.
+    loadPluginsFromDir(m_envPluginsDir);
+    loadPluginsFromDir(m_pluginsDir);
+    loadPluginsFromDir(m_systemPluginsDir);
+}
+
+void PluginManager::loadPluginsFromDir(const QString& dirPath)
+{
+    QDir dir(dirPath);
+    if (dirPath.isEmpty() || !dir.exists())
         return;
-    }
 
 #ifdef Q_OS_WIN
     const QStringList filters = {QStringLiteral("*.dll")};
@@ -229,6 +288,23 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     if (entry.info.id.isEmpty())
         entry.info.id = std::move(pluginId);
 
+    // Prefer the plugin's own reported id: a plugin shipped without its
+    // .plugin.json would otherwise be registered under the filename-derived id
+    // and load a second copy of itself (e.g. a stale user install shadowing
+    // the system shipped one).
+    const PluginInfo reportedInfo = plugin->info();
+    if (!reportedInfo.id.isEmpty())
+        entry.info.id = reportedInfo.id;
+    if (m_loaded.contains(entry.info.id))
+    {
+        Logger::instance().warning(
+            QStringLiteral("PluginManager: not loading duplicate plugin '%1' from %2 (already loaded)").arg(entry.info.id, filePath));
+        delete plugin;
+        loader->unload();
+        loader->deleteLater();
+        return false;
+    }
+
     // Bracket the initialize() call so anything the plugin registers
     // (actions, docks) is attributed to it, even if initialize throws.
     m_host->beginPluginSession(entry.info.id);
@@ -255,6 +331,8 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
         emit pluginFailed(entry.info.id, reason);
         safePluginCall(entry.info.id, "shutdown", [](IPlugin* p) { p->shutdown(); });
         m_host->endPluginSession(entry.info.id);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        delete plugin;
         loader->unload();
         loader->deleteLater();
         return false;
@@ -296,16 +374,41 @@ bool PluginManager::unload(const QString& pluginId)
     LoadedPlugin entry = m_loaded.take(pluginId);
     if (entry.plugin)
     {
-        safePluginCall(pluginId, "shutdown", [](IPlugin* p) { p->shutdown(); });
+        // Invoke shutdown directly on the captured instance; plugin(pluginId)
+        // would now return null because we already took the entry.
+        try
+        {
+            entry.plugin->shutdown();
+        }
+        catch (const std::exception& e)
+        {
+            Logger::instance().error(QStringLiteral("Plugin '%1': uncaught exception in shutdown: %2").arg(pluginId, QString::fromUtf8(e.what())));
+        }
+        catch (...)
+        {
+            Logger::instance().error(QStringLiteral("Plugin '%1': unknown exception in shutdown").arg(pluginId));
+        }
         Logger::instance().info(QStringLiteral("PluginManager: unloaded plugin '%1'").arg(pluginId));
     }
 
     // Remove the plugin's registered actions/docks while its library is still
     // loaded — triggering an action whose callback lives in an unloaded .so
     // would crash, and deleting dock contents after unload would crash in the
-    // widget's destructor.
+    // widget's destructor. endPluginSession() deletes them synchronously.
     if (m_host)
         m_host->endPluginSession(pluginId);
+
+    // Flush any DeferredDelete events posted by the plugin so none of them
+    // land after its code is unmapped.
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+    // The plugin instance itself is factory-allocated in the .so; delete it
+    // while the library is still mapped.
+    if (entry.plugin)
+    {
+        delete entry.plugin;
+        entry.plugin = nullptr;
+    }
 
     if (entry.loader)
     {
@@ -377,6 +480,12 @@ void PluginManager::connectHostEventForwarding()
                 for (auto& entry : m_loaded)
                     safePluginCall(entry.info.id, "onFileSaved", [path](IPlugin* p) { p->onFileSaved(path); });
             });
+    connect(m_host.get(), &PluginHost::fileModifiedExternally, this,
+            [this](const QString& path)
+            {
+                for (auto& entry : m_loaded)
+                    safePluginCall(entry.info.id, "onFileModifiedExternally", [path](IPlugin* p) { p->onFileModifiedExternally(path); });
+            });
     connect(m_host.get(), &PluginHost::settingsChanged, this,
             [this]()
             {
@@ -397,7 +506,10 @@ bool PluginManager::isPluginEnabled(const QString& pluginId) const
 
 void PluginManager::setPluginEnabled(const QString& pluginId, bool enabled)
 {
-    if (m_enabled.value(pluginId, m_defaultEnabled.value(pluginId, true)) == enabled)
+    // Compare against the effective state (cache, persisted setting, or
+    // manifest default) rather than only the cache: enabling a plugin that
+    // was persisted as disabled must actually run.
+    if (isPluginEnabled(pluginId) == enabled)
         return;
 
     m_enabled[pluginId] = enabled;

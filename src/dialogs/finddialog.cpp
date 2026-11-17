@@ -32,6 +32,7 @@ FindDialog::FindDialog(QWidget* parent) : QDialog(parent), editor(nullptr), m_se
     setWindowTitle(tr("Find"));
     setupUI();
     loadSettings();
+    m_settings.restoreGeometry(this);
 }
 
 FindDialog::~FindDialog() = default;
@@ -39,6 +40,7 @@ FindDialog::~FindDialog() = default;
 void FindDialog::closeEvent(QCloseEvent* event)
 {
     saveSettings();
+    m_settings.saveGeometry(this);
     QDialog::closeEvent(event);
 }
 

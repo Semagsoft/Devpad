@@ -22,9 +22,13 @@
 #include "actionmanager.h"
 #include "codeeditor.h"
 #include "editorcontroller.h"
-#include "lsp/lspservermanager.h"
+#include "encodingutils.h"
+#include "languageinfo.h"
+#include "lspinterface.h"
 #include "mainwindow.h"
+#include "managers/filewatchermanager.h"
 #include "managers/settingsmanager.h"
+#include "managers/snippetmanager.h"
 #include "managers/tabmanager.h"
 
 #include <QAction>
@@ -39,9 +43,12 @@ PluginHost::PluginHost(MainWindow* mainWindow, QObject* parent) : QObject(parent
         m_settingsManager = &SettingsManager::instance();
         m_editorController = m_mainWindow->findChild<EditorController*>();
         m_tabManager = m_mainWindow->findChild<TabManager*>();
-        m_lspServerManager = m_mainWindow->findChild<lsp::LspServerManager*>();
+        m_fileWatcherManager = m_mainWindow->findChild<FileWatcherManager*>();
 
         forwardEditorSignals();
+
+        if (m_fileWatcherManager)
+            connect(m_fileWatcherManager, &FileWatcherManager::fileModifiedExternally, this, &PluginHost::fileModifiedExternally);
     }
 }
 
@@ -74,7 +81,10 @@ QObject* PluginHost::tabManager() const
 
 QObject* PluginHost::lspServerManager() const
 {
-    return m_lspServerManager;
+    // Deprecated: kept to preserve the IPluginHost vtable layout. The LSP
+    // manager is owned by the LSP plugin; look it up as the "lsp_service"
+    // object instead (see lspinterface.h).
+    return nullptr;
 }
 
 void PluginHost::forwardEditorSignals()
@@ -100,8 +110,63 @@ void PluginHost::beginPluginSession(const QString& pluginId)
 
 void PluginHost::endPluginSession(const QString& pluginId)
 {
+    // Clean up plugin registrations before removing other leftovers.
+    auto regIt = m_pluginRegistrations.find(pluginId);
+    if (regIt != m_pluginRegistrations.end())
+    {
+        const PluginRegistrations& reg = regIt.value();
+        for (const auto& langId : reg.languageIds)
+            unregisterPluginLanguage(langId);
+        for (const auto& langId : reg.keywordOnlyLanguageIds)
+            unregisterPluginLanguageKeywords(langId);
+        for (const auto& encName : reg.encodingNames)
+            unregisterPluginEncoding(encName);
+        for (const auto& ext : reg.extensions)
+            SettingsManager::removeExtensionMapping(ext);
+        for (const auto& fileName : reg.fileNames)
+            SettingsManager::removeFileNameMapping(fileName);
+        for (const auto& snippetName : reg.snippetNames)
+            SnippetManager::instance().removeSnippet(snippetName);
+        for (const auto& themeId : reg.themeIds)
+            unregisterPluginTheme(themeId);
+        m_pluginRegistrations.erase(regIt);
+    }
+
+    // Remove objects/panels this plugin registered but never unregistered
+    // (e.g. its shutdown() crashed before unregistering). Entries are dropped
+    // without deleting the pointees — ownership stays with the plugin, whose
+    // shutdown() should have deleted or unregistered them; keeping dangling
+    // registrations would hand out destroyed pointers via host->object()/panel().
+    for (auto it = m_pluginObjects.begin(); it != m_pluginObjects.end();)
+    {
+        if (m_pluginObjectOwners.value(it.key()) == pluginId)
+        {
+            m_pluginObjectOwners.remove(it.key());
+            it = m_pluginObjects.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    m_pluginObjectOwners.remove(pluginId);
+
+    for (auto it = m_pluginPanels.begin(); it != m_pluginPanels.end();)
+    {
+        if (m_pluginPanelOwners.value(it.key()) == pluginId)
+        {
+            m_pluginPanelOwners.remove(it.key());
+            it = m_pluginPanels.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    m_pluginPanelOwners.remove(pluginId);
+
     // Remove everything this plugin registered; must run while the plugin's
-    // library is still loaded (deleteLater()ed widgets may belong to it).
+    // library is still loaded (delete()ed widgets may belong to it).
     for (auto it = m_pluginActions.begin(); it != m_pluginActions.end();)
     {
         if (m_pluginActionOwners.value(it.key()) == pluginId)
@@ -110,7 +175,9 @@ void PluginHost::endPluginSession(const QString& pluginId)
             {
                 if (m_mainWindow)
                     m_mainWindow->removeAction(act);
-                act->deleteLater();
+                // Host-owned QAction; synchronous delete is safe and keeps
+                // plugin-triggered deferred deletes off the unload path.
+                delete act;
             }
             it = m_pluginActions.erase(it);
         }
@@ -128,7 +195,18 @@ void PluginHost::endPluginSession(const QString& pluginId)
             if (DockEntry entry = it.value(); entry.dock)
             {
                 m_mainWindow->removeDockWidget(entry.dock);
-                entry.dock->deleteLater();
+                // The dock's content widget may be a plugin class whose destructor
+                // lives in the plugin .so; delete synchronously while it is loaded.
+                QWidget* inner = entry.dock->widget();
+                delete entry.dock; // destroys children synchronously
+                // Panels that pointed at the dock must not outlive it.
+                for (auto pit = m_pluginPanels.begin(); pit != m_pluginPanels.end();)
+                {
+                    if (pit.value() == entry.dock || pit.value() == inner)
+                        pit = m_pluginPanels.erase(pit);
+                    else
+                        ++pit;
+                }
             }
             it = m_pluginDocks.erase(it);
         }
@@ -180,7 +258,7 @@ bool PluginHost::unregisterAction(const QString& id)
 
     if (m_mainWindow)
         m_mainWindow->removeAction(act);
-    act->deleteLater();
+    delete act;
     return true;
 }
 
@@ -207,6 +285,15 @@ QMenu* PluginHost::menu(const QString& path) const
     QMenu* current = nullptr;
     QMenu* parentMenu = nullptr;
 
+    // Menus matched by title; normalize away mnemonic markers and case so
+    // "&View" matches "view".
+    const auto menuTitleMatches = [](const QString& title, const QString& part)
+    {
+        QString normalized = title;
+        normalized.remove(QLatin1Char('&'));
+        return normalized.compare(part, Qt::CaseInsensitive) == 0;
+    };
+
     for (const QString& part : parts)
     {
         // Look for an existing top-level or sub-menu matching part.
@@ -215,7 +302,8 @@ QMenu* PluginHost::menu(const QString& path) const
         {
             for (QAction* act : bar->actions())
             {
-                if (QMenu* m = act->menu(); m->title() == part)
+                QMenu* m = act->menu();
+                if (m && menuTitleMatches(m->title(), part))
                 {
                     found = m;
                     break;
@@ -228,7 +316,8 @@ QMenu* PluginHost::menu(const QString& path) const
         {
             for (QAction* act : current->actions())
             {
-                if (QMenu* m = act->menu(); m->title() == part)
+                QMenu* m = act->menu();
+                if (m && menuTitleMatches(m->title(), part))
                 {
                     found = m;
                     break;
@@ -264,9 +353,22 @@ QString PluginHost::addDockWidget(QWidget* widget, Qt::DockWidgetArea area)
     if (!m_mainWindow || !widget || !isWidgetFrontend())
         return QString();
 
-    auto* dock = new QDockWidget(m_mainWindow);
-    dock->setWidget(widget);
-    dock->setObjectName(QStringLiteral("plugin-dock-%1").arg(++m_dockCounter));
+    QDockWidget* dock = nullptr;
+
+    // If the widget is already a QDockWidget, add it directly instead of
+    // wrapping it in another QDockWidget. This lets plugins contribute
+    // QDockWidget-based panels (e.g. TerminalPanel) without nesting.
+    if (auto* existing = qobject_cast<QDockWidget*>(widget))
+    {
+        dock = existing;
+    }
+    else
+    {
+        dock = new QDockWidget(m_mainWindow);
+        dock->setWidget(widget);
+    }
+
+    dock->setObjectName(dock->objectName().isEmpty() ? QStringLiteral("plugin-dock-%1").arg(++m_dockCounter) : dock->objectName());
     m_mainWindow->addDockWidget(area, dock);
 
     QString dockId = dock->objectName();
@@ -276,10 +378,45 @@ QString PluginHost::addDockWidget(QWidget* widget, Qt::DockWidgetArea area)
     m_pluginDocks.insert(dockId, entry);
     m_pluginDockOwners.insert(dockId, m_currentPluginId);
 
-    // Keep the action checked state in sync with visibility.
-    connect(dock, &QDockWidget::visibilityChanged, dock, [dock](bool visible) { dock->setVisible(visible); });
-
     return dockId;
+}
+
+void PluginHost::registerPanel(const QString& id, QWidget* widget)
+{
+    if (id.isEmpty() || !widget)
+        return;
+    m_pluginPanels.insert(id, widget);
+    m_pluginPanelOwners.insert(id, m_currentPluginId);
+}
+
+void PluginHost::unregisterPanel(const QString& id)
+{
+    m_pluginPanels.remove(id);
+    m_pluginPanelOwners.remove(id);
+}
+
+QWidget* PluginHost::panel(const QString& id) const
+{
+    return m_pluginPanels.value(id, nullptr);
+}
+
+void PluginHost::registerObject(const QString& id, QObject* object)
+{
+    if (id.isEmpty() || !object)
+        return;
+    m_pluginObjects.insert(id, object);
+    m_pluginObjectOwners.insert(id, m_currentPluginId);
+}
+
+void PluginHost::unregisterObject(const QString& id)
+{
+    m_pluginObjects.remove(id);
+    m_pluginObjectOwners.remove(id);
+}
+
+QObject* PluginHost::object(const QString& id) const
+{
+    return m_pluginObjects.value(id, nullptr);
 }
 
 bool PluginHost::removeDockWidget(const QString& dockId)
@@ -292,7 +429,23 @@ bool PluginHost::removeDockWidget(const QString& dockId)
         return false;
 
     m_mainWindow->removeDockWidget(entry.dock);
-    entry.dock->deleteLater();
+    // Unregister any panel that pointed at this dock so host->panel() no
+    // longer returns a dangling (deleted) widget.
+    QWidget* inner = entry.dock->widget();
+    for (auto it = m_pluginPanels.begin(); it != m_pluginPanels.end();)
+    {
+        if (it.value() == entry.dock || it.value() == inner)
+        {
+            m_pluginPanelOwners.remove(it.key());
+            it = m_pluginPanels.erase(it);
+        }
+        else
+            ++it;
+    }
+    // Synchronous delete: callers (e.g. plugin shutdown) may return before
+    // the event loop gets a chance to process deferred deletes, and the dock
+    // content may be a plugin-class widget whose destructor lives in the .so.
+    delete entry.dock;
     return true;
 }
 
@@ -320,8 +473,103 @@ QStringList PluginHost::pluginKeys(const QString& pluginId) const
 
 void PluginHost::registerLspServer(const QString& language, const QString& command, const QStringList& args)
 {
-    if (m_lspServerManager)
-        m_lspServerManager->registerPluginServer(language, command, args);
+    // The LSP plugin owns the language server registry; forward to it when
+    // loaded. When the plugin is absent the registration is dropped, which
+    // matches the plugin-owned-LSP model (no servers, no LSP features).
+    if (auto* service = qobject_cast<lsp::ILspService*>(object(lsp::LspServiceObjectId)))
+        service->registerServer(language, command, args);
+}
+
+bool PluginHost::registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory)
+{
+    if (languageId.isEmpty() || !factory)
+        return false;
+    if (!registerPluginLanguage(languageId, lexerClassName, factory))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].languageIds.append(languageId);
+    return true;
+}
+
+bool PluginHost::registerLanguageKeywords(const QString& languageId, const QStringList& keywords)
+{
+    if (languageId.isEmpty() || keywords.isEmpty())
+        return false;
+    if (!registerPluginLanguageKeywords(languageId, keywords))
+        return false;
+    // Keyword-only registration: at unload, drop ONLY the keywords, not the
+    // language (it may be a built-in or another plugin's language).
+    // The language was registered via registerLanguage() if it is in languageIds;
+    // only record as keyword-only when we did not register the language itself.
+    PluginRegistrations& reg = m_pluginRegistrations[m_currentPluginId];
+    if (!reg.languageIds.contains(languageId))
+        reg.keywordOnlyLanguageIds.append(languageId);
+    return true;
+}
+
+bool PluginHost::registerEncoding(const QString& displayName, const QString& encodingName)
+{
+    if (displayName.isEmpty() || encodingName.isEmpty())
+        return false;
+    if (!registerPluginEncoding(displayName, encodingName))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].encodingNames.append(displayName);
+    return true;
+}
+
+bool PluginHost::registerExtension(const QString& extension, const QString& languageId)
+{
+    if (extension.isEmpty() || languageId.isEmpty())
+        return false;
+    if (!SettingsManager::addExtensionMapping(extension, languageId))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].extensions.append(extension);
+    return true;
+}
+
+bool PluginHost::registerFileNameMapping(const QString& fileName, const QString& languageId)
+{
+    if (fileName.isEmpty() || languageId.isEmpty())
+        return false;
+    if (!SettingsManager::addFileNameMapping(fileName, languageId))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].fileNames.append(fileName);
+    return true;
+}
+
+bool PluginHost::registerSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description,
+                                 const QString& scope)
+{
+    if (!SnippetManager::instance().addSnippet(name, prefix, body, description, scope))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].snippetNames.append(name);
+    return true;
+}
+
+bool PluginHost::unregisterSnippet(const QString& name)
+{
+    if (!SnippetManager::instance().removeSnippet(name))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].snippetNames.removeAll(name);
+    return true;
+}
+
+bool PluginHost::registerTheme(const QString& themeId, const ThemeColors& colors)
+{
+    qDebug("PluginHost::registerTheme: id='%s', calling registerPluginTheme", qPrintable(themeId));
+    bool ok = registerPluginTheme(themeId, colors);
+    qDebug("PluginHost::registerTheme: registerPluginTheme returned %d", ok);
+    if (!ok)
+        return false;
+    m_pluginRegistrations[m_currentPluginId].themeIds.append(themeId);
+    return true;
+}
+
+bool PluginHost::unregisterTheme(const QString& themeId)
+{
+    if (!unregisterPluginTheme(themeId))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].themeIds.removeAll(themeId);
+    return true;
 }
 
 bool PluginHost::isWidgetFrontend() const

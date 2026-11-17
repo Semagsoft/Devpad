@@ -18,16 +18,14 @@
  */
 #include "codeeditor.h"
 
-#include "dap/dapeditorintegration.h"
 #include "languageinfo.h"
-#include "lsp/lspclient.h"
-#include "lsp/lspindicators.h"
-#include "lsp/lspservermanager.h"
 #include "lsp/lsptypes.h"
+#include "plugins/lspinterface.h"
 #include "settingsmanager.h"
 #include "snippetmanager.h"
 #include "theme.h"
 #include "widgets/brackethelper.h"
+#include "widgets/scrollbarannotation.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -37,13 +35,16 @@
 #include <QFileInfo>
 #include <QFont>
 #include <QIcon>
-#include <QInputDialog>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QMimeData>
+#include <QResizeEvent>
+#include <QScrollBar>
 #include <QTimer>
 #include <QToolTip>
+#include <algorithm>
 #include <array>
+#include <utility>
 
 #include <Qsci/qsciapis.h>
 
@@ -72,48 +73,43 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                 }
             });
 
-    // Set up invisible indicator for snippet tab stops
-    indicatorDefine(QsciScintilla::HiddenIndicator, SnippetEngine::SNIPPET_INDICATOR);
+    // Set up a visible indicator for snippet tab stops (a subtle straight box;
+    // the previous HiddenIndicator made default values invisible).
+    indicatorDefine(QsciScintilla::StraightBoxIndicator, SnippetEngine::SNIPPET_INDICATOR);
+    setIndicatorForegroundColor(QColor(100, 149, 237), SnippetEngine::SNIPPET_INDICATOR);
 
     // Create snippet engine
     m_snippetEngine = new SnippetEngine(this);
     connect(m_snippetEngine, &SnippetEngine::snippetModeChanged, this, &CodeEditor::snippetModeChanged);
 
-    // Set up LSP diagnostic indicators
+    // Set up LSP diagnostic indicators (used by the plugin-attached session).
     setupLspIndicators();
 
-    // Create LSP editor integration (handles timers, requests, responses)
-    m_lspIntegration = new lsp::LspEditorIntegration(this, this);
-
-    // Create DAP / debugger editor integration (breakpoints, execution position)
-    m_dapIntegration = new dap::DapEditorIntegration(this, this);
-
-    // Forward navigation requests from LSP integration to UI
-    connect(m_lspIntegration, &lsp::LspEditorIntegration::navigateToLocation, this, &CodeEditor::navigateToLocation);
-    connect(m_lspIntegration, &lsp::LspEditorIntegration::diagnosticsChanged, this, &CodeEditor::diagnosticsChanged);
-
-    // Sync editor breakpoints with the debug adapter when the margin is clicked
+    // Sync editor breakpoints with the debug adapter when the margin is clicked.
+    // DapEditorIntegration is created by the DAP plugin; syncBreakpoints() is a
+    // slot invoked via QMetaObject to avoid compile-time dependency on plugin
+    // headers.
     connect(this, &CodeEditor::breakpointToggled, this,
             [this](int)
             {
                 if (m_dapIntegration)
-                    m_dapIntegration->syncBreakpoints();
+                    QMetaObject::invokeMethod(m_dapIntegration, "syncBreakpoints");
             });
 
     // Trigger document highlights when cursor position changes
     connect(this, &QsciScintilla::cursorPositionChanged, this,
             [this](int, int)
             {
-                if (m_lspIntegration->isActive())
-                    m_lspIntegration->requestDocumentHighlight();
+                if (m_lspSession && m_lspSession->isActive())
+                    m_lspSession->requestDocumentHighlight();
             });
 
     // Connect text change signal to trigger diagnostics for paste/undo/redo etc.
     connect(this, &QsciScintilla::textChanged, this,
             [this]()
             {
-                if (m_lspIntegration->isActive())
-                    m_lspIntegration->sendDidChange();
+                if (m_lspSession && m_lspSession->isActive())
+                    m_lspSession->sendDidChange();
             });
 
     // Enable mouse dwell timer for LSP hover tooltips (500ms)
@@ -123,18 +119,8 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
     connect(this, &QsciScintillaBase::SCN_DWELLSTART, this,
             [this](int position, int, int)
             {
-                if (!m_lspIntegration->isActive() || m_fileName.isEmpty())
-                    return;
-
-                QString uri = lsp::uriFromPath(m_fileName);
-                auto* client = m_lspIntegration->serverManager() ? m_lspIntegration->serverManager()->clientForUri(uri) : nullptr;
-                if (!client || !client->capabilities().hoverProvider)
-                    return;
-
-                int line, col;
-                lineIndexFromPosition(position, &line, &col);
-                lsp::Position pos{line, col};
-                client->requestHover(uri, pos);
+                if (m_lspSession && m_lspSession->isActive())
+                    m_lspSession->requestHover(position);
             });
 
     connect(this, &QsciScintillaBase::SCN_DWELLEND, this, [](int, int, int) { QToolTip::hideText(); });
@@ -142,7 +128,11 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
     // Connect char added signal for LSP completion trigger
     connect(this, &QsciScintillaBase::SCN_CHARADDED, this, &CodeEditor::onCharAdded);
 
-    // Connect autocompletion selection signal to handle snippet expansion
+    // Handle autocompletion selection. Scintilla sends SCN_AUTOCSELECTION
+    // *before* inserting the chosen item; `position` is the byte offset of the
+    // start of the word being completed. We always cancel Scintilla's
+    // automatic insertion and perform the edit ourselves, so the typed trigger
+    // is replaced exactly once.
     connect(this, static_cast<void (QsciScintillaBase::*)(const char*, int)>(&QsciScintillaBase::SCN_AUTOCSELECTION), this,
             [this](const char* selection, int position)
             {
@@ -151,55 +141,63 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
 
                 QString selectedText = QString::fromUtf8(selection);
 
+                // Byte range of the typed trigger: [position, cursorPos).
+                auto deleteTriggerWord = [this, position]()
+                {
+                    int wordEnd = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_GETCURRENTPOS));
+                    if (wordEnd < position)
+                        wordEnd = position;
+                    SendScintilla(QsciScintillaBase::SCI_SETSEL, static_cast<unsigned long>(position), static_cast<unsigned long>(wordEnd));
+                    const QByteArray empty;
+                    SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<uintptr_t>(0), empty.constData());
+                };
+
                 static const QString marker = QStringLiteral("\u00ABsnip\u00BB");
                 if (SettingsManager::instance().predictiveSnippets() && selectedText.endsWith(marker))
                 {
                     QString prefix = selectedText.left(selectedText.length() - marker.length());
-                    if (SnippetManager* sm = SnippetManager::instance())
                     {
-                        QList<Snippet> candidates = sm->snippetsByPrefix(prefix, m_syntax);
+                        QList<Snippet> candidates = SnippetManager::instance().snippetsByPrefix(prefix, m_syntax);
                         for (const Snippet& snip : candidates)
                         {
                             if (snip.prefix == prefix)
                             {
-                                int triggerLen = prefix.length();
-                                int triggerStart = position - triggerLen;
-                                if (triggerStart >= 0)
-                                {
-                                    m_snippetEngine->insertSnippet(snip);
-                                }
+                                SendScintilla(QsciScintillaBase::SCI_AUTOCCANCEL);
+                                deleteTriggerWord();
+                                m_snippetEngine->insertSnippet(snip);
                                 return;
                             }
                         }
                     }
                 }
 
-                auto items = m_lspIntegration->completionItems();
+                const QList<lsp::CompletionItem>& items = m_lspCompletionItems;
                 if (!items.isEmpty())
                 {
-                    QString label = selectedText;
-                    int sepIdx = label.indexOf(QStringLiteral(" ?"));
-                    if (sepIdx >= 0)
-                        label = label.left(sepIdx);
-
                     for (const auto& item : items)
                     {
-                        if (item.label == label && item.insertText != label)
-                        {
-                            int startPos = position - label.length();
-                            if (startPos >= 0)
-                            {
-                                int startLine, startCol, endLine, endCol;
-                                lineIndexFromPosition(startPos, &startLine, &startCol);
-                                lineIndexFromPosition(position, &endLine, &endCol);
-                                setSelection(startLine, startCol, endLine, endCol);
-                                replaceSelectedText(item.insertText);
-                            }
-                            break;
-                        }
+                        QString shown = item.label;
+                        if (!item.detail.isEmpty())
+                            shown += QStringLiteral(" ?") + item.detail;
+                        if (selectedText != shown && selectedText != item.label)
+                            continue;
+
+                        SendScintilla(QsciScintillaBase::SCI_AUTOCCANCEL);
+                        deleteTriggerWord();
+                        const QString insertText = item.insertText.isEmpty() ? item.label : item.insertText;
+                        const QByteArray utf8 = insertText.toUtf8();
+                        SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<uintptr_t>(0), utf8.constData());
+                        break;
                     }
                 }
             });
+
+    // Scrollbar annotation strip (bookmark + diagnostic ticks next to the scrollbar).
+    m_scrollbarAnnotation = new ScrollbarAnnotation(this);
+    connect(this, &CodeEditor::bookmarksChanged, this, [this]() { updateScrollbarAnnotations(); });
+    connect(this, &CodeEditor::diagnosticsChanged, this, [this](const QString&, const QList<lsp::Diagnostic>&) { updateScrollbarAnnotations(); });
+    connect(this, &QsciScintilla::textChanged, this, [this]() { updateScrollbarAnnotations(); });
+    updateScrollbarAnnotations();
 }
 
 CodeEditor::~CodeEditor()
@@ -308,12 +306,16 @@ void CodeEditor::applyTheme(ThemeId themeId)
 
 void CodeEditor::applyTheme(const ThemeColors& colors)
 {
-    m_themeId = ThemeId::Light; // placeholder; custom themes aren't a ThemeId
+    // Custom themes have no ThemeId; lexer/edge theming reuses the stored
+    // ThemeColors (see applyThemeColors), so m_themeId is left unchanged.
     applyThemeColors(colors);
 }
 
 void CodeEditor::applyThemeColors(const ThemeColors& colors)
 {
+    m_lastColors = colors;
+    m_hasLastColors = true;
+
     setMarginsBackgroundColor(colors.marginBg);
     setMarginsForegroundColor(colors.marginFg);
     setFoldMarginColors(colors.foldMarginBg, colors.foldMarginBgAlt);
@@ -339,7 +341,7 @@ void CodeEditor::applyLexerTheme()
     if (!lexer)
         return;
 
-    ThemeColors colors = getThemeColors(m_themeId);
+    const ThemeColors colors = m_hasLastColors ? m_lastColors : getThemeColors(m_themeId);
     applyLexerThemeColors(colors);
 }
 
@@ -378,6 +380,11 @@ void CodeEditor::setSyntax(const QString& language)
     }
 
     QsciLexer* lexer = lang->factory(this);
+    if (!lexer)
+    {
+        setLexer(nullptr);
+        return;
+    }
     lexer->setFont(m_defaultFont);
     m_lexer.reset(lexer);
 
@@ -394,9 +401,8 @@ void CodeEditor::setSyntax(const QString& language)
     }
 
     // Register snippet auto-completion entries
-    if (SnippetManager* sm = SnippetManager::instance())
     {
-        QList<Snippet> snippets = sm->snippetsForLanguage(language);
+        QList<Snippet> snippets = SnippetManager::instance().snippetsForLanguage(language);
         if (!snippets.isEmpty())
         {
             registerSnippetAutoCompletion(snippets);
@@ -581,7 +587,7 @@ void CodeEditor::setVerticalEdge(bool enabled, int column)
     {
         setEdgeMode(QsciScintilla::EdgeLine);
         setEdgeColumn(column);
-        ThemeColors colors = getThemeColors(m_themeId);
+        const ThemeColors colors = m_hasLastColors ? m_lastColors : getThemeColors(m_themeId);
         setEdgeColor(colors.separator);
     }
     else
@@ -919,10 +925,11 @@ void CodeEditor::toggleComment()
         {
             modified.insert(firstNonSpace, cs->lineComment);
         }
-        else
+        else if (ln.mid(firstNonSpace).startsWith(cs->lineComment))
         {
             modified.remove(firstNonSpace, commentLen);
         }
+        // Lines that are not commented must keep `commentLen` untouched.
         result << modified;
     }
 
@@ -1116,189 +1123,142 @@ void CodeEditor::contextMenuEvent(QContextMenuEvent* event)
         toggleComment();
 }
 
-// ── LSP Integration ─────────────────────────────────────────────
+// ── LSP Integration (plugin-provided session) ─────────────────────────────────────────────
 
-void CodeEditor::setLspServerManager(lsp::LspServerManager* manager)
+void CodeEditor::setLspSession(lsp::ILspEditorSession* session)
 {
-    m_lspIntegration->setServerManager(manager);
+    m_lspSession = session;
 }
 
-void CodeEditor::setLspLanguage(const QString& language)
+lsp::ILspEditorSession* CodeEditor::lspSession() const
 {
-    m_lspIntegration->setLanguage(language);
+    return m_lspSession.data();
 }
 
-void CodeEditor::setDapServerManager(dap::DapServerManager* manager)
+void CodeEditor::setDapIntegration(QObject* integration)
 {
-    if (m_dapIntegration)
-        m_dapIntegration->setServerManager(manager);
-}
-
-void CodeEditor::setDapSessionKey(const QString& sessionKey)
-{
-    if (m_dapIntegration)
-        m_dapIntegration->setSessionKey(sessionKey);
-}
-
-lsp::LspServerManager* CodeEditor::lspServerManager() const
-{
-    return m_lspIntegration->serverManager();
+    m_dapIntegration = integration;
 }
 
 bool CodeEditor::lspActive() const
 {
-    return m_lspIntegration->isActive();
+    return m_lspSession && m_lspSession->isActive();
 }
 
 int CodeEditor::documentVersion() const
 {
-    return m_lspIntegration->documentVersion();
+    return m_lspSession ? m_lspSession->documentVersion() : 0;
 }
 
 void CodeEditor::setDocumentVersion(int v)
 {
-    m_lspIntegration->setDocumentVersion(v);
+    if (m_lspSession)
+        m_lspSession->setDocumentVersion(v);
+}
+
+int CodeEditor::wordCharCountBeforeCursor() const
+{
+    const int threshold = SettingsManager::instance().lspCompletionTriggerChars();
+    const int pos = static_cast<int>(SendScintilla(SCI_GETCURRENTPOS));
+    int count = 0;
+    for (int i = pos - 1; i >= 0 && count < threshold; i--)
+    {
+        const char c = static_cast<char>(SendScintilla(SCI_GETCHARAT, i));
+        if (std::isalnum(c) || c == '_')
+            count++;
+        else
+            break;
+    }
+    return count;
 }
 
 void CodeEditor::onCharAdded(int charadded)
 {
-    if (!m_lspIntegration->isActive())
-        return;
-
-    QChar ch(charadded);
-    m_lspIntegration->setLastTriggerChar(charadded);
-    m_lspIntegration->setLastCharWasTrigger(false);
-
-    auto* client = m_lspIntegration->clientForCurrentFile();
-    if (client && client->capabilities().completionProvider)
-    {
-        for (const auto& tc : client->capabilities().completionTriggerChars)
-        {
-            if (!tc.isEmpty() && QChar(tc[0]) == ch)
-            {
-                m_lspIntegration->setLastCharWasTrigger(true);
-                break;
-            }
-        }
-    }
-
-    if (m_lspIntegration->lastCharWasTrigger() || ch.isLetterOrNumber() || ch == QLatin1Char('.') || ch == QLatin1Char('>') ||
-        ch == QLatin1Char(':') || ch == QLatin1Char('/') || ch == QLatin1Char('-') || ch == QLatin1Char('_'))
-    {
-        int threshold = SettingsManager::instance().lspCompletionTriggerChars();
-        int pos = SendScintilla(SCI_GETCURRENTPOS);
-        int count = 0;
-        for (int i = pos - 1; i >= 0 && count < threshold; i--)
-        {
-            char c = static_cast<char>(SendScintilla(SCI_GETCHARAT, i));
-            if (std::isalnum(c) || c == '_')
-                count++;
-            else
-                break;
-        }
-        if (m_lspIntegration->lastCharWasTrigger() || count >= threshold)
-        {
-            m_lspIntegration->startCompletionTimer();
-        }
-    }
-    else if (ch == QLatin1Char('('))
-    {
-        int line, col;
-        getCursorPosition(&line, &col);
-        lsp::Position pos{line, qMax(0, col - 1)};
-        if (client)
-            client->requestSignatureHelp(lsp::uriFromPath(m_fileName), pos);
-    }
-
-    m_lspIntegration->startDiagnosticsTimer();
+    if (m_lspSession)
+        m_lspSession->onCharAdded(charadded);
 }
 
 void CodeEditor::sendDidOpen()
 {
-    m_lspIntegration->sendDidOpen();
+    if (m_lspSession)
+        m_lspSession->sendDidOpen();
 }
 
 void CodeEditor::sendDidChange()
 {
-    m_lspIntegration->sendDidChange();
+    if (m_lspSession)
+        m_lspSession->sendDidChange();
 }
 
 void CodeEditor::triggerCompletion()
 {
-    m_lspIntegration->triggerCompletion();
+    if (m_lspSession)
+        m_lspSession->triggerCompletion();
 }
 
 void CodeEditor::goToDefinition()
 {
-    m_lspIntegration->goToDefinition();
+    if (m_lspSession)
+        m_lspSession->goToDefinition();
 }
 
 void CodeEditor::goToTypeDefinition()
 {
-    m_lspIntegration->goToTypeDefinition();
+    if (m_lspSession)
+        m_lspSession->goToTypeDefinition();
 }
 
 void CodeEditor::goToDeclaration()
 {
-    m_lspIntegration->goToDeclaration();
+    if (m_lspSession)
+        m_lspSession->goToDeclaration();
 }
 
 void CodeEditor::findReferences()
 {
-    m_lspIntegration->findReferences();
+    if (m_lspSession)
+        m_lspSession->findReferences();
 }
 
 void CodeEditor::formatSelection()
 {
-    m_lspIntegration->formatSelection();
+    if (m_lspSession)
+        m_lspSession->formatSelection();
 }
 
 void CodeEditor::requestCodeActions()
 {
-    m_lspIntegration->requestCodeActions();
+    if (m_lspSession)
+        m_lspSession->requestCodeActions();
 }
 
 void CodeEditor::expandSelection()
 {
-    m_lspIntegration->expandSelection();
+    if (m_lspSession)
+        m_lspSession->expandSelection();
 }
 
 void CodeEditor::shrinkSelection()
 {
-    m_lspIntegration->shrinkSelection();
-}
-
-void CodeEditor::requestSelectionRanges()
-{
-    m_lspIntegration->requestSelectionRanges();
+    if (m_lspSession)
+        m_lspSession->shrinkSelection();
 }
 
 void CodeEditor::requestRename()
 {
-    if (!m_lspIntegration->isActive() || m_fileName.isEmpty())
-        return;
-
-    bool ok = false;
-    QString newName = QInputDialog::getText(this, tr("Rename Symbol"), tr("New name:"), QLineEdit::Normal, QString(), &ok);
-    if (!ok || newName.isEmpty())
-        return;
-
-    QString uri = lsp::uriFromPath(m_fileName);
-    int line, col;
-    getCursorPosition(&line, &col);
-    auto* client = m_lspIntegration->clientForCurrentFile();
-    if (client)
-        client->requestRename(uri, lsp::Position{line, lsp::byteOffsetToUtf16(text(line), col)}, newName);
+    if (m_lspSession)
+        m_lspSession->requestRename();
 }
 
 void CodeEditor::requestDocumentHighlight()
 {
-    m_lspIntegration->requestDocumentHighlight();
+    if (m_lspSession)
+        m_lspSession->requestDocumentHighlight();
 }
 
 void CodeEditor::showCompletion(const lsp::CompletionList& completions)
 {
-    m_lspIntegration->setCompletionItems(completions.items);
+    m_lspCompletionItems = completions.items;
 
     if (completions.items.isEmpty())
         return;
@@ -1329,19 +1289,26 @@ void CodeEditor::showCompletion(const lsp::CompletionList& completions)
     }
     QString currentWord = text(start, pos);
 
-    // Show autocompletion list using SCI_AUTOCSHOW
+    // Show autocompletion list using SCI_AUTOCSHOW. Scintilla's default
+    // separator is a space, so set ours explicitly to '\n'. lengthEntered is
+    // in bytes (Scintilla is byte-oriented), not UTF-16 code units.
     constexpr char sep = '\n';
     QString joined = entries.join(QLatin1Char(sep));
     QByteArray data = joined.toUtf8();
-    SendScintilla(SCI_AUTOCSHOW, static_cast<uintptr_t>(currentWord.length()), data.constData());
+    SendScintilla(QsciScintillaBase::SCI_AUTOCSETSEPARATOR, static_cast<unsigned long>(static_cast<unsigned char>(sep)));
+    SendScintilla(SCI_AUTOCSHOW, static_cast<uintptr_t>(currentWord.toUtf8().size()), data.constData());
 }
 
 void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnostic>& diagnostics)
 {
     Q_UNUSED(uri)
 
-    // Clear existing diagnostics
-    clearDiagnostics();
+    // Clear the indicators only. Assigning the stored list before clearing
+    // the indicators used to wipe it again inside clearDiagnostics(), which
+    // left m_lspDiagnostics empty (broken scrollbar ticks) and emitted
+    // diagnosticsChanged twice.
+    clearDiagnosticIndicators();
+    m_lspDiagnostics = diagnostics;
 
     // Apply indicators and markers for each diagnostic
     for (const auto& d : diagnostics)
@@ -1369,20 +1336,38 @@ void CodeEditor::applyDiagnostics(const QString& uri, const QList<lsp::Diagnosti
 
         QString startLineText = text(d.range.start.line);
         QString endLineText = text(d.range.end.line);
-        fillIndicatorRange(d.range.start.line, lsp::utf16ToByteOffset(startLineText, d.range.start.character), d.range.end.line,
-                           lsp::utf16ToByteOffset(endLineText, d.range.end.character), indicatorId);
+        fillIndicatorRange(d.range.start.line, lsp::utf16ColToCharIndex(startLineText, d.range.start.character), d.range.end.line,
+                           lsp::utf16ColToCharIndex(endLineText, d.range.end.character), indicatorId);
     }
 
     emit diagnosticsChanged(uri, diagnostics);
 }
 
+void CodeEditor::clearDiagnosticIndicators()
+{
+    int len = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_GETLENGTH));
+    if (len > 0)
+    {
+        // Clear the whole raw document: the previous last-line-column-0 end
+        // position let indicators on the last line survive.
+        for (int indicator : {lsp::LSP_INDICATOR_ERROR, lsp::LSP_INDICATOR_WARNING, lsp::LSP_INDICATOR_INFO})
+        {
+            SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT, static_cast<unsigned long>(indicator));
+            SendScintilla(QsciScintillaBase::SCI_INDICATORCLEARRANGE, static_cast<unsigned long>(0), static_cast<unsigned long>(len));
+        }
+    }
+}
+
 void CodeEditor::clearDiagnostics()
 {
-    if (lines() == 0)
-        return;
-    clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_ERROR);
-    clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_WARNING);
-    clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_INFO);
+    clearDiagnosticIndicators();
+
+    if (!m_lspDiagnostics.isEmpty())
+    {
+        m_lspDiagnostics.clear();
+        // Re-sync scrollbar annotations and the error list panel.
+        emit diagnosticsChanged(QString(), {});
+    }
 }
 
 void CodeEditor::applyHighlights(const QJsonArray& highlights)
@@ -1399,14 +1384,19 @@ void CodeEditor::applyHighlights(const QJsonArray& highlights)
 
         QString startLineText = text(range.start.line);
         QString endLineText = text(range.end.line);
-        fillIndicatorRange(range.start.line, lsp::utf16ToByteOffset(startLineText, range.start.character), range.end.line,
-                           lsp::utf16ToByteOffset(endLineText, range.end.character), lsp::LSP_INDICATOR_HIGHLIGHT);
+        fillIndicatorRange(range.start.line, lsp::utf16ColToCharIndex(startLineText, range.start.character), range.end.line,
+                           lsp::utf16ColToCharIndex(endLineText, range.end.character), lsp::LSP_INDICATOR_HIGHLIGHT);
     }
 }
 
 void CodeEditor::clearHighlights()
 {
-    clearIndicatorRange(0, 0, lines() - 1, 0, lsp::LSP_INDICATOR_HIGHLIGHT);
+    int len = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_GETLENGTH));
+    if (len > 0)
+    {
+        SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT, static_cast<unsigned long>(lsp::LSP_INDICATOR_HIGHLIGHT));
+        SendScintilla(QsciScintillaBase::SCI_INDICATORCLEARRANGE, static_cast<unsigned long>(0), static_cast<unsigned long>(len));
+    }
 }
 
 void CodeEditor::setLinkedEditingRanges(const QJsonObject& result)
@@ -1417,13 +1407,13 @@ void CodeEditor::setLinkedEditingRanges(const QJsonObject& result)
     {
         ranges.append(lsp::Range::fromJson(r.toObject()));
     }
-    m_lspIntegration->setLinkedRanges(ranges);
+    m_linkedRanges = std::move(ranges);
 }
 
 void CodeEditor::clearLinkedRanges()
 {
-    m_lspIntegration->setLinkedRanges({});
-    m_lspIntegration->setApplyingLinkedEdit(false);
+    m_linkedRanges.clear();
+    m_isApplyingLinkedEdit = false;
 }
 
 void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& tokenData)
@@ -1433,7 +1423,7 @@ void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& token
     if (tokenData.isEmpty())
         return;
 
-    m_lspIntegration->setSemanticTokensUri(uri);
+    m_semanticTokensUri = uri;
 
     // Decode the flat token array: [line, col, length, type, modifier, ...]
     // Apply using indicator 27 (semantic tokens)
@@ -1457,9 +1447,9 @@ void CodeEditor::applySemanticTokens(const QString& uri, const QJsonArray& token
         if (length > 0 && line >= 0 && line < lines())
         {
             QString lineText = text(line);
-            int startByte = lsp::utf16ToByteOffset(lineText, col);
-            int endByte = lsp::utf16ToByteOffset(lineText, col + length);
-            fillIndicatorRange(line, startByte, line, endByte, lsp::LSP_INDICATOR_SEMANTIC);
+            int startChar = lsp::utf16ColToCharIndex(lineText, col);
+            int endChar = lsp::utf16ColToCharIndex(lineText, col + length);
+            fillIndicatorRange(line, startChar, line, endChar, lsp::LSP_INDICATOR_SEMANTIC);
         }
     }
 }
@@ -1501,21 +1491,35 @@ void CodeEditor::applyFormattingEdits(const QList<QJsonObject>& edits)
     applyTextEdits(edits);
 }
 
-void CodeEditor::applyTextEdits(const QList<QJsonObject>& edits)
+void CodeEditor::applyTextEdits(const QList<QJsonObject>& editsIn)
 {
-    if (edits.isEmpty())
+    if (editsIn.isEmpty())
         return;
+
+    // LSP ranges refer to the original document, so edits must be applied
+    // bottom-most first to keep earlier ranges valid. Sort defensively here
+    // (descending); callers must not pre-sort in a conflicting order.
+    QList<QJsonObject> edits = editsIn;
+    std::sort(edits.begin(), edits.end(),
+              [](const QJsonObject& a, const QJsonObject& b)
+              {
+                  auto ra = lsp::Range::fromJson(a["range"].toObject());
+                  auto rb = lsp::Range::fromJson(b["range"].toObject());
+                  return qMakePair(ra.start.line, ra.start.character) > qMakePair(rb.start.line, rb.start.character);
+              });
+
     beginUndoAction();
-    // Apply edits in reverse order so that earlier edits do not invalidate the
-    // positions of later ones (LSP ranges refer to the original document).
-    for (int i = edits.size() - 1; i >= 0; --i)
+    for (const auto& edit : edits)
     {
-        const auto& edit = edits[i];
         auto range = lsp::Range::fromJson(edit["range"].toObject());
         QString newText = edit["newText"].toString();
 
-        int startPos = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_FINDCOLUMN, range.start.line, range.start.character));
-        int endPos = static_cast<int>(SendScintilla(QsciScintillaBase::SCI_FINDCOLUMN, range.end.line, range.end.character));
+        int startLine = qBound(0, range.start.line, lines() - 1);
+        int endLine = qBound(0, range.end.line, lines() - 1);
+        int startCol = lsp::utf16ColToCharIndex(text(startLine), range.start.character);
+        int endCol = lsp::utf16ColToCharIndex(text(endLine), range.end.character);
+        int startPos = positionFromLineIndex(startLine, startCol);
+        int endPos = positionFromLineIndex(endLine, endCol);
 
         SendScintilla(SCI_SETSEL, startPos, endPos);
         SendScintilla(SCI_REPLACESEL, static_cast<uintptr_t>(0), newText.toUtf8().constData());
@@ -1546,7 +1550,60 @@ void CodeEditor::showSignatureHelp(const QJsonObject& info)
     QToolTip::showText(mapToGlobal(QPoint(x, y)), parts.join("\n"), this);
 }
 
-void CodeEditor::setSelectionRanges(const QJsonArray& ranges)
+void CodeEditor::duplicateLine()
 {
-    m_lspIntegration->handleSelectionRanges(ranges);
+    SendScintilla(QsciScintillaBase::SCI_SELECTIONDUPLICATE);
+}
+
+void CodeEditor::moveLineUp()
+{
+    SendScintilla(QsciScintillaBase::SCI_MOVESELECTEDLINESUP);
+}
+
+void CodeEditor::moveLineDown()
+{
+    SendScintilla(QsciScintillaBase::SCI_MOVESELECTEDLINESDOWN);
+}
+
+void CodeEditor::resizeEvent(QResizeEvent* event)
+{
+    QsciScintilla::resizeEvent(event);
+    updateScrollbarAnnotations();
+}
+
+void CodeEditor::updateScrollbarAnnotations()
+{
+    if (!m_scrollbarAnnotation)
+        return;
+
+    const int annotationWidth = 5;
+    const int scrollBarWidth = verticalScrollBar() ? verticalScrollBar()->width() : 0;
+    m_scrollbarAnnotation->setGeometry(width() - scrollBarWidth - annotationWidth, 0, annotationWidth, height());
+
+    QList<QPair<int, QColor>> ticks;
+    for (const auto& d : m_lspDiagnostics)
+    {
+        QColor color;
+        switch (d.severityLevel)
+        {
+        case 1:
+            color = QColor(229, 72, 77); // error
+            break;
+        case 2:
+            color = QColor(245, 166, 35); // warning
+            break;
+        default:
+            color = QColor(59, 130, 246); // info/hint
+            break;
+        }
+        ticks.append({d.range.start.line, color});
+    }
+    const int totalLines = lines();
+    for (int i = 0; i < totalLines; ++i)
+    {
+        if (markersAtLine(i) & (1u << static_cast<unsigned int>(MARKER_BOOKMARK)))
+            ticks.append({i, QColor(255, 153, 0)}); // bookmark
+    }
+    std::stable_sort(ticks.begin(), ticks.end(), [](const QPair<int, QColor>& a, const QPair<int, QColor>& b) { return a.first < b.first; });
+    m_scrollbarAnnotation->setAnnotations(ticks, totalLines);
 }

@@ -58,6 +58,10 @@ WindowsFrameBridge::WindowsFrameBridge(QWidget* window, TitleBar* titleBar) : m_
 
 WindowsFrameBridge::~WindowsFrameBridge()
 {
+    // Always uninstall the native event filter we registered in the ctor:
+    // Qt only auto-removes filters when the application object dies, so a
+    // destroyed bridge would otherwise keep receiving native messages.
+    qApp->removeNativeEventFilter(this);
     // Restore the native frame when the custom titlebar goes away.
     refreshFrame();
 }

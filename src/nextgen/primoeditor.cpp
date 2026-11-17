@@ -26,6 +26,7 @@
 #include <QSGSimpleRectNode>
 #include <QSGTextNode>
 #include <QTextLayout>
+#include <QTimer>
 #include <algorithm>
 
 namespace
@@ -290,11 +291,7 @@ qreal PrimoEditor::contentHeight() const
         QString txt = m_doc->text();
         if (txt.isEmpty())
             return m_lineHeight + 8;
-        QFontMetricsF fm(m_font);
-        QQuickWindow* win = window();
-        qreal winWidth = win ? win->width() : boundingRect().width();
-        qreal gutterW = m_gutterVisible ? m_gutterWidth : 0;
-        int availGlobal = qMax(1, int(winWidth - gutterW - 16));
+        int availGlobal = wrapAvailColumns();
         int totalWrapRows = 0;
         int total = m_doc->lineCount();
         for (int i = 0; i < total; ++i)
@@ -645,7 +642,7 @@ void PrimoEditor::exitSnippetMode()
     m_snippetTabStops.clear();
 }
 
-void PrimoEditor::enterSnippetMode(const QString& text, int insertPos, const QStringList& tabStopNumbers, const QList<int>& tabStopLengths)
+void PrimoEditor::enterSnippetMode(const QString& text, int insertPos, const QStringList& tabStopNumbers, const QList<int>& tabStopPositions)
 {
     if (m_snippetActive)
         clearSnippetMarkers();
@@ -661,9 +658,9 @@ void PrimoEditor::enterSnippetMode(const QString& text, int insertPos, const QSt
     for (int i = 0; i < tabStopNumbers.size(); ++i)
     {
         SnippetTabStop ts;
-        ts.number = tabStopNumbers.value(i, 0).toInt();
-        ts.pos = insertPos + qMin(tabStopLengths.value(i, 0), text.size());
-        ts.length = tabStopLengths.value(i, 0);
+        ts.number = tabStopNumbers.value(i, nullptr).toInt();
+        ts.pos = insertPos + qMin(tabStopPositions.value(i, 0), text.size());
+        ts.length = 0; // placeholder text is selected as zero-width here
         m_snippetTabStops.append(ts);
     }
     std::sort(m_snippetTabStops.begin(), m_snippetTabStops.end(), [](const SnippetTabStop& a, const SnippetTabStop& b) { return a.pos < b.pos; });
@@ -890,7 +887,7 @@ void PrimoEditor::nextBookmark()
 void PrimoEditor::prevBookmark()
 {
     QList<int> lines = m_bookmarks.values();
-    std::sort(lines.begin(), lines.end(), std::greater<int>());
+    std::sort(lines.begin(), lines.end(), std::greater<>());
     for (int l : lines)
     {
         if (l < m_cursorLine)
@@ -1119,7 +1116,9 @@ void PrimoEditor::deleteSelection()
     }
     else
     {
-        QString suffix = lines[cLine].left(cCol);
+        // Keep the tail of the end line from the column where the selection
+        // ends; the head of the end line up to cCol is removed.
+        QString suffix = lines[cLine].mid(cCol);
         lines[aLine] = lines[aLine].left(aCol) + suffix;
         for (int l = cLine; l > aLine; --l)
             lines.removeAt(l);
@@ -1142,6 +1141,13 @@ int PrimoEditor::selectionAnchorLine() const
 int PrimoEditor::selectionAnchorCol() const
 {
     return m_selAnchorCol;
+}
+
+QList<int> PrimoEditor::diagnostics() const
+{
+    QList<int> lines = m_diagLines.values();
+    std::sort(lines.begin(), lines.end());
+    return lines;
 }
 
 void PrimoEditor::setDiagnostics(const QList<int>& lines)
@@ -1177,9 +1183,7 @@ QStringList PrimoEditor::completionList(const QString& prefix) const
         return result;
     QString lang = m_doc->language().isEmpty() ? QStringLiteral("cpp") : m_doc->language();
     const QStringList* keywords = nullptr;
-    if (lang == QStringLiteral("cpp"))
-        keywords = &cppKeywords();
-    else if (lang == QStringLiteral("csharp"))
+    if (lang == QStringLiteral("csharp"))
         keywords = &csharpKeywords();
     else if (lang == QStringLiteral("java"))
         keywords = &javaKeywords();
@@ -1269,7 +1273,6 @@ void PrimoEditor::insertSnippet(const QString& trigger)
     // Parse $1, $2, ... tab stop markers from the snippet
     QString expanded = snippet;
     QStringList tabStopNumbers;
-    QList<int> tabStopLengths;
     QRegularExpression re(QStringLiteral("\\$(\\d+)"));
     QRegularExpressionMatchIterator it = re.globalMatch(expanded);
     QVector<int> matchPositions;
@@ -1280,12 +1283,21 @@ void PrimoEditor::insertSnippet(const QString& trigger)
         matchPositions.append(m.capturedStart());
         matchLengths.append(m.capturedLength());
         tabStopNumbers.append(m.captured(1));
-        tabStopLengths.append(0); // length of the placeholder (0 for now)
     }
     // Remove tab stop markers from the text (from last to first to preserve positions)
     for (int i = matchPositions.size() - 1; i >= 0; --i)
     {
         expanded.remove(matchPositions[i], matchLengths[i]);
+    }
+
+    // Compute tab stop positions in the FINAL (marker-stripped) text: each
+    // marker shifts everything after it left by its own length.
+    QVector<int> tabStopPositions;
+    int stripShift = 0;
+    for (int i = 0; i < matchPositions.size(); ++i)
+    {
+        tabStopPositions.append(matchPositions[i] - stripShift);
+        stripShift += matchLengths[i];
     }
 
     // Compute insert position (char offset in document)
@@ -1294,7 +1306,7 @@ void PrimoEditor::insertSnippet(const QString& trigger)
         insertPos += lines.at(i).size() + 1;
     insertPos += start;
 
-    enterSnippetMode(expanded, insertPos, tabStopNumbers, tabStopLengths);
+    enterSnippetMode(expanded, insertPos, tabStopNumbers, tabStopPositions);
 }
 
 QString PrimoEditor::currentWord() const
@@ -1729,7 +1741,7 @@ void PrimoEditor::backspaceAtCursor()
             else
                 nb.insert(b);
         }
-        m_bookmarks = nb;
+        m_bookmarks = std::move(nb);
     }
     else
         return;
@@ -1759,8 +1771,15 @@ void PrimoEditor::ensureMetrics()
     {
         m_gutterWidth = 0;
     }
-    emit gutterWidthChanged();
-    setImplicitHeight(contentHeight());
+    const qreal implicit = contentHeight();
+    // Defer QML-facing side effects to the event loop: ensureMetrics() may be
+    // called from updatePaintNode() on the scene-graph thread.
+    QTimer::singleShot(0, this,
+                       [this, implicit]()
+                       {
+                           emit gutterWidthChanged();
+                           setImplicitHeight(implicit);
+                       });
 }
 
 void PrimoEditor::ensureCursorVisibleHorizontally()
@@ -1787,6 +1806,12 @@ void PrimoEditor::ensureCursorVisibleHorizontally()
     {
         setHScroll(cx + 2 - leftEdge - visibleWidth + m_hScroll);
     }
+}
+
+int PrimoEditor::wrapAvailColumns() const
+{
+    const qreal gutterW = m_gutterVisible ? m_gutterWidth : 0;
+    return qMax(1, static_cast<int>(boundingRect().width() - gutterW - 16));
 }
 
 QList<PrimoEditor::WrapInfo> PrimoEditor::buildWrapInfos(int availGlobal, int* outCursorVisualRow)
@@ -2155,13 +2180,58 @@ void PrimoEditor::mousePressEvent(QMouseEvent* event)
     if (event->position().x() < gutterW)
     {
         // gutter click: toggle bookmark
-        int line = int((event->position().y() - 4) / m_lineHeight);
-        if (line >= 0)
+        int line = static_cast<int>((event->position().y() - 4) / m_lineHeight);
+        if (line >= 0 && m_doc && line < m_doc->lineCount())
             toggleBookmark(line);
         event->accept();
         return;
     }
-    int line = int((event->position().y() - 4) / m_lineHeight);
+
+    QFontMetricsF fm(m_font);
+
+    // Word-wrap mode: hit-test against visual rows, honoring m_wrapScrollTop.
+    if (m_wordWrap && m_doc)
+    {
+        int vRow = static_cast<int>((event->position().y() - 4) / m_lineHeight);
+        if (vRow < 0)
+            vRow = 0;
+        int availGlobal = wrapAvailColumns();
+        QList<WrapInfo> infos = buildWrapInfos(availGlobal, nullptr);
+        if (infos.isEmpty())
+        {
+            event->accept();
+            return;
+        }
+        if (vRow >= infos.size())
+            vRow = infos.size() - 1;
+        const WrapInfo& wi = infos[vRow];
+        const int line = wi.line;
+        QString disp = expandedTab(m_doc->lineAt(line));
+        const int segEnd = qMin(wi.startCol + wi.len, disp.size());
+        qreal targetX = event->position().x() - gutterW - 8;
+        if (targetX < 0)
+            targetX = 0;
+        qreal bestDist = 1e9;
+        int best = wi.startCol;
+        for (int c = wi.startCol; c <= segEnd; ++c)
+        {
+            qreal w = fm.horizontalAdvance(disp.mid(wi.startCol, c - wi.startCol));
+            qreal d = qAbs(w - targetX);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = c;
+            }
+        }
+        m_cursorLine = line;
+        m_cursorColumn = best;
+        emit cursorChanged();
+        update();
+        event->accept();
+        return;
+    }
+
+    int line = static_cast<int>((event->position().y() - 4) / m_lineHeight);
     if (line < 0)
         line = 0;
     QStringList ls = m_doc ? m_doc->text().split(QLatin1Char('\n')) : QStringList{QString()};
@@ -2171,10 +2241,10 @@ void PrimoEditor::mousePressEvent(QMouseEvent* event)
     if (line < ls.size())
     {
         QString l = expandedTab(ls[line]);
-        QFontMetricsF fm(m_font);
         qreal bestDist = 1e9;
         int best = 0;
-        qreal targetX = event->position().x() - gutterW - 8;
+        // Subtract the scrolled-away offset too; painting uses textLeft = gutterW + 8 - m_hScroll.
+        qreal targetX = event->position().x() - gutterW - 8 + m_hScroll;
         if (targetX < 0)
             targetX = 0;
         for (int c = 0; c <= l.size(); ++c)
@@ -2285,8 +2355,8 @@ void PrimoEditor::scheduleHighlight(int firstLine, int lastLine)
             if (h <= 0)
                 h = 800;
         }
-        first = qMax(0, int(contentY / m_lineHeight) - 100);
-        last = qMin(total - 1, first + int(h / m_lineHeight) + 200);
+        first = qMax(0, static_cast<int>(contentY / m_lineHeight) - 100);
+        last = qMin(total - 1, first + static_cast<int>(h / m_lineHeight) + 200);
         // Also ensure cursor line highlighted
         first = qMin(first, qMax(0, m_cursorLine - 100));
         last = qMax(last, qMin(total - 1, m_cursorLine + 100));
@@ -2348,20 +2418,26 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
     bool useDocLineAt = false;
     if (m_linesDirty || m_linesCache.isEmpty())
     {
-        QString txt = m_doc ? m_doc->text() : QString();
-        if (txt.isEmpty())
+        if (m_doc && m_doc->lineCount() > MaxCachedLines)
         {
-            lines = QStringList{QString()};
-        }
-        else if (m_doc && m_doc->lineCount() <= MaxCachedLines)
-        {
-            lines = txt.split(QLatin1Char('\n'));
+            // Document too large to cache all lines: compute on demand (avoid a full text copy)
+            useDocLineAt = true;
+            m_useDocLineAt = true;
         }
         else
         {
-            // Document too large to cache all lines: compute on demand
-            useDocLineAt = true;
+            QString txt = m_doc ? m_doc->text() : QString();
+            if (txt.isEmpty())
+            {
+                lines = QStringList{QString()};
+            }
+            else
+            {
+                lines = txt.split(QLatin1Char('\n'));
+            }
         }
+        if (!useDocLineAt)
+            m_useDocLineAt = false;
         m_linesCache = lines;
         m_linesDirty = false;
         // also resize highlight cache
@@ -2376,14 +2452,25 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             m_highlightCache.resize(MaxCachedLines);
     }
     else
+    {
         lines = m_linesCache;
-    totalLines = lines.size();
+        useDocLineAt = m_useDocLineAt;
+    }
+    totalLines = useDocLineAt ? (m_doc ? m_doc->lineCount() : 0) : lines.size();
     qreal needed = totalLines * m_lineHeight + 8;
     if (!qFuzzyCompare(needed, m_contentHeight))
     {
         m_contentHeight = needed;
-        emit contentHeightChanged();
-        setImplicitHeight(needed);
+        const qreal h = needed;
+        // Defer QML-facing side effects to the event loop: updatePaintNode may
+        // run on the scene-graph thread, where emitting signals and changing
+        // QQuickItem geometry is not allowed.
+        QTimer::singleShot(0, this,
+                           [this, h]()
+                           {
+                               emit contentHeightChanged();
+                               setImplicitHeight(h);
+                           });
         ensureMetrics();
     }
 
@@ -2429,7 +2516,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
 
     // Determine visible range via Flickable contentY
     int firstLine = 0;
-    int lastLine = qMin(totalLines - 1, int(ceil(bounds.height() / m_lineHeight)) + 1);
+    int lastLine = qMin(totalLines - 1, static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 1);
     QQuickItem* flick = parentItem();
     qreal contentY = 0;
     if (flick)
@@ -2446,16 +2533,18 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
     }
     if (contentY > 0)
     {
-        firstLine = int(contentY / m_lineHeight);
-        lastLine = qMin(totalLines - 1, firstLine + int(ceil(bounds.height() / m_lineHeight)) + 2);
+        firstLine = static_cast<int>(contentY / m_lineHeight);
+        lastLine = qMin(totalLines - 1, firstLine + static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 2);
         if (firstLine < 0)
             firstLine = 0;
     }
 
-    // Schedule async highlight for visible range if dirty
+    // Schedule async highlight for visible range if dirty. Defer to the event
+    // loop: updatePaintNode may run on the scene-graph thread, where calling
+    // into the document/thread objects and emitting signals is not allowed.
     if (m_highlightDirty)
     {
-        scheduleHighlight(firstLine, lastLine);
+        QTimer::singleShot(0, this, [this, firstLine, lastLine]() { scheduleHighlight(firstLine, lastLine); });
         m_highlightDirty = false;
     }
     else
@@ -2469,7 +2558,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
                 break;
             }
         if (need)
-            scheduleHighlight(firstLine, lastLine);
+            QTimer::singleShot(0, this, [this, firstLine, lastLine]() { scheduleHighlight(firstLine, lastLine); });
     }
 
     QFontMetricsF fm(m_font);
@@ -2482,7 +2571,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
     int totalWrapRows = 0;
     if (m_wordWrap)
     {
-        int availGlobal = qMax(1, int(bounds.width() - gutterW - 16));
+        int availGlobal = wrapAvailColumns();
         wrapInfos = buildWrapInfos(availGlobal, &cursorVisualRow);
         totalWrapRows = wrapInfos.size();
     }
@@ -2493,27 +2582,29 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
 
     // Determine visible range
     int firstVisualRow = 0;
-    int lastVisualRow = qMin(totalWrapRows - 1, int(ceil(bounds.height() / m_lineHeight)) + 1);
+    int lastVisualRow = qMin(totalWrapRows - 1, static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 1);
     if (m_wordWrap)
     {
-        firstVisualRow = int(m_wrapScrollTop / m_lineHeight);
-        lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+        firstVisualRow = static_cast<int>(m_wrapScrollTop / m_lineHeight);
+        lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 2);
         if (firstVisualRow < 0)
             firstVisualRow = 0;
         // Ensure cursor visual row is visible
         if (cursorVisualRow >= 0 && (cursorVisualRow < firstVisualRow || cursorVisualRow > lastVisualRow))
         {
-            setWrapScrollTop(cursorVisualRow * m_lineHeight);
+            const qreal scrollTop = cursorVisualRow * m_lineHeight;
+            // Defer: may run on the scene-graph thread.
+            QTimer::singleShot(0, this, [this, scrollTop]() { setWrapScrollTop(scrollTop); });
             firstVisualRow = cursorVisualRow;
-            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 2);
         }
     }
     else
     {
         if (contentY > 0)
         {
-            firstVisualRow = int(contentY / m_lineHeight);
-            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + int(ceil(bounds.height() / m_lineHeight)) + 2);
+            firstVisualRow = static_cast<int>(contentY / m_lineHeight);
+            lastVisualRow = qMin(totalWrapRows - 1, firstVisualRow + static_cast<int>(ceil(bounds.height() / m_lineHeight)) + 2);
             if (firstVisualRow < 0)
                 firstVisualRow = 0;
         }
@@ -2532,7 +2623,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
     else if (m_wordWrap && cursorVisualRow >= 0 && cursorVisualRow >= firstVisualRow && cursorVisualRow <= lastVisualRow)
     {
         QSGRectangleNode* curBg = win->createRectangleNode();
-        curBg->setRect(QRectF(gutterW, 4 + (cursorVisualRow - firstVisualRow) * m_lineHeight, bounds.width() - gutterW, m_lineHeight));
+        curBg->setRect(QRectF(gutterW, 4 + cursorVisualRow * m_lineHeight, bounds.width() - gutterW, m_lineHeight));
         QColor hl = m_theme.lineHighlight;
         hl.setAlpha(180);
         curBg->setColor(hl);
@@ -2588,7 +2679,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
         {
             const WrapInfo& wi = wrapInfos[v];
             int lineIdx = wi.line;
-            qreal y = 4 + (v - firstVisualRow) * m_lineHeight;
+            qreal y = 4 + v * m_lineHeight;
             QString raw = (lineIdx < lines.size()) ? lines.at(lineIdx) : (m_doc ? m_doc->lineAt(lineIdx) : QString());
             QString disp = expandedTab(raw).mid(wi.startCol, wi.len);
             disp = whitespaceDisplayString(disp);
@@ -2708,7 +2799,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
             if (m_wordWrap)
             {
                 // Find which visual row contains this match
-                int availGlobal = qMax(1, int(bounds.width() - gutterW - 16));
+                int availGlobal = wrapAvailColumns();
                 int visualRow = 0;
                 for (int i = 0; i < matchLine; ++i)
                 {
@@ -2731,7 +2822,7 @@ QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* dat
                     if (matchCol >= segStart && matchCol < segStart + segLen)
                     {
                         visible = (visualRow >= firstVisualRow && visualRow <= lastVisualRow);
-                        matchY = 4 + (visualRow - firstVisualRow) * m_lineHeight;
+                        matchY = 4 + visualRow * m_lineHeight;
                         break;
                     }
                     segStart += segLen;

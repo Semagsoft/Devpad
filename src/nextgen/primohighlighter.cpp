@@ -10,6 +10,7 @@
 
 #include <QDebug>
 #include <QTextCharFormat>
+#include <memory>
 
 QColor PrimoHighlighter::colorForKind(int kind, const ThemeColors& colors)
 {
@@ -75,25 +76,38 @@ void PrimoHighlighter::requestHighlight(int version, int firstLine, const QStrin
 
 void PrimoHighlighterWorker::doHighlight(int version, int firstLine, QStringList lines, QString language, ThemeColors colors)
 {
+    // Cooperative cancellation: skip when a newer version was requested.
+    auto token = m_cancelToken;
+    if (!token || version != token->load(std::memory_order_acquire))
+        return;
+
     QVector<QVector<QTextLayout::FormatRange>> res;
     res.reserve(lines.size());
     for (int i = 0; i < lines.size(); ++i)
     {
         // Cooperative cancellation point every 500 lines
-        if (i % 500 == 0 && QThread::currentThread()->isInterruptionRequested())
+        if (i % 500 == 0 && token->load(std::memory_order_acquire) != version)
             return;
         res.append(PrimoHighlighter::formatsForLine(lines.at(i), language, colors));
         // Yield for >50MB large files: tiny sleep to keep UI responsive
         if (i % 1000 == 0)
             QThread::yieldCurrentThread();
     }
+    if (token->load(std::memory_order_acquire) != version)
+        return;
     emit done(version, firstLine, res);
 }
 
 PrimoHighlighterController::PrimoHighlighterController(QObject* parent) : QObject(parent)
 {
+    // Shared cancellation token: set to the requested version on every
+    // request; the worker bails out early (or drops its result) when it
+    // observes a newer version. The thread runs until destruction — never
+    // quit()/start() mid-flight (that is undefined behavior).
+    m_cancelToken = std::make_shared<std::atomic<int>>(-1);
     m_thread = new QThread(this);
     m_worker = new PrimoHighlighterWorker;
+    m_worker->setCancelToken(m_cancelToken);
     m_worker->moveToThread(m_thread);
     connect(this, &PrimoHighlighterController::requestWorker, m_worker, &PrimoHighlighterWorker::doHighlight);
     connect(m_worker, &PrimoHighlighterWorker::done, this, &PrimoHighlighterController::highlighted, Qt::QueuedConnection);
@@ -102,27 +116,23 @@ PrimoHighlighterController::PrimoHighlighterController(QObject* parent) : QObjec
 
 PrimoHighlighterController::~PrimoHighlighterController()
 {
-    m_thread->requestInterruption();
+    if (m_cancelToken)
+        m_cancelToken->store(-2, std::memory_order_release); // cancel everything
     m_thread->quit();
-    m_thread->wait(2000);
+    m_thread->wait();
     delete m_worker;
 }
 
 void PrimoHighlighterController::request(int version, int firstLine, const QStringList& lines, const QString& language, const ThemeColors& colors)
 {
-    if (m_lastVersion != -1 && version != m_lastVersion)
-    {
-        m_thread->requestInterruption();
-        // restart thread? Instead just enqueue new version; worker will early return on interruption check at next chunk.
-        m_thread->quit();
-        m_thread->wait(300);
-        m_thread->start(QThread::LowPriority);
-    }
+    if (m_cancelToken)
+        m_cancelToken->store(version, std::memory_order_release);
     m_lastVersion = version;
     emit requestWorker(version, firstLine, lines, language, colors);
 }
 
 void PrimoHighlighterController::cancelAll()
 {
-    m_thread->requestInterruption();
+    if (m_cancelToken)
+        m_cancelToken->store(-2, std::memory_order_release);
 }

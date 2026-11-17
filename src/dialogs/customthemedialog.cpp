@@ -391,6 +391,20 @@ QString CustomThemeDialog::themeFileName(const QString& name)
     return safe + QStringLiteral(".json");
 }
 
+bool CustomThemeDialog::readThemeNameFromFile(const QString& filePath, QString* name)
+{
+    QFile file(filePath);
+    if (!file.open(QFile::ReadOnly))
+        return false;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject())
+        return false;
+    const QString themeName = doc.object().value(QStringLiteral("name")).toString();
+    if (name)
+        *name = themeName;
+    return true;
+}
+
 bool CustomThemeDialog::writeThemeJson(const ThemeColors& colors, const QString& filePath) const
 {
     QFile file(filePath);
@@ -443,18 +457,44 @@ bool CustomThemeDialog::saveTheme(bool applyAfter)
         return false;
     }
 
-    // Renaming: if editing an existing theme under a new name, remove the old file.
-    if (!m_editingName.isEmpty() && m_editingName != colors.name)
+    // Refuse to silently overwrite a DIFFERENT theme that sanitizes to the
+    // same file name (themeFileName() collapses e.g. "My Theme" and "My_Theme").
+    const QString filePathForCheck = m_themesDir + QLatin1Char('/') + themeFileName(colors.name);
+    if (QFile::exists(filePathForCheck))
     {
-        QString oldPath = m_themesDir + QStringLiteral("/") + themeFileName(m_editingName);
-        QFile::remove(oldPath);
+        QString existingName;
+        if (readThemeNameFromFile(filePathForCheck, &existingName))
+        {
+            if (existingName != colors.name)
+            {
+                QMessageBox::warning(this, tr("Name Conflict"),
+                                     tr("The theme name \"%1\" conflicts with existing theme \"%2\" "
+                                        "(both sanitize to the same file). Choose a different name.")
+                                         .arg(colors.name, existingName));
+                return false;
+            }
+        }
+        else
+        {
+            QMessageBox::warning(this, tr("Save Error"),
+                                 tr("The file \"%1\" exists but cannot be read; refusing to overwrite it.").arg(filePathForCheck));
+            return false;
+        }
     }
 
     QString filePath = m_themesDir + QStringLiteral("/") + themeFileName(colors.name);
+    // Renaming: write the new file FIRST; only remove the old one once the new
+    // one is safely on disk, so a failed write never destroys the original theme.
     if (!writeThemeJson(colors, filePath))
     {
         QMessageBox::critical(this, tr("Save Error"), tr("Could not write theme file %1.").arg(filePath));
         return false;
+    }
+    if (!m_editingName.isEmpty() && m_editingName != colors.name)
+    {
+        QString oldPath = m_themesDir + QStringLiteral("/") + themeFileName(m_editingName);
+        if (oldPath != filePath)
+            QFile::remove(oldPath);
     }
 
     // Refresh the in-memory cache so the new/edited theme is discoverable.

@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.lsp",
+    "name": "Language Server Protocol (LSP)",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Language Server Protocol support: diagnostics, completion, go-to-definition, hover, rename, and more.",
+    "apiVersion": 1,
+    "library": "liblsp_plugin@DEVPAD_PLUGIN_SUFFIX@",
+    "enabled": true,
+    "depends": []
+}

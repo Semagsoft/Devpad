@@ -115,7 +115,9 @@ static bool handOffToRunningInstance(const QStringList& paths)
         return false;
 
     QProcess pgrep;
-    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("Devpad"));
+    // -U: only our own uid; do not push file paths into other users' editors.
+    pgrep.start(QStringLiteral("pgrep"), QStringList() << QStringLiteral("-ix") << QStringLiteral("-U")
+                                                       << QString::number(static_cast<qint64>(geteuid())) << QStringLiteral("Devpad"));
     if (!pgrep.waitForFinished(2000))
         return false;
 
@@ -316,8 +318,15 @@ int main(int argc, char* argv[])
     parser.addOption(tuiOpt);
     QCommandLineOption nextgenOpt(QStringList() << "nextgen" << "n", QStringLiteral("Run in next-gen QML/high-perf mode (primoEditor)"));
     parser.addOption(nextgenOpt);
+    // Internal marker set on instances spawned by the shell-open helper below.
+    // A spawned instance must open the path locally instead of spawning yet
+    // another detached copy (otherwise every launch forks an unbounded chain).
+    QCommandLineOption shellSpawnOpt(QStringList() << "shell-spawn", QStringLiteral("Internal: opened via shell handoff"));
+    shellSpawnOpt.setFlags(QCommandLineOption::HiddenFromHelp);
+    parser.addOption(shellSpawnOpt);
     parser.addPositionalArgument(QStringLiteral("files"), QStringLiteral("Files or folders to open"), QStringLiteral("[files...]"));
     parser.process(app);
+    const bool shellSpawned = parser.isSet(shellSpawnOpt);
 
     initThemeSystem();
 
@@ -335,6 +344,10 @@ int main(int argc, char* argv[])
     // one. Otherwise they open in this window below.
     QStringList shellFiles;
     QStringList shellFolders;
+    // Files passed via --transfer belong to this instance: they are temp
+    // copies of drag-detached tabs and must be opened as untitled documents
+    // here, never handed off to another instance or opened in a new window.
+    QStringList transferFiles;
 
     const auto collectShellPath = [&](const QString& arg)
     {
@@ -348,12 +361,17 @@ int main(int argc, char* argv[])
             shellFolders.append(filePath);
     };
 
-    if (parser.isSet(transferOpt))
+    const auto collectTransferPath = [&](const QString& arg)
     {
-        const QString transferPath = parser.value(transferOpt);
-        if (!transferPath.isEmpty())
-            shellFiles.append(transferPath);
-    }
+        QString filePath = arg;
+        if (!filePath.isEmpty() && !QFileInfo(filePath).isAbsolute())
+            filePath = QDir::current().absoluteFilePath(filePath);
+        if (!filePath.isEmpty())
+            transferFiles.append(filePath);
+    };
+
+    if (parser.isSet(transferOpt))
+        collectTransferPath(parser.value(transferOpt));
 
     // Legacy --transfer positional handling for drag-detached tabs
     QStringList positional = parser.positionalArguments();
@@ -362,7 +380,7 @@ int main(int argc, char* argv[])
         const QString arg = positional.at(i);
         if (arg == QStringLiteral("--transfer") && i + 1 < positional.size())
         {
-            shellFiles.append(positional.at(++i));
+            collectTransferPath(positional.at(++i));
             continue;
         }
         collectShellPath(arg);
@@ -383,10 +401,10 @@ int main(int argc, char* argv[])
     // CurrentWindow opens in the existing window.
     const auto openFileFromShell = [&](const QString& path)
     {
-        if (SettingsManager::instance().shellOpenModeFiles() == ShellOpenMode::NewWindow)
+        if (!shellSpawned && SettingsManager::instance().shellOpenModeFiles() == ShellOpenMode::NewWindow)
         {
             const QString appPath = QApplication::applicationFilePath();
-            if (!QProcess::startDetached(appPath, QStringList() << path))
+            if (!QProcess::startDetached(appPath, QStringList() << QStringLiteral("--shell-spawn") << path))
             {
                 Logger::instance().error(QString("Failed to start detached process for: %1").arg(path));
             }
@@ -398,10 +416,10 @@ int main(int argc, char* argv[])
     };
     const auto openFolderFromShell = [&](const QString& path)
     {
-        if (SettingsManager::instance().shellOpenModeFolders() == ShellOpenMode::NewWindow)
+        if (!shellSpawned && SettingsManager::instance().shellOpenModeFolders() == ShellOpenMode::NewWindow)
         {
             const QString appPath = QApplication::applicationFilePath();
-            if (!QProcess::startDetached(appPath, QStringList() << path))
+            if (!QProcess::startDetached(appPath, QStringList() << QStringLiteral("--shell-spawn") << path))
             {
                 Logger::instance().error(QString("Failed to start detached process for folder: %1").arg(path));
             }
@@ -416,6 +434,10 @@ int main(int argc, char* argv[])
         openFileFromShell(path);
     for (const QString& path : shellFolders)
         openFolderFromShell(path);
+    // Transfer files always open locally as untitled documents; the temp
+    // file is loaded, marked modified, and deleted by openTransferFile().
+    for (const QString& path : transferFiles)
+        mainWindow.openTransferFile(path);
 
     // Clean up auto-save backups that will never be prompted for again:
     // originals deleted on disk, or backups older than the retention window.

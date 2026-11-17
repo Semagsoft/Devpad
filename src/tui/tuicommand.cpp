@@ -43,7 +43,7 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         }
         else
         {
-            statusMsg = err;
+            statusMsg = std::move(err);
         }
         return ok;
     };
@@ -63,7 +63,7 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         }
         else
         {
-            statusMsg = err;
+            statusMsg = std::move(err);
         }
         return ok;
     };
@@ -679,7 +679,7 @@ void TuiCommand::complete(QString& commandInput, QString& statusMsg)
             common = common.left(j);
         }
         if (common.size() > input.size())
-            commandInput = common;
+            commandInput = std::move(common);
         statusMsg = QStringLiteral("Candidates: %1").arg(cands.join(QStringLiteral(", ")));
     }
 }

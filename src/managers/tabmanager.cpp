@@ -19,7 +19,6 @@
 #include "tabmanager.h"
 
 #include "appstrings.h"
-#include "panels/terminalpanel.h"
 
 #include <QFileInfo>
 #include <QFont>
@@ -60,6 +59,23 @@ CodeEditor* TabManager::editorAt(int index) const
         globalIdx += pane->count();
     }
     return nullptr;
+}
+
+QList<CodeEditor*> TabManager::editors() const
+{
+    QList<CodeEditor*> result;
+    for (QTabWidget* pane : m_panes)
+    {
+        for (int i = 0; i < pane->count(); ++i)
+        {
+            if (auto* editor = qobject_cast<CodeEditor*>(pane->widget(i)))
+                result.append(editor);
+            else if (auto* container = pane->widget(i))
+                if (auto* editor = container->findChild<CodeEditor*>())
+                    result.append(editor);
+        }
+    }
+    return result;
 }
 
 CodeEditor* TabManager::findEditorByFileName(const QString& fileName) const
@@ -221,32 +237,53 @@ bool TabManager::closeEditor(int index)
     for (QTabWidget* pane : m_panes)
     {
         if (index < globalIdx + pane->count())
-        {
-            int localIdx = index - globalIdx;
-            auto* w = pane->widget(localIdx);
-            if (!w)
-                return false;
-            auto* editor = w->findChild<CodeEditor*>();
-            if (!editor)
-                return false;
-            if (m_pinnedEditors.contains(editor))
-                return false;
-            removeCloseButtons(localIdx, pane);
-            m_pinnedEditors.remove(editor);
-            m_containers.remove(editor);
-            pane->removeTab(localIdx);
-            for (int i = localIdx; i < pane->count(); ++i)
-            {
-                updateCloseButton(i, pane, SettingsManager::instance().closeButtonMode());
-            }
-            emit editorClosed(editor);
-            w->deleteLater(); // container deletion cascades to editor
-            updateTabBarVisibility();
-            return true;
-        }
+            return closeEditorInPane(pane, index - globalIdx);
         globalIdx += pane->count();
     }
     return false;
+}
+
+bool TabManager::closeEditorInPane(QTabWidget* pane, int localIndex)
+{
+    if (!pane || localIndex < 0 || localIndex >= pane->count())
+        return false;
+
+    auto* w = pane->widget(localIndex);
+    if (!w)
+        return false;
+    auto* editor = w->findChild<CodeEditor*>();
+    if (!editor)
+        return false;
+    if (m_pinnedEditors.contains(editor))
+        return false;
+    removeCloseButtons(localIndex, pane);
+    m_pinnedEditors.remove(editor);
+    m_containers.remove(editor);
+    // Remember the closed tab so "Reopen Closed Tab" can restore it.
+    const QString closedFile = editor->fileName();
+    if (!closedFile.isEmpty() && closedFile != Strings::untitled())
+    {
+        int line = 0;
+        int column = 0;
+        editor->getCursorPosition(&line, &column);
+        ClosedTab entry;
+        entry.fileName = closedFile;
+        entry.line = line;
+        entry.column = column;
+        entry.firstVisibleLine = editor->firstVisibleLine();
+        m_closedTabs.append(entry);
+        while (m_closedTabs.size() > 20)
+            m_closedTabs.removeFirst();
+    }
+    pane->removeTab(localIndex);
+    for (int i = localIndex; i < pane->count(); ++i)
+    {
+        updateCloseButton(i, pane, SettingsManager::instance().closeButtonMode());
+    }
+    emit editorClosed(editor);
+    w->deleteLater(); // container deletion cascades to editor
+    updateTabBarVisibility();
+    return true;
 }
 
 void TabManager::addPane(QTabWidget* pane)
@@ -269,6 +306,23 @@ void TabManager::removePane(QTabWidget* pane)
     {
         m_activePane = m_primaryWidget;
     }
+}
+
+void TabManager::setPrimaryWidget(QTabWidget* pane)
+{
+    if (!pane || pane == m_primaryWidget)
+        return;
+    QTabWidget* old = m_primaryWidget;
+    m_primaryWidget = pane;
+    // The old primary is dead (it is about to be destroyed by SplitView);
+    // drop it from the tracked pane list so editors/iterations do not
+    // dereference a dangling pointer.
+    m_panes.removeOne(old);
+    if (!m_panes.contains(pane))
+        m_panes.append(pane);
+    if (m_activePane == old)
+        m_activePane = pane;
+    updateTabBarVisibility();
 }
 
 void TabManager::setActivePane(QTabWidget* pane)
@@ -340,7 +394,7 @@ void TabManager::updateCloseButton(int tabIndex, QTabWidget* pane, CloseButtonMo
     QTabBar* tabBar = pane->tabBar();
     if (!tabBar)
         return;
-    if (qobject_cast<TerminalPanel*>(pane->widget(tabIndex)))
+    if (pane->widget(tabIndex) && pane->widget(tabIndex)->inherits("TerminalPanel"))
     {
         return;
     }
@@ -559,4 +613,17 @@ void TabManager::applyCloseButtonPosition(CloseButtonMode closeButtonMode)
         }
         pane->setStyleSheet(QString());
     }
+}
+
+bool TabManager::takeLastClosedTab(ClosedTab& entry)
+{
+    if (m_closedTabs.isEmpty())
+        return false;
+    entry = m_closedTabs.takeLast();
+    return true;
+}
+
+bool TabManager::hasClosedTabs() const
+{
+    return !m_closedTabs.isEmpty();
 }

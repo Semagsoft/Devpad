@@ -48,11 +48,31 @@ public:
         QHash<QString, QList<int>> bookmarks;
         // Per file: {cursor line, cursor index, first visible line}
         QHash<QString, QList<int>> cursors;
+        // True when the session file could not be locked (e.g. another
+        // hung instance holds it); the data above is then empty/stale and
+        // must not be mistaken for "no session exists".
+        bool lockFailed = false;
     };
 
     SessionData restoreSession(std::function<void(const QString& filePath)> loadFileFn, SplitView* splitView, ProjectPanel* projectPanel);
 
     void saveSession(TabManager* tabManager, ProjectPanel* projectPanel, const QString& terminalWorkingDir);
+    // True when the most recent saveSession() call could not acquire the
+    // session lock and some state was dropped instead of persisted.
+    bool lastSaveFailed() const
+    {
+        return m_lastSaveFailed;
+    }
+    // True when the most recent read could not acquire the session lock and
+    // returned an empty/stale default instead of stored data.
+    bool lastLoadFailed() const
+    {
+        return m_lastLoadFailed;
+    }
+    bool lastOperationFailed() const
+    {
+        return m_lastSaveFailed || m_lastLoadFailed;
+    }
 
     // ── Persistence ────────────────────────────────────────────
     void saveSessionData(const QStringList& files, int activeIndex, const QString& projectPath, const QString& terminalWorkingDir = {});
@@ -83,9 +103,17 @@ signals:
 
 private:
     QString sessionGroupPrefix() const;
+    void pruneDeadSessionGroups(const QString& ownGroup);
+    // Per-key fallback: return the value for `key` from this instance's own
+    // PID group when the key EXISTS there (even if empty); otherwise the
+    // legacy flat key `legacyKey`. Prevents a partially written own-PID
+    // group from shadowing the legacy snapshot with empty values.
+    QVariant sessionValue(const QString& group, const QString& key, const QString& legacyKey);
 
     QSettings m_sessionSettings;
     QLockFile m_sessionLock;
+    bool m_lastSaveFailed = false;
+    bool m_lastLoadFailed = false;
 };
 
 #endif

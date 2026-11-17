@@ -20,6 +20,7 @@
 class PrimoEditor;
 class ExternalToolManager;
 class QTemporaryDir;
+class UpdateChecker;
 
 class NextgenActions : public QObject
 {
@@ -176,6 +177,9 @@ public:
     Q_INVOKABLE bool isRemoteLoading() const;
     Q_INVOKABLE QString remoteLoadError() const;
 
+    // ── Update checks ──
+    Q_INVOKABLE void checkForUpdates();
+
 public slots:
     void newFile();
     void newWindow();
@@ -258,6 +262,14 @@ signals:
     void requestFindInFiles();
     void requestErrorListToggle();
     void showMessage(const QString& msg);
+    // ── Update check results (consumed by QML to show a modal dialog) ──
+    void updateAvailable(const QString& latestVersion, const QString& releaseUrl);
+    void updateUpToDate(const QString& latestVersion);
+    void updateCheckFailed(const QString& message, const QString& details);
+    // Emitted when a manual check cannot start because one already ran within
+    // the throttle interval. `lastCheckText` is the localized last-check time,
+    // or an empty string when a check is currently in flight.
+    void updateCheckThrottled(const QString& lastCheckText);
     // Tab navigation (requested by command mode)
     void requestTabNext();
     void requestTabPrev();
@@ -277,6 +289,9 @@ private:
     ExternalToolManager* m_externalToolManager = nullptr;
     QNetworkAccessManager* m_networkManager = nullptr;
     QNetworkReply* m_currentReply = nullptr;
+    UpdateChecker* m_updateChecker = nullptr;
+
+    void initUpdateChecker();
     bool m_remoteLoading = false;
     QString m_remoteLoadError;
 

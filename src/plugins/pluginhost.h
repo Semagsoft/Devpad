@@ -37,11 +37,7 @@ class QMenuBar;
 class QWidget;
 class SettingsManager;
 class TabManager;
-
-namespace lsp
-{
-class LspServerManager;
-}
+class FileWatcherManager;
 
 /**
  * Concrete host surface exposed to plugins. Wraps the MainWindow-owned managers
@@ -85,7 +81,37 @@ public:
 
     void registerLspServer(const QString& language, const QString& command, const QStringList& args) override;
 
+    // ── Language / syntax ────────────────────────────────────────
+    bool registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory) override;
+    bool registerLanguageKeywords(const QString& languageId, const QStringList& keywords) override;
+
+    // ── Encoding ─────────────────────────────────────────────────
+    bool registerEncoding(const QString& displayName, const QString& encodingName) override;
+
+    // ── File type mapping ────────────────────────────────────────
+    bool registerExtension(const QString& extension, const QString& languageId) override;
+    bool registerFileNameMapping(const QString& fileName, const QString& languageId) override;
+
+    // ── Snippets ─────────────────────────────────────────────────
+    bool registerSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description,
+                         const QString& scope) override;
+    bool unregisterSnippet(const QString& name) override;
+
+    // ── Themes ───────────────────────────────────────────────────
+    bool registerTheme(const QString& themeId, const ThemeColors& colors) override;
+    bool unregisterTheme(const QString& themeId) override;
+
     bool isWidgetFrontend() const override;
+
+    // ── Panels ───────────────────────────────────────────────────
+    void registerPanel(const QString& id, QWidget* widget) override;
+    void unregisterPanel(const QString& id) override;
+    QWidget* panel(const QString& id) const override;
+
+    // ── Generic object registry ──────────────────────────────────
+    void registerObject(const QString& id, QObject* object) override;
+    void unregisterObject(const QString& id) override;
+    QObject* object(const QString& id) const override;
 
     // ── Internal helpers ─────────────────────────────────────────
     MainWindow* mainWindowRaw() const
@@ -106,6 +132,7 @@ signals:
     void currentEditorChanged(CodeEditor* editor);
     void fileOpened(const QString& filePath);
     void fileSaved(const QString& filePath);
+    void fileModifiedExternally(const QString& filePath);
     void settingsChanged();
 
 private:
@@ -116,7 +143,7 @@ private:
     QPointer<SettingsManager> m_settingsManager;
     QPointer<EditorController> m_editorController;
     QPointer<TabManager> m_tabManager;
-    QPointer<lsp::LspServerManager> m_lspServerManager;
+    QPointer<FileWatcherManager> m_fileWatcherManager;
 
     // Plugin-registered actions keyed by id so they can be removed on unload.
     QHash<QString, QAction*> m_pluginActions;
@@ -135,6 +162,32 @@ private:
     };
     QHash<QString, DockEntry> m_pluginDocks;
     int m_dockCounter = 0;
+
+    // Panels keyed by id (registered via registerPanel()). The *Owner hashes
+    // remember which plugin registered each entry so endPluginSession can
+    // drop a misbehaving plugin's leftovers without touching other plugins'.
+    QHash<QString, QWidget*> m_pluginPanels;
+    QHash<QString, QString> m_pluginPanelOwners;
+
+    // Generic plugin-registered objects keyed by id.
+    QHash<QString, QObject*> m_pluginObjects;
+    QHash<QString, QString> m_pluginObjectOwners;
+
+    // Per-plugin registration tracking for cleanup on unload.
+    struct PluginRegistrations
+    {
+        QStringList languageIds;
+        // Languages whose keywords the plugin registered WITHOUT registering
+        // the language. Unregistering those must only drop the keywords,
+        // never the language itself (which may be a built-in).
+        QStringList keywordOnlyLanguageIds;
+        QStringList encodingNames;
+        QStringList extensions;
+        QStringList fileNames;
+        QStringList snippetNames;
+        QStringList themeIds;
+    };
+    QHash<QString, PluginRegistrations> m_pluginRegistrations;
 };
 
 #endif // PLUGINHOST_H

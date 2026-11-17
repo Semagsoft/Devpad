@@ -20,12 +20,12 @@
 #define MAINWINDOW_H
 
 #include "appstrings.h"
+#include "codeeditor.h"
 
 #include <QLocalServer>
 #include <QMainWindow>
 
 class ActionManager;
-class CodeEditor;
 class DialogCoordinator;
 class ErrorListPanel;
 class EditorController;
@@ -38,16 +38,16 @@ class QMenuBar;
 class PrintManager;
 class ProjectPanel;
 class ReferencesPanel;
-class DebugPanel;
 class RemoteFileService;
 class SearchManager;
 class SessionManager;
-class SnippetManager;
 class PluginManager;
 class RemoteOpenCoordinator;
+class RemoteServiceCoordinator;
+class TerminalPanelCoordinator;
+class UpdateServiceCoordinator;
 class SplitView;
 class TabManager;
-class TerminalPanel;
 class ThemeApplier;
 class TitleBar;
 class UpdateChecker;
@@ -58,7 +58,7 @@ class WindowsFrameBridge;
 
 namespace lsp
 {
-class LspServerManager;
+class ILspService;
 } // namespace lsp
 
 namespace dap
@@ -77,11 +77,11 @@ public:
     void openFileFromPath(const QString& filePath);
     void openTransferFile(const QString& filePath);
     void openFolderFromPath(const QString& folderPath);
-    void openRemoteFileFromData(const QString& urlStr, const QString& fileName, const QByteArray& data);
     void openRemoteFileActivated(const QString& urlStr);
 
 public slots:
     void newWindow();
+    void reopenClosedTab();
     void openFile();
     void openRemote();
     void openRemoteFolder();
@@ -94,6 +94,8 @@ public slots:
     void goToLine();
     void findNext();
     void findPrevious();
+    void findNextWithSelection();
+    void findPreviousWithSelection();
     void toggleFullScreen();
     void toggleProjectPanel();
     void toggleTerminalPanel();
@@ -117,6 +119,7 @@ public slots:
     void renameSymbol();
     void startDebugging();
     void stopDebugging();
+    void debugStartOrContinue();
     void debugContinue();
     void debugStepOver();
     void debugStepInto();
@@ -149,6 +152,7 @@ private slots:
     void onEditorCreated(CodeEditor* editor);
     void openFileFromProject(const QString& filePath);
     void onFileModifiedExternally(const QString& filePath);
+    // line/column are LSP values; column is a UTF-16 code unit column.
     void onNavigateToLocation(const QString& filePath, int line, int column);
 
 protected:
@@ -162,27 +166,26 @@ private:
     void setupWindow();
     void setupDockWidgets();
     void createManagers();
-    void connectRemoteService();
-    void connectUpdateService();
     void applyInitialSettings();
     void setupUI();
     void wireActions();
+    void wireEditor(CodeEditor* editor);
+    lsp::ILspService* lspService() const;
     void connectPanelSignals();
     void setupEditorConnections();
-    void setupLspConnections();
     void applyCloseButtonPosition();
     void applyTabBarPosition();
-    void applyTerminalPanelPosition();
     void handleQuitRequest();
     bool signalOtherInstancesToQuit();
     bool saveAllModifiedTabs();
     void applySettings();
     void applyStartupMode();
+    void restoreUntitledBackups();
     void applyAutoSaveSettings();
 
     void invokeOnEditor(void (CodeEditor::*method)());
 
-    void loadFile(const QString& fileName, const QString& encoding = QString(), bool reload = false);
+    void loadFile(const QString& fileName, const QString& encoding = QString(), bool reload = false, bool addToRecent = true);
     void updateSplitViewVisibility();
     QString getSyntaxForFile(const QString& displayName) const;
     void updateStatusBarLabelsVisibility();
@@ -195,7 +198,6 @@ private:
     QTabWidget* m_tabWidget = nullptr;
     SplitView* m_splitView = nullptr;
     ProjectPanel* m_projectPanel = nullptr;
-    TerminalPanel* m_terminalPanel = nullptr;
 
     // Owned: QObject children (parent=this), destroyed automatically
     EditorController* m_editorController = nullptr;
@@ -216,15 +218,11 @@ private:
     ExternalToolManager* m_externalToolManager = nullptr;
     RemoteFileService* m_remoteFileService = nullptr;
     UpdateChecker* m_updateChecker = nullptr;
-    SnippetManager* m_snippetManager = nullptr;
-    lsp::LspServerManager* m_lspServerManager = nullptr;
-    dap::DapServerManager* m_dapServerManager = nullptr;
+    class LspHostCoordinator* m_lspCoordinator = nullptr;
     PluginManager* m_pluginManager = nullptr;
     ErrorListPanel* m_errorListPanel = nullptr;
     ReferencesPanel* m_referencesPanel = nullptr;
-    DebugPanel* m_debugPanel = nullptr;
     QString m_debugSessionKey;
-    QMetaObject::Connection m_dapLaunchConn;
 
     // Owns the find-in-files / find-symbols dialogs
     DialogCoordinator* m_dialogCoordinator = nullptr;
@@ -234,6 +232,15 @@ private:
 
     // Handles remote file/folder opening and URL prompts
     RemoteOpenCoordinator* m_remoteOpenCoordinator = nullptr;
+
+    // Handles the remote file service <-> UI glue (status bar, dialogs)
+    RemoteServiceCoordinator* m_remoteCoordinator = nullptr;
+
+    // Handles update-check status messages and dialogs
+    UpdateServiceCoordinator* m_updateCoordinator = nullptr;
+
+    // Locates and wires the plugin-owned Terminal panel
+    TerminalPanelCoordinator* m_terminalCoordinator = nullptr;
 
     QLocalServer* m_localServer = nullptr;
     TitleBar* m_titleBar = nullptr;

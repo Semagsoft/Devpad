@@ -36,7 +36,14 @@ public:
 
     // Remove backups whose original file no longer exists, plus anything older
     // than maxAgeDays, so the backup directory cannot grow without bound.
-    static void purgeStaleBackups(int maxAgeDays = 30);
+    // @p directory defaults to the per-user backup directory; tests may point
+    // it at a temporary directory to avoid touching real backups.
+    static void purgeStaleBackups(int maxAgeDays = 30, const QString& directory = QString());
+
+    // List all backup keys (percent-decoded) starting with @p prefix. Used to
+    // find orphaned backups of untitled documents, which are keyed by a
+    // synthetic "untitled-<pid>-<n>" instead of a real path.
+    static QStringList backupKeysWithPrefix(const QString& prefix);
 
 private:
     static QMutex s_mutex;

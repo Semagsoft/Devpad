@@ -82,6 +82,38 @@ TEST_F(EncodingUtilsTest, EncodingFromNameUnknownReturnsUtf8)
     EXPECT_EQ(encodingFromName("Unknown-Encoding"), QStringConverter::Utf8);
 }
 
+TEST_F(EncodingUtilsTest, PluginEncodingAppearsInSupportedEncodings)
+{
+    // Qt6 QStringConverter supports UTF-8/16/32, Latin-1 and System. Plugins
+    // may only register encodings resolvable through QStringConverter.
+    ASSERT_TRUE(registerPluginEncoding("Latin-1 (Western)", "ISO-8859-1"));
+    bool found = false;
+    for (const auto& info : supportedEncodings())
+    {
+        if (info.displayName == "Latin-1 (Western)")
+        {
+            found = true;
+            EXPECT_EQ(info.encoding, QStringConverter::Latin1);
+        }
+    }
+    EXPECT_TRUE(found);
+    EXPECT_EQ(encodingFromName("Latin-1 (Western)"), QStringConverter::Latin1);
+    EXPECT_TRUE(unregisterPluginEncoding("Latin-1 (Western)"));
+    EXPECT_EQ(encodingFromName("Latin-1 (Western)"), QStringConverter::Utf8);
+    for (const auto& info : supportedEncodings())
+        EXPECT_NE(info.displayName, "Latin-1 (Western)");
+}
+
+TEST_F(EncodingUtilsTest, PluginEncodingRejectsUnresolvableName)
+{
+    // Qt6 has no codec for Windows-1252 or KOI8-R; registration must refuse
+    // instead of silently degrading to UTF-8.
+    EXPECT_FALSE(registerPluginEncoding("Windows-1252", "Windows-1252"));
+    EXPECT_FALSE(registerPluginEncoding("KOI8-R", "KOI8-R"));
+    EXPECT_TRUE(registerPluginEncoding("UTF-16BE Custom", "UTF-16BE")); // resolvable
+    EXPECT_TRUE(unregisterPluginEncoding("UTF-16BE Custom"));
+}
+
 TEST_F(EncodingUtilsTest, EncodingToDisplayNameUtf8)
 {
     EXPECT_EQ(encodingToDisplayName(QStringConverter::Utf8), "UTF-8");

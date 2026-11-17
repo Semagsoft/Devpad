@@ -60,6 +60,22 @@ Location Location::fromJson(const QJsonObject& obj)
     return loc;
 }
 
+Location Location::fromAnyJson(const QJsonObject& obj)
+{
+    if (obj.contains(QStringLiteral("targetUri")))
+    {
+        Location loc;
+        loc.uri = obj["targetUri"].toString();
+        // LocationLink ranges: targetSelectionRange is the interesting part
+        // for navigation; fall back to targetRange when absent.
+        const QJsonObject rangeObj =
+            obj.contains(QStringLiteral("targetSelectionRange")) ? obj["targetSelectionRange"].toObject() : obj["targetRange"].toObject();
+        loc.range = Range::fromJson(rangeObj);
+        return loc;
+    }
+    return Location::fromJson(obj);
+}
+
 Diagnostic Diagnostic::fromJson(const QJsonObject& obj)
 {
     Diagnostic d;
@@ -86,7 +102,15 @@ Diagnostic Diagnostic::fromJson(const QJsonObject& obj)
     }
     d.source = obj["source"].toString();
     if (obj.contains("code"))
-        d.code = QString::number(obj["code"].toVariant().toLongLong());
+    {
+        QJsonValue code = obj["code"];
+        if (code.isString())
+            d.code = code.toString(); // e.g. "TS2304"
+        else if (code.isDouble() || code.isBool())
+            d.code = QString::number(code.toVariant().toLongLong());
+        else
+            d.code = code.toVariant().toString();
+    }
     return d;
 }
 
@@ -112,8 +136,9 @@ CompletionItem CompletionItem::fromJson(const QJsonObject& obj)
                                           "Interface", "Module", "Property", "Unit",         "Value",  "Enum",       "Keyword",
                                           "Snippet",   "Color",  "File",     "Reference",    "Folder", "EnumMember", "Constant",
                                           "Struct",    "Event",  "Operator", "TypeParameter"};
-    if (k >= 0 && k <= 25)
-        item.kind = QString::fromLatin1(kindNames[k]);
+    // LSP CompletionItemKind is 1-based: Text == 1 ... TypeParameter == 25.
+    if (k >= 1 && k <= static_cast<int>(kindNames.size()))
+        item.kind = QString::fromLatin1(kindNames[static_cast<size_t>(k - 1)]);
     item.detail = obj["detail"].toString();
     item.documentation = obj["documentation"].toString();
     if (obj.contains("textEdit"))
@@ -133,8 +158,14 @@ CompletionItem CompletionItem::fromJson(const QJsonObject& obj)
 ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
 {
     ServerCapabilities c;
-    // Per LSP spec ServerCapabilities are top-level keys
-    auto hasTopLevel = [&caps](const QString& key) { return caps.contains(key); };
+    // Per LSP spec, provider capabilities are booleans or option objects.
+    // A present key with an explicit false means "not supported".
+    auto has = [](const QJsonObject& obj, const QString& key)
+    {
+        QJsonValue v = obj.value(key);
+        return !v.isUndefined() && !(v.isBool() && !v.toBool());
+    };
+    auto hasTopLevel = [&has, &caps](const QString& key) { return has(caps, key); };
     auto hasCompletionTrigger = [&caps](QStringList& out) -> bool
     {
         QJsonValue compVal = caps["completionProvider"];
@@ -176,7 +207,7 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
     else
     {
         QJsonObject ws = caps["workspace"].toObject();
-        c.workspaceSymbolProvider = ws.contains("symbol") || ws.contains("workspaceSymbol");
+        c.workspaceSymbolProvider = has(ws, QStringLiteral("symbol")) || has(ws, QStringLiteral("workspaceSymbol"));
     }
 
     // Legacy fallback: some servers embed capabilities under textDocument.* (previous bug)
@@ -185,24 +216,23 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
         QJsonObject td = caps["textDocument"].toObject();
         if (!td.isEmpty())
         {
-            c.completionProvider = c.completionProvider || td.contains("completion");
-            c.definitionProvider = c.definitionProvider || td.contains("definition");
-            c.referencesProvider = c.referencesProvider || td.contains("references");
-            c.hoverProvider = c.hoverProvider || td.contains("hover");
-            c.documentSymbolProvider = c.documentSymbolProvider || td.contains("documentSymbol");
-            c.signatureHelpProvider = c.signatureHelpProvider || td.contains("signatureHelp");
-            c.formattingProvider = c.formattingProvider || td.contains("formatting");
-            c.codeActionProvider = c.codeActionProvider || td.contains("codeAction");
-            c.renameProvider = c.renameProvider || td.contains("rename");
-            c.documentHighlightProvider = c.documentHighlightProvider || td.contains("documentHighlight");
-            c.typeDefinitionProvider = c.typeDefinitionProvider || td.contains("typeDefinition");
-            c.declarationProvider = c.declarationProvider || td.contains("declaration");
-            c.selectionRangeProvider = c.selectionRangeProvider || td.contains("selectionRange");
-            c.linkedEditingRangeProvider = c.linkedEditingRangeProvider || td.contains("linkedEditingRange");
-            c.callHierarchyProvider = c.callHierarchyProvider || td.contains("callHierarchy");
-            c.semanticTokensProvider = c.semanticTokensProvider || td.contains("semanticTokens");
-            QJsonObject ws = caps["workspace"].toObject();
-            c.workspaceSymbolProvider = c.workspaceSymbolProvider || ws.contains("symbol");
+            auto hasTd = [&has, &td](const QString& key) { return has(td, key); };
+            c.completionProvider = c.completionProvider || hasTd(QStringLiteral("completion"));
+            c.definitionProvider = c.definitionProvider || hasTd(QStringLiteral("definition"));
+            c.referencesProvider = c.referencesProvider || hasTd(QStringLiteral("references"));
+            c.hoverProvider = c.hoverProvider || hasTd(QStringLiteral("hover"));
+            c.documentSymbolProvider = c.documentSymbolProvider || hasTd(QStringLiteral("documentSymbol"));
+            c.signatureHelpProvider = c.signatureHelpProvider || hasTd(QStringLiteral("signatureHelp"));
+            c.formattingProvider = c.formattingProvider || hasTd(QStringLiteral("formatting"));
+            c.codeActionProvider = c.codeActionProvider || hasTd(QStringLiteral("codeAction"));
+            c.renameProvider = c.renameProvider || hasTd(QStringLiteral("rename"));
+            c.documentHighlightProvider = c.documentHighlightProvider || hasTd(QStringLiteral("documentHighlight"));
+            c.typeDefinitionProvider = c.typeDefinitionProvider || hasTd(QStringLiteral("typeDefinition"));
+            c.declarationProvider = c.declarationProvider || hasTd(QStringLiteral("declaration"));
+            c.selectionRangeProvider = c.selectionRangeProvider || hasTd(QStringLiteral("selectionRange"));
+            c.linkedEditingRangeProvider = c.linkedEditingRangeProvider || hasTd(QStringLiteral("linkedEditingRange"));
+            c.callHierarchyProvider = c.callHierarchyProvider || hasTd(QStringLiteral("callHierarchy"));
+            c.semanticTokensProvider = c.semanticTokensProvider || hasTd(QStringLiteral("semanticTokens"));
         }
     }
 
@@ -211,7 +241,7 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
         QStringList triggers;
         if (hasCompletionTrigger(triggers))
         {
-            c.completionTriggerChars = triggers;
+            c.completionTriggerChars = std::move(triggers);
         }
         else
         {
@@ -224,6 +254,18 @@ ServerCapabilities ServerCapabilities::fromJson(const QJsonObject& caps)
         }
     }
     return c;
+}
+
+QString symbolKindName(int kind)
+{
+    // LSP SymbolKind, 1-based.
+    static constexpr std::array<const char*, 26> names = {
+        "File",   "Module",    "Namespace", "Package",    "Class",    "Method", "Property", "Field",        "Constructor",
+        "Enum",   "Interface", "Function",  "Variable",   "Constant", "String", "Number",   "Boolean",      "Array",
+        "Object", "Key",       "Null",      "EnumMember", "Struct",   "Event",  "Operator", "TypeParameter"};
+    if (kind >= 1 && kind <= static_cast<int>(names.size()))
+        return QString::fromLatin1(names[kind - 1]);
+    return QString();
 }
 
 QString uriFromPath(const QString& path)
@@ -239,25 +281,121 @@ QString pathFromUri(const QString& uri)
     return QUrl(uri).toLocalFile();
 }
 
-// Convert an LSP UTF-16 character count to a QScintilla byte offset within a line.
-int utf16ToByteOffset(const QString& lineText, int utf16Character)
+// ── Line column model ────────────────────────────────────────
+// Three column units coexist in this codebase. Pick the right
+// conversion instead of reusing the wrong one:
+//
+//   1. LSP positions: column is a count of UTF-16 code units
+//      (astral characters count as 2).
+//   2. QScintilla line/index APIs: index is a count of *code points*
+//      (SCI_POSITIONAFTER steps one code point at a time).
+//   3. Raw Scintilla positions: byte offsets in the UTF-8 document.
+//
+// The four primitive directions of the triangle are implemented from a
+// single code-point walker so all helpers agree, including on astral
+// characters and out-of-range/clamped inputs.
+
+// Counts of the first `cpLimit` code points of `lineText`.
+static void countsAfterNCodePoints(const QString& lineText, int cpLimit, int* utf16Out, int* bytesOut)
 {
-    if (utf16Character <= 0)
-        return 0;
-    if (utf16Character >= lineText.length())
-        return lineText.toUtf8().size();
-    return lineText.left(utf16Character).toUtf8().size();
+    int utf16 = 0, bytes = 0, cps = 0;
+    for (int i = 0; i < lineText.size() && cps < cpLimit;)
+    {
+        QChar c = lineText.at(i);
+        uint cp = c.unicode();
+        int steps = 1;
+        if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() &&
+            (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
+        {
+            cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10u) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
+            steps = 2;
+        }
+        utf16 += steps;
+        bytes += cp <= 0x7F ? 1 : (cp <= 0x7FF ? 2 : (cp <= 0xFFFF ? 3 : 4));
+        i += steps;
+        ++cps;
+    }
+    *utf16Out = utf16;
+    *bytesOut = bytes;
 }
 
-// Convert a QScintilla byte offset within a line to an LSP UTF-16 character count.
-int byteOffsetToUtf16(const QString& lineText, int byteOffset)
+// Code point index of the first code unit at or after utf16Col. A UTF-16
+// column that falls inside an astral character is clamped to that
+// character's start.
+int utf16ColToCharIndex(const QString& lineText, int utf16Col)
+{
+    if (utf16Col <= 0)
+        return 0;
+    int cps = 0, units = 0;
+    for (int i = 0; i < lineText.size();)
+    {
+        if (units >= utf16Col)
+            break;
+        QChar c = lineText.at(i);
+        bool astral = (c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() &&
+                      (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000);
+        int step = astral ? 2 : 1;
+        if (units + step > utf16Col)
+            break; // Column lands inside an astral character; take its start.
+        units += step;
+        i += step;
+        ++cps;
+    }
+    return cps;
+}
+
+int charIndexToUtf16Col(const QString& lineText, int charIndex)
+{
+    if (charIndex <= 0)
+        return 0;
+    int utf16 = 0, bytes = 0;
+    countsAfterNCodePoints(lineText, charIndex, &utf16, &bytes);
+    return utf16;
+}
+
+int charIndexToByteOffset(const QString& lineText, int charIndex)
+{
+    if (charIndex <= 0)
+        return 0;
+    int utf16 = 0, bytes = 0;
+    countsAfterNCodePoints(lineText, charIndex, &utf16, &bytes);
+    return bytes;
+}
+
+int byteOffsetToCharIndex(const QString& lineText, int byteOffset)
 {
     if (byteOffset <= 0)
         return 0;
-    const QByteArray utf8 = lineText.toUtf8();
-    if (byteOffset >= utf8.size())
-        return lineText.length();
-    return QString::fromUtf8(utf8.constData(), byteOffset).length();
+    int cps = 0, bytes = 0;
+    for (int i = 0; i < lineText.size();)
+    {
+        QChar c = lineText.at(i);
+        uint cp = c.unicode();
+        int steps = 1;
+        if ((c.unicode() >= 0xD800 && c.unicode() < 0xDC00) && i + 1 < lineText.size() &&
+            (lineText.at(i + 1).unicode() >= 0xDC00 && lineText.at(i + 1).unicode() < 0xE000))
+        {
+            cp = 0x10000u + ((static_cast<uint>(c.unicode()) - 0xD800u) << 10u) + (static_cast<uint>(lineText.at(i + 1).unicode()) - 0xDC00u);
+            steps = 2;
+        }
+        int cpBytes = cp <= 0x7F ? 1 : (cp <= 0x7FF ? 2 : (cp <= 0xFFFF ? 3 : 4));
+        if (bytes + cpBytes > byteOffset)
+            break;
+        bytes += cpBytes;
+        i += steps;
+        ++cps;
+    }
+    return cps;
+}
+
+int utf16ToByteOffset(const QString& lineText, int utf16Character)
+{
+    return charIndexToByteOffset(lineText, utf16ColToCharIndex(lineText, utf16Character));
+}
+
+int byteOffsetToUtf16(const QString& lineText, int byteOffset)
+{
+    return charIndexToUtf16Col(lineText, byteOffsetToCharIndex(lineText, byteOffset));
 }
 
 } // namespace lsp

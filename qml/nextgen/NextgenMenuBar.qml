@@ -8,7 +8,17 @@ MenuBar {
     id: root
     property var actions: null
     property var editor: null
+    // Wired from Main.qml: sibling editor for split focus picking and the LSP client/rename dialog.
+    property var secondaryEditor: null
+    property var lspClient: null
+    property var renameDialog: null
     visible: actions ? actions.showMenuBar : true
+
+    function activeEditor() {
+        if (editor && editor.activeFocus) return editor
+        if (secondaryEditor && secondaryEditor.activeFocus) return secondaryEditor
+        return editor
+    }
 
     // File
     Menu {
@@ -67,33 +77,33 @@ MenuBar {
         MenuSeparator {}
         // ── LSP ──
         Action { text: qsTr("Find &References"); shortcut: "Shift+F12"; onTriggered: {
-            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
-            if (ed && ed.filePath) {
+            var ed = root.activeEditor()
+            if (ed && ed.filePath && root.lspClient) {
                 var uri = "file://" + ed.filePath
-                lspClient.requestReferencesAt(uri, ed.cursorLine, ed.cursorColumn)
+                root.lspClient.requestReferencesAt(uri, ed.cursorLine, ed.cursorColumn)
             }
         } }
         Action { text: qsTr("&Format Document"); shortcut: "Shift+Alt+F"; onTriggered: {
-            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
-            if (ed && ed.filePath) {
+            var ed = root.activeEditor()
+            if (ed && ed.filePath && root.lspClient) {
                 var uri = "file://" + ed.filePath
-                lspClient.requestFormatting(uri, 4, true)
+                root.lspClient.requestFormatting(uri, 4, true)
             }
         } }
-        Action { text: qsTr("&Rename Symbol"); shortcut: "Ctrl+Shift+R"; onTriggered: renameDlg.open() }
+        Action { text: qsTr("&Rename Symbol"); shortcut: "Ctrl+Shift+R"; onTriggered: { if (root.renameDialog) root.renameDialog.open() } }
         Action { text: qsTr("&Code Actions"); shortcut: "Ctrl+Shift+A"; onTriggered: {
-            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
-            if (ed && ed.filePath) {
+            var ed = root.activeEditor()
+            if (ed && ed.filePath && root.lspClient) {
                 var uri = "file://" + ed.filePath
                 var range = {start: {line: ed.cursorLine, character: ed.cursorColumn}, end: {line: ed.cursorLine, character: ed.cursorColumn}}
-                lspClient.requestCodeAction(uri, range, [])
+                root.lspClient.requestCodeAction(uri, range, [])
             }
         } }
         Action { text: qsTr("&Document Symbols"); shortcut: "Ctrl+Shift+O"; onTriggered: {
-            var ed = primo.activeFocus ? primo : (primo2 && primo2.activeFocus ? primo2 : primo)
-            if (ed && ed.filePath) {
+            var ed = root.activeEditor()
+            if (ed && ed.filePath && root.lspClient) {
                 var uri = "file://" + ed.filePath
-                lspClient.requestDocumentSymbols(uri)
+                root.lspClient.requestDocumentSymbols(uri)
             }
         } }
         MenuSeparator {}
@@ -148,7 +158,7 @@ MenuBar {
     Menu {
         title: qsTr("&Help")
         Action { text: qsTr("&About Devpad"); onTriggered: actions.showAbout() }
-        Action { text: qsTr("Check for &Updates"); onTriggered: actions.showMessage("Check for updates") }
+        Action { text: qsTr("Check for &Updates"); onTriggered: actions.checkForUpdates() }
         Action { text: qsTr("&Website"); onTriggered: Qt.openUrlExternally("https://semagsoft.com") }
     }
 }

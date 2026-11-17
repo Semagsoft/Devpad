@@ -84,6 +84,10 @@ Logger::Logger() : m_level(Debug)
     {
         m_stream.setDevice(&m_file);
     }
+    else
+    {
+        qWarning("Logger: cannot open log file '%s': %s", qPrintable(logFile), qPrintable(m_file.errorString()));
+    }
 }
 
 Logger::~Logger()
@@ -136,12 +140,19 @@ void Logger::setLogFile(const QString& filePath)
 {
     QMutexLocker locker(&m_mutex);
     m_stream.flush();
+    // Detach from the old file first: leaving the stream bound to a closed
+    // device would silently swallow every subsequent log message.
+    m_stream.setDevice(nullptr);
     m_file.close();
 
     m_file.setFileName(filePath);
     if (m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
     {
         m_stream.setDevice(&m_file);
+    }
+    else
+    {
+        qWarning("Logger: cannot open log file '%s': %s", qPrintable(filePath), qPrintable(m_file.errorString()));
     }
 }
 

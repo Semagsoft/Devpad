@@ -60,6 +60,8 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
+    // Shown at most once per dialog lifetime: regex replacements are inserted literally.
+    bool m_warnedAboutBackrefs = false;
     void setupUI();
     void loadSettings();
     void saveSettings();

@@ -10,12 +10,14 @@
 #include "encodingutils.h"
 #include "managers/externaltoolmanager.h"
 #include "managers/settingsmanager.h"
+#include "managers/updatechecker.h"
 #include "nextgen/primoeditor.h"
 #include "nextgen/primohighlighter.h"
 #include "nextgen/primoterminal.h"
 #include "theme.h"
 
 #include <QApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -44,6 +46,7 @@ NextgenActions::NextgenActions(QObject* parent)
                 emit showMenuBarChanged();
                 emit recentFilesChanged();
             });
+    initUpdateChecker();
 }
 NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent)
     : QObject(parent), m_editor(editor), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
@@ -57,6 +60,31 @@ NextgenActions::NextgenActions(PrimoEditor* editor, QObject* parent)
                 emit showMenuBarChanged();
                 emit recentFilesChanged();
             });
+    initUpdateChecker();
+}
+void NextgenActions::initUpdateChecker()
+{
+    m_updateChecker = new UpdateChecker(this);
+    connect(m_updateChecker, &UpdateChecker::updateAvailable, this, &NextgenActions::updateAvailable);
+    connect(m_updateChecker, &UpdateChecker::upToDate, this, &NextgenActions::updateUpToDate);
+    connect(m_updateChecker, &UpdateChecker::checkFailed, this, &NextgenActions::updateCheckFailed);
+}
+void NextgenActions::checkForUpdates()
+{
+    // Manual check: the "check on startup" setting does not apply; the
+    // one-hour throttle still does. QML shows the result in a modal dialog.
+    if (m_updateChecker->checkForUpdates())
+    {
+        emit showMessage(tr("Checking for updates..."));
+        return;
+    }
+    if (m_updateChecker->isCheckInProgress())
+    {
+        emit updateCheckThrottled(QString());
+        return;
+    }
+    const QDateTime lastCheck = m_updateChecker->lastCheckTime();
+    emit updateCheckThrottled(lastCheck.isValid() ? lastCheck.toLocalTime().toString(QStringLiteral("yyyy-MM-dd hh:mm")) : QString());
 }
 QObject* NextgenActions::editorObj() const
 {
@@ -799,12 +827,8 @@ void NextgenActions::removeExternalTool(int index)
 void NextgenActions::runExternalTool(int index, const QString& filePath, const QString& projectDir, const QString& selectedText, int lineNumber)
 {
     // Terminal sender: write to PrimoTerminal shared instance
-    auto* term = PrimoTerminal::instance();
-    auto sender = [term](const QString& cmd)
-    {
-        if (term)
-            term->write(cmd);
-    };
+    PrimoTerminal& term = PrimoTerminal::instance();
+    auto sender = [&term](const QString& cmd) { term.write(cmd); };
     m_externalToolManager->runTool(index, filePath, projectDir, selectedText, lineNumber, sender);
 }
 
@@ -1208,36 +1232,39 @@ QString NextgenActions::generateHighlightedHtml(PrimoEditor* editor) const
             continue;
         }
         auto formats = PrimoHighlighter::formatsForLine(line, lang, colors);
-        // Build HTML segments from format ranges
-        QString escaped = line.toHtmlEscaped();
-        // Apply formats: sort by start position
+        // Build HTML segments from the RAW line using the format ranges' raw
+        // offsets; escaping each segment individually keeps the offsets valid
+        // (escaping changes string length: & -> &amp;).
         QVector<QTextLayout::FormatRange> sorted = formats;
         std::sort(sorted.begin(), sorted.end(),
                   [](const QTextLayout::FormatRange& a, const QTextLayout::FormatRange& b) { return a.start < b.start; });
-        int htmlPos = 0;
+        const int lineLen = line.size();
+        int rawPos = 0;
         for (const auto& fmt : sorted)
         {
-            int fmtStart = fmt.start;
-            int fmtEnd = fmt.start + fmt.length;
-            if (fmtStart > htmlPos)
+            const int fmtStart = qBound(0, fmt.start, lineLen);
+            const int fmtEnd = qBound(fmtStart, fmt.start + fmt.length, lineLen);
+            if (fmtEnd <= fmtStart && fmtStart < rawPos)
+                continue; // stale/overlapping range; skip
+            if (fmtStart > rawPos)
             {
                 // Plain text before this format
                 html += QStringLiteral("<span style=\"color: %1;\">%2</span>")
                             .arg(colors.foreground.name())
-                            .arg(escaped.mid(htmlPos, fmtStart - htmlPos));
+                            .arg(line.mid(rawPos, fmtStart - rawPos).toHtmlEscaped());
             }
-            QString segment = escaped.mid(fmtStart, fmtEnd - fmtStart);
+            QString segment = line.mid(fmtStart, fmtEnd - fmtStart).toHtmlEscaped();
             QString style = QStringLiteral("color: %1;").arg(fmt.format.foreground().color().name());
             if (fmt.format.fontWeight() > QFont::Normal)
                 style += QStringLiteral(" font-weight: bold;");
             if (fmt.format.fontItalic())
                 style += QStringLiteral(" font-style: italic;");
             html += QStringLiteral("<span style=\"%1\">%2</span>").arg(style, segment);
-            htmlPos = fmtEnd;
+            rawPos = qMax(rawPos, fmtEnd);
         }
-        if (htmlPos < escaped.size())
+        if (rawPos < lineLen)
         {
-            html += QStringLiteral("<span style=\"color: %1;\">%2</span>").arg(colors.foreground.name()).arg(escaped.mid(htmlPos));
+            html += QStringLiteral("<span style=\"color: %1;\">%2</span>").arg(colors.foreground.name()).arg(line.mid(rawPos).toHtmlEscaped());
         }
         if (i < lines.size() - 1)
             html += QStringLiteral("<br>");
@@ -1338,6 +1365,9 @@ void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QSt
     m_currentReply = nullptr;
     m_remoteLoading = false;
 
+    if (!reply)
+        return;
+
     QString error;
     QString localPath;
 
@@ -1383,12 +1413,9 @@ void NextgenActions::onRemoteDownloadError(QNetworkReply::NetworkError code)
 {
     Q_UNUSED(code);
     m_remoteLoading = false;
+    // errorOccurred() is followed by finished(); do NOT touch m_currentReply
+    // or delete the reply here, or finished() would dereference a freed pointer.
+    // Record the message only; onRemoteDownloadFinished() reports it.
     if (m_currentReply)
-    {
         m_remoteLoadError = m_currentReply->errorString();
-        emit remoteLoadFinished(m_currentReply->url().toString(), QString(), false, m_remoteLoadError);
-        emit showMessage(QStringLiteral("Remote download error: ") + m_remoteLoadError);
-        m_currentReply->deleteLater();
-        m_currentReply = nullptr;
-    }
 }

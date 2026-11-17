@@ -8,6 +8,7 @@ Pane {
     id: root
     property var editor: null
     property var diagnostics: [] // list of {uri, range, message, severity, severityLevel, source, code}
+    signal closeRequested()
 
     padding: 6
     background: Rectangle { color: palette.base; border.color: palette.mid; border.width: 1 }
@@ -32,7 +33,7 @@ Pane {
             }
             ToolButton {
                 text: "×"
-                onClicked: root.close()
+                onClicked: root.closeRequested()
             }
         }
 
@@ -82,7 +83,7 @@ Pane {
                         ed.loadFile(path)
                         ed.setCursorPosition(loc.range.start.line, loc.range.start.character)
                         ed.forceActiveFocus()
-                        root.close()
+                        root.closeRequested()
                     }
                 }
             }

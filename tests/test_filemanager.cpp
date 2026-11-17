@@ -38,7 +38,7 @@ protected:
 TEST_F(FileManagerTest, DetectEncodingUtf8Bom)
 {
     QByteArray data = QByteArray("\xEF\xBB\xBFHello", 8);
-    EXPECT_EQ(FileManager::detectEncoding(data), "UTF-8");
+    EXPECT_EQ(FileManager::detectEncoding(data), "UTF-8-BOM");
 }
 
 TEST_F(FileManagerTest, DetectEncodingUtf8NoBom)
@@ -179,6 +179,30 @@ TEST_F(FileManagerTest, SaveWithBom)
     ASSERT_GE(content.size(), 3);
     EXPECT_EQ(content.mid(0, 3), QByteArray("\xEF\xBB\xBF", 3));
     EXPECT_EQ(content.mid(3), QByteArray("BOM test"));
+}
+
+TEST_F(FileManagerTest, Utf8BomSurvivesLoadSaveRoundTrip)
+{
+    QByteArray bom = QByteArray("\xEF\xBB\xBF", 3);
+    QFile file(testFilePath("roundtrip_bom.txt"));
+    ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+    file.write(bom + QByteArray("hello"));
+    file.close();
+
+    FileManager mgr;
+    CodeEditor editor;
+    ASSERT_TRUE(mgr.loadFile(testFilePath("roundtrip_bom.txt"), &editor));
+    EXPECT_EQ(editor.encoding(), "UTF-8-BOM");
+    EXPECT_EQ(editor.text(), "hello");
+
+    ASSERT_TRUE(mgr.saveFile(testFilePath("roundtrip_bom.txt"), &editor));
+
+    QFile out(testFilePath("roundtrip_bom.txt"));
+    ASSERT_TRUE(out.open(QIODevice::ReadOnly));
+    QByteArray content = out.readAll();
+    out.close();
+    EXPECT_TRUE(content.startsWith(bom));
+    EXPECT_EQ(content.mid(3), QByteArray("hello"));
 }
 
 TEST_F(FileManagerTest, LoadNonExistentFile)

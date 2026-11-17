@@ -52,9 +52,11 @@ public:
     void openRemoteFolder(const QString& urlStr);
     void listRemoteDir(const QString& urlStr, const QString& remotePath);
 
-    // Uploads `data` to the remote SSH file at `urlStr` (scp). Blocks until the
-    // transfer completes; returns true on success, false on failure with `error`
-    // populated. Emits fileUploaded() on success.
+    // Uploads `data` to the remote SSH file at `urlStr` (scp). Validation and
+    // temp-file errors are reported synchronously (returns false with `error`
+    // populated); the transfer itself runs asynchronously, and completion is
+    // reported via fileUploaded() on success or uploadFailed() on failure.
+    // If the transfer is started, returns true.
     bool saveRemote(const QString& urlStr, const QByteArray& data, QString* error = nullptr);
 
     // Parses raw `find` listing output (dirs/files sections split by the
@@ -64,6 +66,7 @@ public:
 signals:
     void fileDownloaded(const QString& url, const QString& fileName, const QByteArray& data);
     void fileUploaded(const QString& url);
+    void uploadFailed(const QString& url, const QString& error);
     void remoteDirListed(const QString& url, const QString& parentPath, const QList<RemoteFsEntry>& entries);
     void remoteListingFailed(const QString& url, const QString& remotePath, const QString& error);
     void downloadFailed(const QString& url, const QString& error);
@@ -74,6 +77,10 @@ private:
     void downloadHttp(const QUrl& url, const QString& urlStr);
     void downloadSsh(const QUrl& url, const QString& urlStr);
     void startSshTransfer(const QString& urlStr, const QStringList& args);
+    // Uploads the temp file at the tail of `args` to the SSH target. The
+    // transfer runs async; completion is reported via fileUploaded() /
+    // uploadFailed(). `tmpFile` is kept alive for the duration of the upload.
+    void startSshUpload(const QString& urlStr, const QStringList& args, const QString& scpPath, std::unique_ptr<QTemporaryFile> tmpFile);
     QString validateSshTarget(const QUrl& url, const QString& urlStr);
     QStringList sshBaseArgs(const QUrl& url, const QString& user);
     void startSshListing(const QString& urlStr, const QString& remotePath, const QStringList& baseArgs);

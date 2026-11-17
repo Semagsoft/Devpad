@@ -17,7 +17,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 - Snippet expansion with tab-stop navigation and predictive auto-completion
 - Bookmark lines per tab
 - Toggle line/block comments
-- Embedded terminal panel (QTermWidget/KodoTerm) — docked or as a tab
+- Embedded terminal panel (libghostty-vt backend, QTermWidget/KodoTerm fallback) — docked or as a tab. Mouse support: drag-to-select with edge auto-scroll, wheel scrollback, scrollbar, xterm mouse reporting to apps that enable it (SGR/X10, incl. wheel as buttons 4/5), Shift+drag local selection override, middle-click paste, Ctrl+Click to open URLs under the cursor, OSC 22 pointer shapes
 - Project panel with file tree, file type icons, filter/search, recent folders, rename/new folder context menu
 - Split view with drag-and-drop tab reordering across panes
 - Multi-pane tab management
@@ -46,17 +46,19 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 ## Requirements
 
 - Qt6 (Core, Gui, Widgets, PrintSupport, Network, Multimedia, Svg)
-- qtermwidget6 (not needed on Windows — KodoTerm is fetched automatically)
 - QScintilla (qt6 variant, e.g. `qscintilla2-qt6`)
 - CMake 3.23 or higher
 - C++17 compatible compiler
+- libqtermwidget-qt6 (or KodoTerm) for the default terminal backend; the experimental libghostty-vt backend is opt-in via `-DBUILD_GHOSTTY=ON` (fetched automatically via CMake FetchContent; building it from source requires Zig ≥ 0.17)
 
 ### Installing dependencies
 
 **Debian/Ubuntu:**
 ```bash
-sudo apt install qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev libqtermwidget6-1-dev libqscintilla2-qt6-dev cmake g++
+sudo apt install qt6-base-dev qt6-multimedia-dev qt6-printsupport-dev qt6-svg-dev libqscintilla2-qt6-dev cmake g++
 ```
+
+(The `libqtermwidget6-1-dev` package is only needed when building with the default terminal backend; it is built automatically from source if not found. The experimental libghostty-vt backend is opt-in via `-DBUILD_GHOSTTY=ON` and fetched via CMake FetchContent (requires Zig ≥ 0.17).)
 
 **Arch Linux:**
 ```bash
@@ -106,7 +108,7 @@ brew install qt cmake librsvg
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(sysctl -n hw.logicalcpu)
 ```
-QScintilla and qtermwidget6 are built automatically from source if not found.
+QScintilla and qtermwidget6 are built automatically from source if not found; the experimental libghostty-vt terminal backend is opt-in via CMake FetchContent (requires Zig ≥ 0.17).
 
 ## Building
 
@@ -177,7 +179,7 @@ Dock icon.
 ./build/Devpad --tui file.txt      # terminal UI (requires -DBUILD_TUI=ON)
 ./build/Devpad -t                  # short alias for --tui
 DEVPAD_TUI=1 ./build/Devpad file.txt  # env-var trigger
-./build/Devpad --nextgen file.txt  # next-gen QML/high-perf (requires -DBUILD_NEXTGEN=ON)
+./build/Devpad --nextgen file.txt  # next-gen QML mode, experimental (requires -DBUILD_NEXTGEN=ON)
 ./build/Devpad -n                  # short alias for --nextgen
 DEVPAD_NEXTGEN=1 ./build/Devpad file.txt  # env-var trigger
 ```
@@ -198,9 +200,15 @@ Without `-DBUILD_TUI=ON`, `--tui` prints a hint and exits with code 1.
 
 TUI keys: `Ctrl+Q` quit, `Ctrl+S` save, `Ctrl+O` save-as, `Ctrl+G` goto line, `Ctrl+H` replace (find→replace), `:w` `:w <path>` `:q`/`:q!`/`:wq`/:`wa`/`:wqa` `:e <path>` `:e!` reload `:s/old/new/[g]` `:%s/old/new/[g]` `:cd <path>` `:set encoding <name>` (`UTF-8`, `UTF-16LE`…)/`:reopen [enc]` `:set encoding` list, `Ctrl+Z` undo, `Ctrl+Y`/`Ctrl+R` redo, `Ctrl+A` select-all, `Ctrl+X`/`Ctrl+C`/`Ctrl+V` cut/copy/paste, `Shift+Arrows`/`Shift+Home/End` select, `Ctrl+F` find, `F2` bookmark, `F3` find next, `F1` help, `Tab` switch tab, arrows / `Home`/`End` / `PageUp`/`Down` navigate, `Ctrl+W` close tab, `Ctrl+N` new buffer, `Ctrl+E` file tree (arrows nav, `Enter` open/toggle, `/` filter, `Esc` editor), `Ctrl+K` encoding (`:set encoding`). File tree honors `.gitignore` and `showHidden`; `:` commands `:cd` set project. Session restore via `SessionManager` (QSettings+QLockFile) when launched without files (use `--no-session` to skip); external file changes auto-reload when clean, else `:e!`.
 
-### Next-gen mode (QML + primoEditor)
+### Next-gen mode (experimental)
 
-High-perf GPU-accelerated frontend using QML and the in-house `primoEditor` (replacement for QScintilla `CodeEditor`).
+> **Status: experimental.** Next-gen mode is under active development, is not
+> feature-complete, and is **not** shipped in the Flatpak or other release
+> builds (it is only built with `-DBUILD_NEXTGEN=ON`). Expect defects and
+> missing functionality; do not rely on it for real work. It is off by
+> default for exactly this reason.
+
+Experimental GPU-accelerated frontend using QML and the in-house `primoEditor` (replacement for QScintilla `CodeEditor`).
 
 Build with QML support:
 
@@ -213,7 +221,7 @@ cmake --build build -j$(nproc)
 DEVPAD_NEXTGEN=1 ./build/Devpad file.txt  # env-var trigger
 ```
 
-Without `-DBUILD_NEXTGEN=ON`, `--nextgen` prints a hint and exits with code 1. `--tui` and `--nextgen` are mutually exclusive.
+Without `-DBUILD_NEXTGEN=ON`, `--nextgen` prints a hint and exits with code 1. `--tui` and `--nextgen` are mutually exclusive. `BUILD_NEXTGEN` defaults to `OFF` and is deliberately not enabled in release artifacts while the mode is experimental.
 
 `primoEditor` is a `QObject`-backed editor (`src/nextgen/primoeditor.h:11`, `src/nextgen/primodocument.h:11`) exposed to QML as `Devpad.Nextgen.PrimoEditor`/`PrimoDocument`. QML shell lives at `qml/nextgen/Main.qml` (loaded via `src/nextgen/nextgenapp.cpp:45`). Features: QSG rendering with gutter + minimap, async highlighting, draggable split tabs, project tree, Find/Replace + Find in Files, terminal drawer, LSP bridge, 17 themes, command mode (`:`). Requires Qt **6.6+** (uses `QSGTextNode`). In headless/offscreen/pipe mode `Devpad --nextgen` cats files to stdout (like TUI). CI smoke test: `--nextgen --nextgen-smoke-test` (exits 0 on successful QML load).
 
@@ -229,9 +237,22 @@ Backups and logs are stored in `~/.local/share/devpad/`.
 
 ## Plugins / extensions
 
-Devpad supports user-installed C++ plugins loaded at runtime. Plugins are shared
-libraries (`lib<id>.so` on Linux/macOS, `<id>.dll` on Windows) placed in the user
-plugins directory:
+Devpad ships several first-party plugins as runtime-loaded modules (see
+`src/plugins/`), all enabled by default and removable/disableable from
+Options → Plugins or at build time with `-DBUILD_PLUGINS=OFF`:
+
+- **Terminal** (`org.semagsoft.devpad.terminal`) — the embedded terminal panel
+  (libghostty-vt, or qtermwidget/KodoTerm as fallback backends).
+- **Debugger** (`org.semagsoft.devpad.dap`) — Debug Adapter Protocol support.
+- **Language Server Protocol** (`org.semagsoft.devpad.lsp`) — diagnostics,
+  completion, go-to-definition, hover, rename, etc. Host code talks to it only
+  through the interfaces in `src/plugins/lspinterface.h`; when the plugin is
+  disabled or absent, every LSP surface (menu, panels, options page) hides
+  automatically and the editor behaves as if LSP never existed.
+
+Devpad also supports user-installed C++ plugins loaded at runtime. Plugins are
+shared libraries (`lib<id>.so` on Linux/macOS, `<id>.dll` on Windows) placed in
+the user plugins directory:
 
 - Linux/macOS: `~/.local/share/devpad/plugins/`
 - Windows: `%APPDATA%\devpad\plugins\`

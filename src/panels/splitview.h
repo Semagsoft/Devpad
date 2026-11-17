@@ -56,7 +56,6 @@ public:
     QTabWidget* addNewPane(QTabWidget* relativeTo, Qt::Orientation orientation, bool after);
     void removePane(QTabWidget* tw);
     bool moveTabToPane(int tabIndex, QTabWidget* source, QTabWidget* target, int insertIndex = -1);
-    void detachTabToWindow(int tabIndex, QTabWidget* source);
 
     static quint64 nextDragId();
     static void registerDragSource(quint64 id, QTabWidget* widget);
@@ -67,6 +66,9 @@ public:
     {
         return m_panes.size();
     }
+    // Remove a tab that was detached to a new window after the detach was
+    // confirmed (MainWindow calls this once the new process launched).
+    void closeDetachedTab(QTabWidget* source, int index);
     QTabWidget* paneAt(int index) const;
     QSplitter* splitter() const
     {
@@ -75,13 +77,20 @@ public:
 
     void setPaneCallbacks(std::function<void(QTabWidget*)> onAdded, std::function<void(QTabWidget*)> onRemoved,
                           std::function<void(QTabWidget*, int)> onTabMoved = nullptr);
+    // Called by closeDetachedTab() when a tab is torn off into a new window.
+    // Should close the pane-local tab with the same bookkeeping as other
+    // tab closes (pinned check, editorClosed). Returns true on success.
+    void setTabClosedCallback(std::function<bool(QTabWidget*, int)> onTabClosed);
 
     // Split current active pane
     void splitActivePane(Qt::Orientation orientation);
 
 signals:
     void activeTabWidgetChanged(QTabWidget* tabWidget);
-    void tabDetachedToWindow(const QString& filePath);
+    // Emitted when the primary pane is removed and another pane is promoted
+    // to take its place (so owners of the primary pane pointer can re-point).
+    void primaryPaneChanged(QTabWidget* tabWidget);
+    void tabDetachedToWindow(const QString& filePath, QTabWidget* pane, int index);
     void closeAllTabsRequested();
     void tabPinToggled(int tabIndex, QTabWidget* pane);
     void externalTabDropped(const QString& filePath);
@@ -160,6 +169,7 @@ private:
     std::function<void(QTabWidget*)> m_onPaneAdded;
     std::function<void(QTabWidget*)> m_onPaneRemoved;
     std::function<void(QTabWidget*, int)> m_onTabMoved;
+    std::function<bool(QTabWidget*, int)> m_onTabClosed;
 
     static quint64 s_dragIdCounter;
     static QMap<quint64, QPointer<QTabWidget>> s_dragSourceMap;
