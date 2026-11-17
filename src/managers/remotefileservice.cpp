@@ -27,8 +27,6 @@
 
 #include "logger.h"
 
-#include <QStandardPaths>
-
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -38,6 +36,7 @@
 #include <QPointer>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QTemporaryFile>
 #include <QTimer>
 #include <QUrl>

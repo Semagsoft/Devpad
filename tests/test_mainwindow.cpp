@@ -663,7 +663,9 @@ TEST_F(MainWindowTest, TerminalReenableRestoresPanel)
 TEST_F(MainWindowTest, TerminalToggleAddsRemovesTab)
 {
 #ifdef Q_OS_WIN
-    GTEST_SKIP() << "Windows: test binary and terminal plugin DLL each carry their own host libraries on Windows; cross-module SettingsManager singleton assertions cannot hold. Covered on Linux where the plugin resolves host symbols from the test executable";
+    GTEST_SKIP() << "Windows: test binary and terminal plugin DLL each carry their own host libraries on Windows; "
+                    "cross-module SettingsManager singleton assertions cannot hold. "
+                    "Covered on Linux where the plugin resolves host symbols from the test executable";
 #endif
     // The terminal plugin is a separate module on Windows; it reads its own
     // SettingsManager at construction time. Write the settings before any
@@ -699,7 +701,9 @@ TEST_F(MainWindowTest, TerminalToggleAddsRemovesTab)
 TEST_F(MainWindowTest, TerminalPositionSwitchingTabToDock)
 {
 #ifdef Q_OS_WIN
-    GTEST_SKIP() << "Windows: test binary and terminal plugin DLL each carry their own host libraries on Windows; cross-module SettingsManager singleton assertions cannot hold. Covered on Linux where the plugin resolves host symbols from the test executable";
+    GTEST_SKIP() << "Windows: test binary and terminal plugin DLL each carry their own host libraries on Windows; "
+                    "cross-module SettingsManager singleton assertions cannot hold. "
+                    "Covered on Linux where the plugin resolves host symbols from the test executable";
 #endif
     // Write settings before window (plugin DLL) construction so the plugin
     // sees them; see TerminalToggleAddsRemovesTab.
