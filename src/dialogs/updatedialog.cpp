@@ -201,7 +201,7 @@ void UpdateDialog::downloadUpdate()
     const QUrl url(m_releaseUrl);
     bool opened = QDesktopServices::openUrl(url);
 
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
     if (!opened)
         opened = QProcess::startDetached(QStringLiteral("xdg-open"), QStringList{m_releaseUrl});
 #endif

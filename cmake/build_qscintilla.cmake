@@ -23,7 +23,7 @@ find_program(QMAKE6 NAMES qmake6 qmake REQUIRED)
 message(STATUS "Using qmake: ${QMAKE6}")
 
 # ── Find make ────────────────────────────────────────────────
-find_program(MAKE_CMD NAMES mingw32-make make REQUIRED)
+find_program(MAKE_CMD NAMES mingw32-make make gmake REQUIRED)
 message(STATUS "Using make: ${MAKE_CMD}")
 
 # ── Locate the actual source root ────────────────────────────

@@ -104,7 +104,7 @@ static void crashHandler(int sig, siginfo_t* info, void* userData)
 }
 #endif
 
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
 // Try to hand off shell-passed files/folders to an already running Devpad
 // instance so they open in that instance's current window instead of spawning
 // a brand-new window. Returns true if the handoff succeeded and this instance

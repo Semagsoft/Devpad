@@ -10,6 +10,7 @@ What's new in Devpad 1.10:
       LSP
       DAP
       Terminal
+- FreeBSD x86_64 support: build, CI, tests and a relocatable release tarball. SHA: TBD
 
 ## [1.09] - 2026-11-09
 
