@@ -942,7 +942,7 @@ std::optional<bool> portalColorSchemeToDark(quint32 colorScheme)
     return std::nullopt;
 }
 
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
 #ifdef HAVE_QT_DBUS
 static std::optional<bool> queryPortalColorScheme()
 {
@@ -1049,7 +1049,7 @@ static bool systemIsDarkImpl()
     if (const auto scheme = queryStyleHintsColorScheme())
         return *scheme;
 #endif
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
 #ifdef HAVE_QT_DBUS
     if (const auto portal = queryPortalColorScheme())
         return *portal;

@@ -70,6 +70,20 @@ sudo pacman -S qt6-base qtermwidget qscintilla cmake gcc
 sudo dnf install qt6-qtbase-devel qtermwidget-devel qscintilla-qt6-devel cmake gcc-c++
 ```
 
+**FreeBSD (x86_64):**
+```bash
+sudo pkg install cmake git pkgconf bash qt6-base qt6-multimedia qt6-svg \
+    qt6-tools qscintilla2-qt6 qtermwidget
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(getconf _NPROCESSORS_ONLN)
+```
+QScintilla and qtermwidget6 are used from `pkg` when available; otherwise CMake
+builds them from source. The `Devpad-<version>-freebsd-x86_64.tar.gz` release
+bundle contains only the binary, plugins and data — install the packages above
+first, then run `./Devpad.sh` from the extracted directory (the launcher points
+at the bundled plugins). The experimental libghostty-vt backend remains opt-in
+via `-DBUILD_GHOSTTY=ON` and requires Zig ≥ 0.17.
+
 **Windows (vcpkg):**
 ```powershell
 git clone https://github.com/microsoft/vcpkg.git

@@ -1463,7 +1463,7 @@ void MainWindow::quitDevpad()
 
 bool MainWindow::signalOtherInstancesToQuit()
 {
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD)
     QProcess pgrep;
     // -U: only our own uid. Every user on the machine may run their own
     // Devpad; sending save_and_quit to theirs would close their windows.

@@ -167,10 +167,11 @@ find_package(Qt6 COMPONENTS QScintilla QUIET)
 
 if(NOT Qt6QScintilla_FOUND)
     find_library(QSCINTILLA_LIBRARY qscintilla2_qt6 QUIET
-        PATHS ${CMAKE_PREFIX_PATH}/lib
+        PATHS ${CMAKE_PREFIX_PATH}/lib /usr/local/lib/qt6 /usr/lib/qt6
     )
     find_path(QSCINTILLA_INCLUDE_DIR Qsci/qsciscintilla.h
         PATHS /usr/include /usr/local/include /usr/include/qt6
+              /usr/local/include/qt6 /usr/lib/qt6/include
               ${CMAKE_PREFIX_PATH}/include/qt6
               ${CMAKE_PREFIX_PATH}/include
     )
@@ -712,6 +713,10 @@ target_compile_options(Devpad PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(Devpad PRIVATE
     ${DEVPAD_HOST_APP}
 )
+# FreeBSD keeps backtrace(3) in libexecinfo instead of libc.
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    target_link_libraries(Devpad PRIVATE execinfo)
+endif()
 target_link_qscintilla(Devpad)
 
 target_include_directories(Devpad PRIVATE
