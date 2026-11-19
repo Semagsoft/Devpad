@@ -847,17 +847,29 @@ QString NextgenActions::runCommand(const QString& rawCmd)
         return QStringLiteral("");
 
     // ── File ──────────────────────────────────────────
+    // A save command must never report success — or trigger a quit — unless
+    // the write actually succeeded. Save-As is asynchronous (the dialog is
+    // opened via requestSaveAsDialog), so quitting is deferred until the user
+    // has chosen a path and re-run the command.
     if (cmd == QStringLiteral("wa"))
     {
         // Save all modified buffers with file paths (best effort via current editor)
-        if (m_editor && !m_editor->filePath().isEmpty() && m_editor->document() && m_editor->document()->isModified())
-            m_editor->save();
+        if (m_editor && !m_editor->filePath().isEmpty() && m_editor->document() && m_editor->document()->isModified() && !m_editor->save())
+            return QStringLiteral("Save failed; not all buffers were saved");
         return QStringLiteral("Saved all");
     }
     if (cmd == QStringLiteral("wqa") || cmd == QStringLiteral("waq"))
     {
-        if (m_editor && !m_editor->filePath().isEmpty() && m_editor->document() && m_editor->document()->isModified())
-            m_editor->save();
+        if (m_editor && m_editor->document() && m_editor->document()->isModified())
+        {
+            if (m_editor->filePath().isEmpty())
+            {
+                emit requestSaveAsDialog();
+                return QStringLiteral("Choose a file name, then run :wq again to quit");
+            }
+            if (!m_editor->save())
+                return QStringLiteral("Save failed; not quitting");
+        }
         return QStringLiteral("quit"); // handled by QML
     }
     if (cmd == QStringLiteral("w") || cmd.startsWith(QStringLiteral("w ")))
@@ -868,17 +880,15 @@ QString NextgenActions::runCommand(const QString& rawCmd)
         if (arg.isEmpty())
         {
             if (m_editor->filePath().isEmpty())
+            {
                 emit requestSaveAsDialog();
-            else
-                m_editor->save();
+                return QStringLiteral("Choose a file name to save");
+            }
+            return m_editor->save() ? QStringLiteral("Saved") : QStringLiteral("Save failed");
         }
-        else
-        {
-            if (!QFileInfo(arg).isAbsolute())
-                arg = QDir::current().absoluteFilePath(arg);
-            m_editor->saveAs(arg);
-        }
-        return QStringLiteral("Saved");
+        if (!QFileInfo(arg).isAbsolute())
+            arg = QDir::current().absoluteFilePath(arg);
+        return m_editor->saveAs(arg) ? QStringLiteral("Saved") : QStringLiteral("Save failed");
     }
     if (cmd == QStringLiteral("q"))
     {
@@ -892,10 +902,24 @@ QString NextgenActions::runCommand(const QString& rawCmd)
     {
         if (m_editor)
         {
-            if (m_editor->filePath().isEmpty())
-                emit requestSaveAsDialog();
-            else
-                m_editor->save();
+            QString arg = cmd.mid(2).trimmed();
+            if (!arg.isEmpty())
+            {
+                if (!QFileInfo(arg).isAbsolute())
+                    arg = QDir::current().absoluteFilePath(arg);
+                if (!m_editor->saveAs(arg))
+                    return QStringLiteral("Save failed; not quitting");
+            }
+            else if (m_editor->document() && m_editor->document()->isModified())
+            {
+                if (m_editor->filePath().isEmpty())
+                {
+                    emit requestSaveAsDialog();
+                    return QStringLiteral("Choose a file name, then run :wq again to quit");
+                }
+                if (!m_editor->save())
+                    return QStringLiteral("Save failed; not quitting");
+            }
         }
         return QStringLiteral("quit");
     }

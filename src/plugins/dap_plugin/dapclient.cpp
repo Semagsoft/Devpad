@@ -33,16 +33,26 @@ DapClient::~DapClient()
     if (p)
     {
         p->disconnect();
+        // The process is a child of DapClient. Detach it before ~QObject() runs,
+        // otherwise it is deleted immediately and the kill-escalation timer
+        // below would dereference freed memory two seconds later.
+        p->setParent(nullptr);
+        QPointer<QProcess> guard(p);
         if (p->state() != QProcess::NotRunning)
         {
             p->terminate();
             // Escalate to kill on the event loop, then release the process —
-            // never waitForFinished() on the GUI thread.
-            QTimer::singleShot(KILL_TIMEOUT_MS, QCoreApplication::instance(), [p]() {
-                if (p->state() != QProcess::NotRunning)
-                    p->kill();
-                p->deleteLater();
-            });
+            // never waitForFinished() on the GUI thread. The QPointer keeps the
+            // callback safe even if the process disappears for another reason.
+            QTimer::singleShot(KILL_TIMEOUT_MS, QCoreApplication::instance(),
+                               [guard]()
+                               {
+                                   if (!guard)
+                                       return;
+                                   if (guard->state() != QProcess::NotRunning)
+                                       guard->kill();
+                                   guard->deleteLater();
+                               });
         }
         else
         {

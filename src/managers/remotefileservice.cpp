@@ -595,10 +595,12 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
         return;
     }
 
-    // Remote paths may legitimately contain spaces/unicode/shell metacharacters
+    // Remote paths may legitimately contain spaces/unicode/metacharacters
     // (they arrive from remote listings), so only host/user are strictly checked;
-    // the path only needs to be free of control characters — unsafe bytes are
-    // neutralized by shellQuote() when the path is passed to the remote shell.
+    // the path only needs to be free of control characters. QProcess passes it as
+    // a single argv element and, since OpenSSH 9, scp uses SFTP by default where
+    // the remote path is opaque data, not a shell command. Shell-quoting it would
+    // make the quotes part of the remote filename.
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
     if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
@@ -632,7 +634,9 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
     // BatchMode prevents interactive prompts (password/host-key) without a
     // TTY; ConnectTimeout fails fast on unreachable hosts.
     args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
-    args << QString("%1@%2:%3").arg(user, host, shellQuote(remotePath));
+    // "--" ends option parsing; remotePath is validated to be control-char free
+    // and not start with '-', so it is safe to pass verbatim (no remote shell).
+    args << "--" << QString("%1@%2:%3").arg(user, host, remotePath);
 
     // Start the transfer on the next event-loop iteration. Deferring the
     // download attempt keeps the synchronous part of downloadSsh() limited to
@@ -667,8 +671,8 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     }
 
     // Same validation as downloadSsh: host/user are strict; the path may
-    // contain spaces/unicode/shell metacharacters (neutralized by shellQuote())
-    // but must be free of control chars.
+    // contain spaces/unicode/metacharacters but must be free of control chars.
+    // scp receives it verbatim as one argv element (SFTP mode since OpenSSH 9).
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
     if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
@@ -720,7 +724,9 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     // BatchMode prevents interactive prompts without a TTY; ConnectTimeout
     // fails fast on unreachable hosts.
     args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
-    args << localPath << QString("%1@%2:%3").arg(user, host, shellQuote(remotePath));
+    // "--" ends option parsing; localPath/remotePath are validated and passed
+    // verbatim as separate argv elements (no local or remote shell involved).
+    args << "--" << localPath << QString("%1@%2:%3").arg(user, host, remotePath);
 
     QString scpPath = findScpPath();
     if (scpPath.isEmpty())
