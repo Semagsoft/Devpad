@@ -131,6 +131,7 @@ private:
     bool m_configurationReady = false; // initialized event OR launch/attach done: config requests allowed
     bool m_starting = false;
     bool m_stopping = false;
+    bool m_disconnectSent = false; // set once the DAP "disconnect" request has been written
     int m_retryCount = 0;
     int m_stoppedThreadId = 0; // last threadId reported by a stopped event
     static constexpr int START_TIMEOUT_MS = 5000;

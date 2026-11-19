@@ -35,6 +35,7 @@
 #include <QPixmap>
 #include <QRect>
 #include <QScrollBar>
+#include <QSocketNotifier>
 #include <QString>
 #include <QThread>
 #include <QTimer>
@@ -111,6 +112,8 @@ private:
     void stopPty();
     void startIoThread();
     void stopIoThread();
+    void tryFlushPendingInput();
+    void reapChild(int attempt);
 
     // -- Rendering --------------------------------------------------------
     void renderFrame();
@@ -161,6 +164,8 @@ private:
     pid_t m_pid = -1;
     QThread* m_ioThread = nullptr;
     bool m_stopRequested = false;
+    QByteArray m_pendingInput;          // unsent PTY input, written by tryFlushPendingInput()
+    QSocketNotifier* m_inputNotifier = nullptr; // write watcher for m_pendingInput (GUI thread)
 
     QString m_workingDir;
     QFont m_cachedFont;

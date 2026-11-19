@@ -587,7 +587,10 @@ void PrimoEditor::toggleComment()
         }
         else
         {
-            modified.remove(firstNonSpace, commentLen);
+            // Only strip the token when this line actually starts with it;
+            // otherwise leave the line untouched.
+            if (ln.mid(firstNonSpace).startsWith(cs->lineComment))
+                modified.remove(firstNonSpace, commentLen);
         }
         result << modified;
     }
@@ -649,7 +652,7 @@ void PrimoEditor::enterSnippetMode(const QString& text, int insertPos, const QSt
 
     QString txt = m_doc->text();
     txt.insert(insertPos, text);
-    m_doc->setTextWithoutUndo(txt);
+    m_doc->setText(txt); // route through the diff-based undo stack
 
     m_snippetStartPos = insertPos;
     m_snippetEndPos = insertPos + text.size();
@@ -1793,18 +1796,21 @@ void PrimoEditor::ensureCursorVisibleHorizontally()
     QString curLine = expandedTab(ls.at(m_cursorLine));
     QString before = curLine.left(qMin(m_cursorColumn, curLine.size()));
     qreal gutterW = m_gutterVisible ? m_gutterWidth : 0;
-    qreal cx = gutterW + 8 - m_hScroll + fm.horizontalAdvance(before);
+    qreal leftPad = gutterW + 8;
     QQuickWindow* win = window();
     qreal winWidth = win ? win->width() : boundingRect().width();
-    qreal visibleWidth = winWidth - gutterW - 16;
-    qreal leftEdge = gutterW + 8 - m_hScroll;
-    if (cx < leftEdge)
+    qreal visibleWidth = qMax(0.0, winWidth - gutterW - 16);
+    qreal adv = fm.horizontalAdvance(before);
+    qreal cx = leftPad - m_hScroll + adv;
+    if (cx < leftPad)
     {
-        setHScroll(leftEdge - cx);
+        // Cursor is off the left edge: scroll so it sits at the left edge.
+        setHScroll(adv);
     }
-    else if (cx + 2 > leftEdge + visibleWidth)
+    else if (cx + 2 > leftPad + visibleWidth)
     {
-        setHScroll(cx + 2 - leftEdge - visibleWidth + m_hScroll);
+        // Cursor is off the right edge: scroll so it sits at the right edge.
+        setHScroll(adv + 2 - visibleWidth);
     }
 }
 
@@ -1958,7 +1964,7 @@ bool PrimoEditor::handleAutoClose(QChar ch, int pos)
         // Insert open + close, then move cursor between them
         QString txt = m_doc->text();
         txt.insert(pos, QString(pair.open) + pair.close);
-        m_doc->setTextWithoutUndo(txt);
+        m_doc->setText(txt); // route through the diff-based undo stack
         m_cursorColumn = qMin(m_cursorColumn + 1, m_doc->lineAt(m_cursorLine).size());
         emit cursorChanged();
         m_linesDirty = true;

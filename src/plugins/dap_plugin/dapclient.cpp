@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QPointer>
 #include <QProcess>
+#include <QTimer>
 
 namespace dap
 {
@@ -22,22 +23,31 @@ DapClient::DapClient(QObject* parent) : QObject(parent)
 
 DapClient::~DapClient()
 {
-    // Best-effort graceful shutdown, then guarantee no orphaned adapter
-    // process outlives this object.
+    // Best-effort graceful shutdown, guaranteed without ever blocking the
+    // GUI thread. stopServer() is a no-op when a disconnect was already sent
+    // (stopSession()); otherwise this sends it here.
     stopServer();
 
-    if (m_process)
+    QProcess* p = m_process;
+    m_process = nullptr;
+    if (p)
     {
-        m_process->disconnect();
-        if (m_process->state() != QProcess::NotRunning)
+        p->disconnect();
+        if (p->state() != QProcess::NotRunning)
         {
-            m_process->terminate();
-            if (!m_process->waitForFinished(KILL_TIMEOUT_MS))
-                m_process->kill();
-            m_process->waitForFinished(KILL_TIMEOUT_MS);
+            p->terminate();
+            // Escalate to kill on the event loop, then release the process —
+            // never waitForFinished() on the GUI thread.
+            QTimer::singleShot(KILL_TIMEOUT_MS, QCoreApplication::instance(), [p]() {
+                if (p->state() != QProcess::NotRunning)
+                    p->kill();
+                p->deleteLater();
+            });
         }
-        delete m_process;
-        m_process = nullptr;
+        else
+        {
+            p->deleteLater();
+        }
     }
 }
 
@@ -52,6 +62,7 @@ void DapClient::startServer(const QString& command, const QStringList& args)
     m_configurationReady = false;
     m_starting = true;
     m_stopping = false;
+    m_disconnectSent = false;
     m_stoppedThreadId = 0;
 
     m_process = new QProcess(this);
@@ -88,11 +99,12 @@ void DapClient::onProcessStarted()
 
 void DapClient::stopServer()
 {
-    if (!m_process)
+    if (!m_process || m_disconnectSent)
         return;
 
     m_starting = false;
     m_stopping = true;
+    m_disconnectSent = true;
 
     if (m_process->state() == QProcess::NotRunning)
     {

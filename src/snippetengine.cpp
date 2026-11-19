@@ -117,6 +117,10 @@ void SnippetEngine::enterSnippetMode(const Snippet::ExpandedSnippet& expanded, i
             m_editor->getSelection(&selLineFrom, &selColFrom, &selLineTo, &selColTo);
             insertPos = m_editor->positionFromLineIndex(selLineFrom, selColFrom);
         }
+        // The snippet replaces the selection (or the trigger word), it does not
+        // get duplicated after it. removeSelectedText() leaves the caret at the
+        // former selection start, which is exactly insertPos.
+        m_editor->removeSelectedText();
     }
 
     m_editor->insert(textToInsert);

@@ -490,7 +490,7 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
     emit statusMessage(tr("Downloading %1...").arg(urlStr));
 
     QNetworkRequest request(url);
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::SameOriginRedirectPolicy);
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, true);
 
     QNetworkReply* reply = m_networkManager.get(request);
@@ -541,6 +541,17 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
                     QString err = reply->errorString();
                     reply->deleteLater();
                     emit downloadFailed(urlStr, err);
+                    return;
+                }
+
+                // SameOriginRedirectPolicy: a cross-origin redirect is not followed
+                // silently — reply is left as the 3xx response. Never save the
+                // redirect body as if it were the file.
+                const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                if (httpStatus >= 300 && httpStatus < 400)
+                {
+                    reply->deleteLater();
+                    emit downloadFailed(urlStr, tr("Refusing to save a redirect response (status %1) as the opened file").arg(httpStatus));
                     return;
                 }
 

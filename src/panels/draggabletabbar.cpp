@@ -162,16 +162,16 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
             }
         };
 
-        if (result != Qt::IgnoreAction && !handledDragIds().contains(dragId))
+        if (!handledDragIds().contains(dragId))
         {
-            handledDragIds().remove(dragId);
-            removeTabFromSource();
-        }
-        else if (result == Qt::IgnoreAction)
-        {
+            // Close the source tab only when the drop was consumed: either this
+            // window handled it (handledDragIds, taken above) or a peer Devpad
+            // process accepted it (response file). For anything else — a foreign
+            // target that answered the drop (e.g. a file manager moving the file),
+            // or a rejected drop — never silently discard the tab: detach it to a
+            // new window instead, which preserves unsaved content.
             QString respPath = dragResponsePath(QCoreApplication::applicationPid(), dragId);
-            bool crossProcessAccepted = QFile::exists(respPath);
-            if (crossProcessAccepted)
+            if (!respPath.isEmpty() && QFile::exists(respPath))
             {
                 QFile::remove(respPath);
                 removeTabFromSource();
@@ -180,8 +180,8 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
             {
                 auto* w = tabWidget->widget(m_dragTabIndex);
                 auto* ce = w ? w->findChild<CodeEditor*>() : nullptr;
-                QString filePath = ce ? ce->fileName() : QString();
-                emit tabDroppedOutside(m_dragTabIndex, filePath);
+                const QString droppedFilePath = ce ? ce->fileName() : QString();
+                emit tabDroppedOutside(m_dragTabIndex, droppedFilePath);
             }
         }
 

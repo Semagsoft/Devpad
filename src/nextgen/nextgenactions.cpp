@@ -30,9 +30,16 @@
 #include <QPrintPreviewDialog>
 #include <QPrinter>
 #include <QRegularExpression>
+#include <QSaveFile>
+#include <QUuid>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTextDocument>
+
+namespace
+{
+constexpr qint64 kMaxRemoteFileBytes = 100 * 1024 * 1024; // 100 MB, matches RemoteFileService
+}
 
 NextgenActions::NextgenActions(QObject* parent)
     : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
@@ -88,7 +95,7 @@ void NextgenActions::checkForUpdates()
 }
 QObject* NextgenActions::editorObj() const
 {
-    return m_editor;
+    return m_editor.data();
 }
 void NextgenActions::setEditorObj(QObject* obj)
 {
@@ -1335,7 +1342,16 @@ void NextgenActions::openRemoteFile(const QString& url)
     QString fileName = QFileInfo(qUrl.path()).fileName();
     if (fileName.isEmpty())
         fileName = QStringLiteral("remote.txt");
-    QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QLatin1Char('/') + fileName;
+    // Sanitize: keep it a plain filename, no separators or parent references.
+    QString safeName;
+    safeName.reserve(fileName.size());
+    for (const QChar c : fileName)
+        safeName += (c.isLetterOrNumber() || c == QLatin1Char('.') || c == QLatin1Char('-') || c == QLatin1Char('_')) ? c : QLatin1Char('_');
+    if (safeName.isEmpty() || safeName == QStringLiteral(".") || safeName == QStringLiteral(".."))
+        safeName = QStringLiteral("remote.txt");
+    // Unguessable name: no pre-existing file can be clobbered via symlink or race.
+    const QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QStringLiteral("/devpad-remote-")
+        + QUuid::createUuid().toString(QUuid::WithoutBraces) + QLatin1Char('-') + safeName;
 
     QNetworkRequest request(qUrl);
     m_currentReply = m_networkManager->get(request);
@@ -1356,6 +1372,13 @@ QString NextgenActions::remoteLoadError() const
 
 void NextgenActions::onRemoteDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
+    if (bytesReceived > kMaxRemoteFileBytes || (bytesTotal > 0 && bytesTotal > kMaxRemoteFileBytes))
+    {
+        // Too large: abort; finished() will report the cancellation as an error.
+        if (m_currentReply)
+            m_currentReply->abort();
+        return;
+    }
     emit remoteLoadProgress(m_currentReply ? m_currentReply->url().toString() : QString(), bytesReceived, bytesTotal);
 }
 
@@ -1384,9 +1407,20 @@ void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QSt
     QByteArray data = reply->readAll();
     reply->deleteLater();
 
-    // Save to temp file
-    QFile file(tempPath);
-    if (!file.open(QIODevice::WriteOnly))
+    if (data.size() > kMaxRemoteFileBytes)
+    {
+        error = QStringLiteral("Remote file is too large (limit is 100 MB)");
+        m_remoteLoadError = error;
+        emit remoteLoadFinished(url, localPath, false, error);
+        emit showMessage(QStringLiteral("Remote download failed: ") + error);
+        return;
+    }
+
+    // QSaveFile writes to a unique temp file and renames it into place: it never
+    // follows symlinks and never clobbers an unrelated file, so even a guessed
+    // temp path cannot damage other files.
+    QSaveFile file(tempPath);
+    if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit())
     {
         error = QStringLiteral("Cannot write temp file: ") + tempPath;
         m_remoteLoadError = error;
@@ -1394,8 +1428,6 @@ void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QSt
         emit showMessage(QStringLiteral("Cannot save remote file: ") + error);
         return;
     }
-    file.write(data);
-    file.close();
 
     localPath = tempPath;
     m_remoteLoadError.clear();

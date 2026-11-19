@@ -131,23 +131,26 @@ void FileWatcherManager::pollModifications()
         {
             // File was deleted. QFileSystemWatcher on macOS auto-removes deleted
             // paths and stops notifying, so the poll fallback must catch this and
-            // surface the deletion just like onFileChanged() does.
+            // surface the deletion just like onFileChanged() does. Keep the entry
+            // in the poll set with an invalid marker: if the file is re-created
+            // (save-via-rename), the poll path can detect it and re-add the
+            // watch — dropping the entry here would leave the stale buffer
+            // permanently undetectable.
             if (!m_deletedPaths.contains(filePath))
             {
                 m_deletedPaths.insert(filePath);
-                it = m_modificationTimes.erase(it);
+                it.value() = QDateTime(); // invalid marker = "awaiting reappearance"
                 Logger::instance().info(QString("File deleted externally: %1").arg(filePath));
                 emit fileModifiedExternally(filePath);
-                continue; // erase() already advanced the iterator
             }
-            // Still tracked and already reported deleted: advance past it.
             ++it;
             continue;
         }
 
         QDateTime currentMod = info.lastModified();
         QDateTime knownMod = it.value();
-        if (!knownMod.isValid() || currentMod <= knownMod)
+        const bool wasDeleted = m_deletedPaths.contains(filePath);
+        if (!wasDeleted && knownMod.isValid() && currentMod <= knownMod)
         {
             ++it;
             continue;
@@ -156,16 +159,25 @@ void FileWatcherManager::pollModifications()
         // Mirror the coalescing behavior of onFileChanged, except a file that
         // was previously reported deleted and has reappeared is always
         // re-reported (external editors save via delete + rename).
-        if (isWithinCoalesceWindow(filePath) && !m_deletedPaths.contains(filePath))
+        if (isWithinCoalesceWindow(filePath) && !wasDeleted)
         {
             ++it;
             continue;
         }
 
         it.value() = currentMod;
+        if (wasDeleted && !m_watcher.files().contains(filePath))
+        {
+            // The watch was dropped when the file disappeared; re-add it so
+            // QFileSystemWatcher notifications resume for the new file.
+            m_watcher.addPath(filePath);
+        }
         m_deletedPaths.remove(filePath);
         m_lastReported[filePath] = QDateTime::currentDateTime();
-        Logger::instance().info(QString("File modified externally: %1").arg(filePath));
+        if (wasDeleted)
+            Logger::instance().info(QString("File re-created externally: %1").arg(filePath));
+        else
+            Logger::instance().info(QString("File modified externally: %1").arg(filePath));
         emit fileModifiedExternally(filePath);
         ++it;
     }
@@ -179,7 +191,9 @@ void FileWatcherManager::onFileChanged(const QString& path)
     {
         Logger::instance().info(QString("File deleted externally: %1").arg(path));
         m_deletedPaths.insert(path);
-        m_modificationTimes.remove(path);
+        // Keep the entry with an invalid marker so the poll fallback can
+        // detect the file being re-created (save-via-rename).
+        m_modificationTimes[path] = QDateTime();
         emit fileModifiedExternally(path);
         m_lastReported[path] = QDateTime::currentDateTime();
         return;

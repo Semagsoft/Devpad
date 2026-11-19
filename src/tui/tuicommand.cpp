@@ -68,9 +68,10 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         return ok;
     };
 
-    auto saveAll = [&]()
+    auto saveAll = [&]() -> int
     {
         int saved = 0;
+        int failed = 0;
         for (int i = 0; i < tabs.count(); ++i)
         {
             TuiBuffer* b = tabs.bufferAt(i);
@@ -83,9 +84,27 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
                     fileMtimes[b->filePath()] = QFileInfo(b->filePath()).lastModified();
                     saved++;
                 }
+                else
+                {
+                    failed++;
+                }
             }
         }
-        statusMsg = QStringLiteral("Saved %1 buffers").arg(saved);
+        if (failed > 0)
+            statusMsg = QStringLiteral("Saved %1 buffer(s), %2 failed to save").arg(saved).arg(failed);
+        else
+            statusMsg = QStringLiteral("Saved %1 buffers").arg(saved);
+        return failed;
+    };
+
+    // True when any buffer still has unsaved content (modified at any path),
+    // including saves that just failed — such buffers keep isModified() == true.
+    auto anyBufferModified = [&]()
+    {
+        for (int i = 0; i < tabs.count(); ++i)
+            if (tabs.bufferAt(i) && tabs.bufferAt(i)->isModified())
+                return true;
+        return false;
     };
 
     if (cmd == QStringLiteral("wa"))
@@ -94,12 +113,8 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
     }
     else if (cmd == QStringLiteral("wqa") || cmd == QStringLiteral("waq"))
     {
-        saveAll();
-        bool anyModified = false;
-        for (int i = 0; i < tabs.count(); ++i)
-            if (tabs.bufferAt(i)->isModified() && tabs.bufferAt(i)->filePath().isEmpty())
-                anyModified = true;
-        if (!anyModified)
+        int failed = saveAll();
+        if (failed == 0 && !anyBufferModified())
             return Result::Quit;
     }
     else if (cmd == QStringLiteral("w") || cmd.startsWith(QStringLiteral("w ")))
@@ -144,11 +159,7 @@ TuiCommand::Result TuiCommand::dispatch(const QString& rawCmd, TuiTabModel& tabs
         {
             saveCurrent(cur);
         }
-        bool anyModified = false;
-        for (int i = 0; i < tabs.count(); ++i)
-            if (tabs.bufferAt(i)->isModified() && tabs.bufferAt(i)->filePath().isEmpty())
-                anyModified = true;
-        if (!anyModified)
+        if (!anyBufferModified())
             return Result::Quit;
     }
     else if (cmd == QStringLiteral("e!"))

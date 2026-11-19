@@ -773,8 +773,12 @@ bool TuiInput::handleGlobalInput(int ch, TuiTabModel& tabs, TuiBuffer* cur, TuiF
                 {
                     tabs.setCurrentIndex(idx);
                     target = tabs.currentBuffer();
-                    target->setText(res.text);
-                    target->setEncoding(res.encoding);
+                    // Never clobber unsaved edits with the on-disk version.
+                    if (!target->isModified())
+                    {
+                        target->setText(res.text);
+                        target->setEncoding(res.encoding);
+                    }
                 }
                 else
                 {
