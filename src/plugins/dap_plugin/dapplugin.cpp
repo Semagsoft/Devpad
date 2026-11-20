@@ -42,6 +42,7 @@
 #include <QFileInfo>
 #include <QJsonObject>
 #include <QMetaObject>
+#include <QPointer>
 #include <QTabWidget>
 #include <cstdio>
 
@@ -135,11 +136,16 @@ void DapPlugin::onEditorCreated(CodeEditor* editor)
 
     // If the editor dies first, drop the integration immediately (plugin .so
     // code must not outlive its owner's event-loop convenience deletes).
+    // A QPointer is needed because shutdown() deletes integrations directly
+    // while this connection is still alive; a raw pointer would double-delete.
+    QPointer<dap::DapEditorIntegration> guard(integration);
     connect(editor, &QObject::destroyed, this,
-            [this, integration](QObject*)
+            [this, guard](QObject*)
             {
-                m_editorIntegrations.removeAll(integration);
-                delete integration;
+                if (!guard)
+                    return;
+                m_editorIntegrations.removeAll(guard.data());
+                delete guard.data();
             });
 
     qDebug("DapPlugin: editor created, integration set up");

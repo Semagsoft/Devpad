@@ -75,6 +75,14 @@ TEST_F(CodeEditorTest, BookmarkLinesReturnsCorrectLines)
     EXPECT_TRUE(lines.contains(3));
 }
 
+TEST_F(CodeEditorTest, ToggleCommentDoesNotAddFinalNewline)
+{
+    editor->setSyntax("cpp");
+    editor->setText("int x;"); // no trailing newline
+    editor->toggleComment();
+    EXPECT_EQ(editor->text(), QStringLiteral("//int x;"));
+}
+
 TEST_F(CodeEditorTest, ClearBookmarksRemovesAll)
 {
     editor->toggleBookmark(0);

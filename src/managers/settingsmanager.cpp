@@ -271,7 +271,7 @@ void SettingsManager::loadCache()
     m_cache.terminal.terminalBellEnabled = m_settings.value("Options_TerminalBellEnabled", true).toBool();
 
     m_cache.autoSave.autoSaveEnabled = m_settings.value("Options_AutoSaveEnabled", false).toBool();
-    m_cache.autoSave.autoSaveInterval = m_settings.value("Options_AutoSaveInterval", 60).toInt();
+    m_cache.autoSave.autoSaveInterval = qBound(1, m_settings.value("Options_AutoSaveInterval", 60).toInt(), 86400);
     m_cache.autoSave.autoSaveToOriginalFile = m_settings.value("Options_AutoSaveToOriginalFile", true).toBool();
 
     m_cache.project.showHiddenFiles = m_settings.value("Options_ShowHiddenFiles", false).toBool();
@@ -815,7 +815,7 @@ void SettingsManager::setAutoSaveEnabled(bool enabled)
 }
 void SettingsManager::setAutoSaveInterval(int seconds)
 {
-    writeCached("Options_AutoSaveInterval", m_cache.autoSave.autoSaveInterval, seconds);
+    writeCached("Options_AutoSaveInterval", m_cache.autoSave.autoSaveInterval, qBound(1, seconds, 86400));
 }
 void SettingsManager::setAutoSaveToOriginalFile(bool enabled)
 {

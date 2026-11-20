@@ -67,7 +67,9 @@ TEST_F(FileManagerTest, DetectEncodingUtf32BE)
 
 TEST_F(FileManagerTest, DetectEncodingUtf32LE)
 {
-    QByteArray data = QByteArray("\xFF\xFE\x00\x00H\x00\x00\x00e\x00\x00\x00", 12);
+    // Use explicit hex escapes: "\x00e" would parse as a single byte 0x0e,
+    // silently corrupting the UTF-32 pattern this test is meant to verify.
+    QByteArray data = QByteArray("\xFF\xFE\x00\x00\x48\x00\x00\x00\x65\x00\x00\x00", 12);
     EXPECT_EQ(FileManager::detectEncoding(data), "UTF-32LE");
 }
 

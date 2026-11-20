@@ -183,7 +183,22 @@ CodeEditor::CodeEditor(QWidget* parent) : QsciScintilla(parent), m_encoding("UTF
                             continue;
 
                         SendScintilla(QsciScintillaBase::SCI_AUTOCCANCEL);
-                        deleteTriggerWord();
+                        // Honor a single-line textEdit range from the server;
+                        // otherwise fall back to replacing just the typed word.
+                        bool usedTextEditRange = false;
+                        if (item.startLine >= 0 && item.startLine == item.endLine && item.startChar >= 0 && item.endChar >= item.startChar &&
+                            item.startLine < lines())
+                        {
+                            const QString lineText = text(item.startLine);
+                            const int from = lsp::utf16ColToCharIndex(lineText, item.startChar);
+                            const int to = lsp::utf16ColToCharIndex(lineText, item.endChar);
+                            const int startPos = positionFromLineIndex(item.startLine, from);
+                            const int endPos = positionFromLineIndex(item.startLine, to);
+                            SendScintilla(QsciScintillaBase::SCI_SETSEL, static_cast<uintptr_t>(startPos), static_cast<uintptr_t>(endPos));
+                            usedTextEditRange = true;
+                        }
+                        if (!usedTextEditRange)
+                            deleteTriggerWord();
                         const QString insertText = item.insertText.isEmpty() ? item.label : item.insertText;
                         const QByteArray utf8 = insertText.toUtf8();
                         SendScintilla(QsciScintillaBase::SCI_REPLACESEL, static_cast<uintptr_t>(0), utf8.constData());
@@ -933,9 +948,11 @@ void CodeEditor::toggleComment()
         result << modified;
     }
 
+    const QString lastLineText = text(lineTo);
     QString joined = result.join('\n');
-    joined += '\n';
-    int lastLineLen = text(lineTo).length();
+    if (lastLineText.endsWith('\n'))
+        joined += '\n'; // do not invent a final newline where the original had none
+    int lastLineLen = lastLineText.length();
     setSelection(lineFrom, 0, lineTo, lastLineLen);
     replaceSelectedText(joined);
 }
@@ -1164,7 +1181,7 @@ int CodeEditor::wordCharCountBeforeCursor() const
     for (int i = pos - 1; i >= 0 && count < threshold; i--)
     {
         const char c = static_cast<char>(SendScintilla(SCI_GETCHARAT, i));
-        if (std::isalnum(c) || c == '_')
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_')
             count++;
         else
             break;
@@ -1282,7 +1299,7 @@ void CodeEditor::showCompletion(const lsp::CompletionList& completions)
     while (start > 0)
     {
         char c = static_cast<char>(SendScintilla(SCI_GETCHARAT, start - 1));
-        if (std::isalnum(c) || c == '_')
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_')
             start--;
         else
             break;

@@ -18,9 +18,14 @@
  */
 #include "encodingutils.h"
 
+#include <QMutex>
+#include <QMutexLocker>
+
 namespace
 {
 QVector<EncodingInfo>& pluginEncodingTable();
+QMutex& encodingRegistryMutex();
+int& pluginEncodingGeneration();
 } // namespace
 
 BomResult detectBom(const QByteArray& data)
@@ -35,6 +40,12 @@ BomResult detectBom(const QByteArray& data)
     }
     if (data.size() >= 4 && data.first(4) == QByteArray("\xFF\xFE\x00\x00", 4))
     {
+        // Ambiguous: this is both the UTF-32LE BOM and a UTF-16LE BOM followed
+        // by U+0000. A real UTF-32LE document's next code point has zero high
+        // bytes; if bytes 5-7 are non-zero, prefer UTF-16LE so we do not strip
+        // the first character of a UTF-16LE file that starts with a NUL.
+        if (data.size() >= 8 && (data.at(5) != 0 || data.at(6) != 0 || data.at(7) != 0))
+            return {2, "UTF-16LE"};
         return {4, "UTF-32LE"};
     }
     if (data.size() >= 2 && data.first(2) == QByteArray("\xFE\xFF", 2))
@@ -58,12 +69,20 @@ const QVector<EncodingInfo>& supportedEncodings()
     };
     // Built-ins first, then plugin-registered encodings (which is also the
     // precedence used by encodingToDisplayName and the encoding menus).
+    // Build only when the plugin table actually changes, under a lock, instead
+    // of reassigning a shared static on every call from multiple threads.
     static QVector<EncodingInfo> merged;
-    merged = encodings;
-    const auto& plugins = pluginEncodingTable();
-    merged.reserve(encodings.size() + plugins.size());
-    for (const auto& plugin : plugins)
-        merged.append(plugin);
+    static int builtGeneration = -1;
+    QMutexLocker locker(&encodingRegistryMutex());
+    if (builtGeneration != pluginEncodingGeneration())
+    {
+        merged = encodings;
+        const auto& plugins = pluginEncodingTable();
+        merged.reserve(encodings.size() + plugins.size());
+        for (const auto& plugin : plugins)
+            merged.append(plugin);
+        builtGeneration = pluginEncodingGeneration();
+    }
     return merged;
 }
 
@@ -108,12 +127,25 @@ QVector<EncodingInfo>& pluginEncodingTable()
     static QVector<EncodingInfo> encodings;
     return encodings;
 }
+
+QMutex& encodingRegistryMutex()
+{
+    static QMutex mutex;
+    return mutex;
+}
+
+int& pluginEncodingGeneration()
+{
+    static int generation = 0;
+    return generation;
+}
 } // namespace
 
 bool registerPluginEncoding(const QString& displayName, const QString& encodingName)
 {
     if (displayName.isEmpty() || encodingName.isEmpty())
         return false;
+    QMutexLocker locker(&encodingRegistryMutex());
     auto& table = pluginEncodingTable();
     for (const auto& info : table)
     {
@@ -127,17 +159,20 @@ bool registerPluginEncoding(const QString& displayName, const QString& encodingN
     if (!encOpt.has_value())
         return false;
     table.append({displayName, encOpt.value()});
+    ++pluginEncodingGeneration();
     return true;
 }
 
 bool unregisterPluginEncoding(const QString& displayName)
 {
+    QMutexLocker locker(&encodingRegistryMutex());
     auto& table = pluginEncodingTable();
     for (int i = 0; i < table.size(); ++i)
     {
         if (table[i].displayName == displayName)
         {
             table.removeAt(i);
+            ++pluginEncodingGeneration();
             return true;
         }
     }

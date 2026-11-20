@@ -1152,7 +1152,9 @@ void MainWindow::restoreUntitledBackups()
         editor->setModified(true);
         m_editorController->connectEditorSignals(editor);
         SettingsManager::instance().applyToEditor(editor);
+        m_editorController->applyDefaultSyntax(editor);
         m_tabManager->addEditor(editor, Strings::untitled());
+        m_editorController->updateUndoRedoState();
         restored++;
     }
 

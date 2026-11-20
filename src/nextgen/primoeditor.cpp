@@ -1266,8 +1266,9 @@ void PrimoEditor::insertSnippet(const QString& trigger)
     if (m_cursorLine < 0 || m_cursorLine >= lines.size())
         return;
     QString& line = lines[m_cursorLine];
-    // Find the start of the current word
-    int col = m_cursorColumn;
+    // Find the start of the current word. QML (or a cursor persisted from a
+    // longer line) can leave the column past the end of the current line.
+    int col = qBound(0, m_cursorColumn, line.size());
     int start = col;
     while (start > 0 && (line.at(start - 1).isLetterOrNumber() || line.at(start - 1) == QLatin1Char('_')))
         --start;
@@ -1382,7 +1383,9 @@ void PrimoEditor::applyFormattingEdits(const QJsonArray& edits)
     {
         if (e.startLine < 0 || e.startLine >= lines.size())
             continue;
-        int endLine = qMin(e.endLine, lines.size() - 1);
+        int endLine = qBound(0, e.endLine, lines.size() - 1);
+        if (endLine < e.startLine)
+            continue;
         int startCol = qMin(e.startChar, lines[e.startLine].size());
         int endCol = qMin(e.endChar, lines[endLine].size());
 

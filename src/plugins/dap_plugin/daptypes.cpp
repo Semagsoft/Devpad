@@ -124,8 +124,17 @@ BreakpointEvent BreakpointEvent::fromJson(const QJsonObject& obj)
 OutputEvent OutputEvent::fromJson(const QJsonObject& obj)
 {
     OutputEvent e;
-    e.source = obj.value("source").toInt(0);
+    // DAP defines `source` as a Source object, not an integer. `category` is
+    // the authoritative field; derive the numeric mirror from it.
     e.category = obj.value("category").toString();
+    if (e.category == QLatin1String("console"))
+        e.source = 0;
+    else if (e.category == QLatin1String("stdout"))
+        e.source = 1;
+    else if (e.category == QLatin1String("stderr"))
+        e.source = 2;
+    else if (e.category == QLatin1String("telemetry"))
+        e.source = 3;
     e.output = obj.value("output").toString();
     e.threadId = obj.value("threadId").toInt(0);
     e.handlesGrouped = obj.value("handlesGrouped").toBool(false);

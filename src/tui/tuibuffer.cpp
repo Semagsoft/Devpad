@@ -566,7 +566,10 @@ void TuiBuffer::deleteLine(int line)
         m_cursorCol = 0;
         m_modified = true;
         clearSelection();
-        pushUndo(line, linesBefore, QStringList{});
+        // The buffer still holds one (now empty) line. Recording zero lines
+        // here makes restore() append linesBefore without removing the cleared
+        // line, duplicating it on undo.
+        pushUndo(line, linesBefore, QStringList{QString()});
     }
     else
     {

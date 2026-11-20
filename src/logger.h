@@ -54,7 +54,7 @@ private:
     ~Logger();
     Q_DISABLE_COPY(Logger)
 
-    void rotateLogFile(const QString& logFilePath);
+    void rotateLogFile(const QString& logFilePath) const;
     QString levelString(Level level) const;
 
     mutable QFile m_file;

@@ -74,6 +74,19 @@ TEST_F(SearchManagerTest, FindPreviousWithLastSearchFindsText)
     EXPECT_NO_THROW(searchManager->findPrevious());
 }
 
+TEST_F(SearchManagerTest, FindNextWithSelectionPreservesSearchFlags)
+{
+    searchManager->setLastSearch("hello", true, true, true);
+    editor->setSelection(0, 0, 0, 5); // single-line selection "hello"
+    ASSERT_EQ(editor->selectedText(), QStringLiteral("hello"));
+
+    searchManager->findNextWithSelection();
+
+    EXPECT_TRUE(searchManager->lastUseRegex());
+    EXPECT_TRUE(searchManager->lastMatchCase());
+    EXPECT_TRUE(searchManager->lastMatchWholeWord());
+}
+
 TEST_F(SearchManagerTest, FindNextWithNoMatchDoesNotCrash)
 {
     searchManager->setLastSearch("nonexistent_string_xyz");

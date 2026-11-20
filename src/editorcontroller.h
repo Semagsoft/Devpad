@@ -110,12 +110,13 @@ public:
     // unsaved changes survive; a later save recreates the file).
     void handleFileDeleted(const QString& path);
 
+    void applyDefaultSyntax(CodeEditor* editor) const;
+
 signals:
     void fileSaved(const QString& fileName);
     void editorConnected(CodeEditor* editor);
 
 private:
-    void applyDefaultSyntax(CodeEditor* editor) const;
     bool checkSaveConflict(CodeEditor* editor, const QString& fileName);
 
     // Synthetic backup key for an untitled (never-saved) document, so its

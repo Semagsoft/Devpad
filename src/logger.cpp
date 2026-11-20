@@ -34,7 +34,7 @@ Logger& Logger::instance()
     return logger;
 }
 
-void Logger::rotateLogFile(const QString& logFilePath)
+void Logger::rotateLogFile(const QString& logFilePath) const
 {
     for (int i = MaxRotatedLogs - 1; i >= 1; --i)
     {
@@ -105,6 +105,19 @@ void Logger::log(Level level, const QString& message) const
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
     QString levelStr = levelString(level);
     QString formatted = QString("[%1] [%2] %3").arg(timestamp, levelStr, message);
+
+    // Rotate lazily too: the constructor only checks the size at startup, and
+    // a long-running session would otherwise grow the log without bound.
+    if (m_file.isOpen() && m_file.size() >= MaxLogSize)
+    {
+        const QString path = m_file.fileName();
+        m_stream.flush();
+        m_stream.setDevice(nullptr);
+        m_file.close();
+        rotateLogFile(path);
+        if (m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+            m_stream.setDevice(&m_file);
+    }
 
     if (m_stream.device())
     {

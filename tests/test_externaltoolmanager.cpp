@@ -65,6 +65,12 @@ TEST_F(ExternalToolManagerTest, ResolveVariablesPercentEscape)
     EXPECT_EQ(manager.resolveVariables("%%", "", "", "", 0), "%");
 }
 
+TEST_F(ExternalToolManagerTest, ParseArgumentsPreservesEmptyQuotedToken)
+{
+    EXPECT_EQ(manager.parseArguments(QStringLiteral("python -c \"\" file.py")),
+              (QStringList{QStringLiteral("python"), QStringLiteral("-c"), QString(), QStringLiteral("file.py")}));
+}
+
 TEST_F(ExternalToolManagerTest, ResolveVariablesEscapedTokenIsLiteral)
 {
     // "%%f" means a literal "%f" - the percent escape must win over the token.

@@ -7,3 +7,11 @@
 leak:libproxy
 leak:libpxbackend
 leak:g_list_append
+
+# Qt's QLibrary/QLoader cache keeps plugin registration structures reachable
+# from globals inside libQt6Core (an uninstrumented library), so LSAN reports
+# them as indirect leaks with no application-side root. These stacks are all
+# allocations made during plugin load in the two DAP-disable tests only.
+leak:PluginManager::loadPluginFileAbsolute
+leak:PluginHost::addDockWidget
+leak:PluginHost::registerPanel

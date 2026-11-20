@@ -44,6 +44,7 @@
 #include <QPainter>
 #include <QRect>
 #include <QRegularExpression>
+#include <QPointer>
 #include <QThread>
 #include <QUrl>
 #include <QWheelEvent>
@@ -75,7 +76,7 @@ typedef void (*GhosttyWritePtyFn)(GhosttyTerminal terminal, void* userdata, cons
 class GhosttyIoThread : public QThread
 {
 public:
-    GhosttyIoThread(TerminalBackendGhostty* backend, int fd, QObject* parent = nullptr) : QThread(parent), m_backend(backend), m_fd(fd)
+    GhosttyIoThread(TerminalBackendGhostty* backend, int fd, QObject* parent = nullptr) : QThread(parent), m_backend(backend), m_fd(::dup(fd))
     {
         if (::pipe(m_wakePipe) != 0)
         {
@@ -86,6 +87,8 @@ public:
 
     ~GhosttyIoThread() override
     {
+        if (m_fd >= 0)
+            ::close(m_fd);
         if (m_wakePipe[0] >= 0)
             ::close(m_wakePipe[0]);
         if (m_wakePipe[1] >= 0)
@@ -108,8 +111,9 @@ protected:
     void run() override;
 
 private:
-    TerminalBackendGhostty* m_backend;
-    int m_fd;
+    // QPointer so a detached thread never delivers data to a destroyed backend.
+    QPointer<TerminalBackendGhostty> m_backend;
+    int m_fd; // own duplicate: the original may be closed while this thread is detached
     int m_wakePipe[2] = {-1, -1};
     std::atomic<bool> m_stop{false};
 };
@@ -185,6 +189,8 @@ void GhosttyIoThread::run()
 
     while (true)
     {
+        if (!m_backend)
+            break; // detached thread outlived the backend
         fds[0].revents = 0;
         fds[1].revents = 0;
         int ready = ::poll(fds, haveWakePipe ? 2 : 1, haveWakePipe ? -1 : 250);
@@ -219,11 +225,11 @@ void GhosttyIoThread::run()
             if (n == 0)
             {
                 // EOF on the master side: shell has exited.
-                QMetaObject::invokeMethod(m_backend, "handlePtyEof", Qt::QueuedConnection);
+                QMetaObject::invokeMethod(m_backend.data(), "handlePtyEof", Qt::QueuedConnection);
                 break;
             }
             QByteArray data(reinterpret_cast<const char*>(buf), static_cast<int>(n));
-            QMetaObject::invokeMethod(m_backend, "handlePtyData", Qt::QueuedConnection, Q_ARG(QByteArray, data));
+            QMetaObject::invokeMethod(m_backend.data(), "handlePtyData", Qt::QueuedConnection, Q_ARG(QByteArray, data));
         }
     }
 }

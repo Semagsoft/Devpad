@@ -121,6 +121,7 @@ QStringList ExternalToolManager::parseArguments(const QString& args)
     QString current;
     bool inSingleQuote = false;
     bool inDoubleQuote = false;
+    bool tokenStarted = false; // an empty quoted token ("") is still a token
 
     for (int i = 0; i < args.size(); ++i)
     {
@@ -159,10 +160,12 @@ QStringList ExternalToolManager::parseArguments(const QString& args)
             if (c == QLatin1Char('\''))
             {
                 inSingleQuote = true;
+                tokenStarted = true;
             }
             else if (c == QLatin1Char('"'))
             {
                 inDoubleQuote = true;
+                tokenStarted = true;
             }
 #ifndef Q_OS_WIN
             else if (c == QLatin1Char('\\') && i + 1 < args.size())
@@ -172,20 +175,22 @@ QStringList ExternalToolManager::parseArguments(const QString& args)
 #endif
             else if (c.isSpace())
             {
-                if (!current.isEmpty())
+                if (tokenStarted)
                 {
                     result << current;
                     current.clear();
+                    tokenStarted = false;
                 }
             }
             else
             {
                 current += c;
+                tokenStarted = true;
             }
         }
     }
 
-    if (!current.isEmpty())
+    if (tokenStarted)
         result << current;
 
     return result;

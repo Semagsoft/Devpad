@@ -90,6 +90,16 @@ TEST(TuiBuffer, UndoRedo)
     EXPECT_EQ(b.text(), QStringLiteral("hello!"));
 }
 
+TEST(TuiBuffer, UndoDeleteOfOnlyLineRestoresOneLine)
+{
+    TuiBuffer b(QString(), QStringLiteral("only line"));
+    b.deleteLine(0);
+    EXPECT_EQ(b.text(), QStringLiteral(""));
+    ASSERT_TRUE(b.undo());
+    EXPECT_EQ(b.text(), QStringLiteral("only line"));
+    EXPECT_EQ(b.lineCount(), 1);
+}
+
 TEST(TuiBuffer, UndoClearsRedo)
 {
     TuiBuffer b(QString(), QStringLiteral("a"));

@@ -181,6 +181,23 @@ TEST_F(TabManagerTest, CurrentIndexReflectsActiveTab)
     EXPECT_EQ(tabManager->currentIndex(), 1);
 }
 
+TEST_F(TabManagerTest, CurrentIndexIsGlobalAcrossPanes)
+{
+    addEditor("first.txt");
+
+    QTabWidget* secondPane = new QTabWidget();
+    tabManager->addPane(secondPane);
+    tabManager->setActivePane(secondPane);
+    CodeEditor* e2 = tabManager->createEditor();
+    tabManager->addEditor(e2, "second.txt");
+
+    // The active pane's local index is 0, but the global index is 1.
+    EXPECT_EQ(secondPane->currentIndex(), 0);
+    EXPECT_EQ(tabManager->currentIndex(), 1);
+
+    delete secondPane;
+}
+
 TEST_F(TabManagerTest, ActivePaneIsPrimary)
 {
     EXPECT_EQ(tabManager->activePane(), tabWidget);

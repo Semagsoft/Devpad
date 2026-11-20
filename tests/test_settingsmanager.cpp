@@ -21,6 +21,14 @@ protected:
     std::unique_ptr<SettingsManager> m_testSettings;
 };
 
+TEST_F(SettingsManagerTest, AutoSaveIntervalIsClamped)
+{
+    SettingsManager::instance().setAutoSaveInterval(0);
+    EXPECT_EQ(SettingsManager::instance().autoSaveInterval(), 1);
+    SettingsManager::instance().setAutoSaveInterval(1000000);
+    EXPECT_EQ(SettingsManager::instance().autoSaveInterval(), 86400);
+}
+
 TEST_F(SettingsManagerTest, RecentFilesAddAndList)
 {
     SettingsManager::instance().clearRecentFiles();

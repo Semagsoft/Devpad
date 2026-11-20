@@ -194,9 +194,9 @@ void DebugPanel::populateStack(const QList<dap::StackFrame>& frames)
         nameItem->setData(f.id, Qt::UserRole);
         QString loc;
         if (!f.sourcePath.isEmpty())
-            loc = QStringLiteral("%1:%2").arg(QFileInfo(f.sourcePath).fileName()).arg(f.line + 1);
+            loc = QStringLiteral("%1:%2").arg(QFileInfo(f.sourcePath).fileName()).arg(f.line);
         else
-            loc = QStringLiteral("%1:%2").arg(f.sourceName).arg(f.line + 1);
+            loc = QStringLiteral("%1:%2").arg(f.sourceName).arg(f.line);
         auto* locItem = new QStandardItem(loc);
         locItem->setEditable(false);
         row << nameItem << locItem;
