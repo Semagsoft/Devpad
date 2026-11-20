@@ -5,8 +5,11 @@
 #include "tabmanager.h"
 
 #include <QApplication>
+#include <QDir>
+#include <QFile>
 #include <QSettings>
 #include <QTabWidget>
+#include <QTemporaryDir>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -140,6 +143,33 @@ TEST_F(SessionManagerTest, SaveSessionWithTabManager)
     QStringList files = mgr.sessionFiles();
     EXPECT_EQ(files.size(), 1);
     EXPECT_TRUE(files.contains("/path/to/test.cpp"));
+}
+
+TEST_F(SessionManagerTest, SaveSessionStoresAbsolutePathForRelativeFileName)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+    const QString absPath = dir.filePath(QStringLiteral("file.cpp"));
+    QFile file(absPath);
+    ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+    file.close();
+
+    const QString oldCwd = QDir::currentPath();
+    ASSERT_TRUE(QDir::setCurrent(dir.path()));
+    {
+        SessionManager mgr;
+        QTabWidget tabWidget;
+        TabManager tabManager(&tabWidget);
+        ProjectPanel projectPanel;
+
+        CodeEditor* editor = tabManager.createEditor();
+        editor->setFileName(QStringLiteral("file.cpp"));
+        tabManager.addEditor(editor, QStringLiteral("file.cpp"));
+
+        mgr.saveSession(&tabManager, &projectPanel, "");
+        EXPECT_EQ(mgr.sessionFiles(), QStringList{absPath});
+    }
+    QDir::setCurrent(oldCwd);
 }
 
 TEST_F(SessionManagerTest, SaveSessionSkipsUntitledFiles)

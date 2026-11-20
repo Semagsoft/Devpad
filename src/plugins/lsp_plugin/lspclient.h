@@ -137,6 +137,9 @@ private:
     void sendInitialize();
     void sendExitIfStopping();
     void cleanupProcess();
+    // Hard-detach the current process when startServer() is called on a live
+    // client, so stale callbacks cannot act on the replacement process.
+    void detachProcessForRestart();
     void flushPendingDocOps();
     void handleNotification(const QString& method, const QJsonObject& params);
     void handleResponse(const QVariant& id, const QJsonValue& result, const QJsonObject& error);

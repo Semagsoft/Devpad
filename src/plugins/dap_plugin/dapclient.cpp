@@ -61,10 +61,47 @@ DapClient::~DapClient()
     }
 }
 
+void DapClient::detachProcessForRestart()
+{
+    if (!m_process)
+        return;
+    QProcess* old = m_process;
+    m_process = nullptr;
+    // Remove every connection from the old process so its late finished/error
+    // signals cannot operate on the new m_process created by startServer().
+    old->disconnect();
+    old->setParent(nullptr);
+    if (old->state() != QProcess::NotRunning)
+    {
+        old->terminate();
+        QPointer<QProcess> guard(old);
+        QTimer::singleShot(KILL_TIMEOUT_MS, QCoreApplication::instance(),
+                           [guard]()
+                           {
+                               if (!guard)
+                                   return;
+                               if (guard->state() != QProcess::NotRunning)
+                                   guard->kill();
+                               guard->deleteLater();
+                           });
+    }
+    else
+    {
+        old->deleteLater();
+    }
+    m_initialized = false;
+    m_configurationReady = false;
+    m_starting = false;
+    m_stopping = false;
+    m_disconnectSent = false;
+    m_stoppedThreadId = 0;
+}
+
 void DapClient::startServer(const QString& command, const QStringList& args)
 {
-    if (m_process && m_process->state() != QProcess::NotRunning)
-        stopServer();
+    // A graceful stopServer() would leave disconnect callbacks and escalation
+    // timers tied to `this`; detach the old process completely instead.
+    detachProcessForRestart();
 
     m_command = command;
     m_args = args;
@@ -562,6 +599,10 @@ void DapClient::onReadyReadStderr()
 
 void DapClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
 {
+    // A stale signal from a process replaced by startServer() must not tear
+    // down the new process.
+    if (sender() && sender() != m_process)
+        return;
     m_initialized = false;
     m_configurationReady = false;
     m_jsonRpc->failPendingRequests(-32001, QStringLiteral("Debug adapter stopped"));

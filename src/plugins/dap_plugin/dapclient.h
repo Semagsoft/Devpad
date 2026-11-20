@@ -113,6 +113,9 @@ private slots:
 private:
     void sendInitializeHandshake();
     void sendTerminateIfStopping();
+    // Hard-detach the current process when startServer() is called on a live
+    // client, so stale callbacks cannot act on the replacement process.
+    void detachProcessForRestart();
     void checkConfigurationReady();
     // 0 means "resolve to the last thread the adapter stopped" (tracked from
     // stopped events); adapters assign thread ids, so a literal 0 is never valid.

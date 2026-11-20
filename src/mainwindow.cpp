@@ -490,7 +490,7 @@ void MainWindow::createManagers()
                 }
             });
 
-    m_remoteOpenCoordinator = new RemoteOpenCoordinator(m_remoteFileService, m_projectPanel, m_tabManager, m_editorController, this);
+    m_remoteOpenCoordinator = new RemoteOpenCoordinator(m_remoteFileService, m_projectPanel, m_tabManager, m_editorController, this, this);
     connect(m_remoteOpenCoordinator, &RemoteOpenCoordinator::fileTypeLabelDirty, this, &MainWindow::updateFileTypeLabel);
 
     m_remoteCoordinator =
@@ -1658,6 +1658,15 @@ void MainWindow::closeEvent(QCloseEvent* event)
             event->ignore();
             return;
         }
+    }
+    // A modified untitled document that survived the prompt loop was
+    // explicitly discarded ("Don't Save"); drop its auto-save backup so it
+    // is not resurrected on the next launch. Mirrors saveAllModifiedTabs().
+    for (int i = 0; i < m_tabManager->count(); ++i)
+    {
+        CodeEditor* editor = m_tabManager->editorAt(i);
+        if (editor && editor->isModified() && (editor->fileName() == Strings::untitled() || editor->fileName().isEmpty()))
+            m_editorController->discardUntitledBackup(editor);
     }
     if (m_actionManager->terminalPanelAct()->isVisible())
         SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());

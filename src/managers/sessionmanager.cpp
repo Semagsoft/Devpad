@@ -28,6 +28,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <cerrno>
@@ -38,6 +39,19 @@
 #endif
 #include <windows.h>
 #endif
+
+namespace
+{
+// Store absolute paths so a session still resolves when Devpad is relaunched
+// from a different working directory. Resolve symlinks for existing files so
+// the same file opened through different paths maps to one tab/backup key.
+QString canonicalSessionPath(const QString& path)
+{
+    const QFileInfo info(path);
+    const QString resolved = info.canonicalFilePath();
+    return resolved.isEmpty() ? info.absoluteFilePath() : resolved;
+}
+} // namespace
 
 SessionManager::SessionManager(QObject* parent)
     : QObject(parent), m_sessionSettings(QStringLiteral("Semagsoft"), QStringLiteral("Devpad")),
@@ -565,7 +579,7 @@ void SessionManager::saveSession(TabManager* tabManager, ProjectPanel* projectPa
             {
                 activeIndex = files.size();
             }
-            files.append(fileName);
+            files.append(canonicalSessionPath(fileName));
         }
     }
 
@@ -582,13 +596,13 @@ void SessionManager::saveSession(TabManager* tabManager, ProjectPanel* projectPa
                 QList<int> lines = editor->bookmarkLines();
                 if (!lines.isEmpty())
                 {
-                    bookmarks.insert(editor->fileName(), lines);
+                    bookmarks.insert(canonicalSessionPath(editor->fileName()), lines);
                 }
 
                 int line = 0;
                 int index = 0;
                 editor->getCursorPosition(&line, &index);
-                cursors.insert(editor->fileName(), {line, index, editor->firstVisibleLine()});
+                cursors.insert(canonicalSessionPath(editor->fileName()), {line, index, editor->firstVisibleLine()});
             }
         }
     }

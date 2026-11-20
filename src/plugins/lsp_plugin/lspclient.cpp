@@ -70,16 +70,54 @@ LspClient::~LspClient()
     }
 }
 
+void LspClient::detachProcessForRestart()
+{
+    if (!m_process)
+        return;
+    QProcess* old = m_process;
+    m_process = nullptr;
+    // Disconnect every signal from the old process: its finished/error/stdout
+    // handlers are member slots that would otherwise operate on the NEW
+    // m_process created by startServer().
+    old->disconnect();
+    old->setParent(nullptr);
+    if (old->state() != QProcess::NotRunning)
+    {
+        old->terminate();
+        QPointer<QProcess> guard(old);
+        QTimer::singleShot(KILL_TIMEOUT_MS, QCoreApplication::instance(),
+                           [guard]()
+                           {
+                               if (!guard)
+                                   return;
+                               if (guard->state() != QProcess::NotRunning)
+                                   guard->kill();
+                               guard->deleteLater();
+                           });
+    }
+    else
+    {
+        old->deleteLater();
+    }
+    m_initialized = false;
+    m_starting = false;
+    m_stopping = false;
+    m_shutdownExitSent = false;
+}
+
 void LspClient::startServer(const QString& command, const QStringList& args, const QString& rootUri)
 {
-    if (m_process && m_process->state() != QProcess::NotRunning)
-        stopServer();
+    // A graceful stopServer() would leave shutdown callbacks and escalation
+    // timers tied to `this`; when they fire they would target the replacement
+    // process. Detach the old process completely instead.
+    detachProcessForRestart();
 
     m_command = command;
     m_args = args;
     m_rootUri = rootUri;
     m_initialized = false;
     m_starting = true;
+    m_stopping = false;
     m_shutdownExitSent = false;
 
     m_process = new QProcess(this);
@@ -804,6 +842,10 @@ void LspClient::onReadyReadStderr()
 
 void LspClient::onProcessFinished(int /*exitCode*/, QProcess::ExitStatus status)
 {
+    // A stale signal from a process replaced by startServer() must not tear
+    // down the new process.
+    if (sender() && sender() != m_process)
+        return;
     m_initialized = false;
 
     // The server cannot answer anything anymore; resolve every outstanding

@@ -75,6 +75,23 @@ TEST(SnippetTest, ParseBodyMixedStops)
     EXPECT_EQ(result.tabStops[0].defaultValue, "condition");
 }
 
+TEST(SnippetTest, ParseBodyMalformedPlaceholderDoesNotBacktrackExponentially)
+{
+    // With an ambiguous (?:\\.|[^}])* alternation, each "\a" can be parsed two
+    // ways and this unclosed placeholder backtracks exponentially. The fixed
+    // disjoint alternation parses it in linear time. This completes in
+    // milliseconds; on the old regex it would never finish.
+    QString payload;
+    for (int i = 0; i < 1000; ++i)
+        payload += QStringLiteral("\\a");
+    const QString body = QStringLiteral("${1:") + payload;
+
+    const Snippet::ExpandedSnippet result = Snippet::parseBody({body});
+    // Unmatched placeholder is left verbatim; the test's real assertion is
+    // that parsing terminates promptly.
+    EXPECT_EQ(result.text, body);
+}
+
 TEST(SnippetTest, ParseBodyEscapeSequences)
 {
     QStringList body = {R"(\n\t\\\$\})"};

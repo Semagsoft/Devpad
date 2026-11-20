@@ -117,7 +117,11 @@ Snippet::ExpandedSnippet Snippet::parseBody(const QStringList& bodyLines)
 
     // Matches ${n:default} placeholders. Declared once for the precompute
     // pass and the expansion pass below.
-    static const QRegularExpression placeholderRe(R"(\$\{(\d+):((?:\\.|[^}])*)\})");
+    // Keep the alternatives disjoint: [^\\}] consumes any ordinary character
+    // (including a lone backslash) and \\. consumes an escape atomically. An
+    // overlapping alternation would backtrack exponentially on long runs of
+    // backslashes with no closing brace (ReDoS on a malformed snippet body).
+    static const QRegularExpression placeholderRe(R"(\$\{(\d+):((?:[^\\}]|\\.)*)\})");
 
     // Mirror rule (VS Code): bare ${n} and $n stops share the default of the
     // first ${n:default} occurrence of the same number. Precompute the

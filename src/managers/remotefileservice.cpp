@@ -55,6 +55,17 @@ constexpr const char* kListingFilesMarker = "__DEVPAD_FILES__";
 // Cap on the stdout of a directory listing to bail out of runaway listings.
 constexpr qint64 kMaxListingBytes = 10LL * 1024 * 1024;
 
+// Cap stderr collected from ssh/scp helpers: a runaway remote process must not
+// be able to exhaust GUI memory by streaming error output indefinitely.
+constexpr int kMaxStderrBytes = 64 * 1024;
+
+void appendCappedStderr(QByteArray* buffer, const QByteArray& chunk)
+{
+    if (buffer->size() >= kMaxStderrBytes)
+        return;
+    buffer->append(chunk.left(kMaxStderrBytes - buffer->size()));
+}
+
 // Abort an HTTP/HTTPS transfer that stalls for this long.
 constexpr int kHttpTransferTimeoutMs = 30000;
 
@@ -100,11 +111,16 @@ void RemoteFileService::openRemote(const QString& urlStr)
         return;
     }
 
-    bool isSsh = urlStr.startsWith("ssh://", Qt::CaseInsensitive);
-    if (isSsh)
+    // Only these schemes may reach QNetworkAccessManager: it also handles
+    // file://, which would turn an untrusted URL into an arbitrary local file
+    // read that is emitted as a downloaded document.
+    const QString scheme = url.scheme().toLower();
+    if (scheme == QLatin1String("ssh"))
         downloadSsh(url, urlStr);
-    else
+    else if (scheme == QLatin1String("http") || scheme == QLatin1String("https"))
         downloadHttp(url, urlStr);
+    else
+        emit downloadFailed(urlStr, tr("Only http, https and ssh URLs are supported."));
 }
 
 void RemoteFileService::openRemoteFolder(const QString& urlStr)
@@ -354,7 +370,7 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
             {
                 if (!procGuard)
                     return;
-                stderrBuf->append(ssh->readAllStandardError());
+                appendCappedStderr(stderrBuf.get(), ssh->readAllStandardError());
             });
 
     connect(ssh, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
@@ -815,7 +831,7 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
             {
                 if (!procGuard)
                     return;
-                stderrBuf->append(scp->readAllStandardError());
+                appendCappedStderr(stderrBuf.get(), scp->readAllStandardError());
                 *lastProgress = QDateTime::currentMSecsSinceEpoch();
             });
 
@@ -987,7 +1003,7 @@ void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList&
             {
                 if (!procGuard)
                     return;
-                stderrBuf->append(scp->readAllStandardError());
+                appendCappedStderr(stderrBuf.get(), scp->readAllStandardError());
                 *lastProgress = QDateTime::currentMSecsSinceEpoch();
             });
 

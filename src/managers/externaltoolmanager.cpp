@@ -32,8 +32,6 @@ void ExternalToolManager::setTools(const QList<ExternalTool>& tools)
 QString ExternalToolManager::resolveVariables(const QString& template_, const QString& filePath, const QString& projectDir,
                                               const QString& selectedText, int lineNumber) const
 {
-    QString result = template_;
-
     QFileInfo fi(filePath);
     QString baseName = fi.completeBaseName();
     QString dir = fi.absolutePath();
@@ -41,15 +39,64 @@ QString ExternalToolManager::resolveVariables(const QString& template_, const QS
     if (!ext.isEmpty())
         ext = "." + ext;
 
-    result.replace("%f", filePath);
-    result.replace("%n", baseName);
-    result.replace("%d", dir);
-    result.replace("%e", ext);
-    result.replace("%p", projectDir);
-    result.replace("%s", selectedText);
-    result.replace("%l", QString::number(lineNumber));
-    result.replace("%%", "%");
-
+    // Single left-to-right pass: substituted values are appended verbatim and
+    // never rescanned by a later token. Sequential QString::replace() calls
+    // would corrupt a value that itself contains a token (e.g. a path with
+    // "%n") and could not implement "%%" as a literal percent.
+    QString result;
+    result.reserve(template_.size());
+    for (int i = 0; i < template_.size();)
+    {
+        if (template_.at(i) != QLatin1Char('%'))
+        {
+            result.append(template_.at(i++));
+            continue;
+        }
+        if (i + 1 >= template_.size())
+        {
+            result.append(QLatin1Char('%'));
+            ++i;
+            continue;
+        }
+        const QChar token = template_.at(i + 1);
+        if (token == QLatin1Char('%'))
+        {
+            result.append(QLatin1Char('%'));
+            i += 2;
+            continue;
+        }
+        QString value;
+        switch (token.toLatin1())
+        {
+        case 'f':
+            value = filePath;
+            break;
+        case 'n':
+            value = baseName;
+            break;
+        case 'd':
+            value = dir;
+            break;
+        case 'e':
+            value = ext;
+            break;
+        case 'p':
+            value = projectDir;
+            break;
+        case 's':
+            value = selectedText;
+            break;
+        case 'l':
+            value = QString::number(lineNumber);
+            break;
+        default:
+            result.append(QLatin1Char('%'));
+            ++i;
+            continue;
+        }
+        result.append(value);
+        i += 2;
+    }
     return result;
 }
 

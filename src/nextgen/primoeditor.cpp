@@ -48,6 +48,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     connect(m_doc, &PrimoDocument::textChanged, this,
             [this]()
             {
+                QMutexLocker locker(&m_renderMutex);
                 m_linesDirty = true;
                 m_highlightDirty = true;
                 m_highlightVersion++;
@@ -59,6 +60,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     connect(m_doc, &PrimoDocument::languageChanged, this,
             [this]()
             {
+                QMutexLocker locker(&m_renderMutex);
                 emit languageChanged();
                 m_highlightDirty = true;
                 m_highlightVersion++;
@@ -91,6 +93,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     connect(this, &PrimoEditor::textChanged, this,
             [this]()
             {
+                QMutexLocker locker(&m_renderMutex);
                 qreal nh = contentHeight();
                 if (!qFuzzyCompare(nh, m_contentHeight))
                 {
@@ -102,6 +105,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     connect(this, &PrimoEditor::fontChanged, this,
             [this]()
             {
+                QMutexLocker locker(&m_renderMutex);
                 ensureMetrics();
                 m_contentHeight = contentHeight();
                 emit contentHeightChanged();
@@ -117,6 +121,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
 
 void PrimoEditor::applySettings()
 {
+    QMutexLocker locker(&m_renderMutex);
     // Theme
     ThemeId tid = SettingsManager::instance().theme();
     m_theme = getThemeColors(tid);
@@ -285,6 +290,7 @@ void PrimoEditor::setCursorColumn(int col)
 }
 qreal PrimoEditor::contentHeight() const
 {
+    QMutexLocker locker(&m_renderMutex);
     if (m_wordWrap && m_doc)
     {
         // Word wrap: total height = total wrapped visual rows * lineHeight
@@ -1330,6 +1336,7 @@ QString PrimoEditor::currentWord() const
 
 void PrimoEditor::applyFormattingEdits(const QJsonArray& edits)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (!m_doc || edits.isEmpty())
         return;
 
@@ -1436,6 +1443,7 @@ bool PrimoEditor::isUndoDisabled() const
 }
 void PrimoEditor::undo()
 {
+    QMutexLocker locker(&m_renderMutex);
     if (m_readOnly || !m_doc || m_doc->isUndoDisabled())
         return;
     m_doc->undo();
@@ -1454,6 +1462,7 @@ void PrimoEditor::undo()
 }
 void PrimoEditor::redo()
 {
+    QMutexLocker locker(&m_renderMutex);
     if (m_readOnly || !m_doc || m_doc->isUndoDisabled())
         return;
     m_doc->redo();
@@ -1543,6 +1552,7 @@ void PrimoEditor::selectAll()
 
 void PrimoEditor::applyThemeColors(const ThemeColors& colors)
 {
+    QMutexLocker locker(&m_renderMutex);
     m_theme = colors;
     m_bg = colors.background;
     m_fg = colors.foreground;
@@ -1567,6 +1577,7 @@ QString PrimoEditor::customTheme() const
 
 void PrimoEditor::loadFile(const QString& path)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (!m_doc)
         return;
     QFileInfo fi(path);
@@ -1647,6 +1658,7 @@ bool PrimoEditor::save()
 }
 bool PrimoEditor::saveAs(const QString& path)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (m_readOnly)
     {
         emit fileSaved(false, QStringLiteral("Read-only"));
@@ -1943,6 +1955,7 @@ PrimoEditor::BracketContext PrimoEditor::bracketContextAt(int pos) const
 
 bool PrimoEditor::handleAutoClose(QChar ch, int pos)
 {
+    QMutexLocker locker(&m_renderMutex);
     struct Pair
     {
         QChar open;
@@ -2319,6 +2332,7 @@ QString PrimoEditor::whitespaceDisplayString(const QString& disp) const
 
 void PrimoEditor::scheduleHighlight(int firstLine, int lastLine)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (!m_doc || m_doc->text().isEmpty())
         return;
     // Determine language already set
@@ -2393,6 +2407,7 @@ void PrimoEditor::scheduleHighlight(int firstLine, int lastLine)
 
 void PrimoEditor::applyHighlightResult(int version, int firstLine, const QVector<QVector<QTextLayout::FormatRange>>& fmts)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (version != m_highlightVersion)
         return;
     if (firstLine < 0 || firstLine >= m_highlightCache.size())
@@ -2406,6 +2421,10 @@ void PrimoEditor::applyHighlightResult(int version, int firstLine, const QVector
 
 QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data)
 {
+    // This may execute on the scene-graph thread; hold the lock for the whole
+    // function so the GUI thread cannot mutate the caches or the document
+    // while they are being read for rendering.
+    QMutexLocker locker(&m_renderMutex);
     Q_UNUSED(data);
     QSGNode* root = oldNode;
     if (!root)
