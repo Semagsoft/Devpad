@@ -11,7 +11,7 @@ What's new in Devpad 1.10:
       LSP
       DAP
       Terminal
-- Add-on languages without a native QScintilla lexer (Rust, Go, TypeScript, QML, PHP, JSONC) are now individual first-party plugins, enabled/disabled from the Plugins settings.
+- Add-on languages without a native QScintilla lexer (Rust, Go, TypeScript, QML, PHP, JSONC) are now individual first-party plugins, enabled/disabled from the Plugins settings. SHA: TBD
 
 ## [1.09] - 2026-11-09
 
