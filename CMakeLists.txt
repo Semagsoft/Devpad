@@ -558,7 +558,8 @@ function(add_devpad_language_plugin name)
         Qt6::Widgets
         ${DEVPAD_HOST_LINKS}
     )
-    target_link_qscintilla(${name})
+    # No QScintilla link: lexers are created by the host (createLexer()) so
+    # their vtables stay in the executable when a plugin is unloaded.
     if(APPLE)
         # Allow undefined host symbols resolved from the executable at load.
         target_link_options(${name} PRIVATE -Wl,-undefined,dynamic_lookup)

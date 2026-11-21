@@ -23,8 +23,6 @@
 #include "keywords.h"
 #include "plugins/languagepluginbase.h"
 
-#include <Qsci/qscilexerjson.h>
-
 namespace
 {
 LanguagePluginDescriptor makeDescriptor()
@@ -42,8 +40,7 @@ LanguagePluginDescriptor makeDescriptor()
     d.blockCommentStart = QStringLiteral("/*");
     d.blockCommentEnd = QStringLiteral("*/");
 
-    const auto factory = [](QObject* parent) -> QObject* { return new QsciLexerJSON(parent); };
-    d.languages.append({QStringLiteral("jsonc"), QStringLiteral("QsciLexerJSON"), factory, jsonKeywords()});
+    d.languages.append({QStringLiteral("jsonc"), QStringLiteral("QsciLexerJSON"), jsonKeywords()});
     return d;
 }
 } // namespace

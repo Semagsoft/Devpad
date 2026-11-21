@@ -23,8 +23,6 @@
 #include "keywords.h"
 #include "plugins/languagepluginbase.h"
 
-#include <Qsci/qscilexerjavascript.h>
-
 namespace
 {
 LanguagePluginDescriptor makeDescriptor()
@@ -42,11 +40,9 @@ LanguagePluginDescriptor makeDescriptor()
     d.blockCommentStart = QStringLiteral("/*");
     d.blockCommentEnd = QStringLiteral("*/");
 
-    const auto factory = [](QObject* parent) -> QObject* { return new QsciLexerJavaScript(parent); };
-    const QStringList keywords = typescriptKeywords();
-    d.languages.append({QStringLiteral("typescript"), QStringLiteral("QsciLexerJavaScript"), factory, keywords});
-    d.languages.append({QStringLiteral("ts"), QStringLiteral("QsciLexerJavaScript"), factory, keywords});
-    d.languages.append({QStringLiteral("tsx"), QStringLiteral("QsciLexerJavaScript"), factory, keywords});
+    d.languages.append({QStringLiteral("typescript"), QStringLiteral("QsciLexerJavaScript"), typescriptKeywords()});
+    d.languages.append({QStringLiteral("ts"), QStringLiteral("QsciLexerJavaScript"), typescriptKeywords()});
+    d.languages.append({QStringLiteral("tsx"), QStringLiteral("QsciLexerJavaScript"), typescriptKeywords()});
     return d;
 }
 } // namespace

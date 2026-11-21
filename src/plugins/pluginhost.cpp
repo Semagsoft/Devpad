@@ -35,6 +35,32 @@
 #include <QMenu>
 #include <QMenuBar>
 
+#include <Qsci/qscilexercpp.h>
+#include <Qsci/qscilexerjavascript.h>
+#include <Qsci/qscilexerjson.h>
+#include <Qsci/qscilexerproperties.h>
+
+namespace
+{
+// QStringLiteral data lives in the plugin's .so and is marked static (never
+// refcounted), so a plain QString copy keeps pointing into that mapping. Once
+// the plugin is unloaded those strings dangle — notably an editor's m_syntax.
+// Copy the characters into host-owned storage at the registration boundary.
+QString ownString(const QString& value)
+{
+    return QString(value.constData(), value.size());
+}
+
+QStringList ownStrings(const QStringList& values)
+{
+    QStringList result;
+    result.reserve(values.size());
+    for (const QString& value : values)
+        result.append(ownString(value));
+    return result;
+}
+} // namespace
+
 PluginHost::PluginHost(MainWindow* mainWindow, QObject* parent) : QObject(parent), m_mainWindow(mainWindow)
 {
     if (m_mainWindow)
@@ -479,16 +505,17 @@ void PluginHost::registerLspServer(const QString& language, const QString& comma
     // loaded. When the plugin is absent the registration is dropped, which
     // matches the plugin-owned-LSP model (no servers, no LSP features).
     if (auto* service = qobject_cast<lsp::ILspService*>(object(lsp::LspServiceObjectId)))
-        service->registerServer(language, command, args);
+        service->registerServer(ownString(language), ownString(command), ownStrings(args));
 }
 
 bool PluginHost::registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory)
 {
     if (languageId.isEmpty() || !factory)
         return false;
-    if (!registerPluginLanguage(languageId, lexerClassName, factory))
+    const QString id = ownString(languageId);
+    if (!registerPluginLanguage(id, ownString(lexerClassName), factory))
         return false;
-    m_pluginRegistrations[m_currentPluginId].languageIds.append(languageId);
+    m_pluginRegistrations[m_currentPluginId].languageIds.append(id);
     return true;
 }
 
@@ -496,24 +523,26 @@ bool PluginHost::registerLanguageKeywords(const QString& languageId, const QStri
 {
     if (languageId.isEmpty() || keywords.isEmpty())
         return false;
-    if (!registerPluginLanguageKeywords(languageId, keywords))
+    const QString id = ownString(languageId);
+    if (!registerPluginLanguageKeywords(id, ownStrings(keywords)))
         return false;
     // Keyword-only registration: at unload, drop ONLY the keywords, not the
     // language (it may be a built-in or another plugin's language).
     // The language was registered via registerLanguage() if it is in languageIds;
     // only record as keyword-only when we did not register the language itself.
     PluginRegistrations& reg = m_pluginRegistrations[m_currentPluginId];
-    if (!reg.languageIds.contains(languageId))
-        reg.keywordOnlyLanguageIds.append(languageId);
+    if (!reg.languageIds.contains(id))
+        reg.keywordOnlyLanguageIds.append(id);
     return true;
 }
 
 bool PluginHost::registerLanguageCommentSyntax(const QString& languageId, const QString& lineComment, const QString& blockCommentStart,
                                                const QString& blockCommentEnd)
 {
-    if (!registerPluginLanguageCommentSyntax(languageId, lineComment, blockCommentStart, blockCommentEnd))
+    const QString id = ownString(languageId);
+    if (!registerPluginLanguageCommentSyntax(id, ownString(lineComment), ownString(blockCommentStart), ownString(blockCommentEnd)))
         return false;
-    m_pluginRegistrations[m_currentPluginId].commentSyntaxLanguageIds.append(languageId);
+    m_pluginRegistrations[m_currentPluginId].commentSyntaxLanguageIds.append(id);
     return true;
 }
 
@@ -525,13 +554,30 @@ bool PluginHost::unregisterLanguageCommentSyntax(const QString& languageId)
     return true;
 }
 
+QObject* PluginHost::createLexer(const QString& lexerClassName, QObject* parent)
+{
+    // Lexers must be allocated here, in the host: plugins link QScintilla
+    // statically too, so a lexer allocated in a .so keeps its vtable there and
+    // becomes invalid as soon as that plugin is unloaded.
+    if (lexerClassName == QLatin1String("QsciLexerCPP"))
+        return new QsciLexerCPP(parent);
+    if (lexerClassName == QLatin1String("QsciLexerJavaScript"))
+        return new QsciLexerJavaScript(parent);
+    if (lexerClassName == QLatin1String("QsciLexerJSON"))
+        return new QsciLexerJSON(parent);
+    if (lexerClassName == QLatin1String("QsciLexerProperties"))
+        return new QsciLexerProperties(parent);
+    return nullptr;
+}
+
 bool PluginHost::registerEncoding(const QString& displayName, const QString& encodingName)
 {
     if (displayName.isEmpty() || encodingName.isEmpty())
         return false;
-    if (!registerPluginEncoding(displayName, encodingName))
+    const QString name = ownString(displayName);
+    if (!registerPluginEncoding(name, ownString(encodingName)))
         return false;
-    m_pluginRegistrations[m_currentPluginId].encodingNames.append(displayName);
+    m_pluginRegistrations[m_currentPluginId].encodingNames.append(name);
     return true;
 }
 
@@ -539,9 +585,10 @@ bool PluginHost::registerExtension(const QString& extension, const QString& lang
 {
     if (extension.isEmpty() || languageId.isEmpty())
         return false;
-    if (!SettingsManager::addExtensionMapping(extension, languageId))
+    const QString ext = ownString(extension);
+    if (!SettingsManager::addExtensionMapping(ext, ownString(languageId)))
         return false;
-    m_pluginRegistrations[m_currentPluginId].extensions.append(extension);
+    m_pluginRegistrations[m_currentPluginId].extensions.append(ext);
     return true;
 }
 
@@ -549,18 +596,20 @@ bool PluginHost::registerFileNameMapping(const QString& fileName, const QString&
 {
     if (fileName.isEmpty() || languageId.isEmpty())
         return false;
-    if (!SettingsManager::addFileNameMapping(fileName, languageId))
+    const QString name = ownString(fileName);
+    if (!SettingsManager::addFileNameMapping(name, ownString(languageId)))
         return false;
-    m_pluginRegistrations[m_currentPluginId].fileNames.append(fileName);
+    m_pluginRegistrations[m_currentPluginId].fileNames.append(name);
     return true;
 }
 
 bool PluginHost::registerSnippet(const QString& name, const QString& prefix, const QStringList& body, const QString& description,
                                  const QString& scope)
 {
-    if (!SnippetManager::instance().addSnippet(name, prefix, body, description, scope))
+    const QString ownedName = ownString(name);
+    if (!SnippetManager::instance().addSnippet(ownedName, ownString(prefix), ownStrings(body), ownString(description), ownString(scope)))
         return false;
-    m_pluginRegistrations[m_currentPluginId].snippetNames.append(name);
+    m_pluginRegistrations[m_currentPluginId].snippetNames.append(ownedName);
     return true;
 }
 
@@ -574,12 +623,13 @@ bool PluginHost::unregisterSnippet(const QString& name)
 
 bool PluginHost::registerTheme(const QString& themeId, const ThemeColors& colors)
 {
-    qDebug("PluginHost::registerTheme: id='%s', calling registerPluginTheme", qPrintable(themeId));
-    bool ok = registerPluginTheme(themeId, colors);
+    const QString id = ownString(themeId);
+    qDebug("PluginHost::registerTheme: id='%s', calling registerPluginTheme", qPrintable(id));
+    bool ok = registerPluginTheme(id, colors);
     qDebug("PluginHost::registerTheme: registerPluginTheme returned %d", ok);
     if (!ok)
         return false;
-    m_pluginRegistrations[m_currentPluginId].themeIds.append(themeId);
+    m_pluginRegistrations[m_currentPluginId].themeIds.append(id);
     return true;
 }
 

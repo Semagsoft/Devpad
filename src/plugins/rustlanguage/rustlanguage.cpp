@@ -22,8 +22,6 @@
 #include "keywords.h"
 #include "plugins/languagepluginbase.h"
 
-#include <Qsci/qscilexercpp.h>
-
 namespace
 {
 LanguagePluginDescriptor makeDescriptor()
@@ -41,10 +39,8 @@ LanguagePluginDescriptor makeDescriptor()
     d.blockCommentStart = QStringLiteral("/*");
     d.blockCommentEnd = QStringLiteral("*/");
 
-    const auto factory = [](QObject* parent) -> QObject* { return new QsciLexerCPP(parent); };
-    const QStringList keywords = rustKeywords();
-    d.languages.append({QStringLiteral("rust"), QStringLiteral("QsciLexerCPP"), factory, keywords});
-    d.languages.append({QStringLiteral("rs"), QStringLiteral("QsciLexerCPP"), factory, keywords});
+    d.languages.append({QStringLiteral("rust"), QStringLiteral("QsciLexerCPP"), rustKeywords()});
+    d.languages.append({QStringLiteral("rs"), QStringLiteral("QsciLexerCPP"), rustKeywords()});
     return d;
 }
 } // namespace

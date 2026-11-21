@@ -1,6 +1,11 @@
 #include "defaultsyntax.h"
 #include "settingsmanager.h"
 
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QSettings>
+
 #include <gtest/gtest.h>
 
 class SettingsManagerTest : public ::testing::Test
@@ -149,12 +154,54 @@ TEST_F(SettingsManagerTest, ShellOpenModeFoldersSetAndGet)
 
 TEST_F(SettingsManagerTest, DefaultSyntaxLanguagesNonEmpty)
 {
-    auto langs = defaultSyntaxLanguages();
+    const QStringList langs = defaultSyntaxLanguages();
     EXPECT_FALSE(langs.isEmpty());
     EXPECT_TRUE(langs.contains("cpp"));
     EXPECT_TRUE(langs.contains("python"));
     EXPECT_TRUE(langs.contains("html"));
     EXPECT_TRUE(langs.contains("javascript"));
+    // Plugin-provided languages are selectable as the default format too.
+    EXPECT_TRUE(langs.contains("rust"));
+    EXPECT_TRUE(langs.contains("jsonc"));
+    EXPECT_TRUE(langs.contains("toml"));
+}
+
+TEST_F(SettingsManagerTest, DefaultFormatUsesStableLanguageIds)
+{
+    EXPECT_EQ(SettingsManager::instance().defaultSyntax(), QStringLiteral("cpp"));
+    SettingsManager::instance().setDefaultSyntax(QStringLiteral("toml"));
+    EXPECT_EQ(SettingsManager::instance().defaultSyntax(), QStringLiteral("toml"));
+    EXPECT_EQ(SettingsManager::instance().defaultFormat(), defaultSyntaxLanguages().indexOf("toml"));
+
+    // Invalid ids are ignored rather than persisting a broken default.
+    SettingsManager::instance().setDefaultSyntax(QStringLiteral("no_such_language"));
+    EXPECT_EQ(SettingsManager::instance().defaultSyntax(), QStringLiteral("toml"));
+
+    // The legacy index wrapper still maps to the same stable id.
+    SettingsManager::instance().setDefaultFormat(2); // csharp
+    EXPECT_EQ(SettingsManager::instance().defaultSyntax(), QStringLiteral("csharp"));
+    EXPECT_EQ(SettingsManager::instance().defaultFormat(), 2);
+}
+
+TEST_F(SettingsManagerTest, MigratesLegacyDefaultFormatIndex)
+{
+    const QString path = QDir::temp().filePath(QStringLiteral("devpad_legacy_format_%1.ini").arg(QCoreApplication::applicationPid()));
+    {
+        QSettings legacy(path, QSettings::IniFormat);
+        legacy.setValue(QStringLiteral("Options_DefaultFormat"), 3); // java in the legacy list
+    }
+
+    auto migrated = SettingsManager::createForTesting(path);
+    SettingsManager::setTestingInstance(migrated.get());
+    EXPECT_EQ(migrated->defaultSyntax(), QStringLiteral("java"));
+    {
+        QSettings updated(path, QSettings::IniFormat);
+        EXPECT_EQ(updated.value(QStringLiteral("Options_DefaultSyntax")).toString(), QStringLiteral("java"));
+        EXPECT_FALSE(updated.contains(QStringLiteral("Options_DefaultFormat")));
+    }
+
+    SettingsManager::setTestingInstance(nullptr);
+    QFile::remove(path);
 }
 
 TEST_F(SettingsManagerTest, SettingsVersionIsCurrentAfterConstruction)

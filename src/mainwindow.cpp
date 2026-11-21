@@ -20,6 +20,7 @@
 
 #include "aboutdialog.h"
 #include "actionmanager.h"
+#include "appstrings.h"
 #include "backupmanager.h"
 #include "codeeditor.h"
 #include "dialogs/dialogcoordinator.h"
@@ -31,6 +32,7 @@
 #include "externaltoolsdialog.h"
 #include "filemanager.h"
 #include "filewatchermanager.h"
+#include "languageinfo.h"
 #include "logger.h"
 #include "lsp/lsptypes.h"
 #include "managers/externalchangecoordinator.h"
@@ -190,7 +192,15 @@ bool launchAppBundle(const QStringList& args)
 } // namespace
 #endif
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // PluginManager is intentionally not a QObject child: unloading at
+    // QObject child-deletion time would race the main window's own teardown
+    // (dock widgets are already being destroyed). Unload while the UI is
+    // still intact, then drop the manager.
+    delete m_pluginManager;
+    m_pluginManager = nullptr;
+}
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
@@ -395,6 +405,26 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                         // The plugin owns and deletes the panel on unload.
                         m_terminalCoordinator->detach();
                     }
+                }
+
+                // Language plugins can be toggled at runtime. Re-detect syntax
+                // for open files so disabling a language drops its lexer and
+                // re-enabling restores it. Untitled buffers are left alone:
+                // their syntax may have been chosen manually.
+                for (CodeEditor* editor : m_tabManager->editors())
+                {
+                    const QString fileName = editor->fileName();
+                    if (fileName.isEmpty() || fileName == Strings::untitled())
+                        continue;
+                    const QString detected = SettingsManager::instance().syntaxForFile(fileName);
+                    const QString current = editor->syntax();
+                    if (current == detected)
+                        continue;
+                    // Don't override a still-valid syntax the user picked, or a
+                    // detected language whose plugin is not available.
+                    if ((!current.isEmpty() && findLanguage(current)) || (!detected.isEmpty() && !findLanguage(detected)))
+                        continue;
+                    editor->setSyntax(detected);
                 }
             });
 #else

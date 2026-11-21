@@ -87,6 +87,7 @@ public:
     bool registerLanguageCommentSyntax(const QString& languageId, const QString& lineComment, const QString& blockCommentStart,
                                        const QString& blockCommentEnd) override;
     bool unregisterLanguageCommentSyntax(const QString& languageId) override;
+    QObject* createLexer(const QString& lexerClassName, QObject* parent) override;
 
     // ── Encoding ─────────────────────────────────────────────────
     bool registerEncoding(const QString& displayName, const QString& encodingName) override;

@@ -23,8 +23,6 @@
 #include "keywords.h"
 #include "plugins/languagepluginbase.h"
 
-#include <Qsci/qscilexercpp.h>
-
 namespace
 {
 LanguagePluginDescriptor makeDescriptor()
@@ -42,8 +40,7 @@ LanguagePluginDescriptor makeDescriptor()
     d.blockCommentStart = QStringLiteral("/*");
     d.blockCommentEnd = QStringLiteral("*/");
 
-    const auto factory = [](QObject* parent) -> QObject* { return new QsciLexerCPP(parent); };
-    d.languages.append({QStringLiteral("php"), QStringLiteral("QsciLexerCPP"), factory, phpKeywords()});
+    d.languages.append({QStringLiteral("php"), QStringLiteral("QsciLexerCPP"), phpKeywords()});
     return d;
 }
 } // namespace

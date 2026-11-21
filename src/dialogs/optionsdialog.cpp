@@ -21,6 +21,7 @@
 #include "customthemedialog.h"
 #include "defaultsyntax.h"
 #include "encodingutils.h"
+#include "languageinfo.h"
 #include "lsp/lspdefaults.h"
 #include "mainwindow.h"
 #include "managers/actionmanager.h"
@@ -236,10 +237,17 @@ void OptionsDialog::setupGeneralTab()
         {"qml", tr("QML")},
         {"lua", tr("Lua")},
         {"php", tr("PHP")},
+        {"jsonc", tr("JSON with comments")},
+        {"toml", tr("TOML")},
     };
     for (const QString& lang : defaultSyntaxLanguages())
     {
-        defaultFormatComboBox->addItem(displayNames.value(lang, lang));
+        const int index = defaultFormatComboBox->count();
+        defaultFormatComboBox->addItem(displayNames.value(lang, lang), lang);
+        // A language plugin may be disabled or not installed: don't offer a
+        // default format that would leave new files with no lexer.
+        if (!findLanguage(lang))
+            defaultFormatComboBox->setItemData(index, false, Qt::ItemIsEnabled);
     }
     defaultsLayout->addRow(tr("Default format:"), defaultFormatComboBox);
     defaultEncodingComboBox = new QComboBox(defaultsGroup);
@@ -1046,7 +1054,8 @@ void OptionsDialog::loadSettings()
         themeComboBox->setCurrentIndex(0);
     }
     updateThemePreview();
-    defaultFormatComboBox->setCurrentIndex(s.defaultFormat());
+    const int formatIndex = defaultFormatComboBox->findData(s.defaultSyntax());
+    defaultFormatComboBox->setCurrentIndex(formatIndex < 0 ? 0 : formatIndex);
     closeButtonComboBox->setCurrentIndex(static_cast<int>(s.closeButtonMode()));
     tabDisplayComboBox->setCurrentIndex(static_cast<int>(s.tabDisplayMode()));
     tabWidthSpin->setValue(s.tabWidth());
@@ -1143,7 +1152,7 @@ void OptionsDialog::saveSettings()
         SettingsManager::instance().setAccentColor(m_accentColor);
     else
         SettingsManager::instance().clearAccentColor();
-    SettingsManager::instance().setDefaultFormat(defaultFormatComboBox->currentIndex());
+    SettingsManager::instance().setDefaultSyntax(defaultFormatComboBox->currentData().toString());
     SettingsManager::instance().setCloseButtonMode(static_cast<CloseButtonMode>(closeButtonComboBox->currentIndex()));
     SettingsManager::instance().setTabDisplayMode(static_cast<TabDisplayMode>(tabDisplayComboBox->currentIndex()));
     SettingsManager::instance().setTabWidth(tabWidthSpin->value());

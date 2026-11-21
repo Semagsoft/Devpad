@@ -24,8 +24,6 @@
 #include "keywords.h"
 #include "plugins/languagepluginbase.h"
 
-#include <Qsci/qscilexerproperties.h>
-
 namespace
 {
 LanguagePluginDescriptor makeDescriptor()
@@ -42,8 +40,7 @@ LanguagePluginDescriptor makeDescriptor()
     d.fileNames = {QStringLiteral("Cargo.toml"), QStringLiteral("pyproject.toml"), QStringLiteral("Pipfile"), QStringLiteral("Gopkg.toml")};
     d.lineComment = QStringLiteral("#");
 
-    const auto factory = [](QObject* parent) -> QObject* { return new QsciLexerProperties(parent); };
-    d.languages.append({QStringLiteral("toml"), QStringLiteral("QsciLexerProperties"), factory, tomlKeywords()});
+    d.languages.append({QStringLiteral("toml"), QStringLiteral("QsciLexerProperties"), tomlKeywords()});
     return d;
 }
 } // namespace

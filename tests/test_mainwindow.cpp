@@ -7,6 +7,7 @@
 #include "plugins/lspinterface.h"
 #include "plugins/pluginhost.h"
 #include "plugins/pluginmanager.h"
+#include "sessionmanager.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
 #include "theme.h"
@@ -667,6 +668,67 @@ TEST_F(MainWindowTest, TerminalReenableRestoresPanel)
 
     EXPECT_TRUE(window.actionManager()->terminalPanelAct()->isVisible());
     EXPECT_NE(manager->host()->panel(QStringLiteral("terminal")), nullptr);
+}
+
+TEST_F(MainWindowTest, DisablingLanguagePluginRefreshesOpenEditorSyntax)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    const QString pluginId = QStringLiteral("org.semagsoft.devpad.rustlanguage");
+    ASSERT_TRUE(manager->isPluginEnabled(pluginId));
+
+    const QString filePath = testFilePath("toggle.rs");
+    createFile(filePath, "fn main() {}");
+    window.openFileFromPath(filePath);
+
+    CodeEditor* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    ASSERT_EQ(editor->syntax(), QStringLiteral("rust"));
+
+    manager->setPluginEnabled(pluginId, false);
+    EXPECT_EQ(editor->syntax(), QString());
+
+    manager->setPluginEnabled(pluginId, true);
+    EXPECT_EQ(editor->syntax(), QStringLiteral("rust"));
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, RestoresPluginLanguageSyntaxFromSession)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    const QString tomlPath = testFilePath("session.toml");
+    const QString rustPath = testFilePath("session.rs");
+    createFile(tomlPath, "title = \"restored\"");
+    createFile(rustPath, "fn main() {}");
+
+    // Restore with TOML available but the Rust plugin explicitly disabled.
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.rustlanguage"), QStringLiteral("Enabled"), false);
+    {
+        SessionManager session;
+        session.clearSession();
+        session.saveSessionData({tomlPath, rustPath}, 0, {});
+    }
+    SettingsManager::instance().setStartupMode(StartupMode::RestoreSession);
+
+    MainWindow window;
+    QString tomlSyntax;
+    QString rustSyntax;
+    for (CodeEditor* editor : window.findChildren<CodeEditor*>())
+    {
+        if (editor->fileName() == tomlPath)
+            tomlSyntax = editor->syntax();
+        else if (editor->fileName() == rustPath)
+            rustSyntax = editor->syntax();
+    }
+    EXPECT_EQ(tomlSyntax, QStringLiteral("toml"));
+    EXPECT_TRUE(rustSyntax.isEmpty());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
 }
 
 // ── Terminal toggle + position switching ──────────────────────────────────

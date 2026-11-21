@@ -22,9 +22,9 @@
 #include "appstrings.h"
 #include "backupmanager.h"
 #include "codeeditor.h"
-#include "defaultsyntax.h"
 #include "filemanager.h"
 #include "filewatchermanager.h"
+#include "languageinfo.h"
 #include "logger.h"
 #include "settingsmanager.h"
 #include "snippetmanager.h"
@@ -963,10 +963,9 @@ void EditorController::deleteUntitledBackup(CodeEditor* editor)
 
 void EditorController::applyDefaultSyntax(CodeEditor* editor) const
 {
-    auto langs = defaultSyntaxLanguages();
-    int format = SettingsManager::instance().defaultFormat();
-    if (format >= 0 && format < langs.size())
-    {
-        editor->setSyntax(langs[format]);
-    }
+    const QString syntax = SettingsManager::instance().defaultSyntax();
+    // A language plugin can be disabled or absent: keep the editor in plain
+    // text instead of leaving a dangling language id behind.
+    if (!syntax.isEmpty() && findLanguage(syntax))
+        editor->setSyntax(syntax);
 }

@@ -37,7 +37,6 @@ struct LanguagePluginLanguage
 {
     QString id;
     QString lexerClassName;
-    std::function<QObject*(QObject*)> lexerFactory;
     QStringList keywords;
 };
 
@@ -91,7 +90,10 @@ public:
         m_host = host;
         for (const auto& language : m_descriptor.languages)
         {
-            if (!host->registerLanguage(language.id, language.lexerClassName, language.lexerFactory))
+            // Host-owned lexers survive this plugin being unloaded.
+            const IPluginHost::LexerFactory factory = [host, className = language.lexerClassName](QObject* parent) -> QObject*
+            { return host->createLexer(className, parent); };
+            if (!host->registerLanguage(language.id, language.lexerClassName, factory))
                 return false;
             if (!language.keywords.isEmpty() && !host->registerLanguageKeywords(language.id, language.keywords))
                 return false;

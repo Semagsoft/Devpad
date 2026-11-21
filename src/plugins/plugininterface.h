@@ -210,6 +210,18 @@ public:
         Q_UNUSED(languageId);
         return false;
     }
+
+    // Creates a QsciLexer in the HOST, from a class name, for a plugin that
+    // only contributes a language descriptor. Lexers created inside a plugin
+    // .so would keep their vtable in that module and dangle after unload,
+    // because QScintilla is statically linked into both. Returns nullptr for
+    // unknown class names. Appended for apiVersion 1 vtable compatibility.
+    virtual QObject* createLexer(const QString& lexerClassName, QObject* parent)
+    {
+        Q_UNUSED(lexerClassName);
+        Q_UNUSED(parent);
+        return nullptr;
+    }
 };
 
 /**

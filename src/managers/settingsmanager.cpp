@@ -19,6 +19,7 @@
 #include "settingsmanager.h"
 
 #include "codeeditor.h"
+#include "defaultsyntax.h"
 #include "logger.h"
 #include "theme.h"
 
@@ -170,7 +171,12 @@ std::unique_ptr<SettingsManager> SettingsManager::createForTesting()
 {
     static int counter = 0;
     QString path = QDir::temp().filePath(QString("devpad_test_settings_%1_%2.ini").arg(QCoreApplication::applicationPid()).arg(counter++));
-    return std::unique_ptr<SettingsManager>(new SettingsManager(path));
+    return createForTesting(path);
+}
+
+std::unique_ptr<SettingsManager> SettingsManager::createForTesting(const QString& settingsPath)
+{
+    return std::unique_ptr<SettingsManager>(new SettingsManager(settingsPath));
 }
 
 SettingsManager& SettingsManager::instance()
@@ -221,7 +227,28 @@ void SettingsManager::loadCache()
         m_cache.editor.customTheme = m_settings.value("Options_CustomTheme").toString();
     }
     m_cache.editor.defaultEncoding = m_settings.value("Options_DefaultEncoding", 0).toInt();
-    m_cache.editor.defaultFormat = m_settings.value("Options_DefaultFormat", 0).toInt();
+    {
+        // 1.10 stores a stable language id. Older versions stored a combo-box
+        // index into the (now frozen) legacy list; migrate that value once.
+        QString syntax = m_settings.value(QStringLiteral("Options_DefaultSyntax")).toString();
+        const QStringList ids = defaultSyntaxLanguages();
+        if (!ids.contains(syntax))
+        {
+            if (m_settings.contains(QStringLiteral("Options_DefaultSyntax")))
+            {
+                syntax = ids.first();
+            }
+            else
+            {
+                const int legacy = m_settings.value(QStringLiteral("Options_DefaultFormat"), 0).toInt();
+                const QStringList legacyIds = legacyDefaultSyntaxLanguages();
+                syntax = (legacy >= 0 && legacy < legacyIds.size()) ? legacyIds.at(legacy) : ids.first();
+                m_settings.setValue(QStringLiteral("Options_DefaultSyntax"), syntax);
+                m_settings.remove(QStringLiteral("Options_DefaultFormat"));
+            }
+        }
+        m_cache.editor.defaultSyntax = syntax;
+    }
     m_cache.editor.showWhitespace = m_settings.value("Options_ShowWhitespace", false).toBool();
     m_cache.editor.autoCompletionEnabled = m_settings.value("Options_AutoCompletion", true).toBool();
     m_cache.editor.autoCompletionThreshold = qBound(1, m_settings.value("Options_AutoCompletionThreshold", 2).toInt(), 10);
@@ -407,9 +434,14 @@ int SettingsManager::defaultEncoding() const
 {
     return m_cache.editor.defaultEncoding;
 }
+QString SettingsManager::defaultSyntax() const
+{
+    return m_cache.editor.defaultSyntax;
+}
 int SettingsManager::defaultFormat() const
 {
-    return m_cache.editor.defaultFormat;
+    const int index = defaultSyntaxLanguages().indexOf(m_cache.editor.defaultSyntax);
+    return index < 0 ? 0 : index;
 }
 bool SettingsManager::showWhitespace() const
 {
@@ -628,9 +660,16 @@ void SettingsManager::setDefaultEncoding(int encoding)
 {
     writeCached("Options_DefaultEncoding", m_cache.editor.defaultEncoding, encoding);
 }
+void SettingsManager::setDefaultSyntax(const QString& syntax)
+{
+    if (!defaultSyntaxLanguages().contains(syntax))
+        return;
+    writeCached("Options_DefaultSyntax", m_cache.editor.defaultSyntax, syntax);
+}
 void SettingsManager::setDefaultFormat(int format)
 {
-    writeCached("Options_DefaultFormat", m_cache.editor.defaultFormat, format);
+    const QStringList ids = defaultSyntaxLanguages();
+    setDefaultSyntax(format >= 0 && format < ids.size() ? ids.at(format) : ids.first());
 }
 
 void SettingsManager::setShowWhitespace(bool visible)
