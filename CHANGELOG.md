@@ -12,8 +12,7 @@ What's new in Devpad 1.10:
       DAP
       Terminal
 - Add-on languages without a native QScintilla lexer (Rust, Go, TypeScript, QML, PHP, JSONC) are now individual first-party plugins, enabled/disabled from the Plugins settings. SHA: TBD
-- Printing moved into its own first-party plugin. Print menu/toolbar UI and print dialogs are unavailable when the plugin is disabled.
-- Plugin-gated UI (LSP, DAP, Print) now hides when a plugin is enabled but fails to load. SHA: TBD
+- Printing moved into its own first-party plugin. Print menu/toolbar UI and print dialogs are unavailable when the plugin is disabled. SHA: TBD
 
 ## [1.09] - 2026-11-09
 
