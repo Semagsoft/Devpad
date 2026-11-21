@@ -759,14 +759,15 @@ void OptionsDialog::setupPluginsTab()
     QVBoxLayout* groupLayout = new QVBoxLayout(group);
 
     pluginsTable = new QTableWidget(group);
-    pluginsTable->setColumnCount(6);
-    pluginsTable->setHorizontalHeaderLabels({tr("Enabled"), tr("Name"), tr("Version"), tr("Id"), tr("Author"), tr("Description")});
+    pluginsTable->setColumnCount(7);
+    pluginsTable->setHorizontalHeaderLabels({tr("Enabled"), tr("Name"), tr("Version"), tr("Id"), tr("Author"), tr("Description"), tr("Status")});
     pluginsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     pluginsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     pluginsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     pluginsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
     pluginsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
     pluginsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
+    pluginsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::ResizeToContents);
     pluginsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     pluginsTable->setSelectionMode(QAbstractItemView::SingleSelection);
     pluginsTable->setAlternatingRowColors(true);
@@ -813,6 +814,15 @@ void OptionsDialog::setupPluginsTab()
 
                 mw->pluginManager()->setPluginEnabled(pluginId, enabled);
             });
+
+    // A toggle can be refused (e.g. a loaded plugin depends on it) or a load
+    // can fail; keep the table in sync with the manager's effective state.
+    MainWindow* mw = qobject_cast<MainWindow*>(parent());
+    if (mw && mw->pluginManager())
+    {
+        connect(mw->pluginManager(), &PluginManager::pluginEnabledChanged, this, [this]() { populatePluginsTable(); });
+        connect(mw->pluginManager(), &PluginManager::pluginFailed, this, [this]() { populatePluginsTable(); });
+    }
 }
 
 void OptionsDialog::populatePluginsTable()
@@ -845,6 +855,17 @@ void OptionsDialog::populatePluginsTable()
         pluginsTable->setItem(row, 3, new QTableWidgetItem(info.id));
         pluginsTable->setItem(row, 4, new QTableWidgetItem(info.author));
         pluginsTable->setItem(row, 5, new QTableWidgetItem(info.description));
+
+        QString status;
+        if (!pm->failureReason(info.id).isEmpty())
+            status = tr("Failed: %1").arg(pm->failureReason(info.id));
+        else if (pm->isLoaded(info.id))
+            status = tr("Loaded");
+        else
+            status = tr("Disabled");
+        QTableWidgetItem* statusItem = new QTableWidgetItem(status);
+        statusItem->setToolTip(status);
+        pluginsTable->setItem(row, 6, statusItem);
     }
 
     pluginsTable->blockSignals(false);

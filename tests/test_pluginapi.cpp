@@ -247,3 +247,44 @@ TEST(PluginApi, LanguagePluginsDeclareSupportedApiVersionAndFactory)
     for (const auto& plugin : plugins)
         checkLanguagePlugin(QString::fromLatin1(plugin.name), QString::fromLatin1(plugin.id));
 }
+
+TEST(PluginApi, DependencyOrderingLoadsDependenciesFirst)
+{
+    PluginInfo a;
+    a.id = QStringLiteral("a");
+    PluginInfo b;
+    b.id = QStringLiteral("b");
+    b.depends = {a.id};
+    PluginInfo c;
+    c.id = QStringLiteral("c");
+    c.depends = {b.id};
+
+    QStringList unresolved;
+    const QList<PluginInfo> ordered = PluginManager::orderByDependencies({c, b, a}, &unresolved);
+    ASSERT_EQ(ordered.size(), 3);
+    EXPECT_EQ(ordered[0].id, a.id);
+    EXPECT_EQ(ordered[1].id, b.id);
+    EXPECT_EQ(ordered[2].id, c.id);
+    EXPECT_TRUE(unresolved.isEmpty());
+}
+
+TEST(PluginApi, DependencyOrderingRejectsMissingDependenciesAndCycles)
+{
+    PluginInfo missing;
+    missing.id = QStringLiteral("missing_dep");
+    missing.depends = {QStringLiteral("not_installed")};
+    PluginInfo b;
+    b.id = QStringLiteral("b");
+    b.depends = {QStringLiteral("c")};
+    PluginInfo c;
+    c.id = QStringLiteral("c");
+    c.depends = {b.id};
+
+    QStringList unresolved;
+    const QList<PluginInfo> ordered = PluginManager::orderByDependencies({missing, b, c}, &unresolved);
+    EXPECT_TRUE(ordered.isEmpty());
+    EXPECT_EQ(unresolved.size(), 3);
+    EXPECT_TRUE(unresolved.contains(missing.id));
+    EXPECT_TRUE(unresolved.contains(b.id));
+    EXPECT_TRUE(unresolved.contains(c.id));
+}

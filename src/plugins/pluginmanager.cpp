@@ -33,7 +33,10 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSet>
 #include <QStandardPaths>
+#include <algorithm>
+#include <functional>
 #include <utility>
 
 PluginManager::PluginManager(MainWindow* mainWindow, QObject* parent) : QObject(parent), m_mainWindow(mainWindow)
@@ -101,7 +104,73 @@ QList<PluginInfo> PluginManager::discoveredPlugins() const
     appendDiscoveredFromDir(m_pluginsDir, byId);
     appendDiscoveredFromDir(m_envPluginsDir, byId);
 
-    return byId.values();
+    QList<PluginInfo> result = byId.values();
+    // QHash iteration order is arbitrary; keep the Plugins settings table
+    // stable across launches and machines.
+    std::sort(result.begin(), result.end(), [](const PluginInfo& a, const PluginInfo& b) { return a.id < b.id; });
+    return result;
+}
+
+QList<PluginInfo> PluginManager::orderByDependencies(const QList<PluginInfo>& plugins, QStringList* unresolved)
+{
+    QHash<QString, PluginInfo> byId;
+    for (const auto& info : plugins)
+        byId.insert(info.id, info);
+
+    QList<PluginInfo> ordered;
+    QSet<QString> visited;
+    QSet<QString> inProgress;
+    QSet<QString> unresolvedIds;
+
+    std::function<bool(const QString&)> visit = [&](const QString& id) -> bool
+    {
+        if (visited.contains(id))
+            return true;
+        if (inProgress.contains(id))
+            return false; // cycle
+        const auto it = byId.constFind(id);
+        if (it == byId.end())
+            return false; // missing dependency
+        inProgress.insert(id);
+        for (const QString& dep : it->depends)
+        {
+            if (!visit(dep))
+            {
+                unresolvedIds.insert(id);
+                inProgress.remove(id);
+                return false;
+            }
+        }
+        inProgress.remove(id);
+        visited.insert(id);
+        ordered.append(*it);
+        return true;
+    };
+
+    // Visit in stable id order so the result is deterministic.
+    QStringList ids = byId.keys();
+    ids.sort();
+    for (const QString& id : ids)
+        visit(id);
+
+    if (unresolved)
+    {
+        *unresolved = unresolvedIds.values();
+        std::sort(unresolved->begin(), unresolved->end());
+    }
+    return ordered;
+}
+
+QString PluginManager::failureReason(const QString& pluginId) const
+{
+    return m_failures.value(pluginId);
+}
+
+void PluginManager::recordFailure(const QString& pluginId, const QString& reason)
+{
+    m_failures.insert(pluginId, reason);
+    Logger::instance().warning(QStringLiteral("PluginManager: plugin '%1': %2").arg(pluginId, reason));
+    emit pluginFailed(pluginId, reason);
 }
 
 void PluginManager::appendDiscoveredFromDir(const QString& dirPath, QHash<QString, PluginInfo>& byId) const
@@ -192,12 +261,45 @@ PluginInfo PluginManager::readPluginManifest(const QString& filePath)
 
 void PluginManager::loadAll()
 {
-    // Later directories do not override already-loaded plugins, so scan in
-    // reverse priority: the environment override wins, then the user plugins
-    // directory, then the system one.
-    loadPluginsFromDir(m_envPluginsDir);
-    loadPluginsFromDir(m_pluginsDir);
-    loadPluginsFromDir(m_systemPluginsDir);
+    const QList<PluginInfo> plugins = discoveredPlugins();
+    for (const auto& info : plugins)
+        m_defaultEnabled[info.id] = info.enabled;
+
+    QStringList unresolved;
+    const QList<PluginInfo> ordered = orderByDependencies(plugins, &unresolved);
+    for (const QString& id : unresolved)
+    {
+        m_failures.insert(id, QStringLiteral("unresolved dependencies (missing, disabled, or cyclic)"));
+        emit pluginFailed(id, m_failures.value(id));
+    }
+
+    QStringList failed = unresolved;
+    for (const auto& info : ordered)
+    {
+        if (failed.contains(info.id) || isLoaded(info.id))
+            continue;
+        if (!isPluginEnabled(info.id))
+        {
+            failed.append(info.id);
+            continue;
+        }
+        bool depsOk = true;
+        for (const QString& dep : info.depends)
+        {
+            if (failed.contains(dep) || !isPluginEnabled(dep))
+            {
+                recordFailure(info.id, QStringLiteral("dependency '%1' is unavailable or disabled").arg(dep));
+                failed.append(info.id);
+                depsOk = false;
+                break;
+            }
+        }
+        if (!depsOk)
+            continue;
+        const QString path = pluginFilePath(info.id);
+        if (path.isEmpty() || !loadPluginFileAbsolute(path))
+            failed.append(info.id);
+    }
 }
 
 void PluginManager::loadPluginsFromDir(const QString& dirPath)
@@ -250,9 +352,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     // API version compatibility check.
     if (pluginInfo.apiVersion != HostApiVersion)
     {
-        QString reason = QStringLiteral("api version %1 unsupported (host %2)").arg(pluginInfo.apiVersion).arg(HostApiVersion);
-        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
-        emit pluginFailed(pluginId, reason);
+        recordFailure(pluginId, QStringLiteral("api version %1 unsupported (host %2)").arg(pluginInfo.apiVersion).arg(HostApiVersion));
         return false;
     }
 
@@ -261,9 +361,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     QLibrary* loader = new QLibrary(filePath, this);
     if (!loader->load())
     {
-        QString reason = loader->errorString();
-        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
-        emit pluginFailed(pluginId, reason);
+        recordFailure(pluginId, loader->errorString());
         loader->deleteLater();
         return false;
     }
@@ -273,9 +371,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
 
     if (!plugin)
     {
-        QString reason = QStringLiteral("failed to instantiate plugin (devpadCreatePlugin not found)");
-        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(pluginId, reason));
-        emit pluginFailed(pluginId, reason);
+        recordFailure(pluginId, QStringLiteral("failed to instantiate plugin (devpadCreatePlugin not found)"));
         loader->unload();
         loader->deleteLater();
         return false;
@@ -326,9 +422,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
 
     if (!initialized)
     {
-        QString reason = QStringLiteral("initialize() returned false");
-        Logger::instance().warning(QStringLiteral("PluginManager: failed to load plugin '%1': %2").arg(entry.info.id, reason));
-        emit pluginFailed(entry.info.id, reason);
+        recordFailure(entry.info.id, QStringLiteral("initialize() returned false"));
         safePluginCall(entry.info.id, "shutdown", [](IPlugin* p) { p->shutdown(); });
         m_host->endPluginSession(entry.info.id);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
@@ -339,6 +433,7 @@ bool PluginManager::loadPluginFileAbsolute(const QString& filePath)
     }
 
     m_loaded.insert(entry.info.id, entry);
+    m_failures.remove(entry.info.id);
 
     Logger::instance().info(QStringLiteral("PluginManager: loaded plugin '%1' v%2 (%3)").arg(entry.info.id, entry.info.version, entry.info.library));
 
@@ -512,25 +607,75 @@ void PluginManager::setPluginEnabled(const QString& pluginId, bool enabled)
     if (isPluginEnabled(pluginId) == enabled)
         return;
 
-    m_enabled[pluginId] = enabled;
-    SettingsManager::instance().setPluginSetting(pluginId, QStringLiteral("Enabled"), enabled);
-
-    if (enabled)
+    if (!enabled)
     {
-        const QString filePath = pluginFilePath(pluginId);
-        if (!filePath.isEmpty())
-            loadPluginFileAbsolute(filePath);
-        else
+        // Never pull the dependency out from under a plugin that is loaded.
+        for (const auto& entry : m_loaded)
         {
-            Logger::instance().warning(
-                QStringLiteral("PluginManager: cannot enable plugin '%1': library not found in %2").arg(pluginId, m_pluginsDir));
+            if (entry.info.depends.contains(pluginId))
+            {
+                recordFailure(pluginId, QStringLiteral("required by loaded plugin '%1'").arg(entry.info.id));
+                emit pluginEnabledChanged(pluginId, isPluginEnabled(pluginId));
+                return;
+            }
         }
+        unload(pluginId);
     }
     else
     {
-        unload(pluginId);
+        QHash<QString, PluginInfo> byId;
+        for (const auto& info : discoveredPlugins())
+            byId.insert(info.id, info);
+        QSet<QString> visiting;
+
+        std::function<bool(const QString&)> enableChain = [&](const QString& id) -> bool
+        {
+            if (isLoaded(id) && isPluginEnabled(id))
+                return true;
+            if (visiting.contains(id))
+            {
+                recordFailure(id, QStringLiteral("dependency cycle"));
+                return false;
+            }
+            visiting.insert(id);
+            const PluginInfo info = byId.value(id);
+            for (const QString& dep : info.depends)
+            {
+                if (!byId.contains(dep))
+                {
+                    recordFailure(id, QStringLiteral("missing dependency '%1'").arg(dep));
+                    visiting.remove(id);
+                    return false;
+                }
+                if (!enableChain(dep))
+                {
+                    recordFailure(id, QStringLiteral("dependency '%1' could not be enabled").arg(dep));
+                    visiting.remove(id);
+                    return false;
+                }
+            }
+            visiting.remove(id);
+
+            m_enabled[id] = true;
+            SettingsManager::instance().setPluginSetting(id, QStringLiteral("Enabled"), true);
+            const QString path = pluginFilePath(id);
+            if (path.isEmpty() || !loadPluginFileAbsolute(path))
+            {
+                recordFailure(id, QStringLiteral("library not found or failed to load"));
+                return false;
+            }
+            emit pluginEnabledChanged(id, true);
+            return true;
+        };
+
+        if (!enableChain(pluginId))
+            // Let the settings table repopulate from the effective state.
+            emit pluginEnabledChanged(pluginId, isPluginEnabled(pluginId));
+        return; // enableChain already emitted for the target and its dependencies
     }
 
+    m_enabled[pluginId] = enabled;
+    SettingsManager::instance().setPluginSetting(pluginId, QStringLiteral("Enabled"), enabled);
     Q_EMIT pluginEnabledChanged(pluginId, enabled);
 }
 
