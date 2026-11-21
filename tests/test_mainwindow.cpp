@@ -4,6 +4,7 @@
 #include "lsp/lsptypes.h"
 #include "mainwindow.h"
 #include "managers/actionmanager.h"
+#include "optionsdialog.h"
 #include "plugins/lspinterface.h"
 #include "plugins/pluginhost.h"
 #include "plugins/pluginmanager.h"
@@ -23,6 +24,7 @@
 #include <QMessageBox>
 #include <QSignalSpy>
 #include <QTabWidget>
+#include <QTableWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextStream>
@@ -819,6 +821,49 @@ TEST_F(MainWindowTest, PrintDialogsDoNotOpenWhenPrintPluginDisabled)
     EXPECT_EQ(counter.count, 0);
 #else
     GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, PluginFailureIsShownInOptionsTable)
+{
+#if defined(DEVPAD_BUILD_PLUGINS) && defined(DEVPAD_TEST_PLUGINS_DIR)
+    const QString pluginId = QStringLiteral("org.semagsoft.devpad.test.badapi");
+    SettingsManager::instance().setPluginSetting(pluginId, QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    manager->setPluginsDir(QStringLiteral(DEVPAD_TEST_PLUGINS_DIR));
+
+    OptionsDialog dialog(&window);
+    QTableWidget* pluginsTable = nullptr;
+    for (QTableWidget* table : dialog.findChildren<QTableWidget*>())
+    {
+        if (table->columnCount() == 7)
+        {
+            pluginsTable = table;
+            break;
+        }
+    }
+    ASSERT_NE(pluginsTable, nullptr);
+
+    manager->setPluginEnabled(pluginId, true);
+    ASSERT_FALSE(manager->failureReason(pluginId).isEmpty());
+
+    bool found = false;
+    for (int row = 0; row < pluginsTable->rowCount(); ++row)
+    {
+        if (pluginsTable->item(row, 3) && pluginsTable->item(row, 3)->text() == pluginId && pluginsTable->item(row, 6) &&
+            pluginsTable->item(row, 6)->text().contains(QStringLiteral("api version")))
+        {
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found) << "Options table did not refresh after pluginFailed";
+
+    SettingsManager::instance().setPluginSetting(pluginId, QStringLiteral("Enabled"), false);
+#else
+    GTEST_SKIP() << "Test plugins not built";
 #endif
 }
 

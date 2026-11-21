@@ -26,6 +26,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLibrary>
+#include <QSignalSpy>
 #include <QString>
 
 #include <Qsci/qscilexer.h>
@@ -247,6 +248,101 @@ TEST(PluginApi, LanguagePluginsDeclareSupportedApiVersionAndFactory)
     };
     for (const auto& plugin : plugins)
         checkLanguagePlugin(QString::fromLatin1(plugin.name), QString::fromLatin1(plugin.id));
+}
+
+namespace
+{
+constexpr const char* kDepA = "org.semagsoft.devpad.test.depa";
+constexpr const char* kDepB = "org.semagsoft.devpad.test.depb";
+constexpr const char* kMissingDep = "org.semagsoft.devpad.test.missing";
+constexpr const char* kBadApi = "org.semagsoft.devpad.test.badapi";
+
+void resetTestPluginSetting(const char* id)
+{
+    SettingsManager::instance().setPluginSetting(QString::fromLatin1(id), QStringLiteral("Enabled"), false);
+}
+} // namespace
+
+class PluginDependencyTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        for (const char* id : {kDepA, kDepB, kMissingDep, kBadApi})
+            resetTestPluginSetting(id);
+        m_manager = std::make_unique<PluginManager>(nullptr);
+#if defined(DEVPAD_TEST_PLUGINS_DIR)
+        m_manager->setPluginsDir(QStringLiteral(DEVPAD_TEST_PLUGINS_DIR));
+#endif
+    }
+
+    void TearDown() override
+    {
+        m_manager.reset();
+        for (const char* id : {kDepA, kDepB, kMissingDep, kBadApi})
+            resetTestPluginSetting(id);
+    }
+
+    std::unique_ptr<PluginManager> m_manager;
+};
+
+TEST_F(PluginDependencyTest, EnablingPluginEnablesAndLoadsDependencies)
+{
+#if defined(DEVPAD_TEST_PLUGINS_DIR)
+    ASSERT_FALSE(m_manager->isLoaded(QString::fromLatin1(kDepA)));
+    m_manager->setPluginEnabled(QString::fromLatin1(kDepB), true);
+
+    EXPECT_TRUE(m_manager->isPluginEnabled(QString::fromLatin1(kDepA)));
+    EXPECT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepA)));
+    EXPECT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepB)));
+#else
+    GTEST_SKIP() << "Test plugins not built";
+#endif
+}
+
+TEST_F(PluginDependencyTest, CannotDisablePluginRequiredByLoadedPlugin)
+{
+#if defined(DEVPAD_TEST_PLUGINS_DIR)
+    m_manager->setPluginEnabled(QString::fromLatin1(kDepB), true);
+    ASSERT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepA)));
+    ASSERT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepB)));
+
+    m_manager->setPluginEnabled(QString::fromLatin1(kDepA), false);
+
+    EXPECT_TRUE(m_manager->isPluginEnabled(QString::fromLatin1(kDepA)));
+    EXPECT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepA)));
+    EXPECT_FALSE(m_manager->failureReason(QString::fromLatin1(kDepA)).isEmpty());
+#else
+    GTEST_SKIP() << "Test plugins not built";
+#endif
+}
+
+TEST_F(PluginDependencyTest, MissingDependencyFailsWithReasonAndSignal)
+{
+#if defined(DEVPAD_TEST_PLUGINS_DIR)
+    QSignalSpy failed(m_manager.get(), &PluginManager::pluginFailed);
+    m_manager->setPluginEnabled(QString::fromLatin1(kMissingDep), true);
+
+    EXPECT_FALSE(m_manager->isLoaded(QString::fromLatin1(kMissingDep)));
+    EXPECT_TRUE(m_manager->failureReason(QString::fromLatin1(kMissingDep)).contains(QStringLiteral("missing dependency")));
+    EXPECT_EQ(failed.count(), 1);
+#else
+    GTEST_SKIP() << "Test plugins not built";
+#endif
+}
+
+TEST_F(PluginDependencyTest, UnsupportedApiVersionRecordsFailure)
+{
+#if defined(DEVPAD_TEST_PLUGINS_DIR)
+    QSignalSpy failed(m_manager.get(), &PluginManager::pluginFailed);
+    m_manager->setPluginEnabled(QString::fromLatin1(kBadApi), true);
+
+    EXPECT_FALSE(m_manager->isLoaded(QString::fromLatin1(kBadApi)));
+    EXPECT_TRUE(m_manager->failureReason(QString::fromLatin1(kBadApi)).contains(QStringLiteral("api version")));
+    EXPECT_EQ(failed.count(), 1);
+#else
+    GTEST_SKIP() << "Test plugins not built";
+#endif
 }
 
 TEST(PluginApi, DependencyOrderingLoadsDependenciesFirst)

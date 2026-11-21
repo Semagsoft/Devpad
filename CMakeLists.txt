@@ -1049,6 +1049,44 @@ if(BUILD_TESTS)
         $<$<BOOL:${BUILD_PLUGINS}>:DEVPAD_BUILD_PLUGINS=1>
     )
 
+    # ── Test-only plugins for dependency / failure-path coverage ─────────
+    # These live in their own directory so they are never loaded by the app
+    # or by unrelated tests.
+    if(BUILD_PLUGINS)
+        set(DEVPAD_TEST_PLUGINS_DIR "${CMAKE_BINARY_DIR}/test-plugins")
+        file(MAKE_DIRECTORY "${DEVPAD_TEST_PLUGINS_DIR}")
+        target_compile_definitions(Devpad_tests PRIVATE DEVPAD_TEST_PLUGINS_DIR="${DEVPAD_TEST_PLUGINS_DIR}")
+
+        function(add_devpad_test_plugin target id depends api_version)
+            add_library(${target} MODULE tests/plugins/testplugin.cpp)
+            target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+            target_include_directories(${target} PRIVATE src)
+            target_compile_definitions(${target} PRIVATE TEST_PLUGIN_ID="${id}")
+            target_link_libraries(${target} PRIVATE Qt6::Core Qt6::Widgets)
+            set_target_properties(${target} PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY "${DEVPAD_TEST_PLUGINS_DIR}"
+                PREFIX "lib"
+                SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+                OUTPUT_NAME ${target}
+            )
+            set(TEST_PLUGIN_ID "${id}")
+            set(TEST_PLUGIN_NAME "${target}")
+            set(TEST_PLUGIN_TARGET "${target}")
+            set(TEST_PLUGIN_DEPENDS "${depends}")
+            set(TEST_PLUGIN_API_VERSION ${api_version})
+            configure_file(
+                tests/plugins/testplugin.plugin.json.in
+                "${DEVPAD_TEST_PLUGINS_DIR}/${target}.plugin.json" @ONLY
+            )
+        endfunction()
+
+        add_devpad_test_plugin(test_depa "org.semagsoft.devpad.test.depa" "" 1)
+        add_devpad_test_plugin(test_depb "org.semagsoft.devpad.test.depb" "\"org.semagsoft.devpad.test.depa\"" 1)
+        add_devpad_test_plugin(test_missing "org.semagsoft.devpad.test.missing" "\"org.semagsoft.devpad.test.notinstalled\"" 1)
+        add_devpad_test_plugin(test_badapi "org.semagsoft.devpad.test.badapi" "" 99)
+        add_dependencies(Devpad_tests test_depa test_depb test_missing test_badapi)
+    endif()
+
     # Point the tests at the plugins built in this build tree so the suite
     # never loads a stale system-wide installation (plugins share the
     # application's data layout; a mismatched copy corrupts memory). The

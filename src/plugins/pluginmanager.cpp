@@ -659,11 +659,14 @@ void PluginManager::setPluginEnabled(const QString& pluginId, bool enabled)
             m_enabled[id] = true;
             SettingsManager::instance().setPluginSetting(id, QStringLiteral("Enabled"), true);
             const QString path = pluginFilePath(id);
-            if (path.isEmpty() || !loadPluginFileAbsolute(path))
+            if (path.isEmpty())
             {
-                recordFailure(id, QStringLiteral("library not found or failed to load"));
+                recordFailure(id, QStringLiteral("library not found"));
                 return false;
             }
+            // loadPluginFileAbsolute() records its own, more specific reason.
+            if (!loadPluginFileAbsolute(path))
+                return false;
             emit pluginEnabledChanged(id, true);
             return true;
         };
