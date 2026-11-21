@@ -7,6 +7,11 @@
 int main(int argc, char** argv)
 {
     qputenv("QT_QPA_PLATFORM", "offscreen");
+    // A native platform theme (notably qgtk3) is incompatible with the
+    // offscreen QPA plugin: QMenuBar construction dereferences a null from
+    // the theme and crashes (Qt 6.12 + qgtk3). The offscreen platform has no
+    // use for a native theme, so ignore any desktop-wide override.
+    qunsetenv("QT_QPA_PLATFORMTHEME");
 
     // Point the tests at the plugins built in this build tree. Passing this
     // through the ctest ENVIRONMENT property does not work reliably with
