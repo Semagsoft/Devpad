@@ -363,6 +363,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     // the actions would silently no-op.
     const bool dapEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"));
     m_actionManager->setDebugUiVisible(dapEnabled);
+    const bool printEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.print"));
+    m_actionManager->setPrintUiVisible(printEnabled);
     connect(m_pluginManager, &PluginManager::pluginEnabledChanged, this,
             [this](const QString& pluginId, bool enabled)
             {
@@ -393,6 +395,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                         m_actionManager->errorListPanelButton()->setChecked(false);
                         m_actionManager->referencesPanelButton()->setChecked(false);
                     }
+                }
+                else if (pluginId == QStringLiteral("org.semagsoft.devpad.print"))
+                {
+                    m_actionManager->setPrintUiVisible(enabled);
                 }
                 else if (pluginId == QStringLiteral("org.semagsoft.devpad.terminal"))
                 {
@@ -432,6 +438,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     // slots below would deref a null manager), so hide the debug UI entirely.
     m_actionManager->setDebugUiVisible(false);
     m_actionManager->setLspUiVisible(false);
+    m_actionManager->setPrintUiVisible(false);
     m_errorListPanel->hide();
     m_referencesPanel->hide();
 #endif
@@ -1331,6 +1338,9 @@ IPrintService* MainWindow::printService() const
 
 void MainWindow::printFile()
 {
+    // The plugin owns all printing; never open a dialog that can do nothing.
+    if (!printService())
+        return;
     CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
@@ -1346,6 +1356,8 @@ void MainWindow::printFile()
 
 void MainWindow::printPreview()
 {
+    if (!printService())
+        return;
     CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
@@ -1368,6 +1380,8 @@ void MainWindow::printPreview()
 
 void MainWindow::pageSetup()
 {
+    if (!printService())
+        return;
     CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;

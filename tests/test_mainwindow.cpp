@@ -58,6 +58,25 @@ protected:
     }
 };
 
+// Counts any print-related dialog as soon as it is shown, so tests can assert
+// that print slots do nothing while the Print plugin is unavailable.
+class PrintDialogShowCounter : public QObject
+{
+public:
+    int count = 0;
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override
+    {
+        if (event->type() == QEvent::Show &&
+            (obj->inherits("QPrintDialog") || obj->inherits("QPrintPreviewDialog") || obj->inherits("QPageSetupDialog")))
+        {
+            ++count;
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
+
 class MainWindowTest : public ::testing::Test
 {
 protected:
@@ -726,6 +745,54 @@ TEST_F(MainWindowTest, RestoresPluginLanguageSyntaxFromSession)
     }
     EXPECT_EQ(tomlSyntax, QStringLiteral("toml"));
     EXPECT_TRUE(rustSyntax.isEmpty());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, PrintUiHiddenWhenPrintPluginDisabled)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    const QString pluginId = QStringLiteral("org.semagsoft.devpad.print");
+    SettingsManager::instance().setPluginSetting(pluginId, QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_FALSE(manager->isPluginEnabled(pluginId));
+
+    auto* actions = window.actionManager();
+    EXPECT_FALSE(actions->printAct()->isVisible());
+    EXPECT_FALSE(actions->printPreviewAct()->isVisible());
+    EXPECT_FALSE(actions->pageSetupAct()->isVisible());
+
+    manager->setPluginEnabled(pluginId, true);
+    EXPECT_TRUE(actions->printAct()->isVisible());
+    EXPECT_TRUE(actions->printPreviewAct()->isVisible());
+    EXPECT_TRUE(actions->pageSetupAct()->isVisible());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, PrintDialogsDoNotOpenWhenPrintPluginDisabled)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.print"), QStringLiteral("Enabled"), false);
+    MainWindow window;
+
+    const QString filePath = testFilePath("print_disabled.cpp");
+    createFile(filePath, "int main() { return 0; }");
+    window.openFileFromPath(filePath);
+
+    PrintDialogShowCounter counter;
+    qApp->installEventFilter(&counter);
+    QMetaObject::invokeMethod(&window, "printFile", Qt::DirectConnection);
+    QMetaObject::invokeMethod(&window, "printPreview", Qt::DirectConnection);
+    QMetaObject::invokeMethod(&window, "pageSetup", Qt::DirectConnection);
+    qApp->removeEventFilter(&counter);
+
+    EXPECT_EQ(counter.count, 0);
 #else
     GTEST_SKIP() << "Plugins disabled in this build";
 #endif
