@@ -84,6 +84,9 @@ public:
     // ── Language / syntax ────────────────────────────────────────
     bool registerLanguage(const QString& languageId, const QString& lexerClassName, LexerFactory factory) override;
     bool registerLanguageKeywords(const QString& languageId, const QStringList& keywords) override;
+    bool registerLanguageCommentSyntax(const QString& languageId, const QString& lineComment, const QString& blockCommentStart,
+                                       const QString& blockCommentEnd) override;
+    bool unregisterLanguageCommentSyntax(const QString& languageId) override;
 
     // ── Encoding ─────────────────────────────────────────────────
     bool registerEncoding(const QString& displayName, const QString& encodingName) override;
@@ -181,6 +184,9 @@ private:
         // the language. Unregistering those must only drop the keywords,
         // never the language itself (which may be a built-in).
         QStringList keywordOnlyLanguageIds;
+        // Languages whose comment syntax was registered separately (may be a
+        // built-in language that a plugin merely augments).
+        QStringList commentSyntaxLanguageIds;
         QStringList encodingNames;
         QStringList extensions;
         QStringList fileNames;

@@ -318,13 +318,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     setCentralWidget(m_splitView);
 
+#ifdef BUILD_PLUGINS
+    // Load plugins before startup files are opened: language plugins register
+    // their lexers and file-type mappings here, and applyStartupMode() (called
+    // by applyInitialSettings()) restores tabs whose syntax depends on them.
+    m_pluginManager->loadAll();
+#endif
+
     applyInitialSettings();
 
     setupEditorConnections();
 
 #ifdef BUILD_PLUGINS
-    m_pluginManager->loadAll();
-
     // Attach every already-open editor to the LSP plugin's session factory.
     m_lspCoordinator->attachAll();
     const bool lspEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"));

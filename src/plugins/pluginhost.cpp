@@ -119,6 +119,8 @@ void PluginHost::endPluginSession(const QString& pluginId)
             unregisterPluginLanguage(langId);
         for (const auto& langId : reg.keywordOnlyLanguageIds)
             unregisterPluginLanguageKeywords(langId);
+        for (const auto& langId : reg.commentSyntaxLanguageIds)
+            unregisterPluginLanguageCommentSyntax(langId);
         for (const auto& encName : reg.encodingNames)
             unregisterPluginEncoding(encName);
         for (const auto& ext : reg.extensions)
@@ -503,6 +505,23 @@ bool PluginHost::registerLanguageKeywords(const QString& languageId, const QStri
     PluginRegistrations& reg = m_pluginRegistrations[m_currentPluginId];
     if (!reg.languageIds.contains(languageId))
         reg.keywordOnlyLanguageIds.append(languageId);
+    return true;
+}
+
+bool PluginHost::registerLanguageCommentSyntax(const QString& languageId, const QString& lineComment, const QString& blockCommentStart,
+                                               const QString& blockCommentEnd)
+{
+    if (!registerPluginLanguageCommentSyntax(languageId, lineComment, blockCommentStart, blockCommentEnd))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].commentSyntaxLanguageIds.append(languageId);
+    return true;
+}
+
+bool PluginHost::unregisterLanguageCommentSyntax(const QString& languageId)
+{
+    if (!unregisterPluginLanguageCommentSyntax(languageId))
+        return false;
+    m_pluginRegistrations[m_currentPluginId].commentSyntaxLanguageIds.removeAll(languageId);
     return true;
 }
 

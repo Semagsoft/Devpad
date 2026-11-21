@@ -3,6 +3,7 @@
 
 #include <Qsci/qsciapis.h>
 #include <Qsci/qscilexer.h>
+#include <Qsci/qscilexercpp.h>
 #include <Qsci/qscilexerjavascript.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -102,10 +103,39 @@ TEST_F(LanguageInfoTest, FindLanguageReturnsCorrectEntry)
     EXPECT_EQ(jsonLang->name, "json");
     EXPECT_EQ(jsonLang->lexerClassName, "QsciLexerJSON");
 
-    const auto* jsoncLang = findLanguage("jsonc");
-    ASSERT_NE(jsoncLang, nullptr);
-    EXPECT_EQ(jsoncLang->name, "jsonc");
-    EXPECT_EQ(jsoncLang->lexerClassName, "QsciLexerJSON");
+    const auto* luaLang = findLanguage("lua");
+    ASSERT_NE(luaLang, nullptr);
+    EXPECT_EQ(luaLang->name, "lua");
+    EXPECT_EQ(luaLang->lexerClassName, "QsciLexerLua");
+}
+
+TEST_F(LanguageInfoTest, PluginLanguageRegistrationIncludesCommentSyntax)
+{
+    const QString id = QStringLiteral("test_plugin_language");
+    ASSERT_TRUE(registerPluginLanguage(id, QStringLiteral("QsciLexerCPP"), [](QObject* parent) -> QObject* { return new QsciLexerCPP(parent); }));
+    ASSERT_NE(findLanguage(id), nullptr);
+    EXPECT_TRUE(registerPluginLanguageKeywords(id, {QStringLiteral("alpha"), QStringLiteral("beta")}));
+    EXPECT_EQ(findLanguage(id)->keywords().size(), 2);
+    EXPECT_TRUE(registerPluginLanguageCommentSyntax(id, QStringLiteral("//"), QStringLiteral("/*"), QStringLiteral("*/")));
+
+    const CommentSyntax* syntax = commentSyntaxForLanguage(id);
+    ASSERT_NE(syntax, nullptr);
+    EXPECT_EQ(syntax->lineComment, QStringLiteral("//"));
+    EXPECT_EQ(syntax->blockCommentStart, QStringLiteral("/*"));
+    EXPECT_EQ(syntax->blockCommentEnd, QStringLiteral("*/"));
+
+    // Duplicate registration is rejected; unload cleanup removes everything.
+    EXPECT_FALSE(registerPluginLanguageCommentSyntax(id, QString(), QString(), QString()));
+    EXPECT_TRUE(unregisterPluginLanguageCommentSyntax(id));
+    syntax = commentSyntaxForLanguage(id);
+    ASSERT_NE(syntax, nullptr);
+    EXPECT_TRUE(syntax->lineComment.isEmpty());
+    EXPECT_TRUE(syntax->blockCommentStart.isEmpty());
+    EXPECT_TRUE(syntax->blockCommentEnd.isEmpty());
+    EXPECT_TRUE(unregisterPluginLanguageKeywords(id));
+    EXPECT_TRUE(unregisterPluginLanguage(id));
+    EXPECT_EQ(findLanguage(id), nullptr);
+    EXPECT_EQ(commentSyntaxForLanguage(id), nullptr);
 }
 
 TEST_F(LanguageInfoTest, ThemeApplicatorCacheContainsExpectedKeys)
@@ -137,11 +167,11 @@ TEST_F(LanguageInfoTest, ThemeApplicatorDoesNotCrash)
     }
 }
 
-TEST_F(LanguageInfoTest, JavaScriptAndQmlApplicatorsCoverDarkThemeStyles)
+TEST_F(LanguageInfoTest, JavaScriptApplicatorCoversDarkThemeStyles)
 {
     const ThemeColors dark = getThemeColors(ThemeId::Dark);
 
-    for (const QString& name : {QStringLiteral("javascript"), QStringLiteral("qml")})
+    for (const QString& name : {QStringLiteral("javascript")})
     {
         const LanguageInfo* lang = findLanguage(name);
         ASSERT_NE(lang, nullptr);
@@ -176,9 +206,9 @@ TEST_F(LanguageInfoTest, AliasesShareSameLexerClassName)
     EXPECT_EQ(getClassName("h"), getClassName("cpp"));
     EXPECT_EQ(getClassName("hpp"), getClassName("cpp"));
     EXPECT_EQ(getClassName("html"), getClassName("htm"));
-    EXPECT_EQ(getClassName("typescript"), getClassName("javascript"));
-    EXPECT_EQ(getClassName("ts"), getClassName("javascript"));
     EXPECT_EQ(getClassName("markdown"), getClassName("md"));
+    // TypeScript aliases (typescript/ts/tsx) are registered by the TypeScript
+    // plugin, not by the built-in table.
 }
 
 TEST_F(LanguageInfoTest, KeywordsProviderReturnsNonEmpty)

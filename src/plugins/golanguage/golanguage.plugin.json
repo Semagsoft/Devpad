@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.golanguage",
+    "name": "Go Language",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Adds Go language support (keywords, .go files) via the plugin language hooks.",
+    "apiVersion": 1,
+    "library": "libgolanguage.so",
+    "enabled": true,
+    "depends": []
+}

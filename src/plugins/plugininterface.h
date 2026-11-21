@@ -189,6 +189,27 @@ public:
     virtual void registerObject(const QString& id, QObject* object) = 0;
     virtual void unregisterObject(const QString& id) = 0;
     virtual QObject* object(const QString& id) const = 0;
+
+    // ── Language comment syntax (apiVersion 1 additive hook) ─────
+    // Registers the comment tokens used by editor actions (toggle comment)
+    // for a language contributed by a plugin. Empty strings mean "no form
+    // of comment" (e.g. Markdown). Appended at the end of this interface so
+    // plugins compiled against older headers keep a compatible vtable.
+    // Returns false if languageId is empty or already has a registration.
+    virtual bool registerLanguageCommentSyntax(const QString& languageId, const QString& lineComment, const QString& blockCommentStart,
+                                               const QString& blockCommentEnd)
+    {
+        Q_UNUSED(languageId);
+        Q_UNUSED(lineComment);
+        Q_UNUSED(blockCommentStart);
+        Q_UNUSED(blockCommentEnd);
+        return false;
+    }
+    virtual bool unregisterLanguageCommentSyntax(const QString& languageId)
+    {
+        Q_UNUSED(languageId);
+        return false;
+    }
 };
 
 /**

@@ -539,6 +539,52 @@ if(BUILD_PLUGINS)
     )
 endif()
 
+# ── Language plugins ─────────────────────────────────────────────────────
+# First-party plugins for languages QScintilla has no dedicated lexer for.
+# Each plugin contributes a lexer factory, keywords, file-type mappings and
+# comment syntax through IPluginHost's language hooks. They reuse the
+# keywords.* functions from Devpad_core (resolved from the host at load time)
+# so TUI and next-gen frontends keep a single source of truth.
+function(add_devpad_language_plugin name)
+    add_library(${name} MODULE src/plugins/${name}/${name}.cpp)
+    target_compile_options(${name} PRIVATE -Wall -Wextra -Wpedantic)
+    target_include_directories(${name} PRIVATE
+        src
+        src/managers
+        ${CMAKE_BINARY_DIR}/generated
+    )
+    target_link_libraries(${name} PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        ${DEVPAD_HOST_LINKS}
+    )
+    target_link_qscintilla(${name})
+    if(APPLE)
+        # Allow undefined host symbols resolved from the executable at load.
+        target_link_options(${name} PRIVATE -Wl,-undefined,dynamic_lookup)
+    endif()
+    set_target_properties(${name} PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX "lib"
+        SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+        OUTPUT_NAME ${name}
+    )
+    configure_file(
+        src/plugins/${name}/${name}.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/${name}.plugin.json
+        @ONLY
+    )
+endfunction()
+
+if(BUILD_PLUGINS)
+    add_devpad_language_plugin(rustlanguage)
+    add_devpad_language_plugin(golanguage)
+    add_devpad_language_plugin(typescriptlanguage)
+    add_devpad_language_plugin(qmllanguage)
+    add_devpad_language_plugin(phplanguage)
+    add_devpad_language_plugin(jsonclanguage)
+endif()
+
 # ── App / coordinator static library (slimmed Devpad_lib) ────────────────
 # Holds MainWindow, EditorController, the remaining managers/dialogs/TUI and
 # the plugin host. Keeps the historic Devpad_lib name so the Devpad executable
@@ -782,6 +828,18 @@ if(BUILD_PLUGINS)
         ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
         ${CMAKE_BINARY_DIR}/plugins/liblsp_plugin${DEVPAD_PLUGIN_SUFFIX}
         ${CMAKE_BINARY_DIR}/plugins/lsp_plugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/librustlanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/rustlanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libgolanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/golanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libtypescriptlanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/typescriptlanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libqmllanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/qmllanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libphplanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/phplanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libjsonclanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/jsonclanguage.plugin.json
         DESTINATION lib/devpad/plugins
         OPTIONAL
     )

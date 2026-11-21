@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.rustlanguage",
+    "name": "Rust Language",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Adds Rust language support (keywords, .rs files) via the plugin language hooks.",
+    "apiVersion": 1,
+    "library": "librustlanguage.so",
+    "enabled": true,
+    "depends": []
+}

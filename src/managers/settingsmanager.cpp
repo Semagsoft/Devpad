@@ -58,13 +58,8 @@ static const QHash<QString, QString>& buildExtensionMap()
         {"xslt", "xml"},
         {"svg", "xml"},
         {"json", "json"},
-        {"jsonc", "jsonc"},
         {"sql", "sql"},
         {"ddl", "sql"},
-        {"ts", "typescript"},
-        {"tsx", "typescript"},
-        {"rs", "rust"},
-        {"go", "go"},
         {"md", "markdown"},
         {"mdx", "markdown"},
         {"markdown", "markdown"},
@@ -75,8 +70,6 @@ static const QHash<QString, QString>& buildExtensionMap()
         {"fish", "bash"},
         {"cmake", "cmake"},
         {"lua", "lua"},
-        {"qml", "qml"},
-        {"php", "php"},
         {"txt", "text"},
     };
     return map;

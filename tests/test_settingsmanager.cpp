@@ -167,9 +167,15 @@ TEST_F(SettingsManagerTest, SyntaxForExtension)
     EXPECT_EQ(SettingsManager::instance().syntaxForExtension("cpp"), "cpp");
     EXPECT_EQ(SettingsManager::instance().syntaxForExtension("py"), "python");
     EXPECT_EQ(SettingsManager::instance().syntaxForExtension("js"), "javascript");
-    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("rs"), "rust");
-    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("go"), "go");
+    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("sql"), "sql");
+    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("lua"), "lua");
     EXPECT_TRUE(SettingsManager::instance().syntaxForExtension("xyz123").isEmpty());
+
+    // Add-on languages map their extensions through the plugin hook instead
+    // of the built-in table (rust is contributed by librustlanguage.so).
+    EXPECT_TRUE(SettingsManager::addExtensionMapping("rs", "rust"));
+    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("rs"), "rust");
+    EXPECT_TRUE(SettingsManager::removeExtensionMapping("rs"));
 }
 
 TEST_F(SettingsManagerTest, SyntaxForFile)
