@@ -775,6 +775,30 @@ TEST_F(MainWindowTest, PrintUiHiddenWhenPrintPluginDisabled)
 #endif
 }
 
+TEST_F(MainWindowTest, PluginUiFollowsLoadedStateNotJustEnabledFlag)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    const QString pluginId = QStringLiteral("org.semagsoft.devpad.print");
+    ASSERT_TRUE(manager->isLoaded(pluginId));
+    auto* actions = window.actionManager();
+    ASSERT_TRUE(actions->printAct()->isVisible());
+
+    // An enabled plugin that is not loaded (e.g. its library was removed or
+    // initialize() failed) must not leave stale UI behind.
+    ASSERT_TRUE(manager->unload(pluginId));
+    ASSERT_TRUE(manager->isPluginEnabled(pluginId));
+    emit manager->pluginEnabledChanged(pluginId, true);
+
+    EXPECT_FALSE(actions->printAct()->isVisible());
+    EXPECT_FALSE(actions->pageSetupAct()->isVisible());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
 TEST_F(MainWindowTest, PrintDialogsDoNotOpenWhenPrintPluginDisabled)
 {
 #if defined(DEVPAD_BUILD_PLUGINS)

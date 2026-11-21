@@ -342,7 +342,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 #ifdef BUILD_PLUGINS
     // Attach every already-open editor to the LSP plugin's session factory.
     m_lspCoordinator->attachAll();
-    const bool lspEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"));
+    // Gate UI on the plugin being loaded, not merely enabled: an enabled
+    // plugin that failed to load provides no service to drive the UI.
+    const bool lspEnabled = m_pluginManager->isLoaded(QStringLiteral("org.semagsoft.devpad.lsp"));
     m_actionManager->setLspUiVisible(lspEnabled);
     if (!lspEnabled)
     {
@@ -361,23 +363,26 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     // Debugger UI (Debug menu, View->Debug Panel) is only relevant while the
     // DAP plugin is enabled. The plugin owns the debug panel, so without it
     // the actions would silently no-op.
-    const bool dapEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"));
+    const bool dapEnabled = m_pluginManager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap"));
     m_actionManager->setDebugUiVisible(dapEnabled);
-    const bool printEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.print"));
+    const bool printEnabled = m_pluginManager->isLoaded(QStringLiteral("org.semagsoft.devpad.print"));
     m_actionManager->setPrintUiVisible(printEnabled);
     connect(m_pluginManager, &PluginManager::pluginEnabledChanged, this,
             [this](const QString& pluginId, bool enabled)
             {
+                // An "enabled" toggle can still end with no service loaded
+                // (missing library, api mismatch, initialize() failure).
+                const bool active = m_pluginManager->isLoaded(pluginId);
                 if (pluginId == QStringLiteral("org.semagsoft.devpad.dap"))
                 {
-                    m_actionManager->setDebugUiVisible(enabled);
-                    if (!enabled)
+                    m_actionManager->setDebugUiVisible(active);
+                    if (!active)
                         m_debugSessionKey.clear();
                 }
                 else if (pluginId == QStringLiteral("org.semagsoft.devpad.lsp"))
                 {
-                    m_actionManager->setLspUiVisible(enabled);
-                    if (enabled)
+                    m_actionManager->setLspUiVisible(active);
+                    if (active)
                     {
                         m_lspCoordinator->attachAll();
                         const bool showErrorList = SettingsManager::instance().lspShowErrorList();
@@ -398,7 +403,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 }
                 else if (pluginId == QStringLiteral("org.semagsoft.devpad.print"))
                 {
-                    m_actionManager->setPrintUiVisible(enabled);
+                    m_actionManager->setPrintUiVisible(active);
                 }
                 else if (pluginId == QStringLiteral("org.semagsoft.devpad.terminal"))
                 {
