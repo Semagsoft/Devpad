@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.print",
+    "name": "Print",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Printing and print preview with syntax-highlighted output.",
+    "apiVersion": 1,
+    "library": "libprint_plugin@DEVPAD_PLUGIN_SUFFIX@",
+    "enabled": true,
+    "depends": []
+}

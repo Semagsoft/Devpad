@@ -578,6 +578,39 @@ function(add_devpad_language_plugin name)
 endfunction()
 
 if(BUILD_PLUGINS)
+    # ── Print plugin ───────────────────────────────────────────────────────
+    add_library(print_plugin MODULE
+        src/plugins/print_plugin/printplugin.cpp
+        src/plugins/print_plugin/printmanager.cpp
+    )
+    target_compile_options(print_plugin PRIVATE -Wall -Wextra -Wpedantic)
+    target_include_directories(print_plugin PRIVATE
+        src
+        src/managers
+    )
+    target_link_libraries(print_plugin PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::PrintSupport
+        ${DEVPAD_HOST_LINKS}
+    )
+    target_link_qscintilla(print_plugin)
+    if(APPLE)
+        target_link_options(print_plugin PRIVATE -Wl,-undefined,dynamic_lookup)
+    endif()
+    set_target_properties(print_plugin PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX "lib"
+        SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+        OUTPUT_NAME print_plugin
+    )
+    configure_file(
+        src/plugins/print_plugin/print_plugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/print_plugin.plugin.json
+        @ONLY
+    )
+
     add_devpad_language_plugin(rustlanguage)
     add_devpad_language_plugin(golanguage)
     add_devpad_language_plugin(typescriptlanguage)
@@ -607,7 +640,6 @@ add_library(Devpad_lib STATIC
     src/managers/encodingmenuhelper.cpp
     src/managers/sessionmanager.cpp
     src/managers/encodingmanager.cpp
-    src/managers/printmanager.cpp
     src/managers/filewatchermanager.cpp
     src/managers/updatechecker.cpp
     src/managers/externalchangecoordinator.cpp
@@ -844,6 +876,8 @@ if(BUILD_PLUGINS)
         ${CMAKE_BINARY_DIR}/plugins/jsonclanguage.plugin.json
         ${CMAKE_BINARY_DIR}/plugins/libtomllanguage${DEVPAD_PLUGIN_SUFFIX}
         ${CMAKE_BINARY_DIR}/plugins/tomllanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libprint_plugin${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/print_plugin.plugin.json
         DESTINATION lib/devpad/plugins
         OPTIONAL
     )

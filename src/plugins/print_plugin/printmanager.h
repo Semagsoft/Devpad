@@ -19,20 +19,21 @@
 #ifndef PRINTMANAGER_H
 #define PRINTMANAGER_H
 
+#include "plugins/printinterface.h"
+
 #include <QObject>
 
 class CodeEditor;
 class QPrinter;
-class QWidget;
 
-class PrintManager : public QObject
+class PrintManager : public QObject, public IPrintService
 {
     Q_OBJECT
 
 public:
     explicit PrintManager(QObject* parent = nullptr);
 
-    void printEditorWithHighlighting(CodeEditor* editor, QPrinter* printer);
+    void printEditor(QObject* editor, QPrinter* printer) override;
 
 private:
     QString generateHighlightedHtml(CodeEditor* editor) const;

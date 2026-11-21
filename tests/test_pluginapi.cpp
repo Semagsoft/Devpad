@@ -243,6 +243,7 @@ TEST(PluginApi, LanguagePluginsDeclareSupportedApiVersionAndFactory)
         {"phplanguage", "org.semagsoft.devpad.phplanguage"},
         {"jsonclanguage", "org.semagsoft.devpad.jsonclanguage"},
         {"tomllanguage", "org.semagsoft.devpad.tomllanguage"},
+        {"print_plugin", "org.semagsoft.devpad.print"},
     };
     for (const auto& plugin : plugins)
         checkLanguagePlugin(QString::fromLatin1(plugin.name), QString::fromLatin1(plugin.id));

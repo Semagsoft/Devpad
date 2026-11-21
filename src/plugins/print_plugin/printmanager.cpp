@@ -54,8 +54,12 @@ PrintManager::PrintManager(QObject* parent) : QObject(parent)
 {
 }
 
-void PrintManager::printEditorWithHighlighting(CodeEditor* editor, QPrinter* printer)
+void PrintManager::printEditor(QObject* object, QPrinter* printer)
 {
+    auto* editor = qobject_cast<CodeEditor*>(object);
+    if (!editor || !printer)
+        return;
+
     QTextDocument doc;
     doc.setDefaultFont(editor->font());
 

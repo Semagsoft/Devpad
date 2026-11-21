@@ -43,7 +43,7 @@
 #include "managers/updateservicecoordinator.h"
 #include "optionsdialog.h"
 #include "plugins/lspinterface.h"
-#include "printmanager.h"
+#include "plugins/printinterface.h"
 #include "projectpanel.h"
 #include "referencespanel.h"
 #include "remotefileservice.h"
@@ -476,7 +476,6 @@ void MainWindow::createManagers()
     {
         connect(filter, &PaletteChangeFilter::systemThemeChanged, this, [this]() { applySettings(); });
     }
-    m_printManager = new PrintManager(this);
     m_fileManager = new FileManager(this);
     m_fileWatcherManager = new FileWatcherManager(this);
 
@@ -1319,6 +1318,17 @@ void MainWindow::revertFile()
     }
 }
 
+IPrintService* MainWindow::printService() const
+{
+#ifdef BUILD_PLUGINS
+    if (!m_pluginManager || !m_pluginManager->host())
+        return nullptr;
+    return dynamic_cast<IPrintService*>(m_pluginManager->host()->object(QStringLiteral(DEVPAD_PRINT_SERVICE_OBJECT)));
+#else
+    return nullptr;
+#endif
+}
+
 void MainWindow::printFile()
 {
     CodeEditor* editor = m_tabManager->currentEditor();
@@ -1329,7 +1339,8 @@ void MainWindow::printFile()
     QPrintDialog dialog(&printer, this);
     if (dialog.exec() == QDialog::Accepted)
     {
-        m_printManager->printEditorWithHighlighting(editor, &printer);
+        if (IPrintService* service = printService())
+            service->printEditor(editor, &printer);
     }
 }
 
@@ -1348,7 +1359,8 @@ void MainWindow::printPreview()
             {
                 if (editorPtr && thisPtr)
                 {
-                    thisPtr->m_printManager->printEditorWithHighlighting(editorPtr, p);
+                    if (IPrintService* service = thisPtr->printService())
+                        service->printEditor(editorPtr, p);
                 }
             });
     preview.exec();

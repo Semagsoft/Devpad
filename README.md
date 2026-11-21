@@ -258,6 +258,8 @@ Options → Plugins or at build time with `-DBUILD_PLUGINS=OFF`:
 - **Terminal** (`org.semagsoft.devpad.terminal`) — the embedded terminal panel
   (libghostty-vt, or qtermwidget/KodoTerm as fallback backends).
 - **Debugger** (`org.semagsoft.devpad.dap`) — Debug Adapter Protocol support.
+- **Print** (`org.semagsoft.devpad.print`) — printing and print preview with
+  syntax-highlighted output.
 - **Language Server Protocol** (`org.semagsoft.devpad.lsp`) — diagnostics,
   completion, go-to-definition, hover, rename, etc. Host code talks to it only
   through the interfaces in `src/plugins/lspinterface.h`; when the plugin is
