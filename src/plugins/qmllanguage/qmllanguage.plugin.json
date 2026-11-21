@@ -5,7 +5,7 @@
     "author": "Semagsoft",
     "description": "Adds QML language support (keywords, .qml files) via the plugin language hooks.",
     "apiVersion": 1,
-    "library": "libqmllanguage.so",
+    "library": "libqmllanguage@DEVPAD_PLUGIN_SUFFIX@",
     "enabled": true,
     "depends": []
 }

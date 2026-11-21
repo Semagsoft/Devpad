@@ -40,6 +40,7 @@ QHash<QString, CommentSyntax>& pluginCommentSyntaxTable();
 #include <Qsci/qscilexerjson.h>
 #include <Qsci/qscilexerlua.h>
 #include <Qsci/qscilexermarkdown.h>
+#include <Qsci/qscilexerproperties.h>
 #include <Qsci/qscilexerpython.h>
 #include <Qsci/qscilexersql.h>
 #include <Qsci/qscilexerxml.h>
@@ -296,16 +297,39 @@ const ThemeApplicator& markdownThemeApplicator()
     return fn;
 }
 
+const ThemeApplicator& propertiesThemeApplicator()
+{
+    static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
+    {
+        auto* l = static_cast<QsciLexerProperties*>(lexer);
+        l->setColor(colors.comment, QsciLexerProperties::Comment);
+        l->setColor(colors.preprocessor, QsciLexerProperties::Section);
+        l->setColor(colors.keyword, QsciLexerProperties::Key);
+        l->setColor(colors.operator_, QsciLexerProperties::Assignment);
+        l->setColor(colors.string, QsciLexerProperties::DefaultValue);
+        l->setColor(colors.foreground, QsciLexerProperties::Default);
+    };
+    return fn;
+}
+
 const QHash<QString, ThemeApplicator>& themeApplicatorCache()
 {
     static const QHash<QString, ThemeApplicator> cache = {
-        {"QsciLexerCPP", cppThemeApplicator()},        {"QsciLexerPython", pythonThemeApplicator()},
-        {"QsciLexerHTML", htmlThemeApplicator()},      {"QsciLexerJavaScript", javascriptThemeApplicator()},
-        {"QsciLexerCSharp", csharpThemeApplicator()},  {"QsciLexerJava", javaThemeApplicator()},
-        {"QsciLexerCSS", cssThemeApplicator()},        {"QsciLexerXML", xmlThemeApplicator()},
-        {"QsciLexerSQL", sqlThemeApplicator()},        {"QsciLexerBash", bashThemeApplicator()},
-        {"QsciLexerJSON", jsonThemeApplicator()},      {"QsciLexerCMake", cmakeThemeApplicator()},
-        {"QsciLexerLua", luaThemeApplicator()},        {"QsciLexerMarkdown", markdownThemeApplicator()},
+        {"QsciLexerCPP", cppThemeApplicator()},
+        {"QsciLexerPython", pythonThemeApplicator()},
+        {"QsciLexerHTML", htmlThemeApplicator()},
+        {"QsciLexerJavaScript", javascriptThemeApplicator()},
+        {"QsciLexerCSharp", csharpThemeApplicator()},
+        {"QsciLexerJava", javaThemeApplicator()},
+        {"QsciLexerCSS", cssThemeApplicator()},
+        {"QsciLexerXML", xmlThemeApplicator()},
+        {"QsciLexerSQL", sqlThemeApplicator()},
+        {"QsciLexerBash", bashThemeApplicator()},
+        {"QsciLexerJSON", jsonThemeApplicator()},
+        {"QsciLexerCMake", cmakeThemeApplicator()},
+        {"QsciLexerLua", luaThemeApplicator()},
+        {"QsciLexerMarkdown", markdownThemeApplicator()},
+        {"QsciLexerProperties", propertiesThemeApplicator()},
     };
     return cache;
 }

@@ -5,7 +5,7 @@
     "author": "Semagsoft",
     "description": "Adds JSON with comments support (.jsonc files) via the plugin language hooks.",
     "apiVersion": 1,
-    "library": "libjsonclanguage.so",
+    "library": "libjsonclanguage@DEVPAD_PLUGIN_SUFFIX@",
     "enabled": true,
     "depends": []
 }

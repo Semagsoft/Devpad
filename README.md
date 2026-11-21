@@ -7,7 +7,7 @@ A C++/Qt6 code editor with QScintilla syntax highlighting and embedded terminal.
 ## Features
 
 - Multi-tab editor with QScintilla (syntax highlighting, code folding, brace matching, auto-indentation)
-- Syntax highlighting for: C/C++, C#, Java, Python, JavaScript, HTML, CSS, XML, SQL, Bash, CMake, Markdown, Lua, QML, PHP
+- Syntax highlighting for: C/C++, C#, Java, Python, JavaScript, TypeScript, HTML, CSS, XML, SQL, Bash, CMake, Markdown, Lua, Rust, Go, QML, PHP, JSONC, TOML (TypeScript, Rust, Go, QML, PHP, JSONC and TOML are optional plugins)
 - **LSP integration**: go-to-definition, type definition, declaration, find references, rename, hover, code actions, completion, signature help, document highlights, selection ranges, linked editing, call hierarchy, semantic tokens, formatting
 - **Diagnostics panel**: error/warning/info markers in gutter and inline squiggle underlines
 - Inline find bar with case-sensitive, whole-word, regex matching and replace
@@ -263,6 +263,10 @@ Options → Plugins or at build time with `-DBUILD_PLUGINS=OFF`:
   through the interfaces in `src/plugins/lspinterface.h`; when the plugin is
   disabled or absent, every LSP surface (menu, panels, options page) hides
   automatically and the editor behaves as if LSP never existed.
+- **Language plugins** — one plugin each for TypeScript, Rust, Go, QML, PHP,
+  JSONC and TOML, the languages QScintilla has no dedicated lexer for. They
+  contribute lexers, keywords, file-type mappings and comment syntax through
+  `IPluginHost`'s language hooks and can be disabled individually.
 
 Devpad also supports user-installed C++ plugins loaded at runtime. Plugins are
 shared libraries (`lib<id>.so` on Linux/macOS, `<id>.dll` on Windows) placed in

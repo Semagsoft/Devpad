@@ -168,14 +168,16 @@ TEST(PluginApi, LanguagePluginsRegisterAndUnregisterLanguages)
         const char* languageId;
         const char* extension;
         const char* lexerClass;
+        const char* lineComment;
     };
     const Spec specs[] = {
-        {"rustlanguage", "org.semagsoft.devpad.rustlanguage", "rust", "rs", "QsciLexerCPP"},
-        {"golanguage", "org.semagsoft.devpad.golanguage", "go", "go", "QsciLexerCPP"},
-        {"typescriptlanguage", "org.semagsoft.devpad.typescriptlanguage", "typescript", "ts", "QsciLexerJavaScript"},
-        {"qmllanguage", "org.semagsoft.devpad.qmllanguage", "qml", "qml", "QsciLexerJavaScript"},
-        {"phplanguage", "org.semagsoft.devpad.phplanguage", "php", "php", "QsciLexerCPP"},
-        {"jsonclanguage", "org.semagsoft.devpad.jsonclanguage", "jsonc", "jsonc", "QsciLexerJSON"},
+        {"rustlanguage", "org.semagsoft.devpad.rustlanguage", "rust", "rs", "QsciLexerCPP", "//"},
+        {"golanguage", "org.semagsoft.devpad.golanguage", "go", "go", "QsciLexerCPP", "//"},
+        {"typescriptlanguage", "org.semagsoft.devpad.typescriptlanguage", "typescript", "ts", "QsciLexerJavaScript", "//"},
+        {"qmllanguage", "org.semagsoft.devpad.qmllanguage", "qml", "qml", "QsciLexerJavaScript", "//"},
+        {"phplanguage", "org.semagsoft.devpad.phplanguage", "php", "php", "QsciLexerCPP", "//"},
+        {"jsonclanguage", "org.semagsoft.devpad.jsonclanguage", "jsonc", "jsonc", "QsciLexerJSON", "//"},
+        {"tomllanguage", "org.semagsoft.devpad.tomllanguage", "toml", "toml", "QsciLexerProperties", "#"},
     };
 
     // A host with no MainWindow still owns all the static language/settings
@@ -209,7 +211,7 @@ TEST(PluginApi, LanguagePluginsRegisterAndUnregisterLanguages)
         EXPECT_EQ(SettingsManager::instance().syntaxForExtension(extension), languageId);
         const CommentSyntax* syntax = commentSyntaxForLanguage(languageId);
         ASSERT_NE(syntax, nullptr) << name.toStdString() << ": no comment syntax registered";
-        EXPECT_EQ(syntax->lineComment, QStringLiteral("//"));
+        EXPECT_EQ(syntax->lineComment, QString::fromLatin1(spec.lineComment));
 
         plugin->shutdown();
         host.endPluginSession(id);
@@ -240,6 +242,7 @@ TEST(PluginApi, LanguagePluginsDeclareSupportedApiVersionAndFactory)
         {"qmllanguage", "org.semagsoft.devpad.qmllanguage"},
         {"phplanguage", "org.semagsoft.devpad.phplanguage"},
         {"jsonclanguage", "org.semagsoft.devpad.jsonclanguage"},
+        {"tomllanguage", "org.semagsoft.devpad.tomllanguage"},
     };
     for (const auto& plugin : plugins)
         checkLanguagePlugin(QString::fromLatin1(plugin.name), QString::fromLatin1(plugin.id));

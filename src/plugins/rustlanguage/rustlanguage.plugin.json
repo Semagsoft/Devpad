@@ -5,7 +5,7 @@
     "author": "Semagsoft",
     "description": "Adds Rust language support (keywords, .rs files) via the plugin language hooks.",
     "apiVersion": 1,
-    "library": "librustlanguage.so",
+    "library": "librustlanguage@DEVPAD_PLUGIN_SUFFIX@",
     "enabled": true,
     "depends": []
 }

@@ -583,6 +583,7 @@ if(BUILD_PLUGINS)
     add_devpad_language_plugin(qmllanguage)
     add_devpad_language_plugin(phplanguage)
     add_devpad_language_plugin(jsonclanguage)
+    add_devpad_language_plugin(tomllanguage)
 endif()
 
 # ── App / coordinator static library (slimmed Devpad_lib) ────────────────
@@ -840,6 +841,8 @@ if(BUILD_PLUGINS)
         ${CMAKE_BINARY_DIR}/plugins/phplanguage.plugin.json
         ${CMAKE_BINARY_DIR}/plugins/libjsonclanguage${DEVPAD_PLUGIN_SUFFIX}
         ${CMAKE_BINARY_DIR}/plugins/jsonclanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libtomllanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/tomllanguage.plugin.json
         DESTINATION lib/devpad/plugins
         OPTIONAL
     )

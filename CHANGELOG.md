@@ -5,7 +5,7 @@
 What's new in Devpad 1.10:
 
 - libghostty-vt terminal backend added to terminal plugin as default backend. SHA: 482b14b786f656733f2bd290ba4975ad20f5407d
-- New TOML plugin. SHA: 482b14b786f656733f2bd290ba4975ad20f5407d
+- TOML language plugin: syntax highlighting, keywords and file mappings, shipped as a first-party plugin. SHA: 482b14b786f656733f2bd290ba4975ad20f5407d
 - New FreeBSD x86_64 support. SHA: bb5fced918b56da29b67c0e775f599ac3d8172ee
 - Moduleize Devpad through plugins. SHA: 482b14b786f656733f2bd290ba4975ad20f5407d
       LSP

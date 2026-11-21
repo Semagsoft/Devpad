@@ -5,7 +5,7 @@
     "author": "Semagsoft",
     "description": "Adds TypeScript language support (keywords, .ts/.tsx files) via the plugin language hooks.",
     "apiVersion": 1,
-    "library": "libtypescriptlanguage.so",
+    "library": "libtypescriptlanguage@DEVPAD_PLUGIN_SUFFIX@",
     "enabled": true,
     "depends": []
 }

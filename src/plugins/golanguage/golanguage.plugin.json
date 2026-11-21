@@ -5,7 +5,7 @@
     "author": "Semagsoft",
     "description": "Adds Go language support (keywords, .go files) via the plugin language hooks.",
     "apiVersion": 1,
-    "library": "libgolanguage.so",
+    "library": "libgolanguage@DEVPAD_PLUGIN_SUFFIX@",
     "enabled": true,
     "depends": []
 }

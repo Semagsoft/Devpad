@@ -65,6 +65,7 @@ const ThemeApplicator& bashThemeApplicator();
 const ThemeApplicator& cmakeThemeApplicator();
 const ThemeApplicator& luaThemeApplicator();
 const ThemeApplicator& markdownThemeApplicator();
+const ThemeApplicator& propertiesThemeApplicator();
 
 const QHash<QString, ThemeApplicator>& themeApplicatorCache();
 const std::vector<LanguageInfo>& languageTable();
