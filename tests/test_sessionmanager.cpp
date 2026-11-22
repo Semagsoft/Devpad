@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QSettings>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -133,8 +134,9 @@ TEST_F(SessionManagerTest, SaveSessionWithTabManager)
     TabManager tabManager(&tabWidget);
     ProjectPanel projectPanel;
 
+    const QString filePath = QStringLiteral("/path/to/test.cpp");
     CodeEditor* editor = tabManager.createEditor();
-    editor->setFileName("/path/to/test.cpp");
+    editor->setFileName(filePath);
     editor->setText("test content");
     tabManager.addEditor(editor, "test.cpp");
 
@@ -142,7 +144,9 @@ TEST_F(SessionManagerTest, SaveSessionWithTabManager)
 
     QStringList files = mgr.sessionFiles();
     EXPECT_EQ(files.size(), 1);
-    EXPECT_TRUE(files.contains("/path/to/test.cpp"));
+    // saveSession() canonicalises paths; the expected form is platform-specific
+    // (on Windows "/path/to/test.cpp" becomes a drive-qualified absolute path).
+    EXPECT_TRUE(files.contains(QFileInfo(filePath).absoluteFilePath())) << files.join(QLatin1String(", ")).toStdString();
 }
 
 TEST_F(SessionManagerTest, SaveSessionStoresAbsolutePathForRelativeFileName)
@@ -183,8 +187,9 @@ TEST_F(SessionManagerTest, SaveSessionSkipsUntitledFiles)
     untitled->setText("unsaved");
     tabManager.addEditor(untitled, "Untitled");
 
+    const QString savedPath = QStringLiteral("/path/to/real.cpp");
     CodeEditor* saved = tabManager.createEditor();
-    saved->setFileName("/path/to/real.cpp");
+    saved->setFileName(savedPath);
     saved->setText("real");
     tabManager.addEditor(saved, "real.cpp");
 
@@ -192,7 +197,7 @@ TEST_F(SessionManagerTest, SaveSessionSkipsUntitledFiles)
 
     QStringList files = mgr.sessionFiles();
     EXPECT_EQ(files.size(), 1);
-    EXPECT_TRUE(files.contains("/path/to/real.cpp"));
+    EXPECT_TRUE(files.contains(QFileInfo(savedPath).absoluteFilePath())) << files.join(QLatin1String(", ")).toStdString();
     EXPECT_FALSE(files.contains("Untitled"));
 }
 
@@ -203,8 +208,10 @@ TEST_F(SessionManagerTest, SaveAndLoadWithBookmarksInSession)
     TabManager tabManager(&tabWidget);
     ProjectPanel projectPanel;
 
+    const QString filePath = QStringLiteral("/path/to/bookmarked.cpp");
+    const QString canonicalPath = QFileInfo(filePath).absoluteFilePath();
     CodeEditor* editor = tabManager.createEditor();
-    editor->setFileName("/path/to/bookmarked.cpp");
+    editor->setFileName(filePath);
     editor->setText("line one\nline two\nline three\nline four\nline five\n");
     editor->toggleBookmark(1);
     editor->toggleBookmark(3);
@@ -213,11 +220,11 @@ TEST_F(SessionManagerTest, SaveAndLoadWithBookmarksInSession)
     mgr.saveSession(&tabManager, &projectPanel, "");
 
     EXPECT_EQ(mgr.sessionFiles().size(), 1);
-    EXPECT_TRUE(mgr.sessionFiles().contains("/path/to/bookmarked.cpp"));
+    EXPECT_TRUE(mgr.sessionFiles().contains(canonicalPath)) << mgr.sessionFiles().join(QLatin1String(", ")).toStdString();
 
     QHash<QString, QList<int>> bookmarks = mgr.loadSessionBookmarks();
-    EXPECT_TRUE(bookmarks.contains("/path/to/bookmarked.cpp"));
-    EXPECT_EQ(bookmarks["/path/to/bookmarked.cpp"], QList<int>({1, 3}));
+    EXPECT_TRUE(bookmarks.contains(canonicalPath));
+    EXPECT_EQ(bookmarks[canonicalPath], QList<int>({1, 3}));
 }
 
 TEST_F(SessionManagerTest, SaveAndLoadTerminalWorkingDir)

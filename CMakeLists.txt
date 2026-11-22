@@ -996,6 +996,9 @@ if(BUILD_TESTS)
         tests/test_inlinefindbar.cpp
         tests/test_titlebar.cpp
         tests/test_printmanager.cpp
+        # Linked into the test binary (not loaded from the plugin DLL) so the
+        # editor's metaobject and PrintManager's qobject_cast share one image.
+        src/plugins/print_plugin/printmanager.cpp
         tests/test_recentfileshelper.cpp
         tests/test_lsptypes.cpp
         tests/test_lspjsonrpc.cpp

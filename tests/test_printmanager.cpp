@@ -1,5 +1,6 @@
 #include "codeeditor.h"
 #include "plugins/pluginhost.h"
+#include "plugins/print_plugin/printmanager.h"
 #include "plugins/printinterface.h"
 #include "settingsmanager.h"
 
@@ -63,15 +64,17 @@ class PrintManagerTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        static PrintServiceHolder holder;
-        m_service = holder.service();
-        if (!m_service)
-            GTEST_SKIP() << "Print plugin not available in this build";
-
         ASSERT_TRUE(m_tempDir.isValid());
         m_testSettings = SettingsManager::createForTesting();
         SettingsManager::setTestingInstance(m_testSettings.get());
         m_editor = new CodeEditor();
+
+        // Drive the printing code from a PrintManager linked into the test
+        // binary. Loading the plugin's copy on Windows would run
+        // qobject_cast<CodeEditor*> against CodeEditor::staticMetaObject from
+        // Devpad_host.dll, while the editor here uses the statically linked
+        // host copy; the cast fails and no PDF is ever written.
+        m_service = std::make_unique<PrintManager>();
     }
 
     void configurePdfPrinter(QPrinter& printer) const
@@ -83,11 +86,12 @@ protected:
     void TearDown() override
     {
         delete m_editor;
+        m_service.reset();
         SettingsManager::setTestingInstance(nullptr);
         m_testSettings.reset();
     }
 
-    IPrintService* m_service = nullptr;
+    std::unique_ptr<PrintManager> m_service;
     CodeEditor* m_editor = nullptr;
     std::unique_ptr<SettingsManager> m_testSettings;
     QTemporaryDir m_tempDir;
@@ -95,7 +99,12 @@ protected:
 
 TEST_F(PrintManagerTest, PluginExposesPrintService)
 {
-    EXPECT_NE(m_service, nullptr);
+#if defined(DEVPAD_BUILD_DIR) && defined(DEVPAD_BUILD_PLUGINS)
+    PrintServiceHolder holder;
+    EXPECT_NE(holder.service(), nullptr);
+#else
+    GTEST_SKIP() << "Print plugin not built";
+#endif
 }
 
 TEST_F(PrintManagerTest, PrintWithNoLexerUsesPlainText)

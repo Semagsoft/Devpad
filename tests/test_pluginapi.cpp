@@ -269,6 +269,13 @@ class PluginDependencyTest : public ::testing::Test
 protected:
     void SetUp() override
     {
+        // Use an isolated settings store: the default QSettings instance has
+        // no organisation/application name in the test binary, so on Windows
+        // (NativeFormat/registry) the Enabled=false reset below is not reliably
+        // persisted. Without it isPluginEnabled() falls back to the manifest
+        // default (true) and setPluginEnabled(..., true) becomes a no-op.
+        m_testSettings = SettingsManager::createForTesting();
+        SettingsManager::setTestingInstance(m_testSettings.get());
         for (const char* id : {kDepA, kDepB, kMissingDep, kBadApi})
             resetTestPluginSetting(id);
         m_manager = std::make_unique<PluginManager>(nullptr);
@@ -280,10 +287,11 @@ protected:
     void TearDown() override
     {
         m_manager.reset();
-        for (const char* id : {kDepA, kDepB, kMissingDep, kBadApi})
-            resetTestPluginSetting(id);
+        SettingsManager::setTestingInstance(nullptr);
+        m_testSettings.reset();
     }
 
+    std::unique_ptr<SettingsManager> m_testSettings;
     std::unique_ptr<PluginManager> m_manager;
 };
 
@@ -294,8 +302,8 @@ TEST_F(PluginDependencyTest, EnablingPluginEnablesAndLoadsDependencies)
     m_manager->setPluginEnabled(QString::fromLatin1(kDepB), true);
 
     EXPECT_TRUE(m_manager->isPluginEnabled(QString::fromLatin1(kDepA)));
-    EXPECT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepA)));
-    EXPECT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepB)));
+    EXPECT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepA))) << "depA: " << m_manager->failureReason(QString::fromLatin1(kDepA)).toStdString();
+    EXPECT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepB))) << "depB: " << m_manager->failureReason(QString::fromLatin1(kDepB)).toStdString();
 #else
     GTEST_SKIP() << "Test plugins not built";
 #endif
@@ -305,8 +313,8 @@ TEST_F(PluginDependencyTest, CannotDisablePluginRequiredByLoadedPlugin)
 {
 #if defined(DEVPAD_TEST_PLUGINS_DIR)
     m_manager->setPluginEnabled(QString::fromLatin1(kDepB), true);
-    ASSERT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepA)));
-    ASSERT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepB)));
+    ASSERT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepA))) << "depA: " << m_manager->failureReason(QString::fromLatin1(kDepA)).toStdString();
+    ASSERT_TRUE(m_manager->isLoaded(QString::fromLatin1(kDepB))) << "depB: " << m_manager->failureReason(QString::fromLatin1(kDepB)).toStdString();
 
     m_manager->setPluginEnabled(QString::fromLatin1(kDepA), false);
 
@@ -325,7 +333,8 @@ TEST_F(PluginDependencyTest, MissingDependencyFailsWithReasonAndSignal)
     m_manager->setPluginEnabled(QString::fromLatin1(kMissingDep), true);
 
     EXPECT_FALSE(m_manager->isLoaded(QString::fromLatin1(kMissingDep)));
-    EXPECT_TRUE(m_manager->failureReason(QString::fromLatin1(kMissingDep)).contains(QStringLiteral("missing dependency")));
+    EXPECT_TRUE(m_manager->failureReason(QString::fromLatin1(kMissingDep)).contains(QStringLiteral("missing dependency")))
+        << m_manager->failureReason(QString::fromLatin1(kMissingDep)).toStdString();
     EXPECT_EQ(failed.count(), 1);
 #else
     GTEST_SKIP() << "Test plugins not built";
@@ -339,7 +348,8 @@ TEST_F(PluginDependencyTest, UnsupportedApiVersionRecordsFailure)
     m_manager->setPluginEnabled(QString::fromLatin1(kBadApi), true);
 
     EXPECT_FALSE(m_manager->isLoaded(QString::fromLatin1(kBadApi)));
-    EXPECT_TRUE(m_manager->failureReason(QString::fromLatin1(kBadApi)).contains(QStringLiteral("api version")));
+    EXPECT_TRUE(m_manager->failureReason(QString::fromLatin1(kBadApi)).contains(QStringLiteral("api version")))
+        << m_manager->failureReason(QString::fromLatin1(kBadApi)).toStdString();
     EXPECT_EQ(failed.count(), 1);
 #else
     GTEST_SKIP() << "Test plugins not built";
