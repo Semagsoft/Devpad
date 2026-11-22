@@ -158,6 +158,12 @@ TEST_F(SessionManagerTest, SaveSessionStoresAbsolutePathForRelativeFileName)
     ASSERT_TRUE(file.open(QIODevice::WriteOnly));
     file.close();
 
+    // saveSession() canonicalises paths, resolving symlinks. On macOS the temp
+    // dir lives under /var, which is a symlink to /private/var, so the path
+    // QTemporaryDir reports differs from the one SessionManager stores.
+    const QString expectedPath = QFileInfo(absPath).canonicalFilePath();
+    ASSERT_FALSE(expectedPath.isEmpty());
+
     const QString oldCwd = QDir::currentPath();
     ASSERT_TRUE(QDir::setCurrent(dir.path()));
     {
@@ -171,7 +177,7 @@ TEST_F(SessionManagerTest, SaveSessionStoresAbsolutePathForRelativeFileName)
         tabManager.addEditor(editor, QStringLiteral("file.cpp"));
 
         mgr.saveSession(&tabManager, &projectPanel, "");
-        EXPECT_EQ(mgr.sessionFiles(), QStringList{absPath});
+        EXPECT_EQ(mgr.sessionFiles(), QStringList{expectedPath});
     }
     QDir::setCurrent(oldCwd);
 }
