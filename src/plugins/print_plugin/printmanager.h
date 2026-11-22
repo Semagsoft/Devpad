@@ -26,10 +26,13 @@
 class CodeEditor;
 class QPrinter;
 
+// Deliberately no Q_OBJECT: PrintManager is consumed purely through the
+// plain C++ IPrintService interface, and this source is compiled both into the
+// print plugin and into Devpad_tests. A Q_OBJECT would give each image its own
+// staticMetaObject and trip AddressSanitizer's ODR detection when the plugin
+// is dlopen'd by the tests.
 class PrintManager : public QObject, public IPrintService
 {
-    Q_OBJECT
-
 public:
     explicit PrintManager(QObject* parent = nullptr);
 
