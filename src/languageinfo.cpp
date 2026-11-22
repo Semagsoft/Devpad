@@ -26,6 +26,7 @@
 namespace
 {
 QHash<QString, LanguageInfo>& pluginLanguageTable();
+QHash<QString, CommentSyntax>& pluginCommentSyntaxTable();
 } // namespace
 
 #include <Qsci/qscilexerbash.h>
@@ -39,6 +40,7 @@ QHash<QString, LanguageInfo>& pluginLanguageTable();
 #include <Qsci/qscilexerjson.h>
 #include <Qsci/qscilexerlua.h>
 #include <Qsci/qscilexermarkdown.h>
+#include <Qsci/qscilexerproperties.h>
 #include <Qsci/qscilexerpython.h>
 #include <Qsci/qscilexersql.h>
 #include <Qsci/qscilexerxml.h>
@@ -295,42 +297,17 @@ const ThemeApplicator& markdownThemeApplicator()
     return fn;
 }
 
-const ThemeApplicator& qmlThemeApplicator()
+const ThemeApplicator& propertiesThemeApplicator()
 {
     static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
     {
-        auto* l = static_cast<QsciLexerJavaScript*>(lexer);
-        l->setColor(colors.comment, QsciLexerJavaScript::Comment);
-        l->setColor(colors.comment, QsciLexerJavaScript::CommentLine);
-        l->setColor(colors.comment, QsciLexerJavaScript::CommentDoc);
-        l->setColor(colors.comment, QsciLexerJavaScript::CommentLineDoc);
-        l->setColor(colors.keyword, QsciLexerJavaScript::Keyword);
-        l->setColor(colors.string, QsciLexerJavaScript::DoubleQuotedString);
-        l->setColor(colors.string, QsciLexerJavaScript::SingleQuotedString);
-        l->setColor(colors.string, QsciLexerJavaScript::UnclosedString);
-        l->setColor(colors.number, QsciLexerJavaScript::Number);
-        l->setColor(colors.foreground, QsciLexerJavaScript::Regex);
-        l->setColor(colors.operator_, QsciLexerJavaScript::Operator);
-        l->setColor(colors.operator_, QsciLexerJavaScript::Default);
-    };
-    return fn;
-}
-
-const ThemeApplicator& phpThemeApplicator()
-{
-    static const ThemeApplicator fn = [](QsciLexer* lexer, const ThemeColors& colors)
-    {
-        auto* l = static_cast<QsciLexerCPP*>(lexer);
-        l->setColor(colors.comment, QsciLexerCPP::Comment);
-        l->setColor(colors.comment, QsciLexerCPP::CommentLine);
-        l->setColor(colors.comment, QsciLexerCPP::CommentDoc);
-        l->setColor(colors.keyword, QsciLexerCPP::Keyword);
-        l->setColor(colors.string, QsciLexerCPP::DoubleQuotedString);
-        l->setColor(colors.string, QsciLexerCPP::SingleQuotedString);
-        l->setColor(colors.number, QsciLexerCPP::Number);
-        l->setColor(colors.preprocessor, QsciLexerCPP::PreProcessor);
-        l->setColor(colors.operator_, QsciLexerCPP::Operator);
-        l->setColor(colors.operator_, QsciLexerCPP::Default);
+        auto* l = static_cast<QsciLexerProperties*>(lexer);
+        l->setColor(colors.comment, QsciLexerProperties::Comment);
+        l->setColor(colors.preprocessor, QsciLexerProperties::Section);
+        l->setColor(colors.keyword, QsciLexerProperties::Key);
+        l->setColor(colors.operator_, QsciLexerProperties::Assignment);
+        l->setColor(colors.string, QsciLexerProperties::DefaultValue);
+        l->setColor(colors.foreground, QsciLexerProperties::Default);
     };
     return fn;
 }
@@ -338,14 +315,21 @@ const ThemeApplicator& phpThemeApplicator()
 const QHash<QString, ThemeApplicator>& themeApplicatorCache()
 {
     static const QHash<QString, ThemeApplicator> cache = {
-        {"QsciLexerCPP", cppThemeApplicator()},        {"QsciLexerPython", pythonThemeApplicator()},
-        {"QsciLexerHTML", htmlThemeApplicator()},      {"QsciLexerJavaScript", javascriptThemeApplicator()},
-        {"QsciLexerCSharp", csharpThemeApplicator()},  {"QsciLexerJava", javaThemeApplicator()},
-        {"QsciLexerCSS", cssThemeApplicator()},        {"QsciLexerXML", xmlThemeApplicator()},
-        {"QsciLexerSQL", sqlThemeApplicator()},        {"QsciLexerBash", bashThemeApplicator()},
-        {"QsciLexerJSON", jsonThemeApplicator()},      {"QsciLexerCMake", cmakeThemeApplicator()},
-        {"QsciLexerLua", luaThemeApplicator()},        {"QsciLexerMarkdown", markdownThemeApplicator()},
-        {"QsciLexerJavaScript", qmlThemeApplicator()}, {"QsciLexerCPP", phpThemeApplicator()},
+        {"QsciLexerCPP", cppThemeApplicator()},
+        {"QsciLexerPython", pythonThemeApplicator()},
+        {"QsciLexerHTML", htmlThemeApplicator()},
+        {"QsciLexerJavaScript", javascriptThemeApplicator()},
+        {"QsciLexerCSharp", csharpThemeApplicator()},
+        {"QsciLexerJava", javaThemeApplicator()},
+        {"QsciLexerCSS", cssThemeApplicator()},
+        {"QsciLexerXML", xmlThemeApplicator()},
+        {"QsciLexerSQL", sqlThemeApplicator()},
+        {"QsciLexerBash", bashThemeApplicator()},
+        {"QsciLexerJSON", jsonThemeApplicator()},
+        {"QsciLexerCMake", cmakeThemeApplicator()},
+        {"QsciLexerLua", luaThemeApplicator()},
+        {"QsciLexerMarkdown", markdownThemeApplicator()},
+        {"QsciLexerProperties", propertiesThemeApplicator()},
     };
     return cache;
 }
@@ -437,48 +421,6 @@ const std::vector<LanguageInfo>& languageTable()
          jsonKeywords,
          jsonThemeApplicator(),
          {"//", "/*", "*/"}},
-        {"jsonc",
-         "QsciLexerJSON",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJSON(parent); },
-         jsonKeywords,
-         jsonThemeApplicator(),
-         {"//", "/*", "*/"}},
-        {"typescript",
-         "QsciLexerJavaScript",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
-         typescriptKeywords,
-         javascriptThemeApplicator(),
-         {"//", "/*", "*/"}},
-        {"ts",
-         "QsciLexerJavaScript",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
-         typescriptKeywords,
-         javascriptThemeApplicator(),
-         {"//", "/*", "*/"}},
-        {"tsx",
-         "QsciLexerJavaScript",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
-         typescriptKeywords,
-         javascriptThemeApplicator(),
-         {"//", "/*", "*/"}},
-        {"rust",
-         "QsciLexerCPP",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); },
-         rustKeywords,
-         cppThemeApplicator(),
-         {"//", "/*", "*/"}},
-        {"rs",
-         "QsciLexerCPP",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); },
-         rustKeywords,
-         cppThemeApplicator(),
-         {"//", "/*", "*/"}},
-        {"go",
-         "QsciLexerCPP",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); },
-         goKeywords,
-         cppThemeApplicator(),
-         {"//", "/*", "*/"}},
         {"markdown",
          "QsciLexerMarkdown",
          []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerMarkdown(parent); },
@@ -509,18 +451,6 @@ const std::vector<LanguageInfo>& languageTable()
          luaKeywords,
          luaThemeApplicator(),
          {"--", "--[[", "]]"}},
-        {"qml",
-         "QsciLexerJavaScript",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerJavaScript(parent); },
-         qmlKeywords,
-         qmlThemeApplicator(),
-         {"//", "/*", "*/"}},
-        {"php",
-         "QsciLexerCPP",
-         []([[maybe_unused]] QObject* parent) -> QsciLexer* { return new QsciLexerCPP(parent); },
-         phpKeywords,
-         phpThemeApplicator(),
-         {"//", "/*", "*/"}},
     };
     return table;
 }
@@ -551,11 +481,16 @@ const CommentSyntax* commentSyntaxForLanguage(const QString& language)
         if (lang.name == language)
             return &lang.commentSyntax;
     }
-    // Check plugin-registered languages.
+    // Check plugin-registered languages first, then comment syntax registered
+    // on its own (e.g. by a plugin that only augments a built-in language).
     auto& pluginTable = pluginLanguageTable();
     auto it = pluginTable.constFind(language);
     if (it != pluginTable.end())
         return &it->commentSyntax;
+    auto& commentTable = pluginCommentSyntaxTable();
+    auto commentIt = commentTable.constFind(language);
+    if (commentIt != commentTable.end())
+        return &*commentIt;
     return nullptr;
 }
 
@@ -576,6 +511,12 @@ QHash<QString, std::shared_ptr<const QStringList>>& pluginKeywordStorage()
 {
     static QHash<QString, std::shared_ptr<const QStringList>> storage;
     return storage;
+}
+
+QHash<QString, CommentSyntax>& pluginCommentSyntaxTable()
+{
+    static QHash<QString, CommentSyntax> table;
+    return table;
 }
 } // namespace
 
@@ -635,4 +576,32 @@ bool unregisterPluginLanguageKeywords(const QString& languageId)
         };
     }
     return true;
+}
+
+bool registerPluginLanguageCommentSyntax(const QString& languageId, const QString& lineComment, const QString& blockCommentStart,
+                                         const QString& blockCommentEnd)
+{
+    if (languageId.isEmpty())
+        return false;
+    auto& table = pluginCommentSyntaxTable();
+    if (table.contains(languageId))
+        return false;
+    const CommentSyntax syntax{lineComment, blockCommentStart, blockCommentEnd};
+    table.insert(languageId, syntax);
+    // commentSyntaxForLanguage() checks the language entry first, so keep it
+    // in sync when the language itself was contributed by a plugin.
+    auto& languages = pluginLanguageTable();
+    auto it = languages.find(languageId);
+    if (it != languages.end())
+        it->commentSyntax = syntax;
+    return true;
+}
+
+bool unregisterPluginLanguageCommentSyntax(const QString& languageId)
+{
+    auto& languages = pluginLanguageTable();
+    auto it = languages.find(languageId);
+    if (it != languages.end())
+        it->commentSyntax = {"", "", ""};
+    return pluginCommentSyntaxTable().remove(languageId) > 0;
 }

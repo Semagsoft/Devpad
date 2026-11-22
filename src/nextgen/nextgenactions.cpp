@@ -30,9 +30,16 @@
 #include <QPrintPreviewDialog>
 #include <QPrinter>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTextDocument>
+#include <QUuid>
+
+namespace
+{
+constexpr qint64 kMaxRemoteFileBytes = 100 * 1024 * 1024; // 100 MB, matches RemoteFileService
+}
 
 NextgenActions::NextgenActions(QObject* parent)
     : QObject(parent), m_editor(nullptr), m_externalToolManager(new ExternalToolManager(this)), m_networkManager(new QNetworkAccessManager(this)),
@@ -88,7 +95,7 @@ void NextgenActions::checkForUpdates()
 }
 QObject* NextgenActions::editorObj() const
 {
-    return m_editor;
+    return m_editor.data();
 }
 void NextgenActions::setEditorObj(QObject* obj)
 {
@@ -840,17 +847,29 @@ QString NextgenActions::runCommand(const QString& rawCmd)
         return QStringLiteral("");
 
     // ── File ──────────────────────────────────────────
+    // A save command must never report success — or trigger a quit — unless
+    // the write actually succeeded. Save-As is asynchronous (the dialog is
+    // opened via requestSaveAsDialog), so quitting is deferred until the user
+    // has chosen a path and re-run the command.
     if (cmd == QStringLiteral("wa"))
     {
         // Save all modified buffers with file paths (best effort via current editor)
-        if (m_editor && !m_editor->filePath().isEmpty() && m_editor->document() && m_editor->document()->isModified())
-            m_editor->save();
+        if (m_editor && !m_editor->filePath().isEmpty() && m_editor->document() && m_editor->document()->isModified() && !m_editor->save())
+            return QStringLiteral("Save failed; not all buffers were saved");
         return QStringLiteral("Saved all");
     }
     if (cmd == QStringLiteral("wqa") || cmd == QStringLiteral("waq"))
     {
-        if (m_editor && !m_editor->filePath().isEmpty() && m_editor->document() && m_editor->document()->isModified())
-            m_editor->save();
+        if (m_editor && m_editor->document() && m_editor->document()->isModified())
+        {
+            if (m_editor->filePath().isEmpty())
+            {
+                emit requestSaveAsDialog();
+                return QStringLiteral("Choose a file name, then run :wq again to quit");
+            }
+            if (!m_editor->save())
+                return QStringLiteral("Save failed; not quitting");
+        }
         return QStringLiteral("quit"); // handled by QML
     }
     if (cmd == QStringLiteral("w") || cmd.startsWith(QStringLiteral("w ")))
@@ -861,17 +880,15 @@ QString NextgenActions::runCommand(const QString& rawCmd)
         if (arg.isEmpty())
         {
             if (m_editor->filePath().isEmpty())
+            {
                 emit requestSaveAsDialog();
-            else
-                m_editor->save();
+                return QStringLiteral("Choose a file name to save");
+            }
+            return m_editor->save() ? QStringLiteral("Saved") : QStringLiteral("Save failed");
         }
-        else
-        {
-            if (!QFileInfo(arg).isAbsolute())
-                arg = QDir::current().absoluteFilePath(arg);
-            m_editor->saveAs(arg);
-        }
-        return QStringLiteral("Saved");
+        if (!QFileInfo(arg).isAbsolute())
+            arg = QDir::current().absoluteFilePath(arg);
+        return m_editor->saveAs(arg) ? QStringLiteral("Saved") : QStringLiteral("Save failed");
     }
     if (cmd == QStringLiteral("q"))
     {
@@ -885,10 +902,24 @@ QString NextgenActions::runCommand(const QString& rawCmd)
     {
         if (m_editor)
         {
-            if (m_editor->filePath().isEmpty())
-                emit requestSaveAsDialog();
-            else
-                m_editor->save();
+            QString arg = cmd.mid(2).trimmed();
+            if (!arg.isEmpty())
+            {
+                if (!QFileInfo(arg).isAbsolute())
+                    arg = QDir::current().absoluteFilePath(arg);
+                if (!m_editor->saveAs(arg))
+                    return QStringLiteral("Save failed; not quitting");
+            }
+            else if (m_editor->document() && m_editor->document()->isModified())
+            {
+                if (m_editor->filePath().isEmpty())
+                {
+                    emit requestSaveAsDialog();
+                    return QStringLiteral("Choose a file name, then run :wq again to quit");
+                }
+                if (!m_editor->save())
+                    return QStringLiteral("Save failed; not quitting");
+            }
         }
         return QStringLiteral("quit");
     }
@@ -1335,7 +1366,16 @@ void NextgenActions::openRemoteFile(const QString& url)
     QString fileName = QFileInfo(qUrl.path()).fileName();
     if (fileName.isEmpty())
         fileName = QStringLiteral("remote.txt");
-    QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QLatin1Char('/') + fileName;
+    // Sanitize: keep it a plain filename, no separators or parent references.
+    QString safeName;
+    safeName.reserve(fileName.size());
+    for (const QChar c : fileName)
+        safeName += (c.isLetterOrNumber() || c == QLatin1Char('.') || c == QLatin1Char('-') || c == QLatin1Char('_')) ? c : QLatin1Char('_');
+    if (safeName.isEmpty() || safeName == QStringLiteral(".") || safeName == QStringLiteral(".."))
+        safeName = QStringLiteral("remote.txt");
+    // Unguessable name: no pre-existing file can be clobbered via symlink or race.
+    const QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QStringLiteral("/devpad-remote-") +
+                             QUuid::createUuid().toString(QUuid::WithoutBraces) + QLatin1Char('-') + safeName;
 
     QNetworkRequest request(qUrl);
     m_currentReply = m_networkManager->get(request);
@@ -1356,6 +1396,13 @@ QString NextgenActions::remoteLoadError() const
 
 void NextgenActions::onRemoteDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
+    if (bytesReceived > kMaxRemoteFileBytes || (bytesTotal > 0 && bytesTotal > kMaxRemoteFileBytes))
+    {
+        // Too large: abort; finished() will report the cancellation as an error.
+        if (m_currentReply)
+            m_currentReply->abort();
+        return;
+    }
     emit remoteLoadProgress(m_currentReply ? m_currentReply->url().toString() : QString(), bytesReceived, bytesTotal);
 }
 
@@ -1384,9 +1431,20 @@ void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QSt
     QByteArray data = reply->readAll();
     reply->deleteLater();
 
-    // Save to temp file
-    QFile file(tempPath);
-    if (!file.open(QIODevice::WriteOnly))
+    if (data.size() > kMaxRemoteFileBytes)
+    {
+        error = QStringLiteral("Remote file is too large (limit is 100 MB)");
+        m_remoteLoadError = error;
+        emit remoteLoadFinished(url, localPath, false, error);
+        emit showMessage(QStringLiteral("Remote download failed: ") + error);
+        return;
+    }
+
+    // QSaveFile writes to a unique temp file and renames it into place: it never
+    // follows symlinks and never clobbers an unrelated file, so even a guessed
+    // temp path cannot damage other files.
+    QSaveFile file(tempPath);
+    if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit())
     {
         error = QStringLiteral("Cannot write temp file: ") + tempPath;
         m_remoteLoadError = error;
@@ -1394,8 +1452,6 @@ void NextgenActions::onRemoteDownloadFinished(const QString& tempPath, const QSt
         emit showMessage(QStringLiteral("Cannot save remote file: ") + error);
         return;
     }
-    file.write(data);
-    file.close();
 
     localPath = tempPath;
     m_remoteLoadError.clear();

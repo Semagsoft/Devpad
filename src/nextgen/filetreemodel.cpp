@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <functional>
 
 FileTreeModel::FileTreeModel(QObject* parent) : QAbstractItemModel(parent)
 {
@@ -336,8 +337,22 @@ bool FileTreeModel::rename(const QModelIndex& idx, const QString& newName)
     bool ok = QFile::rename(n->path, newPath);
     if (ok)
     {
+        const QString oldPrefix = n->path + QLatin1Char('/');
         n->path = std::move(newPath);
         n->name = newName;
+        // Retarget the whole subtree: descendants built from the old path would
+        // otherwise point at files that no longer exist.
+        const QString newPrefix = n->path + QLatin1Char('/');
+        std::function<void(FileTreeModel::Node*)> retarget = [&](FileTreeModel::Node* parent)
+        {
+            for (FileTreeModel::Node* child : parent->children)
+            {
+                if (child->path.startsWith(oldPrefix))
+                    child->path = newPrefix + child->path.mid(oldPrefix.size());
+                retarget(child);
+            }
+        };
+        retarget(n);
         emit dataChanged(idx, idx, {FileNameRole, FilePathRole, Qt::DisplayRole});
     }
     return ok;
@@ -390,7 +405,7 @@ bool FileTreeModel::remove(const QModelIndex& idx)
         int row = p->children.indexOf(n);
         beginRemoveRows(parent(idx), row, row);
         p->children.removeAt(row);
-        delete n;
+        deleteTree(n); // children are owned raw pointers; free the whole subtree
         endRemoveRows();
     }
     return ok;

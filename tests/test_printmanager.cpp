@@ -1,13 +1,63 @@
 #include "codeeditor.h"
-#include "printmanager.h"
+#include "plugins/pluginhost.h"
+#include "plugins/print_plugin/printmanager.h"
+#include "plugins/printinterface.h"
 #include "settingsmanager.h"
 
 #include <QFileInfo>
+#include <QLibrary>
 #include <QPrinter>
 #include <QTemporaryDir>
 #include <QTextDocument>
 
 #include <gtest/gtest.h>
+
+namespace
+{
+// The Print plugin is a runtime module; load it once and drive it through
+// IPrintService, exactly as MainWindow does.
+class PrintServiceHolder
+{
+public:
+    PrintServiceHolder()
+    {
+#if defined(DEVPAD_BUILD_DIR) && defined(DEVPAD_BUILD_PLUGINS)
+        m_library = std::make_unique<QLibrary>(QStringLiteral(DEVPAD_BUILD_DIR "/plugins/libprint_plugin" PLUGIN_SUFFIX));
+        if (!m_library->load())
+            return;
+        auto* factory = reinterpret_cast<IPlugin* (*)()>(m_library->resolve("devpadCreatePlugin"));
+        if (!factory)
+            return;
+        m_plugin = factory();
+        m_host = std::make_unique<PluginHost>(nullptr);
+        if (m_plugin->initialize(m_host.get()))
+            m_service = dynamic_cast<IPrintService*>(m_host->object(QStringLiteral(DEVPAD_PRINT_SERVICE_OBJECT)));
+#endif
+    }
+
+    ~PrintServiceHolder()
+    {
+        if (m_plugin)
+        {
+            m_plugin->shutdown();
+            delete m_plugin;
+        }
+        // m_host is destroyed before m_library (reverse declaration order),
+        // so no plugin code runs after the .so is unloaded.
+    }
+
+    IPrintService* service() const
+    {
+        return m_service;
+    }
+
+private:
+    std::unique_ptr<QLibrary> m_library;
+    std::unique_ptr<PluginHost> m_host;
+    IPlugin* m_plugin = nullptr;
+    IPrintService* m_service = nullptr;
+};
+} // namespace
 
 class PrintManagerTest : public ::testing::Test
 {
@@ -15,11 +65,16 @@ protected:
     void SetUp() override
     {
         ASSERT_TRUE(m_tempDir.isValid());
-
         m_testSettings = SettingsManager::createForTesting();
         SettingsManager::setTestingInstance(m_testSettings.get());
         m_editor = new CodeEditor();
-        m_manager = new PrintManager();
+
+        // Drive the printing code from a PrintManager linked into the test
+        // binary. Loading the plugin's copy on Windows would run
+        // qobject_cast<CodeEditor*> against CodeEditor::staticMetaObject from
+        // Devpad_host.dll, while the editor here uses the statically linked
+        // host copy; the cast fails and no PDF is ever written.
+        m_service = std::make_unique<PrintManager>();
     }
 
     void configurePdfPrinter(QPrinter& printer) const
@@ -30,21 +85,26 @@ protected:
 
     void TearDown() override
     {
-        delete m_manager;
         delete m_editor;
+        m_service.reset();
         SettingsManager::setTestingInstance(nullptr);
         m_testSettings.reset();
     }
 
+    std::unique_ptr<PrintManager> m_service;
     CodeEditor* m_editor = nullptr;
-    PrintManager* m_manager = nullptr;
     std::unique_ptr<SettingsManager> m_testSettings;
     QTemporaryDir m_tempDir;
 };
 
-TEST_F(PrintManagerTest, ConstructorDoesNotCrash)
+TEST_F(PrintManagerTest, PluginExposesPrintService)
 {
-    PrintManager pm;
+#if defined(DEVPAD_BUILD_DIR) && defined(DEVPAD_BUILD_PLUGINS)
+    PrintServiceHolder holder;
+    EXPECT_NE(holder.service(), nullptr);
+#else
+    GTEST_SKIP() << "Print plugin not built";
+#endif
 }
 
 TEST_F(PrintManagerTest, PrintWithNoLexerUsesPlainText)
@@ -54,8 +114,7 @@ TEST_F(PrintManagerTest, PrintWithNoLexerUsesPlainText)
 
     QPrinter printer(QPrinter::HighResolution);
     configurePdfPrinter(printer);
-    // Just verify no crash when printing plain text
-    EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_NO_THROW(m_service->printEditor(m_editor, &printer));
     EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
@@ -67,7 +126,7 @@ TEST_F(PrintManagerTest, PrintWithCppLexerDoesNotCrash)
 
     QPrinter printer(QPrinter::HighResolution);
     configurePdfPrinter(printer);
-    EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_NO_THROW(m_service->printEditor(m_editor, &printer));
     EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
@@ -79,7 +138,7 @@ TEST_F(PrintManagerTest, PrintWithPythonLexerDoesNotCrash)
 
     QPrinter printer(QPrinter::HighResolution);
     configurePdfPrinter(printer);
-    EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_NO_THROW(m_service->printEditor(m_editor, &printer));
     EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
@@ -90,7 +149,7 @@ TEST_F(PrintManagerTest, PrintWithMultiLineDoesNotCrash)
 
     QPrinter printer(QPrinter::HighResolution);
     configurePdfPrinter(printer);
-    EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_NO_THROW(m_service->printEditor(m_editor, &printer));
     EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
@@ -101,7 +160,7 @@ TEST_F(PrintManagerTest, PrintEmptyEditorDoesNotCrash)
 
     QPrinter printer(QPrinter::HighResolution);
     configurePdfPrinter(printer);
-    EXPECT_NO_THROW(m_manager->printEditorWithHighlighting(m_editor, &printer));
+    EXPECT_NO_THROW(m_service->printEditor(m_editor, &printer));
     EXPECT_TRUE(QFileInfo::exists(m_tempDir.filePath("test_output.pdf")));
 }
 
@@ -110,9 +169,4 @@ TEST_F(PrintManagerTest, EditorWithoutSyntaxHasNoLexer)
     m_editor->setText("plain text");
     m_editor->setSyntax("");
     EXPECT_EQ(m_editor->lexer(), nullptr);
-}
-
-TEST_F(PrintManagerTest, PrintManagerIsQObject)
-{
-    EXPECT_NE(qobject_cast<QObject*>(m_manager), nullptr);
 }

@@ -41,6 +41,23 @@ PrimoTerminal::~PrimoTerminal()
     }
 }
 
+QString PrimoTerminal::shellQuotePath(const QString& path)
+{
+#ifdef Q_OS_WIN
+    // cmd.exe: wrap in double quotes. Escape embedded quotes and percent signs
+    // (cmd does not treat ^ inside quotes, and %VAR% would still expand).
+    QString p = path;
+    p.replace(QLatin1Char('"'), QStringLiteral("\"\""));
+    p.replace(QLatin1Char('%'), QStringLiteral("\\%")); // best effort for interactive cmd
+    return QLatin1Char('"') + p + QLatin1Char('"');
+#else
+    // POSIX sh/bash: single-quote, with the standard '\'' escape for embedded quotes.
+    QString p = path;
+    p.replace(QLatin1String("'"), QStringLiteral("'\\''"));
+    return QLatin1Char('\'') + p + QLatin1Char('\'');
+#endif
+}
+
 QString PrimoTerminal::detectShell() const
 {
 #ifdef Q_OS_WIN
@@ -79,8 +96,9 @@ void PrimoTerminal::setCurrentDir(const QString& dir)
     m_currentDir = d.absolutePath();
     if (m_proc && m_proc->state() != QProcess::NotRunning)
     {
-        // Change dir via cd command
-        write(QStringLiteral("cd \"") + m_currentDir + QStringLiteral("\"\n"));
+        // Change dir via cd command. The shell is interactive, so the path must be
+        // quoted, never just wrapped in quotes: escape it for the active shell.
+        write(QStringLiteral("cd ") + shellQuotePath(m_currentDir) + QStringLiteral("\n"));
     }
     if (m_proc)
     {

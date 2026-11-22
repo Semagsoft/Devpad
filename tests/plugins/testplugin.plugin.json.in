@@ -1,0 +1,11 @@
+{
+    "id": "@TEST_PLUGIN_ID@",
+    "name": "@TEST_PLUGIN_NAME@",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Test-only plugin for dependency/failure-path coverage.",
+    "apiVersion": @TEST_PLUGIN_API_VERSION@,
+    "library": "lib@TEST_PLUGIN_TARGET@@DEVPAD_PLUGIN_SUFFIX@",
+    "enabled": true,
+    "depends": [@TEST_PLUGIN_DEPENDS@]
+}

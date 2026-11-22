@@ -65,6 +65,25 @@ TEST_F(ExternalToolManagerTest, ResolveVariablesPercentEscape)
     EXPECT_EQ(manager.resolveVariables("%%", "", "", "", 0), "%");
 }
 
+TEST_F(ExternalToolManagerTest, ParseArgumentsPreservesEmptyQuotedToken)
+{
+    EXPECT_EQ(manager.parseArguments(QStringLiteral("python -c \"\" file.py")),
+              (QStringList{QStringLiteral("python"), QStringLiteral("-c"), QString(), QStringLiteral("file.py")}));
+}
+
+TEST_F(ExternalToolManagerTest, ResolveVariablesEscapedTokenIsLiteral)
+{
+    // "%%f" means a literal "%f" - the percent escape must win over the token.
+    EXPECT_EQ(manager.resolveVariables("%%f", "/home/user/file.cpp", "", "", 0), "%f");
+}
+
+TEST_F(ExternalToolManagerTest, ResolveVariablesSubstitutedValuesAreNotRescanned)
+{
+    // Values inserted by one token must not be rewritten by later tokens.
+    EXPECT_EQ(manager.resolveVariables("%f", "/home/%name/file.cpp", "", "", 0), "/home/%name/file.cpp");
+    EXPECT_EQ(manager.resolveVariables("%s", "", "", "100%% done", 0), "100%% done");
+}
+
 TEST_F(ExternalToolManagerTest, ResolveVariablesComplexTemplate)
 {
     QFileInfo fi("/path/to/script.py");

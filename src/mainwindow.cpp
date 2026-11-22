@@ -20,6 +20,7 @@
 
 #include "aboutdialog.h"
 #include "actionmanager.h"
+#include "appstrings.h"
 #include "backupmanager.h"
 #include "codeeditor.h"
 #include "dialogs/dialogcoordinator.h"
@@ -31,6 +32,7 @@
 #include "externaltoolsdialog.h"
 #include "filemanager.h"
 #include "filewatchermanager.h"
+#include "languageinfo.h"
 #include "logger.h"
 #include "lsp/lsptypes.h"
 #include "managers/externalchangecoordinator.h"
@@ -41,7 +43,7 @@
 #include "managers/updateservicecoordinator.h"
 #include "optionsdialog.h"
 #include "plugins/lspinterface.h"
-#include "printmanager.h"
+#include "plugins/printinterface.h"
 #include "projectpanel.h"
 #include "referencespanel.h"
 #include "remotefileservice.h"
@@ -190,7 +192,15 @@ bool launchAppBundle(const QStringList& args)
 } // namespace
 #endif
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // PluginManager is intentionally not a QObject child: unloading at
+    // QObject child-deletion time would race the main window's own teardown
+    // (dock widgets are already being destroyed). Unload while the UI is
+    // still intact, then drop the manager.
+    delete m_pluginManager;
+    m_pluginManager = nullptr;
+}
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
@@ -318,16 +328,23 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     setCentralWidget(m_splitView);
 
+#ifdef BUILD_PLUGINS
+    // Load plugins before startup files are opened: language plugins register
+    // their lexers and file-type mappings here, and applyStartupMode() (called
+    // by applyInitialSettings()) restores tabs whose syntax depends on them.
+    m_pluginManager->loadAll();
+#endif
+
     applyInitialSettings();
 
     setupEditorConnections();
 
 #ifdef BUILD_PLUGINS
-    m_pluginManager->loadAll();
-
     // Attach every already-open editor to the LSP plugin's session factory.
     m_lspCoordinator->attachAll();
-    const bool lspEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.lsp"));
+    // Gate UI on the plugin being loaded, not merely enabled: an enabled
+    // plugin that failed to load provides no service to drive the UI.
+    const bool lspEnabled = m_pluginManager->isLoaded(QStringLiteral("org.semagsoft.devpad.lsp"));
     m_actionManager->setLspUiVisible(lspEnabled);
     if (!lspEnabled)
     {
@@ -346,21 +363,26 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     // Debugger UI (Debug menu, View->Debug Panel) is only relevant while the
     // DAP plugin is enabled. The plugin owns the debug panel, so without it
     // the actions would silently no-op.
-    const bool dapEnabled = m_pluginManager->isPluginEnabled(QStringLiteral("org.semagsoft.devpad.dap"));
+    const bool dapEnabled = m_pluginManager->isLoaded(QStringLiteral("org.semagsoft.devpad.dap"));
     m_actionManager->setDebugUiVisible(dapEnabled);
+    const bool printEnabled = m_pluginManager->isLoaded(QStringLiteral("org.semagsoft.devpad.print"));
+    m_actionManager->setPrintUiVisible(printEnabled);
     connect(m_pluginManager, &PluginManager::pluginEnabledChanged, this,
             [this](const QString& pluginId, bool enabled)
             {
+                // An "enabled" toggle can still end with no service loaded
+                // (missing library, api mismatch, initialize() failure).
+                const bool active = m_pluginManager->isLoaded(pluginId);
                 if (pluginId == QStringLiteral("org.semagsoft.devpad.dap"))
                 {
-                    m_actionManager->setDebugUiVisible(enabled);
-                    if (!enabled)
+                    m_actionManager->setDebugUiVisible(active);
+                    if (!active)
                         m_debugSessionKey.clear();
                 }
                 else if (pluginId == QStringLiteral("org.semagsoft.devpad.lsp"))
                 {
-                    m_actionManager->setLspUiVisible(enabled);
-                    if (enabled)
+                    m_actionManager->setLspUiVisible(active);
+                    if (active)
                     {
                         m_lspCoordinator->attachAll();
                         const bool showErrorList = SettingsManager::instance().lspShowErrorList();
@@ -379,6 +401,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                         m_actionManager->referencesPanelButton()->setChecked(false);
                     }
                 }
+                else if (pluginId == QStringLiteral("org.semagsoft.devpad.print"))
+                {
+                    m_actionManager->setPrintUiVisible(active);
+                }
                 else if (pluginId == QStringLiteral("org.semagsoft.devpad.terminal"))
                 {
                     if (enabled)
@@ -391,12 +417,33 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                         m_terminalCoordinator->detach();
                     }
                 }
+
+                // Language plugins can be toggled at runtime. Re-detect syntax
+                // for open files so disabling a language drops its lexer and
+                // re-enabling restores it. Untitled buffers are left alone:
+                // their syntax may have been chosen manually.
+                for (CodeEditor* editor : m_tabManager->editors())
+                {
+                    const QString fileName = editor->fileName();
+                    if (fileName.isEmpty() || fileName == Strings::untitled())
+                        continue;
+                    const QString detected = SettingsManager::instance().syntaxForFile(fileName);
+                    const QString current = editor->syntax();
+                    if (current == detected)
+                        continue;
+                    // Don't override a still-valid syntax the user picked, or a
+                    // detected language whose plugin is not available.
+                    if ((!current.isEmpty() && findLanguage(current)) || (!detected.isEmpty() && !findLanguage(detected)))
+                        continue;
+                    editor->setSyntax(detected);
+                }
             });
 #else
     // No plugin support compiled in: the debug actions would no-op (and the
     // slots below would deref a null manager), so hide the debug UI entirely.
     m_actionManager->setDebugUiVisible(false);
     m_actionManager->setLspUiVisible(false);
+    m_actionManager->setPrintUiVisible(false);
     m_errorListPanel->hide();
     m_referencesPanel->hide();
 #endif
@@ -441,7 +488,6 @@ void MainWindow::createManagers()
     {
         connect(filter, &PaletteChangeFilter::systemThemeChanged, this, [this]() { applySettings(); });
     }
-    m_printManager = new PrintManager(this);
     m_fileManager = new FileManager(this);
     m_fileWatcherManager = new FileWatcherManager(this);
 
@@ -490,7 +536,7 @@ void MainWindow::createManagers()
                 }
             });
 
-    m_remoteOpenCoordinator = new RemoteOpenCoordinator(m_remoteFileService, m_projectPanel, m_tabManager, m_editorController, this);
+    m_remoteOpenCoordinator = new RemoteOpenCoordinator(m_remoteFileService, m_projectPanel, m_tabManager, m_editorController, this, this);
     connect(m_remoteOpenCoordinator, &RemoteOpenCoordinator::fileTypeLabelDirty, this, &MainWindow::updateFileTypeLabel);
 
     m_remoteCoordinator =
@@ -1152,7 +1198,9 @@ void MainWindow::restoreUntitledBackups()
         editor->setModified(true);
         m_editorController->connectEditorSignals(editor);
         SettingsManager::instance().applyToEditor(editor);
+        m_editorController->applyDefaultSyntax(editor);
         m_tabManager->addEditor(editor, Strings::untitled());
+        m_editorController->updateUndoRedoState();
         restored++;
     }
 
@@ -1282,8 +1330,22 @@ void MainWindow::revertFile()
     }
 }
 
+IPrintService* MainWindow::printService() const
+{
+#ifdef BUILD_PLUGINS
+    if (!m_pluginManager || !m_pluginManager->host())
+        return nullptr;
+    return dynamic_cast<IPrintService*>(m_pluginManager->host()->object(QStringLiteral(DEVPAD_PRINT_SERVICE_OBJECT)));
+#else
+    return nullptr;
+#endif
+}
+
 void MainWindow::printFile()
 {
+    // The plugin owns all printing; never open a dialog that can do nothing.
+    if (!printService())
+        return;
     CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
@@ -1292,12 +1354,15 @@ void MainWindow::printFile()
     QPrintDialog dialog(&printer, this);
     if (dialog.exec() == QDialog::Accepted)
     {
-        m_printManager->printEditorWithHighlighting(editor, &printer);
+        if (IPrintService* service = printService())
+            service->printEditor(editor, &printer);
     }
 }
 
 void MainWindow::printPreview()
 {
+    if (!printService())
+        return;
     CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
@@ -1311,7 +1376,8 @@ void MainWindow::printPreview()
             {
                 if (editorPtr && thisPtr)
                 {
-                    thisPtr->m_printManager->printEditorWithHighlighting(editorPtr, p);
+                    if (IPrintService* service = thisPtr->printService())
+                        service->printEditor(editorPtr, p);
                 }
             });
     preview.exec();
@@ -1319,6 +1385,8 @@ void MainWindow::printPreview()
 
 void MainWindow::pageSetup()
 {
+    if (!printService())
+        return;
     CodeEditor* editor = m_tabManager->currentEditor();
     if (!editor)
         return;
@@ -1658,6 +1726,15 @@ void MainWindow::closeEvent(QCloseEvent* event)
             event->ignore();
             return;
         }
+    }
+    // A modified untitled document that survived the prompt loop was
+    // explicitly discarded ("Don't Save"); drop its auto-save backup so it
+    // is not resurrected on the next launch. Mirrors saveAllModifiedTabs().
+    for (int i = 0; i < m_tabManager->count(); ++i)
+    {
+        CodeEditor* editor = m_tabManager->editorAt(i);
+        if (editor && editor->isModified() && (editor->fileName() == Strings::untitled() || editor->fileName().isEmpty()))
+            m_editorController->discardUntitledBackup(editor);
     }
     if (m_actionManager->terminalPanelAct()->isVisible())
         SettingsManager::instance().setShowTerminalPanel(m_actionManager->terminalPanelAct()->isChecked());

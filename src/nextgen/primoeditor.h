@@ -17,6 +17,7 @@
 #include <QFont>
 #include <QJsonArray>
 #include <QQuickItem>
+#include <QRecursiveMutex>
 #include <QSGNode>
 #include <QSet>
 #include <QTextLayout>
@@ -337,6 +338,11 @@ private:
     ThemeColors m_theme = getThemeColors(ThemeId::Dark);
     PrimoHighlighterController* m_highlightController = nullptr;
     int m_highlightVersion = 0;
+
+    // updatePaintNode() may run on the scene-graph thread while the slots below
+    // mutate the caches and the document on the GUI thread. All access to the
+    // caches (and to m_doc from the render path) must hold this lock.
+    mutable QRecursiveMutex m_renderMutex;
     QVector<QVector<QTextLayout::FormatRange>> m_highlightCache;
     bool m_highlightDirty = true;
     QString m_customTheme;

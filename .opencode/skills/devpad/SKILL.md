@@ -448,10 +448,23 @@ lrelease i18n/devpad_de.ts i18n/devpad_es.ts i18n/devpad_fr.ts
 5. Open from MainWindow slot via action in `ActionManager`
 
 ### Adding a New Language
+Languages that QScintilla already ships a dedicated lexer for stay built in:
 1. Add keywords to `src/keywords.cpp` → `keywordsForLanguage()`
-2. Add lexer mapping to `src/languageinfo.cpp` → `createLexer()`
+2. Add lexer mapping to `src/languageinfo.cpp` → `languageTable()`
 3. Add extension→language mapping in `SettingsManager::extensionMap()`
 4. Add file name→language mapping in `SettingsManager::fileNameMap()`
+
+Languages **without** a native QScintilla lexer are first-party plugins (one per
+language) so they can be enabled/disabled in Settings → Plugins:
+1. Create `src/plugins/<name>/` with `<name>.cpp` and `<name>.plugin.json`
+2. Build a `LanguagePluginDescriptor` (see `src/plugins/languagepluginbase.h`)
+   with the language ids, lexer factory, keywords, extensions, and comment tokens;
+   export `devpadCreatePlugin()` returning `new LanguagePluginBase(descriptor)`
+3. Register the target with `add_devpad_language_plugin(<name>)` in
+   `CMakeLists.txt`; the helper builds the MODULE, copies the manifest, and the
+   install rule ships it to `lib/devpad/plugins`
+4. Keyword lists stay in `src/keywords.cpp` (TUI/next-gen highlighters use the
+   same data); the plugin calls the `keywords.h` functions via host symbols
 
 ### Adding a New File Type Icon
 1. Add SVG to `resources/icons/File/`

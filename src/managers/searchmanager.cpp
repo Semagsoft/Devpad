@@ -50,8 +50,8 @@ void SearchManager::findNextWithSelection()
         const QString selected = editor->selectedText();
         if (!selected.isEmpty() && !selected.contains(QLatin1Char('\n')) && !selected.contains(QLatin1Char('\r')))
         {
-            setLastSearch(selected);
-            performSearch(selected, false, false, false, true);
+            setLastSearch(selected, m_lastUseRegex, m_lastMatchCase, m_lastMatchWholeWord);
+            performSearch(selected, m_lastUseRegex, m_lastMatchCase, m_lastMatchWholeWord, true);
             return;
         }
     }
@@ -65,8 +65,8 @@ void SearchManager::findPreviousWithSelection()
         const QString selected = editor->selectedText();
         if (!selected.isEmpty() && !selected.contains(QLatin1Char('\n')) && !selected.contains(QLatin1Char('\r')))
         {
-            setLastSearch(selected);
-            performSearch(selected, false, false, false, false);
+            setLastSearch(selected, m_lastUseRegex, m_lastMatchCase, m_lastMatchWholeWord);
+            performSearch(selected, m_lastUseRegex, m_lastMatchCase, m_lastMatchWholeWord, false);
             return;
         }
     }

@@ -113,6 +113,9 @@ private slots:
 private:
     void sendInitializeHandshake();
     void sendTerminateIfStopping();
+    // Hard-detach the current process when startServer() is called on a live
+    // client, so stale callbacks cannot act on the replacement process.
+    void detachProcessForRestart();
     void checkConfigurationReady();
     // 0 means "resolve to the last thread the adapter stopped" (tracked from
     // stopped events); adapters assign thread ids, so a literal 0 is never valid.
@@ -131,6 +134,7 @@ private:
     bool m_configurationReady = false; // initialized event OR launch/attach done: config requests allowed
     bool m_starting = false;
     bool m_stopping = false;
+    bool m_disconnectSent = false; // set once the DAP "disconnect" request has been written
     int m_retryCount = 0;
     int m_stoppedThreadId = 0; // last threadId reported by a stopped event
     static constexpr int START_TIMEOUT_MS = 5000;

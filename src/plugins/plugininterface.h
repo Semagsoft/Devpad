@@ -189,6 +189,39 @@ public:
     virtual void registerObject(const QString& id, QObject* object) = 0;
     virtual void unregisterObject(const QString& id) = 0;
     virtual QObject* object(const QString& id) const = 0;
+
+    // ── Language comment syntax (apiVersion 1 additive hook) ─────
+    // Registers the comment tokens used by editor actions (toggle comment)
+    // for a language contributed by a plugin. Empty strings mean "no form
+    // of comment" (e.g. Markdown). Appended at the end of this interface so
+    // plugins compiled against older headers keep a compatible vtable.
+    // Returns false if languageId is empty or already has a registration.
+    virtual bool registerLanguageCommentSyntax(const QString& languageId, const QString& lineComment, const QString& blockCommentStart,
+                                               const QString& blockCommentEnd)
+    {
+        Q_UNUSED(languageId);
+        Q_UNUSED(lineComment);
+        Q_UNUSED(blockCommentStart);
+        Q_UNUSED(blockCommentEnd);
+        return false;
+    }
+    virtual bool unregisterLanguageCommentSyntax(const QString& languageId)
+    {
+        Q_UNUSED(languageId);
+        return false;
+    }
+
+    // Creates a QsciLexer in the HOST, from a class name, for a plugin that
+    // only contributes a language descriptor. Lexers created inside a plugin
+    // .so would keep their vtable in that module and dangle after unload,
+    // because QScintilla is statically linked into both. Returns nullptr for
+    // unknown class names. Appended for apiVersion 1 vtable compatibility.
+    virtual QObject* createLexer(const QString& lexerClassName, QObject* parent)
+    {
+        Q_UNUSED(lexerClassName);
+        Q_UNUSED(parent);
+        return nullptr;
+    }
 };
 
 /**

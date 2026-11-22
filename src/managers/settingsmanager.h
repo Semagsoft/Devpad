@@ -107,6 +107,8 @@ public:
     static SettingsManager& instance();
     static void setTestingInstance(SettingsManager* instance);
     static std::unique_ptr<SettingsManager> createForTesting();
+    // Load from an existing INI file (used to test settings migrations).
+    static std::unique_ptr<SettingsManager> createForTesting(const QString& settingsPath);
 
     // ── Settings cache ─────────────────────────────────────────
     struct EditorSettings
@@ -119,7 +121,7 @@ public:
         bool wordWrap = false;
         ThemeId theme = ThemeId::Light;
         int defaultEncoding = 0;
-        int defaultFormat = 0;
+        QString defaultSyntax = QStringLiteral("cpp");
         bool showWhitespace = false;
         bool autoCompletionEnabled = true;
         int autoCompletionThreshold = 2;
@@ -237,6 +239,7 @@ public:
     void setAccentColor(const QColor& color);
     void clearAccentColor();
     int defaultEncoding() const;
+    QString defaultSyntax() const;
     int defaultFormat() const;
     bool showWhitespace() const;
     bool autoCompletionEnabled() const;
@@ -257,6 +260,7 @@ public:
     void setWordWrap(bool enabled);
     void setTheme(ThemeId theme);
     void setDefaultEncoding(int encoding);
+    void setDefaultSyntax(const QString& syntax);
     void setDefaultFormat(int format);
     void setShowWhitespace(bool visible);
     void setAutoCompletionEnabled(bool enabled);

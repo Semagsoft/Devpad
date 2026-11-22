@@ -879,3 +879,11 @@ const QStringList& phpKeywords()
     };
     return keywords;
 }
+
+const QStringList& tomlKeywords()
+{
+    static const QStringList keywords = {
+        "true", "false", "inf", "+inf", "-inf", "nan", "+nan", "-nan",
+    };
+    return keywords;
+}

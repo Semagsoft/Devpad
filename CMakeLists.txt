@@ -539,6 +539,87 @@ if(BUILD_PLUGINS)
     )
 endif()
 
+# ── Language plugins ─────────────────────────────────────────────────────
+# First-party plugins for languages QScintilla has no dedicated lexer for.
+# Each plugin contributes a lexer factory, keywords, file-type mappings and
+# comment syntax through IPluginHost's language hooks. They reuse the
+# keywords.* functions from Devpad_core (resolved from the host at load time)
+# so TUI and next-gen frontends keep a single source of truth.
+function(add_devpad_language_plugin name)
+    add_library(${name} MODULE src/plugins/${name}/${name}.cpp)
+    target_compile_options(${name} PRIVATE -Wall -Wextra -Wpedantic)
+    target_include_directories(${name} PRIVATE
+        src
+        src/managers
+        ${CMAKE_BINARY_DIR}/generated
+    )
+    target_link_libraries(${name} PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        ${DEVPAD_HOST_LINKS}
+    )
+    # No QScintilla link: lexers are created by the host (createLexer()) so
+    # their vtables stay in the executable when a plugin is unloaded.
+    if(APPLE)
+        # Allow undefined host symbols resolved from the executable at load.
+        target_link_options(${name} PRIVATE -Wl,-undefined,dynamic_lookup)
+    endif()
+    set_target_properties(${name} PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX "lib"
+        SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+        OUTPUT_NAME ${name}
+    )
+    configure_file(
+        src/plugins/${name}/${name}.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/${name}.plugin.json
+        @ONLY
+    )
+endfunction()
+
+if(BUILD_PLUGINS)
+    # ── Print plugin ───────────────────────────────────────────────────────
+    add_library(print_plugin MODULE
+        src/plugins/print_plugin/printplugin.cpp
+        src/plugins/print_plugin/printmanager.cpp
+    )
+    target_compile_options(print_plugin PRIVATE -Wall -Wextra -Wpedantic)
+    target_include_directories(print_plugin PRIVATE
+        src
+        src/managers
+    )
+    target_link_libraries(print_plugin PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::PrintSupport
+        ${DEVPAD_HOST_LINKS}
+    )
+    target_link_qscintilla(print_plugin)
+    if(APPLE)
+        target_link_options(print_plugin PRIVATE -Wl,-undefined,dynamic_lookup)
+    endif()
+    set_target_properties(print_plugin PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX "lib"
+        SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+        OUTPUT_NAME print_plugin
+    )
+    configure_file(
+        src/plugins/print_plugin/print_plugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/print_plugin.plugin.json
+        @ONLY
+    )
+
+    add_devpad_language_plugin(rustlanguage)
+    add_devpad_language_plugin(golanguage)
+    add_devpad_language_plugin(typescriptlanguage)
+    add_devpad_language_plugin(qmllanguage)
+    add_devpad_language_plugin(phplanguage)
+    add_devpad_language_plugin(jsonclanguage)
+    add_devpad_language_plugin(tomllanguage)
+endif()
+
 # ── App / coordinator static library (slimmed Devpad_lib) ────────────────
 # Holds MainWindow, EditorController, the remaining managers/dialogs/TUI and
 # the plugin host. Keeps the historic Devpad_lib name so the Devpad executable
@@ -559,7 +640,6 @@ add_library(Devpad_lib STATIC
     src/managers/encodingmenuhelper.cpp
     src/managers/sessionmanager.cpp
     src/managers/encodingmanager.cpp
-    src/managers/printmanager.cpp
     src/managers/filewatchermanager.cpp
     src/managers/updatechecker.cpp
     src/managers/externalchangecoordinator.cpp
@@ -782,6 +862,22 @@ if(BUILD_PLUGINS)
         ${CMAKE_BINARY_DIR}/plugins/dap_plugin.plugin.json
         ${CMAKE_BINARY_DIR}/plugins/liblsp_plugin${DEVPAD_PLUGIN_SUFFIX}
         ${CMAKE_BINARY_DIR}/plugins/lsp_plugin.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/librustlanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/rustlanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libgolanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/golanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libtypescriptlanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/typescriptlanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libqmllanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/qmllanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libphplanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/phplanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libjsonclanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/jsonclanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libtomllanguage${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/tomllanguage.plugin.json
+        ${CMAKE_BINARY_DIR}/plugins/libprint_plugin${DEVPAD_PLUGIN_SUFFIX}
+        ${CMAKE_BINARY_DIR}/plugins/print_plugin.plugin.json
         DESTINATION lib/devpad/plugins
         OPTIONAL
     )
@@ -900,6 +996,9 @@ if(BUILD_TESTS)
         tests/test_inlinefindbar.cpp
         tests/test_titlebar.cpp
         tests/test_printmanager.cpp
+        # Linked into the test binary (not loaded from the plugin DLL) so the
+        # editor's metaobject and PrintManager's qobject_cast share one image.
+        src/plugins/print_plugin/printmanager.cpp
         tests/test_recentfileshelper.cpp
         tests/test_lsptypes.cpp
         tests/test_lspjsonrpc.cpp
@@ -952,6 +1051,44 @@ if(BUILD_TESTS)
         DEVPAD_BUILD_DIR="${CMAKE_BINARY_DIR}"
         $<$<BOOL:${BUILD_PLUGINS}>:DEVPAD_BUILD_PLUGINS=1>
     )
+
+    # ── Test-only plugins for dependency / failure-path coverage ─────────
+    # These live in their own directory so they are never loaded by the app
+    # or by unrelated tests.
+    if(BUILD_PLUGINS)
+        set(DEVPAD_TEST_PLUGINS_DIR "${CMAKE_BINARY_DIR}/test-plugins")
+        file(MAKE_DIRECTORY "${DEVPAD_TEST_PLUGINS_DIR}")
+        target_compile_definitions(Devpad_tests PRIVATE DEVPAD_TEST_PLUGINS_DIR="${DEVPAD_TEST_PLUGINS_DIR}")
+
+        function(add_devpad_test_plugin target id depends api_version)
+            add_library(${target} MODULE tests/plugins/testplugin.cpp)
+            target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+            target_include_directories(${target} PRIVATE src)
+            target_compile_definitions(${target} PRIVATE TEST_PLUGIN_ID="${id}")
+            target_link_libraries(${target} PRIVATE Qt6::Core Qt6::Widgets)
+            set_target_properties(${target} PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY "${DEVPAD_TEST_PLUGINS_DIR}"
+                PREFIX "lib"
+                SUFFIX "${DEVPAD_PLUGIN_SUFFIX}"
+                OUTPUT_NAME ${target}
+            )
+            set(TEST_PLUGIN_ID "${id}")
+            set(TEST_PLUGIN_NAME "${target}")
+            set(TEST_PLUGIN_TARGET "${target}")
+            set(TEST_PLUGIN_DEPENDS "${depends}")
+            set(TEST_PLUGIN_API_VERSION ${api_version})
+            configure_file(
+                tests/plugins/testplugin.plugin.json.in
+                "${DEVPAD_TEST_PLUGINS_DIR}/${target}.plugin.json" @ONLY
+            )
+        endfunction()
+
+        add_devpad_test_plugin(test_depa "org.semagsoft.devpad.test.depa" "" 1)
+        add_devpad_test_plugin(test_depb "org.semagsoft.devpad.test.depb" "\"org.semagsoft.devpad.test.depa\"" 1)
+        add_devpad_test_plugin(test_missing "org.semagsoft.devpad.test.missing" "\"org.semagsoft.devpad.test.notinstalled\"" 1)
+        add_devpad_test_plugin(test_badapi "org.semagsoft.devpad.test.badapi" "" 99)
+        add_dependencies(Devpad_tests test_depa test_depb test_missing test_badapi)
+    endif()
 
     # Point the tests at the plugins built in this build tree so the suite
     # never loads a stale system-wide installation (plugins share the

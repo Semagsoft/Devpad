@@ -66,6 +66,28 @@ TEST(LspClientTest, FailedToStartEmitsError)
     EXPECT_LE(stoppedSpy.count(), 1);
 }
 
+#ifndef Q_OS_WIN
+TEST(LspClientTest, RestartWhileRunningDoesNotReportStaleStop)
+{
+    LspClient client(QStringLiteral("cpp"));
+    QSignalSpy startedSpy(&client, &LspClient::serverStarted);
+    QSignalSpy stoppedSpy(&client, &LspClient::serverStopped);
+
+    const QStringList args{QStringLiteral("30")};
+    client.startServer(QStringLiteral("/bin/sleep"), args, QStringLiteral("file:///tmp"));
+    ASSERT_TRUE(startedSpy.wait(2000) || startedSpy.count() > 0);
+    ASSERT_TRUE(client.isRunning());
+
+    // Restart while the first server is alive. The old process must be fully
+    // detached so its late finished signal cannot stop the replacement.
+    client.startServer(QStringLiteral("/bin/sleep"), args, QStringLiteral("file:///tmp"));
+    QTest::qWait(500);
+
+    EXPECT_TRUE(client.isRunning());
+    EXPECT_EQ(stoppedSpy.count(), 0);
+}
+#endif
+
 TEST(LspClientTest, StopWithoutStartDoesNotCrash)
 {
     LspClient client(QStringLiteral("cpp"));

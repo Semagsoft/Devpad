@@ -3,9 +3,9 @@
     "name": "TOML Language",
     "version": "1.0.0",
     "author": "Semagsoft",
-    "description": "Adds TOML language support via plugin participation hooks.",
+    "description": "Adds TOML syntax highlighting, keywords and file mappings via the plugin language hooks.",
     "apiVersion": 1,
-    "library": "libtomllanguage.so",
+    "library": "libtomllanguage@DEVPAD_PLUGIN_SUFFIX@",
     "enabled": true,
     "depends": []
 }

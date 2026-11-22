@@ -37,12 +37,15 @@ void TuiBuffer::setText(const QString& t)
 void TuiBuffer::restore(const Snapshot& s, bool redo)
 {
     const QStringList& lines = redo ? s.linesAfter : s.linesBefore;
-    // Replace lines in range [startLine, startLine + lineCount) with the saved lines
+    // The range to replace is the length of the side currently in the buffer:
+    // linesBefore for a redo (pre-edit state), linesAfter for an undo.
+    const int replacedCount = redo ? s.linesBefore.size() : s.linesAfter.size();
+    // Replace lines in range [startLine, startLine + replacedCount) with the saved lines
     QStringList newLines;
     for (int i = 0; i < s.startLine; ++i)
         newLines.append(m_lines.at(i));
     newLines.append(lines);
-    for (int i = s.startLine + s.lineCount; i < m_lines.size(); ++i)
+    for (int i = s.startLine + replacedCount; i < m_lines.size(); ++i)
         newLines.append(m_lines.at(i));
     m_lines = newLines;
     m_bookmarks = s.bookmarks;
@@ -90,19 +93,19 @@ bool TuiBuffer::undo()
 
     Snapshot s = m_undoStack.takeLast();
 
-    // Save current state to redo stack (same range, linesBefore = current state = s.linesAfter)
-    Snapshot redoEntry;
-    redoEntry.startLine = s.startLine;
-    redoEntry.lineCount = s.linesAfter.size();
-    int endLine = qMin(s.startLine + redoEntry.lineCount, m_lines.size());
-    for (int i = s.startLine; i < endLine; ++i)
-        redoEntry.linesBefore.append(m_lines.at(i));
-    redoEntry.linesAfter = s.linesAfter;
-    redoEntry.bookmarks = m_bookmarks;
-    redoEntry.cursorLine = m_cursorLine;
-    redoEntry.cursorCol = m_cursorCol;
-    redoEntry.modified = m_modified;
-    m_redoStack.append(redoEntry);
+    // Build the inverse entry: identical before/after lists so redo() can compute the
+    // range purely from the snapshot. Only the bookmark/cursor/modified bookkeeping
+    // reflects the current (pre-restore) state.
+    Snapshot inverse;
+    inverse.startLine = s.startLine;
+    inverse.lineCount = s.linesBefore.size();
+    inverse.linesBefore = s.linesBefore;
+    inverse.linesAfter = s.linesAfter;
+    inverse.bookmarks = m_bookmarks;
+    inverse.cursorLine = m_cursorLine;
+    inverse.cursorCol = m_cursorCol;
+    inverse.modified = m_modified;
+    m_redoStack.append(inverse);
 
     // Restore before-state
     restore(s, false);
@@ -117,19 +120,18 @@ bool TuiBuffer::redo()
 
     Snapshot s = m_redoStack.takeLast();
 
-    // Save current state to undo stack
-    Snapshot undoEntry;
-    undoEntry.startLine = s.startLine;
-    undoEntry.lineCount = s.linesBefore.size();
-    int endLine = qMin(s.startLine + undoEntry.lineCount, m_lines.size());
-    for (int i = s.startLine; i < endLine; ++i)
-        undoEntry.linesBefore.append(m_lines.at(i));
-    undoEntry.linesAfter = s.linesBefore;
-    undoEntry.bookmarks = m_bookmarks;
-    undoEntry.cursorLine = m_cursorLine;
-    undoEntry.cursorCol = m_cursorCol;
-    undoEntry.modified = m_modified;
-    m_undoStack.append(undoEntry);
+    // Build the inverse entry symmetric to undo(): same before/after lists, with
+    // bookmark/cursor/modified captured from the current (pre-restore) state.
+    Snapshot inverse;
+    inverse.startLine = s.startLine;
+    inverse.lineCount = s.linesBefore.size();
+    inverse.linesBefore = s.linesBefore;
+    inverse.linesAfter = s.linesAfter;
+    inverse.bookmarks = m_bookmarks;
+    inverse.cursorLine = m_cursorLine;
+    inverse.cursorCol = m_cursorCol;
+    inverse.modified = m_modified;
+    m_undoStack.append(inverse);
 
     // Restore after-state
     restore(s, true);
@@ -564,7 +566,10 @@ void TuiBuffer::deleteLine(int line)
         m_cursorCol = 0;
         m_modified = true;
         clearSelection();
-        pushUndo(line, linesBefore, QStringList{});
+        // The buffer still holds one (now empty) line. Recording zero lines
+        // here makes restore() append linesBefore without removing the cleared
+        // line, duplicating it on undo.
+        pushUndo(line, linesBefore, QStringList{QString()});
     }
     else
     {

@@ -35,7 +35,7 @@ class ExternalToolManager;
 class FileManager;
 class FileWatcherManager;
 class QMenuBar;
-class PrintManager;
+class IPrintService;
 class ProjectPanel;
 class ReferencesPanel;
 class RemoteFileService;
@@ -180,6 +180,7 @@ private:
     bool saveAllModifiedTabs();
     void applySettings();
     void applyStartupMode();
+    IPrintService* printService() const;
     void restoreUntitledBackups();
     void applyAutoSaveSettings();
 
@@ -205,7 +206,6 @@ private:
     SessionManager* m_sessionManager = nullptr;
     EncodingManager* m_encodingManager = nullptr;
     ThemeApplier* m_themeApplier = nullptr;
-    PrintManager* m_printManager = nullptr;
 
     // Owned: QObject children (parent=this), destroyed automatically
     FileManager* m_fileManager = nullptr;

@@ -95,7 +95,7 @@ void FileManager::completeRemoteSave(const QString& url, bool ok, const QString&
     m_lastError = tr("Cannot save file: %1 - %2").arg(url, detail);
     Logger::instance().error(m_lastError);
     emit error(m_lastError);
-    emit remoteSaveFinished(false, url, errorDetail);
+    emit remoteSaveFinished(false, url, detail);
 }
 
 bool FileManager::loadFile(const QString& fileName, CodeEditor* editor, const QString& encoding)

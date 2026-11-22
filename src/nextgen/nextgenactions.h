@@ -15,6 +15,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QObject>
+#include <QPointer>
 #include <QStringList>
 
 class PrimoEditor;
@@ -285,7 +286,7 @@ signals:
     void remoteLoadFinished(const QString& url, const QString& localPath, bool success, const QString& error);
 
 private:
-    PrimoEditor* m_editor = nullptr;
+    QPointer<PrimoEditor> m_editor;
     ExternalToolManager* m_externalToolManager = nullptr;
     QNetworkAccessManager* m_networkManager = nullptr;
     QNetworkReply* m_currentReply = nullptr;

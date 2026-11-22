@@ -1,6 +1,11 @@
 #include "defaultsyntax.h"
 #include "settingsmanager.h"
 
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QSettings>
+
 #include <gtest/gtest.h>
 
 class SettingsManagerTest : public ::testing::Test
@@ -20,6 +25,14 @@ protected:
 
     std::unique_ptr<SettingsManager> m_testSettings;
 };
+
+TEST_F(SettingsManagerTest, AutoSaveIntervalIsClamped)
+{
+    SettingsManager::instance().setAutoSaveInterval(0);
+    EXPECT_EQ(SettingsManager::instance().autoSaveInterval(), 1);
+    SettingsManager::instance().setAutoSaveInterval(1000000);
+    EXPECT_EQ(SettingsManager::instance().autoSaveInterval(), 86400);
+}
 
 TEST_F(SettingsManagerTest, RecentFilesAddAndList)
 {
@@ -141,12 +154,54 @@ TEST_F(SettingsManagerTest, ShellOpenModeFoldersSetAndGet)
 
 TEST_F(SettingsManagerTest, DefaultSyntaxLanguagesNonEmpty)
 {
-    auto langs = defaultSyntaxLanguages();
+    const QStringList langs = defaultSyntaxLanguages();
     EXPECT_FALSE(langs.isEmpty());
     EXPECT_TRUE(langs.contains("cpp"));
     EXPECT_TRUE(langs.contains("python"));
     EXPECT_TRUE(langs.contains("html"));
     EXPECT_TRUE(langs.contains("javascript"));
+    // Plugin-provided languages are selectable as the default format too.
+    EXPECT_TRUE(langs.contains("rust"));
+    EXPECT_TRUE(langs.contains("jsonc"));
+    EXPECT_TRUE(langs.contains("toml"));
+}
+
+TEST_F(SettingsManagerTest, DefaultFormatUsesStableLanguageIds)
+{
+    EXPECT_EQ(SettingsManager::instance().defaultSyntax(), QStringLiteral("cpp"));
+    SettingsManager::instance().setDefaultSyntax(QStringLiteral("toml"));
+    EXPECT_EQ(SettingsManager::instance().defaultSyntax(), QStringLiteral("toml"));
+    EXPECT_EQ(SettingsManager::instance().defaultFormat(), defaultSyntaxLanguages().indexOf("toml"));
+
+    // Invalid ids are ignored rather than persisting a broken default.
+    SettingsManager::instance().setDefaultSyntax(QStringLiteral("no_such_language"));
+    EXPECT_EQ(SettingsManager::instance().defaultSyntax(), QStringLiteral("toml"));
+
+    // The legacy index wrapper still maps to the same stable id.
+    SettingsManager::instance().setDefaultFormat(2); // csharp
+    EXPECT_EQ(SettingsManager::instance().defaultSyntax(), QStringLiteral("csharp"));
+    EXPECT_EQ(SettingsManager::instance().defaultFormat(), 2);
+}
+
+TEST_F(SettingsManagerTest, MigratesLegacyDefaultFormatIndex)
+{
+    const QString path = QDir::temp().filePath(QStringLiteral("devpad_legacy_format_%1.ini").arg(QCoreApplication::applicationPid()));
+    {
+        QSettings legacy(path, QSettings::IniFormat);
+        legacy.setValue(QStringLiteral("Options_DefaultFormat"), 3); // java in the legacy list
+    }
+
+    auto migrated = SettingsManager::createForTesting(path);
+    SettingsManager::setTestingInstance(migrated.get());
+    EXPECT_EQ(migrated->defaultSyntax(), QStringLiteral("java"));
+    {
+        QSettings updated(path, QSettings::IniFormat);
+        EXPECT_EQ(updated.value(QStringLiteral("Options_DefaultSyntax")).toString(), QStringLiteral("java"));
+        EXPECT_FALSE(updated.contains(QStringLiteral("Options_DefaultFormat")));
+    }
+
+    SettingsManager::setTestingInstance(nullptr);
+    QFile::remove(path);
 }
 
 TEST_F(SettingsManagerTest, SettingsVersionIsCurrentAfterConstruction)
@@ -159,9 +214,15 @@ TEST_F(SettingsManagerTest, SyntaxForExtension)
     EXPECT_EQ(SettingsManager::instance().syntaxForExtension("cpp"), "cpp");
     EXPECT_EQ(SettingsManager::instance().syntaxForExtension("py"), "python");
     EXPECT_EQ(SettingsManager::instance().syntaxForExtension("js"), "javascript");
-    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("rs"), "rust");
-    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("go"), "go");
+    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("sql"), "sql");
+    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("lua"), "lua");
     EXPECT_TRUE(SettingsManager::instance().syntaxForExtension("xyz123").isEmpty());
+
+    // Add-on languages map their extensions through the plugin hook instead
+    // of the built-in table (rust is contributed by librustlanguage.so).
+    EXPECT_TRUE(SettingsManager::addExtensionMapping("rs", "rust"));
+    EXPECT_EQ(SettingsManager::instance().syntaxForExtension("rs"), "rust");
+    EXPECT_TRUE(SettingsManager::removeExtensionMapping("rs"));
 }
 
 TEST_F(SettingsManagerTest, SyntaxForFile)

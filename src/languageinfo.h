@@ -65,8 +65,7 @@ const ThemeApplicator& bashThemeApplicator();
 const ThemeApplicator& cmakeThemeApplicator();
 const ThemeApplicator& luaThemeApplicator();
 const ThemeApplicator& markdownThemeApplicator();
-const ThemeApplicator& qmlThemeApplicator();
-const ThemeApplicator& phpThemeApplicator();
+const ThemeApplicator& propertiesThemeApplicator();
 
 const QHash<QString, ThemeApplicator>& themeApplicatorCache();
 const std::vector<LanguageInfo>& languageTable();
@@ -82,6 +81,12 @@ bool registerPluginLanguage(const QString& languageId, const QString& lexerClass
 bool unregisterPluginLanguage(const QString& languageId);
 bool unregisterPluginLanguageKeywords(const QString& languageId);
 bool registerPluginLanguageKeywords(const QString& languageId, const QStringList& keywords);
+
+// Comment syntax contributed by plugins, checked by commentSyntaxForLanguage()
+// after the built-in table. Empty tokens mean "no comment of that form".
+bool registerPluginLanguageCommentSyntax(const QString& languageId, const QString& lineComment, const QString& blockCommentStart,
+                                         const QString& blockCommentEnd);
+bool unregisterPluginLanguageCommentSyntax(const QString& languageId);
 
 const CommentSyntax* commentSyntaxForLanguage(const QString& language);
 #endif // LANGUAGEINFO_H

@@ -29,7 +29,9 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDesktopServices>
+#include <QDir>
 #include <QEvent>
+#include <QFileInfo>
 #include <QFocusEvent>
 #include <QFont>
 #include <QFontMetrics>
@@ -40,6 +42,7 @@
 #include <QMouseEvent>
 #include <QMutex>
 #include <QPainter>
+#include <QPointer>
 #include <QRect>
 #include <QRegularExpression>
 #include <QThread>
@@ -53,6 +56,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include <fcntl.h>
 #include <poll.h>
@@ -72,7 +76,7 @@ typedef void (*GhosttyWritePtyFn)(GhosttyTerminal terminal, void* userdata, cons
 class GhosttyIoThread : public QThread
 {
 public:
-    GhosttyIoThread(TerminalBackendGhostty* backend, int fd, QObject* parent = nullptr) : QThread(parent), m_backend(backend), m_fd(fd)
+    GhosttyIoThread(TerminalBackendGhostty* backend, int fd, QObject* parent = nullptr) : QThread(parent), m_backend(backend), m_fd(::dup(fd))
     {
         if (::pipe(m_wakePipe) != 0)
         {
@@ -83,6 +87,8 @@ public:
 
     ~GhosttyIoThread() override
     {
+        if (m_fd >= 0)
+            ::close(m_fd);
         if (m_wakePipe[0] >= 0)
             ::close(m_wakePipe[0]);
         if (m_wakePipe[1] >= 0)
@@ -105,8 +111,9 @@ protected:
     void run() override;
 
 private:
-    TerminalBackendGhostty* m_backend;
-    int m_fd;
+    // QPointer so a detached thread never delivers data to a destroyed backend.
+    QPointer<TerminalBackendGhostty> m_backend;
+    int m_fd; // own duplicate: the original may be closed while this thread is detached
     int m_wakePipe[2] = {-1, -1};
     std::atomic<bool> m_stop{false};
 };
@@ -182,6 +189,8 @@ void GhosttyIoThread::run()
 
     while (true)
     {
+        if (!m_backend)
+            break; // detached thread outlived the backend
         fds[0].revents = 0;
         fds[1].revents = 0;
         int ready = ::poll(fds, haveWakePipe ? 2 : 1, haveWakePipe ? -1 : 250);
@@ -209,16 +218,18 @@ void GhosttyIoThread::run()
             {
                 if (errno == EINTR)
                     continue;
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                    continue; // non-blocking fd; wait for the next poll
                 break;
             }
             if (n == 0)
             {
                 // EOF on the master side: shell has exited.
-                QMetaObject::invokeMethod(m_backend, "handlePtyEof", Qt::QueuedConnection);
+                QMetaObject::invokeMethod(m_backend.data(), "handlePtyEof", Qt::QueuedConnection);
                 break;
             }
             QByteArray data(reinterpret_cast<const char*>(buf), static_cast<int>(n));
-            QMetaObject::invokeMethod(m_backend, "handlePtyData", Qt::QueuedConnection, Q_ARG(QByteArray, data));
+            QMetaObject::invokeMethod(m_backend.data(), "handlePtyData", Qt::QueuedConnection, Q_ARG(QByteArray, data));
         }
     }
 }
@@ -1099,19 +1110,48 @@ void TerminalBackendGhostty::handlePtyData(const QByteArray& data)
 
 void TerminalBackendGhostty::handlePtyEof()
 {
+    reapChild(0);
+}
+
+void TerminalBackendGhostty::reapChild(int attempt)
+{
+    // Bounded rechecks: a child that closed its stdio but has not exited yet
+    // must never block the GUI thread. After ~10 s of polling, give up and
+    // report unknown status instead of hanging the editor.
+    constexpr int kMaxEofRechecks = 100;
     if (m_pid > 0)
     {
         int status = 0;
-        if (::waitpid(m_pid, &status, 0) >= 0 && WIFEXITED(status))
+        pid_t r = ::waitpid(m_pid, &status, WNOHANG);
+        if (r == m_pid)
         {
-            m_exitCode = WEXITSTATUS(status);
-            m_exitStatus = 0;
+            if (WIFEXITED(status))
+            {
+                m_exitCode = WEXITSTATUS(status);
+                m_exitStatus = 0;
+            }
+            else
+            {
+                m_exitStatus = status;
+            }
+            m_pid = -1;
+        }
+        else if (r == 0)
+        {
+            if (attempt < kMaxEofRechecks)
+            {
+                QTimer::singleShot(100, this, [this, attempt]() { reapChild(attempt + 1); });
+                return;
+            }
+            m_exitStatus = -1;
+            m_pid = -1;
         }
         else
         {
+            // waitpid failed outright; status is unknown.
             m_exitStatus = status;
+            m_pid = -1;
         }
-        m_pid = -1;
     }
     m_running = false;
     emit finished(m_exitCode, m_exitStatus);
@@ -1182,6 +1222,13 @@ void TerminalBackendGhostty::stopIoThread()
 
 void TerminalBackendGhostty::stopPty()
 {
+    if (m_inputNotifier)
+    {
+        m_inputNotifier->setEnabled(false);
+        m_inputNotifier->deleteLater();
+        m_inputNotifier = nullptr;
+    }
+    m_pendingInput.clear();
     if (m_masterFd >= 0)
     {
         ::close(m_masterFd);
@@ -1202,8 +1249,46 @@ void TerminalBackendGhostty::writeToMaster(const uint8_t* data, size_t len)
 {
     if (m_masterFd < 0 || !data || len == 0)
         return;
-    ssize_t written = ::write(m_masterFd, data, len);
-    Q_UNUSED(written);
+    // The PTY input buffer is finite: never block the GUI thread on a full
+    // buffer. Queue the bytes and let a write watcher drain them.
+    constexpr qsizetype kMaxPendingInput = 4 * 1024 * 1024; // 4 MB
+    if (m_pendingInput.size() + static_cast<qsizetype>(len) > kMaxPendingInput)
+    {
+        // Shell is not draining; dropping input is better than unbounded memory growth.
+        qWarning("Terminal input queue full; dropping %zu bytes", len);
+        return;
+    }
+    m_pendingInput.append(reinterpret_cast<const char*>(data), static_cast<int>(len));
+    tryFlushPendingInput();
+}
+
+void TerminalBackendGhostty::tryFlushPendingInput()
+{
+    if (m_masterFd < 0)
+        return;
+    while (!m_pendingInput.isEmpty())
+    {
+        ssize_t n = ::write(m_masterFd, m_pendingInput.constData(), m_pendingInput.size());
+        if (n > 0)
+        {
+            m_pendingInput.remove(0, static_cast<qsizetype>(n));
+            continue;
+        }
+        if (n < 0 && errno == EINTR)
+            continue;
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+            break; // PTY buffer full; wait for POLLOUT via the write watcher
+        // Unrecoverable error (EIO, EBADF, ...): drop the queue instead of spinning.
+        qWarning("write() to PTY failed (errno %d); dropping queued input", errno);
+        m_pendingInput.clear();
+        break;
+    }
+    if (!m_inputNotifier)
+    {
+        m_inputNotifier = new QSocketNotifier(m_masterFd, QSocketNotifier::Write, this);
+        connect(m_inputNotifier, &QSocketNotifier::activated, this, [this]() { tryFlushPendingInput(); });
+    }
+    m_inputNotifier->setEnabled(!m_pendingInput.isEmpty());
 }
 
 void TerminalBackendGhostty::renderFrame()
@@ -1572,11 +1657,51 @@ bool TerminalBackendGhostty::startPty()
     ws.ws_ypixel = static_cast<unsigned short>(rows * m_cellHeightPx);
     if (openpty(&masterFd, &slaveFd, nullptr, nullptr, &ws) < 0)
         return false;
+    // Keep the master non-blocking so writes from the GUI thread never stall
+    // on a full PTY buffer; the write watcher drains the queue instead.
+    int fdFlags = ::fcntl(masterFd, F_GETFL, 0);
+    if (fdFlags >= 0 && ::fcntl(masterFd, F_SETFL, fdFlags | O_NONBLOCK) < 0)
+    {
+        qWarning("Failed to set PTY master non-blocking; terminal input may stall");
+    }
     m_masterFd = masterFd;
+
+    // Everything the child needs is prepared before fork(): in a multithreaded
+    // Qt process the fork child may only call async-signal-safe functions, so
+    // no QString/QByteArray allocation or getenv() may happen after fork.
+    const QByteArray workDir = m_workingDir.isEmpty() ? QDir::homePath().toLocal8Bit() : m_workingDir.toLocal8Bit();
+    QByteArray shellBytes = qEnvironmentVariable("SHELL").toLocal8Bit();
+    if (shellBytes.isEmpty() || shellBytes == "/" || !QFileInfo::exists(QString::fromLocal8Bit(shellBytes)))
+        shellBytes = QByteArrayLiteral("/bin/bash");
+
+    // Environment for the child: a copy of environ with TERM set to xterm-256color.
+    std::vector<char*> envCopy;
+    const std::string termEntry = "TERM=xterm-256color";
+    {
+        bool hasTerm = false;
+        extern char** environ;
+        for (char** e = environ; e && *e; ++e)
+        {
+            if (strncmp(*e, "TERM=", 5) == 0)
+            {
+                envCopy.push_back(::strdup(termEntry.c_str()));
+                hasTerm = true;
+            }
+            else
+            {
+                envCopy.push_back(::strdup(*e));
+            }
+        }
+        if (!hasTerm)
+            envCopy.push_back(::strdup(termEntry.c_str()));
+        envCopy.push_back(nullptr);
+    }
 
     pid_t pid = ::fork();
     if (pid < 0)
     {
+        for (char* e : envCopy)
+            ::free(e);
         ::close(masterFd);
         ::close(slaveFd);
         m_masterFd = -1;
@@ -1584,7 +1709,7 @@ bool TerminalBackendGhostty::startPty()
     }
     if (pid == 0)
     {
-        // Child: exec the user's shell in the new pty.
+        // Child: async-signal-safe calls only.
         ::close(masterFd);
         ::setsid();
         if (slaveFd >= 0)
@@ -1598,23 +1723,14 @@ bool TerminalBackendGhostty::startPty()
             if (slaveFd > STDERR_FILENO)
                 ::close(slaveFd);
         }
-        const char* shell = ::getenv("SHELL");
-        if (!shell || shell[0] == '\0')
-            shell = "/bin/bash";
-        if (!m_workingDir.isEmpty())
-        {
-            ::chdir(m_workingDir.toLocal8Bit().constData());
-        }
-        else
-        {
-            const char* home = ::getenv("HOME");
-            if (home && home[0] != '\0')
-                ::chdir(home);
-        }
-        ::setenv("TERM", "xterm-256color", 1);
-        ::execl(shell, shell, static_cast<char*>(nullptr));
+        ::chdir(workDir.constData());
+        ::execle(shellBytes.constData(), shellBytes.constData(), static_cast<char*>(nullptr), envCopy.data());
         ::_exit(127);
     }
+
+    // Parent: release the environment copies prepared for the child.
+    for (char* e : envCopy)
+        ::free(e);
 
     if (slaveFd >= 0)
         ::close(slaveFd);

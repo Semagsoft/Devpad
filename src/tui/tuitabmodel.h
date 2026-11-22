@@ -11,6 +11,7 @@
 #include <QList>
 #include <QSet>
 #include <QString>
+#include <deque>
 
 class TuiTabModel
 {
@@ -19,11 +20,11 @@ public:
 
     int count() const
     {
-        return m_buffers.size();
+        return static_cast<int>(m_buffers.size());
     }
     bool isEmpty() const
     {
-        return m_buffers.isEmpty();
+        return m_buffers.empty();
     }
 
     int currentIndex() const
@@ -62,7 +63,10 @@ public:
     void setCursors(const QHash<QString, QList<int>>& cursors);
 
 private:
-    QList<TuiBuffer> m_buffers;
+    // std::deque keeps element pointers stable across push_back (unlike QList,
+    // which reallocates), so TuiBuffer* obtained via bufferAt() stay valid until
+    // the buffer is explicitly closed.
+    std::deque<TuiBuffer> m_buffers;
     int m_currentIndex = -1;
     QSet<QString> m_pinned;
     // Per-buffer cursor positions: filePath -> {cursorLine, cursorCol}

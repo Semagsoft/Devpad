@@ -16,26 +16,26 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#ifndef PRINTMANAGER_H
-#define PRINTMANAGER_H
 
-#include <QObject>
+#ifndef PRINTINTERFACE_H
+#define PRINTINTERFACE_H
 
-class CodeEditor;
+class QObject;
 class QPrinter;
-class QWidget;
 
-class PrintManager : public QObject
+/**
+ * Service exported by the Print plugin and consumed by MainWindow. It is a
+ * plain C++ interface (no Q_OBJECT) so the plugin does not need Devpad's
+ * meta-object layout; the host obtains it from the plugin object registry and
+ * uses dynamic_cast.
+ */
+class IPrintService
 {
-    Q_OBJECT
-
 public:
-    explicit PrintManager(QObject* parent = nullptr);
-
-    void printEditorWithHighlighting(CodeEditor* editor, QPrinter* printer);
-
-private:
-    QString generateHighlightedHtml(CodeEditor* editor) const;
+    virtual ~IPrintService() = default;
+    virtual void printEditor(QObject* editor, QPrinter* printer) = 0;
 };
 
-#endif
+#define DEVPAD_PRINT_SERVICE_OBJECT "print_service"
+
+#endif // PRINTINTERFACE_H

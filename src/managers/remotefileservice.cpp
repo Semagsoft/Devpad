@@ -55,6 +55,17 @@ constexpr const char* kListingFilesMarker = "__DEVPAD_FILES__";
 // Cap on the stdout of a directory listing to bail out of runaway listings.
 constexpr qint64 kMaxListingBytes = 10LL * 1024 * 1024;
 
+// Cap stderr collected from ssh/scp helpers: a runaway remote process must not
+// be able to exhaust GUI memory by streaming error output indefinitely.
+constexpr int kMaxStderrBytes = 64 * 1024;
+
+void appendCappedStderr(QByteArray* buffer, const QByteArray& chunk)
+{
+    if (buffer->size() >= kMaxStderrBytes)
+        return;
+    buffer->append(chunk.left(kMaxStderrBytes - buffer->size()));
+}
+
 // Abort an HTTP/HTTPS transfer that stalls for this long.
 constexpr int kHttpTransferTimeoutMs = 30000;
 
@@ -100,11 +111,16 @@ void RemoteFileService::openRemote(const QString& urlStr)
         return;
     }
 
-    bool isSsh = urlStr.startsWith("ssh://", Qt::CaseInsensitive);
-    if (isSsh)
+    // Only these schemes may reach QNetworkAccessManager: it also handles
+    // file://, which would turn an untrusted URL into an arbitrary local file
+    // read that is emitted as a downloaded document.
+    const QString scheme = url.scheme().toLower();
+    if (scheme == QLatin1String("ssh"))
         downloadSsh(url, urlStr);
-    else
+    else if (scheme == QLatin1String("http") || scheme == QLatin1String("https"))
         downloadHttp(url, urlStr);
+    else
+        emit downloadFailed(urlStr, tr("Only http, https and ssh URLs are supported."));
 }
 
 void RemoteFileService::openRemoteFolder(const QString& urlStr)
@@ -354,7 +370,7 @@ void RemoteFileService::startSshListing(const QString& urlStr, const QString& re
             {
                 if (!procGuard)
                     return;
-                stderrBuf->append(ssh->readAllStandardError());
+                appendCappedStderr(stderrBuf.get(), ssh->readAllStandardError());
             });
 
     connect(ssh, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
@@ -490,7 +506,7 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
     emit statusMessage(tr("Downloading %1...").arg(urlStr));
 
     QNetworkRequest request(url);
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::SameOriginRedirectPolicy);
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, true);
 
     QNetworkReply* reply = m_networkManager.get(request);
@@ -544,6 +560,17 @@ void RemoteFileService::downloadHttp(const QUrl& url, const QString& urlStr)
                     return;
                 }
 
+                // SameOriginRedirectPolicy: a cross-origin redirect is not followed
+                // silently — reply is left as the 3xx response. Never save the
+                // redirect body as if it were the file.
+                const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                if (httpStatus >= 300 && httpStatus < 400)
+                {
+                    reply->deleteLater();
+                    emit downloadFailed(urlStr, tr("Refusing to save a redirect response (status %1) as the opened file").arg(httpStatus));
+                    return;
+                }
+
                 // Catch any tail bytes delivered with the finished state
                 // instead of a final readyRead signal.
                 data->append(reply->readAll());
@@ -584,10 +611,12 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
         return;
     }
 
-    // Remote paths may legitimately contain spaces/unicode/shell metacharacters
+    // Remote paths may legitimately contain spaces/unicode/metacharacters
     // (they arrive from remote listings), so only host/user are strictly checked;
-    // the path only needs to be free of control characters — unsafe bytes are
-    // neutralized by shellQuote() when the path is passed to the remote shell.
+    // the path only needs to be free of control characters. QProcess passes it as
+    // a single argv element and, since OpenSSH 9, scp uses SFTP by default where
+    // the remote path is opaque data, not a shell command. Shell-quoting it would
+    // make the quotes part of the remote filename.
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
     if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
@@ -621,7 +650,9 @@ void RemoteFileService::downloadSsh(const QUrl& url, const QString& urlStr)
     // BatchMode prevents interactive prompts (password/host-key) without a
     // TTY; ConnectTimeout fails fast on unreachable hosts.
     args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
-    args << QString("%1@%2:%3").arg(user, host, shellQuote(remotePath));
+    // "--" ends option parsing; remotePath is validated to be control-char free
+    // and not start with '-', so it is safe to pass verbatim (no remote shell).
+    args << "--" << QString("%1@%2:%3").arg(user, host, remotePath);
 
     // Start the transfer on the next event-loop iteration. Deferring the
     // download attempt keeps the synchronous part of downloadSsh() limited to
@@ -656,8 +687,8 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     }
 
     // Same validation as downloadSsh: host/user are strict; the path may
-    // contain spaces/unicode/shell metacharacters (neutralized by shellQuote())
-    // but must be free of control chars.
+    // contain spaces/unicode/metacharacters but must be free of control chars.
+    // scp receives it verbatim as one argv element (SFTP mode since OpenSSH 9).
     static const QRegularExpression validComponentRegex("^[a-zA-Z0-9@._:/=\\-]+$");
     if (!validComponentRegex.match(host).hasMatch() || (!user.isEmpty() && !validComponentRegex.match(user).hasMatch()))
     {
@@ -709,7 +740,9 @@ bool RemoteFileService::saveRemote(const QString& urlStr, const QByteArray& data
     // BatchMode prevents interactive prompts without a TTY; ConnectTimeout
     // fails fast on unreachable hosts.
     args << "-o" << "BatchMode=yes" << "-o" << "ConnectTimeout=15";
-    args << localPath << QString("%1@%2:%3").arg(user, host, shellQuote(remotePath));
+    // "--" ends option parsing; localPath/remotePath are validated and passed
+    // verbatim as separate argv elements (no local or remote shell involved).
+    args << "--" << localPath << QString("%1@%2:%3").arg(user, host, remotePath);
 
     QString scpPath = findScpPath();
     if (scpPath.isEmpty())
@@ -798,7 +831,7 @@ void RemoteFileService::startSshTransfer(const QString& urlStr, const QStringLis
             {
                 if (!procGuard)
                     return;
-                stderrBuf->append(scp->readAllStandardError());
+                appendCappedStderr(stderrBuf.get(), scp->readAllStandardError());
                 *lastProgress = QDateTime::currentMSecsSinceEpoch();
             });
 
@@ -970,7 +1003,7 @@ void RemoteFileService::startSshUpload(const QString& urlStr, const QStringList&
             {
                 if (!procGuard)
                     return;
-                stderrBuf->append(scp->readAllStandardError());
+                appendCappedStderr(stderrBuf.get(), scp->readAllStandardError());
                 *lastProgress = QDateTime::currentMSecsSinceEpoch();
             });
 

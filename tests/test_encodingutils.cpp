@@ -17,6 +17,22 @@ TEST_F(EncodingUtilsTest, SupportedEncodingsNotEmpty)
     EXPECT_EQ(encodings.size(), 10);
 }
 
+TEST_F(EncodingUtilsTest, DetectBomDisambiguatesUtf16LeadingNul)
+{
+    // FF FE 00 00 is both a UTF-32LE BOM and a UTF-16LE BOM followed by U+0000.
+    // Three UTF-16 code units make the pattern unambiguous: byte 6 is the
+    // low byte of the third code unit rather than a UTF-32 high byte.
+    const QByteArray utf16("\xFF\xFE\x00\x00\x41\x00\x42\x00\x43\x00", 10);
+    const BomResult a = detectBom(utf16);
+    EXPECT_EQ(a.size, 2);
+    EXPECT_EQ(a.encodingName, QStringLiteral("UTF-16LE"));
+
+    const QByteArray utf32("\xFF\xFE\x00\x00\x41\x00\x00\x00\x42\x00\x00\x00", 12);
+    const BomResult b = detectBom(utf32);
+    EXPECT_EQ(b.size, 4);
+    EXPECT_EQ(b.encodingName, QStringLiteral("UTF-32LE"));
+}
+
 TEST_F(EncodingUtilsTest, SupportedEncodingsContainsUtf8)
 {
     auto encodings = supportedEncodings();

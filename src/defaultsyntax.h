@@ -21,7 +21,18 @@
 
 #include <QStringList>
 
+// Stable ids for the Options "Default format" setting. Preferences store the
+// id, not the list index, so adding or reordering entries cannot reinterpret
+// an existing user's choice. Append new languages at the end only.
 inline QStringList defaultSyntaxLanguages()
+{
+    return {"cpp",  "c",  "csharp",   "java", "python", "javascript", "typescript", "html", "css",   "xml", "sql",
+            "rust", "go", "markdown", "bash", "cmake",  "qml",        "lua",        "php",  "jsonc", "toml"};
+}
+
+// The list used by pre-1.10 builds, which stored the combo box index in
+// Options_DefaultFormat. Kept frozen so those preferences can be migrated.
+inline QStringList legacyDefaultSyntaxLanguages()
 {
     return {"cpp", "c",    "csharp", "java",     "python", "javascript", "typescript", "html", "css", "xml",
             "sql", "rust", "go",     "markdown", "bash",   "cmake",      "qml",        "lua",  "php"};

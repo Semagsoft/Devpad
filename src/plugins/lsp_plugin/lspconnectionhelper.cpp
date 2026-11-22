@@ -27,7 +27,9 @@
 
 #include <QApplication>
 #include <QCursor>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMenu>
@@ -53,11 +55,33 @@ IEditorLspBridge* bridgeForUri(const QList<QPointer<IEditorLspBridge>>* bridges,
     return nullptr;
 }
 
+// True when \a path is inside the workspace root (or equals it). Paths are
+// cleaned before comparison; the workspace root itself is absolute.
+bool isWithinWorkspaceRoot(const QString& root, const QString& path)
+{
+    if (root.isEmpty() || path.isEmpty())
+        return false;
+    const auto absoluteClean = [](const QString& p)
+    {
+        const QFileInfo info(p); // absoluteFilePath() normalizes relative paths against the CWD
+        QString clean = QDir::cleanPath(info.absoluteFilePath());
+        while (clean.endsWith(QChar('/')) && clean.size() > 1)
+            clean.chop(1);
+        return clean;
+    };
+    const QString cleanRoot = absoluteClean(root);
+    const QString cleanPath = absoluteClean(path);
+    return cleanPath == cleanRoot || cleanPath.startsWith(cleanRoot + QLatin1Char('/'));
+}
+
 // Apply a LSP WorkspaceEdit to the matching open editors, or to disk when the
 // file isn't open. Files that are not open in an editor are edited on disk
 // (UTF-8, atomic write). LSP resource operations (create/rename) are
-// handled too; delete is refused and logged.
-void applyWorkspaceEdit(const QJsonObject& workspaceEdit, const QList<QPointer<IEditorLspBridge>>* bridges)
+// handled too; delete is refused and logged. Resource operations and edits
+// to files not open in an editor are restricted to the workspace root:
+// a malicious or buggy server must not be able to rename or rewrite files
+// outside the project. Ignored operations are logged, never silently applied.
+void applyWorkspaceEdit(const QJsonObject& workspaceEdit, const QList<QPointer<IEditorLspBridge>>* bridges, const QString& workspaceRoot)
 {
     QHash<QString, QList<QJsonObject>> editsByUri;
 
@@ -80,6 +104,11 @@ void applyWorkspaceEdit(const QJsonObject& workspaceEdit, const QList<QPointer<I
                 const QString filePath = pathFromUri(uri);
                 if (kind == QStringLiteral("create"))
                 {
+                    if (!isWithinWorkspaceRoot(workspaceRoot, filePath))
+                    {
+                        Logger::instance().warning(QString("Workspace edit: refusing to create file outside the workspace root: %1").arg(filePath));
+                        continue;
+                    }
                     if (!filePath.isEmpty() && !QFile::exists(filePath))
                     {
                         QFile createFile(filePath);
@@ -91,6 +120,12 @@ void applyWorkspaceEdit(const QJsonObject& workspaceEdit, const QList<QPointer<I
                 else if (kind == QStringLiteral("rename"))
                 {
                     const QString newPath = pathFromUri(dc[QStringLiteral("newUri")].toString());
+                    if (!isWithinWorkspaceRoot(workspaceRoot, filePath) || !isWithinWorkspaceRoot(workspaceRoot, newPath))
+                    {
+                        Logger::instance().warning(
+                            QString("Workspace edit: refusing to rename %1 to %2 (outside the workspace root)").arg(filePath, newPath));
+                        continue;
+                    }
                     if (!filePath.isEmpty() && !newPath.isEmpty() && filePath != newPath)
                     {
                         if (!QFile::rename(filePath, newPath))
@@ -127,7 +162,13 @@ void applyWorkspaceEdit(const QJsonObject& workspaceEdit, const QList<QPointer<I
             continue;
         }
 
-        // File not open in any editor: edit the file on disk.
+        // File not open in any editor: edit the file on disk, but only
+        // inside the workspace root.
+        if (!isWithinWorkspaceRoot(workspaceRoot, filePath))
+        {
+            Logger::instance().warning(QString("Workspace edit: refusing to edit file outside the workspace root: %1").arg(filePath));
+            continue;
+        }
         QString error;
         if (!applyTextEditsToFile(filePath, edits, &error))
             Logger::instance().warning(QString("Workspace edit: %1: %2").arg(filePath, error));
@@ -183,6 +224,7 @@ void setupLspConnections(LspServerManager* manager, const QList<QPointer<IEditor
                          IEditorLspBridge* bridge = resolveBridge(uri);
                          if (!bridge)
                              return;
+                         const QString workspaceRoot = managerGuard ? pathFromUri(managerGuard->rootUriForFile(bridge->fileName())) : QString();
 
                          QMenu menu(QApplication::activeWindow());
                          for (const auto& a : actions)
@@ -204,7 +246,7 @@ void setupLspConnections(LspServerManager* manager, const QList<QPointer<IEditor
                          // to any matching open editors or to disk.
                          const QJsonObject edit = action[QStringLiteral("edit")].toObject();
                          if (!edit.isEmpty())
-                             applyWorkspaceEdit(edit, bridges);
+                             applyWorkspaceEdit(edit, bridges, workspaceRoot);
 
                          // Execute the command (e.g. a server-provided refactoring).
                          const QJsonObject cmd = action[QStringLiteral("command")].toObject();
@@ -227,7 +269,11 @@ void setupLspConnections(LspServerManager* manager, const QList<QPointer<IEditor
 
     // Rename: apply the returned workspace edit to open editors or to disk.
     QObject::connect(manager, &LspServerManager::renameReady, manager,
-                     [bridges](const QString&, const QJsonObject& result) { applyWorkspaceEdit(result, bridges); });
+                     [managerGuard, bridges](const QString& uri, const QJsonObject& result)
+                     {
+                         const QString workspaceRoot = managerGuard ? pathFromUri(managerGuard->rootUriForFile(pathFromUri(uri))) : QString();
+                         applyWorkspaceEdit(result, bridges, workspaceRoot);
+                     });
 
     // Hover. Tooltips are transient: only show them in the editor the user
     // is currently looking at, at that editor's cursor.

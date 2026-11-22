@@ -99,6 +99,28 @@ bool BackupManager::hasBackup(const QString& filePath)
     return QFile::exists(backupPathForFile(filePath));
 }
 
+namespace
+{
+// Byte-for-byte comparison; QSaveFile guarantees complete writes, so this is
+// the only reliable way to tell "identical contents" from "same size coincidence".
+bool fileContentsEqual(const QString& a, const QString& b)
+{
+    QFile fa(a);
+    QFile fb(b);
+    if (!fa.open(QIODevice::ReadOnly) || !fb.open(QIODevice::ReadOnly))
+        return false;
+    constexpr qint64 kChunk = 64LL * 1024;
+    while (!fa.atEnd() && !fb.atEnd())
+    {
+        const QByteArray aChunk = fa.read(kChunk);
+        const QByteArray bChunk = fb.read(kChunk);
+        if (aChunk != bChunk)
+            return false;
+    }
+    return fa.atEnd() && fb.atEnd();
+}
+} // namespace
+
 bool BackupManager::isBackupNewer(const QString& filePath)
 {
     if (filePath.isEmpty() || filePath == Strings::untitled())
@@ -126,10 +148,14 @@ bool BackupManager::isBackupNewer(const QString& filePath)
         return backupInfo.lastModified() > fileInfo.lastModified();
     }
 
-    // Same mtime tick (coarse filesystems, network shares): fall back to a
-    // size comparison so the backup is offered for restore rather than
-    // silently discarded on a coin flip.
-    return backupInfo.size() != fileInfo.size();
+    // Same mtime tick (coarse filesystems, network shares): compare contents.
+    // Size equality is not content equality; crash recovery exists precisely
+    // for the "same size, different content" case.
+    if (backupInfo.size() != fileInfo.size())
+        return true;
+    if (!fileContentsEqual(backupPath, filePath))
+        return true; // same size, same mtime, different bytes: offer the backup
+    return false;
 }
 
 QString BackupManager::getBackupContent(const QString& filePath)

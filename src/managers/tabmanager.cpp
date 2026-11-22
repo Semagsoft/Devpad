@@ -122,7 +122,8 @@ int TabManager::count() const
 
 int TabManager::currentIndex() const
 {
-    return m_activePane->currentIndex();
+    const int local = m_activePane->currentIndex();
+    return local < 0 ? -1 : localToGlobalIndex(local, m_activePane);
 }
 
 int TabManager::indexOf(CodeEditor* editor) const

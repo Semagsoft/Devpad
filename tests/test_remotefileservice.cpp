@@ -23,6 +23,21 @@ TEST_F(RemoteFileServiceTest, InvalidUrlFails)
     EXPECT_EQ(failSpy.at(0).at(0).toString(), "::invalid::url");
 }
 
+TEST_F(RemoteFileServiceTest, NonNetworkUrlIsRejected)
+{
+    QSignalSpy failSpy(&m_service, &RemoteFileService::downloadFailed);
+    QSignalSpy downloadedSpy(&m_service, &RemoteFileService::fileDownloaded);
+    ASSERT_TRUE(failSpy.isValid());
+    ASSERT_TRUE(downloadedSpy.isValid());
+
+    // QNetworkAccessManager also handles file://; it must never be used to
+    // turn an untrusted URL into an arbitrary local file read.
+    m_service.openRemote(QStringLiteral("file:///etc/passwd"));
+
+    ASSERT_EQ(failSpy.count(), 1);
+    EXPECT_EQ(downloadedSpy.count(), 0);
+}
+
 TEST_F(RemoteFileServiceTest, SshUrlMissingHostFails)
 {
     QSignalSpy failSpy(&m_service, &RemoteFileService::downloadFailed);

@@ -40,5 +40,6 @@ const QStringList& cmakeKeywords();
 const QStringList& luaKeywords();
 const QStringList& qmlKeywords();
 const QStringList& phpKeywords();
+const QStringList& tomlKeywords();
 
 #endif

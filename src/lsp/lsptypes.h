@@ -156,6 +156,12 @@ public:
     QString insertText;
     int startPos = 0;
     int replaceLen = 0;
+    // Range from textEdit, in LSP (line, UTF-16 character) coordinates.
+    // -1 when the server supplied no usable range.
+    int startLine = -1;
+    int startChar = -1;
+    int endLine = -1;
+    int endChar = -1;
 
     bool operator==(const CompletionItem& other) const
     {

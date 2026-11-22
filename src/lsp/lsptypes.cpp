@@ -145,6 +145,16 @@ CompletionItem CompletionItem::fromJson(const QJsonObject& obj)
     {
         auto te = obj["textEdit"].toObject();
         item.insertText = te["newText"].toString();
+        const QJsonObject rangeObj = te["range"].toObject();
+        if (!rangeObj.isEmpty())
+        {
+            const QJsonObject start = rangeObj["start"].toObject();
+            const QJsonObject end = rangeObj["end"].toObject();
+            item.startLine = start["line"].toInt(-1);
+            item.startChar = start["character"].toInt(-1);
+            item.endLine = end["line"].toInt(-1);
+            item.endChar = end["character"].toInt(-1);
+        }
         item.startPos = -1;
         item.replaceLen = -1;
     }

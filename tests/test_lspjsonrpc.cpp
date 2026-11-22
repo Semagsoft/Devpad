@@ -75,6 +75,20 @@ TEST(LspJsonRpcTest, HandleDataNotification)
     EXPECT_EQ(args[0].toString(), QStringLiteral("textDocument/publishDiagnostics"));
 }
 
+TEST(LspJsonRpcTest, InvalidContentLengthResyncsToNextFrame)
+{
+    LspJsonRpc rpc;
+    QSignalSpy spy(&rpc, &LspJsonRpc::notificationReceived);
+
+    const QByteArray body = R"({"jsonrpc":"2.0","method":"test/valid","params":{}})";
+    const QByteArray good = "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body;
+    const QByteArray bad = "Content-Length: 0\r\n\r\ngarbage body";
+    rpc.handleData(bad + good);
+
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy.at(0).at(0).toString(), QStringLiteral("test/valid"));
+}
+
 TEST(LspJsonRpcTest, HandleDataResponseWithCallback)
 {
     LspJsonRpc rpc;

@@ -111,7 +111,20 @@ void NextgenTabModel::closeTab(int idx)
     if (m_tabCursors.size() > idx)
         m_tabCursors.removeAt(idx);
     if (m_tabs.isEmpty())
+    {
+        // Keep the parallel arrays aligned with the synthesized untitled tab.
         m_tabs.append(QString());
+        m_tabPanes = QList<int>{0};
+        m_tabCursors = QList<QList<int>>{QList<int>{}};
+        m_current = 0;
+        m_pane2Current = 0;
+    }
+    // Shift the active indices down when the closed tab was before them; a
+    // pure upper-bound clamp is not enough and focuses the wrong tab.
+    if (m_current > idx)
+        m_current--;
+    if (m_pane2Current > idx)
+        m_pane2Current--;
     if (m_current >= m_tabs.size())
         m_current = m_tabs.size() - 1;
     if (m_pane2Current >= m_tabs.size())

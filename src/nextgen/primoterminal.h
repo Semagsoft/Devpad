@@ -53,6 +53,7 @@ private slots:
 private:
     QString detectShell() const;
     void appendOutput(const QString& text);
+    static QString shellQuotePath(const QString& path);
 
     QProcess* m_proc = nullptr;
     QString m_output;

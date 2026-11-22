@@ -870,10 +870,10 @@ void ActionManager::buildFileMenu(QMenu* fileMenu)
     propertiesMenu->addMenu(m_encodingHelper->createReopenMenu(propertiesMenu));
     propertiesMenu->addMenu(m_encodingHelper->createSaveMenu(propertiesMenu));
     fileMenu->addSeparator();
-    QMenu* printMenu = fileMenu->addMenu(QIcon(":/icons/File/print.svg"), tr("Print"));
-    printMenu->addAction(m_printAct);
-    printMenu->addAction(m_pageSetupAct);
-    printMenu->addAction(m_printPreviewAct);
+    m_printMenu = fileMenu->addMenu(QIcon(":/icons/File/print.svg"), tr("Print"));
+    m_printMenu->addAction(m_printAct);
+    m_printMenu->addAction(m_pageSetupAct);
+    m_printMenu->addAction(m_printPreviewAct);
     fileMenu->addSeparator();
     fileMenu->addAction(m_closeAct);
     fileMenu->addAction(m_closeAllAct);
@@ -971,6 +971,16 @@ void ActionManager::setLspUiVisible(bool visible)
         m_errorListPanelButton->setVisible(visible);
     if (m_referencesPanelButton)
         m_referencesPanelButton->setVisible(visible);
+}
+
+void ActionManager::setPrintUiVisible(bool visible)
+{
+    if (m_printMenu)
+        m_printMenu->menuAction()->setVisible(visible);
+    // Hiding the shared actions also removes the toolbar print button.
+    for (QAction* action : {m_printAct, m_pageSetupAct, m_printPreviewAct})
+        if (action)
+            action->setVisible(visible);
 }
 
 void ActionManager::buildViewMenu(QMenu* viewMenu)

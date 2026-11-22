@@ -10,12 +10,12 @@
 
 void TuiTabModel::setCurrentIndex(int idx)
 {
-    if (m_buffers.isEmpty())
+    if (m_buffers.empty())
     {
         m_currentIndex = -1;
         return;
     }
-    m_currentIndex = qBound(0, idx, m_buffers.size() - 1);
+    m_currentIndex = qBound(0, idx, static_cast<int>(m_buffers.size()) - 1);
 }
 
 TuiBuffer* TuiTabModel::currentBuffer()
@@ -30,14 +30,14 @@ const TuiBuffer* TuiTabModel::currentBuffer() const
 
 TuiBuffer* TuiTabModel::bufferAt(int idx)
 {
-    if (idx < 0 || idx >= m_buffers.size())
+    if (idx < 0 || idx >= static_cast<int>(m_buffers.size()))
         return nullptr;
     return &m_buffers[idx];
 }
 
 const TuiBuffer* TuiTabModel::bufferAt(int idx) const
 {
-    if (idx < 0 || idx >= m_buffers.size())
+    if (idx < 0 || idx >= static_cast<int>(m_buffers.size()))
         return nullptr;
     return &m_buffers[idx];
 }
@@ -54,23 +54,23 @@ int TuiTabModel::addBuffer(const TuiBuffer& buf)
             return existing;
         }
     }
-    m_buffers.append(buf);
-    m_currentIndex = m_buffers.size() - 1;
+    m_buffers.push_back(buf);
+    m_currentIndex = static_cast<int>(m_buffers.size()) - 1;
     return m_currentIndex;
 }
 
 void TuiTabModel::closeBuffer(int idx)
 {
-    if (idx < 0 || idx >= m_buffers.size())
+    if (idx < 0 || idx >= static_cast<int>(m_buffers.size()))
         return;
-    m_buffers.removeAt(idx);
-    if (m_buffers.isEmpty())
+    m_buffers.erase(m_buffers.begin() + idx);
+    if (m_buffers.empty())
     {
         m_currentIndex = -1;
     }
-    else if (m_currentIndex >= m_buffers.size())
+    else if (m_currentIndex >= static_cast<int>(m_buffers.size()))
     {
-        m_currentIndex = m_buffers.size() - 1;
+        m_currentIndex = static_cast<int>(m_buffers.size()) - 1;
     }
     else if (m_currentIndex > idx)
     {
@@ -90,7 +90,7 @@ int TuiTabModel::findByFilePath(const QString& filePath) const
     QString canonical = QFileInfo(filePath).canonicalFilePath();
     if (canonical.isEmpty())
         canonical = QDir::cleanPath(QFileInfo(filePath).absoluteFilePath());
-    for (int i = 0; i < m_buffers.size(); ++i)
+    for (int i = 0; i < static_cast<int>(m_buffers.size()); ++i)
     {
         QString p = m_buffers[i].filePath();
         if (p.isEmpty())

@@ -727,8 +727,20 @@ bool SplitView::decodeDrop(const QDropEvent* event, DropContext& out) const
     QByteArray data = event->mimeData()->data(MIME_TAB);
     QDataStream stream(&data, QIODevice::ReadOnly);
     stream >> out.srcPid >> out.dragId >> out.srcIndex >> out.filePath;
+    if (stream.status() != QDataStream::Ok)
+    {
+        // Empty/garbage payload: not a Devpad tab drag.
+        out = DropContext{};
+        return false;
+    }
     out.srcPane = s_dragSourceMap.value(out.dragId).data();
     s_dragSourceMap.remove(out.dragId);
+    if (out.srcIndex < -1)
+        out.srcIndex = -1;
+    if (out.srcPane && out.srcIndex >= out.srcPane->count())
+        // External drag from a peer process whose source no longer exists, or a
+        // forged index: clamp defensively; handlers treat -1 as "no source".
+        out.srcIndex = -1;
     out.globalPos = mapToGlobal(event->position().toPoint());
     return true;
 }
@@ -899,10 +911,22 @@ void SplitView::handleFallbackDrop(const DropContext& ctx, QDropEvent* event)
 void SplitView::handleDrop(QDropEvent* event)
 {
     DropContext ctx;
-    decodeDrop(event, ctx);
+    if (!decodeDrop(event, ctx))
+    {
+        event->ignore();
+        return;
+    }
 
     if (handleCrossProcessDrop(ctx, event))
         return;
+
+    // Only reach the in-window handlers for payloads whose source tab actually
+    // belongs to this process.
+    if (!ctx.srcPane)
+    {
+        event->ignore();
+        return;
+    }
 
     handledDragIds().insert(ctx.dragId);
 

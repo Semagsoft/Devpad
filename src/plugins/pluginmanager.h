@@ -112,6 +112,14 @@ public:
     // loaded. Used by the preferences UI to list all available plugins.
     QList<PluginInfo> discoveredPlugins() const;
 
+    // Orders plugins so that dependencies come before their dependents.
+    // Plugins with missing dependencies or dependency cycles are omitted and
+    // their ids are returned in *unresolved (when provided).
+    static QList<PluginInfo> orderByDependencies(const QList<PluginInfo>& plugins, QStringList* unresolved = nullptr);
+
+    // Reason the last load attempt failed, empty when the plugin loaded fine.
+    QString failureReason(const QString& pluginId) const;
+
     PluginHost* host() const
     {
         return m_host.get();
@@ -125,12 +133,12 @@ signals:
 
 private:
     bool loadPluginFileAbsolute(const QString& filePath);
-    void unloadPlugin(const QString& pluginId);
     static QString pluginIdFromFileName(const QString& fileName);
     static PluginInfo readPluginManifest(const QString& filePath);
     QString pluginFilePath(const QString& pluginId) const;
     QString findPluginFileInDir(const QString& dirPath, const QString& pluginId) const;
     void appendDiscoveredFromDir(const QString& dirPath, QHash<QString, PluginInfo>& byId) const;
+    void recordFailure(const QString& pluginId, const QString& reason);
     void connectHostEventForwarding();
     // Invoke a plugin entry point with an exception guard so a throwing
     // plugin cannot take the whole application down.
@@ -147,6 +155,9 @@ private:
 
     // Manifest default enabled state (used when the user has not expressed a preference).
     QHash<QString, bool> m_defaultEnabled;
+
+    // Most recent load failure per plugin id (empty entries are removed).
+    QHash<QString, QString> m_failures;
 
     // pluginId -> { loader, plugin instance }
     struct LoadedPlugin

@@ -48,6 +48,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     connect(m_doc, &PrimoDocument::textChanged, this,
             [this]()
             {
+                QMutexLocker locker(&m_renderMutex);
                 m_linesDirty = true;
                 m_highlightDirty = true;
                 m_highlightVersion++;
@@ -59,6 +60,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     connect(m_doc, &PrimoDocument::languageChanged, this,
             [this]()
             {
+                QMutexLocker locker(&m_renderMutex);
                 emit languageChanged();
                 m_highlightDirty = true;
                 m_highlightVersion++;
@@ -91,6 +93,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     connect(this, &PrimoEditor::textChanged, this,
             [this]()
             {
+                QMutexLocker locker(&m_renderMutex);
                 qreal nh = contentHeight();
                 if (!qFuzzyCompare(nh, m_contentHeight))
                 {
@@ -102,6 +105,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
     connect(this, &PrimoEditor::fontChanged, this,
             [this]()
             {
+                QMutexLocker locker(&m_renderMutex);
                 ensureMetrics();
                 m_contentHeight = contentHeight();
                 emit contentHeightChanged();
@@ -117,6 +121,7 @@ PrimoEditor::PrimoEditor(QQuickItem* parent) : QQuickItem(parent)
 
 void PrimoEditor::applySettings()
 {
+    QMutexLocker locker(&m_renderMutex);
     // Theme
     ThemeId tid = SettingsManager::instance().theme();
     m_theme = getThemeColors(tid);
@@ -285,6 +290,7 @@ void PrimoEditor::setCursorColumn(int col)
 }
 qreal PrimoEditor::contentHeight() const
 {
+    QMutexLocker locker(&m_renderMutex);
     if (m_wordWrap && m_doc)
     {
         // Word wrap: total height = total wrapped visual rows * lineHeight
@@ -587,7 +593,10 @@ void PrimoEditor::toggleComment()
         }
         else
         {
-            modified.remove(firstNonSpace, commentLen);
+            // Only strip the token when this line actually starts with it;
+            // otherwise leave the line untouched.
+            if (ln.mid(firstNonSpace).startsWith(cs->lineComment))
+                modified.remove(firstNonSpace, commentLen);
         }
         result << modified;
     }
@@ -649,7 +658,7 @@ void PrimoEditor::enterSnippetMode(const QString& text, int insertPos, const QSt
 
     QString txt = m_doc->text();
     txt.insert(insertPos, text);
-    m_doc->setTextWithoutUndo(txt);
+    m_doc->setText(txt); // route through the diff-based undo stack
 
     m_snippetStartPos = insertPos;
     m_snippetEndPos = insertPos + text.size();
@@ -1257,8 +1266,9 @@ void PrimoEditor::insertSnippet(const QString& trigger)
     if (m_cursorLine < 0 || m_cursorLine >= lines.size())
         return;
     QString& line = lines[m_cursorLine];
-    // Find the start of the current word
-    int col = m_cursorColumn;
+    // Find the start of the current word. QML (or a cursor persisted from a
+    // longer line) can leave the column past the end of the current line.
+    int col = qBound(0, m_cursorColumn, line.size());
     int start = col;
     while (start > 0 && (line.at(start - 1).isLetterOrNumber() || line.at(start - 1) == QLatin1Char('_')))
         --start;
@@ -1327,6 +1337,7 @@ QString PrimoEditor::currentWord() const
 
 void PrimoEditor::applyFormattingEdits(const QJsonArray& edits)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (!m_doc || edits.isEmpty())
         return;
 
@@ -1372,7 +1383,9 @@ void PrimoEditor::applyFormattingEdits(const QJsonArray& edits)
     {
         if (e.startLine < 0 || e.startLine >= lines.size())
             continue;
-        int endLine = qMin(e.endLine, lines.size() - 1);
+        int endLine = qBound(0, e.endLine, lines.size() - 1);
+        if (endLine < e.startLine)
+            continue;
         int startCol = qMin(e.startChar, lines[e.startLine].size());
         int endCol = qMin(e.endChar, lines[endLine].size());
 
@@ -1433,6 +1446,7 @@ bool PrimoEditor::isUndoDisabled() const
 }
 void PrimoEditor::undo()
 {
+    QMutexLocker locker(&m_renderMutex);
     if (m_readOnly || !m_doc || m_doc->isUndoDisabled())
         return;
     m_doc->undo();
@@ -1451,6 +1465,7 @@ void PrimoEditor::undo()
 }
 void PrimoEditor::redo()
 {
+    QMutexLocker locker(&m_renderMutex);
     if (m_readOnly || !m_doc || m_doc->isUndoDisabled())
         return;
     m_doc->redo();
@@ -1540,6 +1555,7 @@ void PrimoEditor::selectAll()
 
 void PrimoEditor::applyThemeColors(const ThemeColors& colors)
 {
+    QMutexLocker locker(&m_renderMutex);
     m_theme = colors;
     m_bg = colors.background;
     m_fg = colors.foreground;
@@ -1564,6 +1580,7 @@ QString PrimoEditor::customTheme() const
 
 void PrimoEditor::loadFile(const QString& path)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (!m_doc)
         return;
     QFileInfo fi(path);
@@ -1644,6 +1661,7 @@ bool PrimoEditor::save()
 }
 bool PrimoEditor::saveAs(const QString& path)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (m_readOnly)
     {
         emit fileSaved(false, QStringLiteral("Read-only"));
@@ -1793,18 +1811,21 @@ void PrimoEditor::ensureCursorVisibleHorizontally()
     QString curLine = expandedTab(ls.at(m_cursorLine));
     QString before = curLine.left(qMin(m_cursorColumn, curLine.size()));
     qreal gutterW = m_gutterVisible ? m_gutterWidth : 0;
-    qreal cx = gutterW + 8 - m_hScroll + fm.horizontalAdvance(before);
+    qreal leftPad = gutterW + 8;
     QQuickWindow* win = window();
     qreal winWidth = win ? win->width() : boundingRect().width();
-    qreal visibleWidth = winWidth - gutterW - 16;
-    qreal leftEdge = gutterW + 8 - m_hScroll;
-    if (cx < leftEdge)
+    qreal visibleWidth = qMax(0.0, winWidth - gutterW - 16);
+    qreal adv = fm.horizontalAdvance(before);
+    qreal cx = leftPad - m_hScroll + adv;
+    if (cx < leftPad)
     {
-        setHScroll(leftEdge - cx);
+        // Cursor is off the left edge: scroll so it sits at the left edge.
+        setHScroll(adv);
     }
-    else if (cx + 2 > leftEdge + visibleWidth)
+    else if (cx + 2 > leftPad + visibleWidth)
     {
-        setHScroll(cx + 2 - leftEdge - visibleWidth + m_hScroll);
+        // Cursor is off the right edge: scroll so it sits at the right edge.
+        setHScroll(adv + 2 - visibleWidth);
     }
 }
 
@@ -1937,6 +1958,7 @@ PrimoEditor::BracketContext PrimoEditor::bracketContextAt(int pos) const
 
 bool PrimoEditor::handleAutoClose(QChar ch, int pos)
 {
+    QMutexLocker locker(&m_renderMutex);
     struct Pair
     {
         QChar open;
@@ -1958,7 +1980,7 @@ bool PrimoEditor::handleAutoClose(QChar ch, int pos)
         // Insert open + close, then move cursor between them
         QString txt = m_doc->text();
         txt.insert(pos, QString(pair.open) + pair.close);
-        m_doc->setTextWithoutUndo(txt);
+        m_doc->setText(txt); // route through the diff-based undo stack
         m_cursorColumn = qMin(m_cursorColumn + 1, m_doc->lineAt(m_cursorLine).size());
         emit cursorChanged();
         m_linesDirty = true;
@@ -2313,6 +2335,7 @@ QString PrimoEditor::whitespaceDisplayString(const QString& disp) const
 
 void PrimoEditor::scheduleHighlight(int firstLine, int lastLine)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (!m_doc || m_doc->text().isEmpty())
         return;
     // Determine language already set
@@ -2387,6 +2410,7 @@ void PrimoEditor::scheduleHighlight(int firstLine, int lastLine)
 
 void PrimoEditor::applyHighlightResult(int version, int firstLine, const QVector<QVector<QTextLayout::FormatRange>>& fmts)
 {
+    QMutexLocker locker(&m_renderMutex);
     if (version != m_highlightVersion)
         return;
     if (firstLine < 0 || firstLine >= m_highlightCache.size())
@@ -2400,6 +2424,10 @@ void PrimoEditor::applyHighlightResult(int version, int firstLine, const QVector
 
 QSGNode* PrimoEditor::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data)
 {
+    // This may execute on the scene-graph thread; hold the lock for the whole
+    // function so the GUI thread cannot mutate the caches or the document
+    // while they are being read for rendering.
+    QMutexLocker locker(&m_renderMutex);
     Q_UNUSED(data);
     QSGNode* root = oldNode;
     if (!root)

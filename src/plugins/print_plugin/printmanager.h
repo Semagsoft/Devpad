@@ -1,0 +1,45 @@
+/*
+ * Devpad - A C++/Qt6 code editor
+ * Copyright (C) 2026 Semagsoft
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+#ifndef PRINTMANAGER_H
+#define PRINTMANAGER_H
+
+#include "plugins/printinterface.h"
+
+#include <QObject>
+
+class CodeEditor;
+class QPrinter;
+
+// Deliberately no Q_OBJECT: PrintManager is consumed purely through the
+// plain C++ IPrintService interface, and this source is compiled both into the
+// print plugin and into Devpad_tests. A Q_OBJECT would give each image its own
+// staticMetaObject and trip AddressSanitizer's ODR detection when the plugin
+// is dlopen'd by the tests.
+class PrintManager : public QObject, public IPrintService
+{
+public:
+    explicit PrintManager(QObject* parent = nullptr);
+
+    void printEditor(QObject* editor, QPrinter* printer) override;
+
+private:
+    QString generateHighlightedHtml(CodeEditor* editor) const;
+};
+
+#endif

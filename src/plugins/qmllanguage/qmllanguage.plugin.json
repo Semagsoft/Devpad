@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.qmllanguage",
+    "name": "QML Language",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Adds QML language support (keywords, .qml files) via the plugin language hooks.",
+    "apiVersion": 1,
+    "library": "libqmllanguage@DEVPAD_PLUGIN_SUFFIX@",
+    "enabled": true,
+    "depends": []
+}

@@ -4,9 +4,11 @@
 #include "lsp/lsptypes.h"
 #include "mainwindow.h"
 #include "managers/actionmanager.h"
+#include "optionsdialog.h"
 #include "plugins/lspinterface.h"
 #include "plugins/pluginhost.h"
 #include "plugins/pluginmanager.h"
+#include "sessionmanager.h"
 #include "settingsmanager.h"
 #include "tabmanager.h"
 #include "theme.h"
@@ -22,6 +24,7 @@
 #include <QMessageBox>
 #include <QSignalSpy>
 #include <QTabWidget>
+#include <QTableWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextStream>
@@ -52,6 +55,25 @@ protected:
         {
             ++count;
             QTimer::singleShot(0, box, [box]() { box->done(QMessageBox::No); });
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
+
+// Counts any print-related dialog as soon as it is shown, so tests can assert
+// that print slots do nothing while the Print plugin is unavailable.
+class PrintDialogShowCounter : public QObject
+{
+public:
+    int count = 0;
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override
+    {
+        if (event->type() == QEvent::Show &&
+            (obj->inherits("QPrintDialog") || obj->inherits("QPrintPreviewDialog") || obj->inherits("QPageSetupDialog")))
+        {
+            ++count;
         }
         return QObject::eventFilter(obj, event);
     }
@@ -667,6 +689,182 @@ TEST_F(MainWindowTest, TerminalReenableRestoresPanel)
 
     EXPECT_TRUE(window.actionManager()->terminalPanelAct()->isVisible());
     EXPECT_NE(manager->host()->panel(QStringLiteral("terminal")), nullptr);
+}
+
+TEST_F(MainWindowTest, DisablingLanguagePluginRefreshesOpenEditorSyntax)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    const QString pluginId = QStringLiteral("org.semagsoft.devpad.rustlanguage");
+    ASSERT_TRUE(manager->isPluginEnabled(pluginId));
+
+    const QString filePath = testFilePath("toggle.rs");
+    createFile(filePath, "fn main() {}");
+    window.openFileFromPath(filePath);
+
+    CodeEditor* editor = window.findChild<CodeEditor*>();
+    ASSERT_NE(editor, nullptr);
+    ASSERT_EQ(editor->syntax(), QStringLiteral("rust"));
+
+    manager->setPluginEnabled(pluginId, false);
+    EXPECT_EQ(editor->syntax(), QString());
+
+    manager->setPluginEnabled(pluginId, true);
+    EXPECT_EQ(editor->syntax(), QStringLiteral("rust"));
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, RestoresPluginLanguageSyntaxFromSession)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    const QString tomlPath = testFilePath("session.toml");
+    const QString rustPath = testFilePath("session.rs");
+    createFile(tomlPath, "title = \"restored\"");
+    createFile(rustPath, "fn main() {}");
+
+    // Restore with TOML available but the Rust plugin explicitly disabled.
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.rustlanguage"), QStringLiteral("Enabled"), false);
+    {
+        SessionManager session;
+        session.clearSession();
+        session.saveSessionData({tomlPath, rustPath}, 0, {});
+    }
+    SettingsManager::instance().setStartupMode(StartupMode::RestoreSession);
+
+    MainWindow window;
+    QString tomlSyntax;
+    QString rustSyntax;
+    for (CodeEditor* editor : window.findChildren<CodeEditor*>())
+    {
+        if (editor->fileName() == tomlPath)
+            tomlSyntax = editor->syntax();
+        else if (editor->fileName() == rustPath)
+            rustSyntax = editor->syntax();
+    }
+    EXPECT_EQ(tomlSyntax, QStringLiteral("toml"));
+    EXPECT_TRUE(rustSyntax.isEmpty());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, PrintUiHiddenWhenPrintPluginDisabled)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    const QString pluginId = QStringLiteral("org.semagsoft.devpad.print");
+    SettingsManager::instance().setPluginSetting(pluginId, QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    ASSERT_FALSE(manager->isPluginEnabled(pluginId));
+
+    auto* actions = window.actionManager();
+    EXPECT_FALSE(actions->printAct()->isVisible());
+    EXPECT_FALSE(actions->printPreviewAct()->isVisible());
+    EXPECT_FALSE(actions->pageSetupAct()->isVisible());
+
+    manager->setPluginEnabled(pluginId, true);
+    EXPECT_TRUE(actions->printAct()->isVisible());
+    EXPECT_TRUE(actions->printPreviewAct()->isVisible());
+    EXPECT_TRUE(actions->pageSetupAct()->isVisible());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, PluginUiFollowsLoadedStateNotJustEnabledFlag)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    const QString pluginId = QStringLiteral("org.semagsoft.devpad.print");
+    ASSERT_TRUE(manager->isLoaded(pluginId));
+    auto* actions = window.actionManager();
+    ASSERT_TRUE(actions->printAct()->isVisible());
+
+    // An enabled plugin that is not loaded (e.g. its library was removed or
+    // initialize() failed) must not leave stale UI behind.
+    ASSERT_TRUE(manager->unload(pluginId));
+    ASSERT_TRUE(manager->isPluginEnabled(pluginId));
+    emit manager->pluginEnabledChanged(pluginId, true);
+
+    EXPECT_FALSE(actions->printAct()->isVisible());
+    EXPECT_FALSE(actions->pageSetupAct()->isVisible());
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, PrintDialogsDoNotOpenWhenPrintPluginDisabled)
+{
+#if defined(DEVPAD_BUILD_PLUGINS)
+    SettingsManager::instance().setPluginSetting(QStringLiteral("org.semagsoft.devpad.print"), QStringLiteral("Enabled"), false);
+    MainWindow window;
+
+    const QString filePath = testFilePath("print_disabled.cpp");
+    createFile(filePath, "int main() { return 0; }");
+    window.openFileFromPath(filePath);
+
+    PrintDialogShowCounter counter;
+    qApp->installEventFilter(&counter);
+    QMetaObject::invokeMethod(&window, "printFile", Qt::DirectConnection);
+    QMetaObject::invokeMethod(&window, "printPreview", Qt::DirectConnection);
+    QMetaObject::invokeMethod(&window, "pageSetup", Qt::DirectConnection);
+    qApp->removeEventFilter(&counter);
+
+    EXPECT_EQ(counter.count, 0);
+#else
+    GTEST_SKIP() << "Plugins disabled in this build";
+#endif
+}
+
+TEST_F(MainWindowTest, PluginFailureIsShownInOptionsTable)
+{
+#if defined(DEVPAD_BUILD_PLUGINS) && defined(DEVPAD_TEST_PLUGINS_DIR)
+    const QString pluginId = QStringLiteral("org.semagsoft.devpad.test.badapi");
+    SettingsManager::instance().setPluginSetting(pluginId, QStringLiteral("Enabled"), false);
+
+    MainWindow window;
+    auto* manager = window.pluginManager();
+    ASSERT_NE(manager, nullptr);
+    manager->setPluginsDir(QStringLiteral(DEVPAD_TEST_PLUGINS_DIR));
+
+    OptionsDialog dialog(&window);
+    QTableWidget* pluginsTable = nullptr;
+    for (QTableWidget* table : dialog.findChildren<QTableWidget*>())
+    {
+        if (table->columnCount() == 7)
+        {
+            pluginsTable = table;
+            break;
+        }
+    }
+    ASSERT_NE(pluginsTable, nullptr);
+
+    manager->setPluginEnabled(pluginId, true);
+    ASSERT_FALSE(manager->failureReason(pluginId).isEmpty());
+
+    bool found = false;
+    for (int row = 0; row < pluginsTable->rowCount(); ++row)
+    {
+        if (pluginsTable->item(row, 3) && pluginsTable->item(row, 3)->text() == pluginId && pluginsTable->item(row, 6) &&
+            pluginsTable->item(row, 6)->text().contains(QStringLiteral("api version")))
+        {
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found) << "Options table did not refresh after pluginFailed";
+
+    SettingsManager::instance().setPluginSetting(pluginId, QStringLiteral("Enabled"), false);
+#else
+    GTEST_SKIP() << "Test plugins not built";
+#endif
 }
 
 // ── Terminal toggle + position switching ──────────────────────────────────

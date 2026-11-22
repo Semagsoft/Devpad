@@ -65,12 +65,16 @@ public:
 
                 if (parsed <= 0)
                 {
-                    // Invalid or unusable Content-Length: drop the header AND
-                    // the body bytes that follow it, then resync on the next
-                    // framed message. Consuming only the header would make the
-                    // next header search start inside the body.
-                    m_buffer.remove(0, headerEnd + 4);
+                    // Invalid or unusable Content-Length. Resync at the next
+                    // plausible header instead of only dropping the current
+                    // one, whose body bytes would otherwise be parsed as a
+                    // header and cause a cascade of mis-parsed messages.
                     qWarning("ContentLengthFramer: discarding frame with invalid Content-Length");
+                    const int nextHeader = m_buffer.indexOf("Content-Length:", headerEnd + 4);
+                    if (nextHeader < 0)
+                        m_buffer.clear();
+                    else
+                        m_buffer.remove(0, nextHeader);
                     continue;
                 }
 

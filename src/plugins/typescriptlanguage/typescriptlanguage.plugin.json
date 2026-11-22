@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.typescriptlanguage",
+    "name": "TypeScript Language",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Adds TypeScript language support (keywords, .ts/.tsx files) via the plugin language hooks.",
+    "apiVersion": 1,
+    "library": "libtypescriptlanguage@DEVPAD_PLUGIN_SUFFIX@",
+    "enabled": true,
+    "depends": []
+}

@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.phplanguage",
+    "name": "PHP Language",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Adds PHP language support (keywords, .php files) via the plugin language hooks.",
+    "apiVersion": 1,
+    "library": "libphplanguage@DEVPAD_PLUGIN_SUFFIX@",
+    "enabled": true,
+    "depends": []
+}

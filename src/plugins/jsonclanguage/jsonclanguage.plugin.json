@@ -1,0 +1,11 @@
+{
+    "id": "org.semagsoft.devpad.jsonclanguage",
+    "name": "JSONC Language",
+    "version": "1.0.0",
+    "author": "Semagsoft",
+    "description": "Adds JSON with comments support (.jsonc files) via the plugin language hooks.",
+    "apiVersion": 1,
+    "library": "libjsonclanguage@DEVPAD_PLUGIN_SUFFIX@",
+    "enabled": true,
+    "depends": []
+}
