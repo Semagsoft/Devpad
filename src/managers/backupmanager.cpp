@@ -109,7 +109,7 @@ bool fileContentsEqual(const QString& a, const QString& b)
     QFile fb(b);
     if (!fa.open(QIODevice::ReadOnly) || !fb.open(QIODevice::ReadOnly))
         return false;
-    constexpr qint64 kChunk = 64 * 1024;
+    constexpr qint64 kChunk = 64LL * 1024;
     while (!fa.atEnd() && !fb.atEnd())
     {
         const QByteArray aChunk = fa.read(kChunk);
