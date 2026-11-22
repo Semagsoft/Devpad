@@ -28,6 +28,7 @@
 #include <QLibrary>
 #include <QSignalSpy>
 #include <QString>
+#include <array>
 
 #include <Qsci/qscilexer.h>
 #include <gtest/gtest.h>
@@ -171,7 +172,7 @@ TEST(PluginApi, LanguagePluginsRegisterAndUnregisterLanguages)
         const char* lexerClass;
         const char* lineComment;
     };
-    const Spec specs[] = {
+    const std::array<Spec, 7> specs = {{
         {"rustlanguage", "org.semagsoft.devpad.rustlanguage", "rust", "rs", "QsciLexerCPP", "//"},
         {"golanguage", "org.semagsoft.devpad.golanguage", "go", "go", "QsciLexerCPP", "//"},
         {"typescriptlanguage", "org.semagsoft.devpad.typescriptlanguage", "typescript", "ts", "QsciLexerJavaScript", "//"},
@@ -179,7 +180,7 @@ TEST(PluginApi, LanguagePluginsRegisterAndUnregisterLanguages)
         {"phplanguage", "org.semagsoft.devpad.phplanguage", "php", "php", "QsciLexerCPP", "//"},
         {"jsonclanguage", "org.semagsoft.devpad.jsonclanguage", "jsonc", "jsonc", "QsciLexerJSON", "//"},
         {"tomllanguage", "org.semagsoft.devpad.tomllanguage", "toml", "toml", "QsciLexerProperties", "#"},
-    };
+    }};
 
     // A host with no MainWindow still owns all the static language/settings
     // registries the language hooks use, so plugins can be exercised without
@@ -236,7 +237,7 @@ TEST(PluginApi, LanguagePluginsDeclareSupportedApiVersionAndFactory)
         const char* name;
         const char* id;
     };
-    const Plugin plugins[] = {
+    const std::array<Plugin, 8> plugins = {{
         {"rustlanguage", "org.semagsoft.devpad.rustlanguage"},
         {"golanguage", "org.semagsoft.devpad.golanguage"},
         {"typescriptlanguage", "org.semagsoft.devpad.typescriptlanguage"},
@@ -245,7 +246,7 @@ TEST(PluginApi, LanguagePluginsDeclareSupportedApiVersionAndFactory)
         {"jsonclanguage", "org.semagsoft.devpad.jsonclanguage"},
         {"tomllanguage", "org.semagsoft.devpad.tomllanguage"},
         {"print_plugin", "org.semagsoft.devpad.print"},
-    };
+    }};
     for (const auto& plugin : plugins)
         checkLanguagePlugin(QString::fromLatin1(plugin.name), QString::fromLatin1(plugin.id));
 }
