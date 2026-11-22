@@ -27,11 +27,11 @@
 #include <QClipboard>
 #include <QColor>
 #include <QDateTime>
-#include <QDir>
-#include <QFileInfo>
 #include <QDebug>
 #include <QDesktopServices>
+#include <QDir>
 #include <QEvent>
+#include <QFileInfo>
 #include <QFocusEvent>
 #include <QFont>
 #include <QFontMetrics>
@@ -42,9 +42,9 @@
 #include <QMouseEvent>
 #include <QMutex>
 #include <QPainter>
+#include <QPointer>
 #include <QRect>
 #include <QRegularExpression>
-#include <QPointer>
 #include <QThread>
 #include <QUrl>
 #include <QWheelEvent>

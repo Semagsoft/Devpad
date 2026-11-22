@@ -11,7 +11,6 @@
 #include <QList>
 #include <QSet>
 #include <QString>
-
 #include <deque>
 
 class TuiTabModel

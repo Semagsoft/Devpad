@@ -4,7 +4,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-
 #include <functional>
 
 FileTreeModel::FileTreeModel(QObject* parent) : QAbstractItemModel(parent)

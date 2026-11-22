@@ -31,10 +31,10 @@
 #include <QPrinter>
 #include <QRegularExpression>
 #include <QSaveFile>
-#include <QUuid>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTextDocument>
+#include <QUuid>
 
 namespace
 {
@@ -1374,8 +1374,8 @@ void NextgenActions::openRemoteFile(const QString& url)
     if (safeName.isEmpty() || safeName == QStringLiteral(".") || safeName == QStringLiteral(".."))
         safeName = QStringLiteral("remote.txt");
     // Unguessable name: no pre-existing file can be clobbered via symlink or race.
-    const QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QStringLiteral("/devpad-remote-")
-        + QUuid::createUuid().toString(QUuid::WithoutBraces) + QLatin1Char('-') + safeName;
+    const QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QStringLiteral("/devpad-remote-") +
+                             QUuid::createUuid().toString(QUuid::WithoutBraces) + QLatin1Char('-') + safeName;
 
     QNetworkRequest request(qUrl);
     m_currentReply = m_networkManager->get(request);

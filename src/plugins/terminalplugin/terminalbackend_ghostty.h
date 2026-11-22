@@ -164,7 +164,7 @@ private:
     pid_t m_pid = -1;
     QThread* m_ioThread = nullptr;
     bool m_stopRequested = false;
-    QByteArray m_pendingInput;          // unsent PTY input, written by tryFlushPendingInput()
+    QByteArray m_pendingInput;                  // unsent PTY input, written by tryFlushPendingInput()
     QSocketNotifier* m_inputNotifier = nullptr; // write watcher for m_pendingInput (GUI thread)
 
     QString m_workingDir;
