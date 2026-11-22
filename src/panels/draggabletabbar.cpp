@@ -136,7 +136,7 @@ void DraggableTabBar::mouseMoveEvent(QMouseEvent* event)
             drag->setHotSpot(QPoint(r.width() / 2, r.height() / 2));
         }
 
-        Qt::DropAction result = drag->exec(Qt::MoveAction);
+        drag->exec(Qt::MoveAction);
 
         SplitView::removeDragSource(dragId);
 
