@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.10] - WIP
+## [1.10] - 2026-11-22
 
 What's new in Devpad 1.10:
 
